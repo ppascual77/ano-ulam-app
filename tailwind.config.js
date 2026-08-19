@@ -31,10 +31,11 @@ module.exports = {
       fontSize: {
         // Real type scale (2026-08-19). "sub" was given as "10px / 10px",
         // read as font-size/line-height (tight leading for small text).
-        hero: "55px",
+        hero: ["70px", { lineHeight: "76px" }],
+        subhero: ["55px", { lineHeight: "59px" }],
         heading: "24px",
         subheading: "18px",
-        body: "14px",
+        body: "18px",
         sub: ["10px", { lineHeight: "10px" }],
       },
     },
