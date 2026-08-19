@@ -16,8 +16,8 @@ later SDK is safe to upgrade to — verify Expo Go's actual store version, don't
   - `screens/` — the actual screen component(s) that `app/` re-exports
   - `components/` — UI used only within this feature
   - `hooks/`, `api.ts`, `types.ts` — as needed
-  Current features: `home/`. Create a new feature folder only when actually building that
-  feature — don't pre-scaffold empty ones.
+  Current features: `home/`, `onboarding/`, `auth/`. Create a new feature folder only when
+  actually building that feature — don't pre-scaffold empty ones.
 - `components/ui/` — generic, app-agnostic primitives (`Screen`, `AppText`, `Button`, `Card`).
   No feature/business logic here. Exported via `components/ui/index.ts` — import as
   `import { Button } from "@/components/ui"`.
