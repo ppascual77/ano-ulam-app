@@ -1,27 +1,25 @@
 import { View } from "react-native";
-import { Screen, AppText, Button, Card } from "@/components/ui";
+import { Screen } from "@/components/ui";
+import { Header } from "@/features/home/components/Header";
+import { MealSuggestionForm } from "@/features/home/components/MealSuggestionForm";
+import { CategoriesSection } from "@/features/home/components/CategoriesSection";
+import { BottomNav } from "@/components/navigation/BottomNav";
 
 export default function HomeScreen() {
   return (
-    <Screen className="items-center justify-center">
-      <AppText variant="heading" className="text-center">
-        AnoUlam
-      </AppText>
-      <AppText variant="caption" className="mt-2 mb-8 text-center">
-        Kain nang tama, gastos nang sakto.
-      </AppText>
-
-      <Card className="w-full mb-6">
-        <AppText variant="title">Today's suggestion</AppText>
-        <AppText variant="body" className="mt-1">
-          This card and the button below use the shared UI primitives from
-          components/ui — swap this content for real screens as you build.
-        </AppText>
-      </Card>
-
-      <View className="w-full">
-        <Button label="Get started" variant="primary" />
+    <Screen>
+      <View className="flex-1">
+        {/* TODO: "Patrick" is a placeholder — replace with the authenticated
+            user's first name once auth/profile data is wired up. */}
+        <Header name="Patrick" />
+        <View className="mt-6">
+          <MealSuggestionForm />
+        </View>
+        <View className="mt-6">
+          <CategoriesSection />
+        </View>
       </View>
+      <BottomNav />
     </Screen>
   );
 }

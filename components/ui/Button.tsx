@@ -34,23 +34,33 @@ const shapeClasses: Record<Shape, string> = {
 type ButtonProps = PressableProps & {
   label?: string;
   icon?: ReactNode;
+  /** Which side of the label the icon renders on. Defaults to "left". */
+  iconPosition?: "left" | "right";
   variant?: Variant;
   shape?: Shape;
 };
 
-export function Button({ label, icon, variant = "primary", shape = "default", ...props }: ButtonProps) {
+export function Button({
+  label,
+  icon,
+  iconPosition = "left",
+  variant = "primary",
+  shape = "default",
+  ...props
+}: ButtonProps) {
   return (
     <Pressable
       className={`items-center justify-center ${containerClasses[variant]} ${shapeClasses[shape]}`}
       {...props}
     >
       <View className="flex-row items-center gap-2">
-        {icon}
+        {iconPosition === "left" && icon}
         {label && (
           <AppText variant="bodyBold" className={labelClasses[variant]}>
             {label}
           </AppText>
         )}
+        {iconPosition === "right" && icon}
       </View>
     </Pressable>
   );

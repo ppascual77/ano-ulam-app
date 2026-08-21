@@ -11,6 +11,17 @@ export const colors = {
     emphasis: "#2B3437",
   },
   white: "#FFFFFF",
+  avatar: {
+    // Generated-avatar fallback palette only (see components/ui/Avatar.tsx).
+    sage: "#89B6A1",
+    navy: "#294E61",
+  },
+  category: {
+    // Badge-icon colors for the Home Categories section (bg/border pairs
+    // are Tailwind-only, see tailwind.config.js's colors.category).
+    dinnerIcon: "#F4A188",
+    fastfoodIcon: "#DF6969",
+  },
 } as const;
 
 export const fonts = {

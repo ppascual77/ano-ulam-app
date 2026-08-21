@@ -14,10 +14,17 @@ export type ChipOption = {
   label: string;
 };
 
+type ChipVariant = "default" | "segmented";
+
 type ChipSelectProps = {
   options: ChipOption[];
   /** "single" toggles between one selection or none; "multi" allows any number, including none. */
   mode?: "single" | "multi";
+  /** "default": rounded tag, light-gray/primary fill, no border (e.g. onboarding preference tags).
+   *  "segmented": small bordered pill, primary/white swap (e.g. a Budget/Pantry mode switch). */
+  variant?: ChipVariant;
+  /** With mode="single", disallows deselecting down to none — one option is always selected. */
+  required?: boolean;
   value: string[];
   onChange: (value: string[]) => void;
 };
@@ -30,10 +37,12 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 function Chip({
   label,
   isSelected,
+  variant,
   onPress,
 }: {
   label: string;
   isSelected: boolean;
+  variant: ChipVariant;
   onPress: () => void;
 }) {
   const progress = useSharedValue(isSelected ? 1 : 0);
@@ -42,26 +51,46 @@ function Chip({
     progress.value = withTiming(isSelected ? 1 : 0, { duration: 200 });
   }, [isSelected, progress]);
 
+  const unselectedBg = variant === "segmented" ? colors.white : UNSELECTED_BG;
+  const unselectedText = variant === "segmented" ? "text-primary" : "text-ink";
+
   const animatedStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(progress.value, [0, 1], [UNSELECTED_BG, colors.primary]),
+    backgroundColor: interpolateColor(progress.value, [0, 1], [unselectedBg, colors.primary]),
   }));
 
   return (
     <AnimatedPressable
       onPress={onPress}
-      style={[{ borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8 }, animatedStyle]}
+      style={[
+        {
+          borderRadius: variant === "segmented" ? 20 : 999,
+          paddingHorizontal: 16,
+          paddingVertical: variant === "segmented" ? 4 : 8,
+          borderWidth: variant === "segmented" ? 1 : 0,
+          borderColor: colors.primary,
+        },
+        animatedStyle,
+      ]}
     >
-      <AppText variant="bodyMedium" className={isSelected ? "text-white" : "text-ink"}>
+      <AppText variant="bodyMedium" className={isSelected ? "text-white" : unselectedText}>
         {label}
       </AppText>
     </AnimatedPressable>
   );
 }
 
-export function ChipSelect({ options, mode = "multi", value, onChange }: ChipSelectProps) {
+export function ChipSelect({
+  options,
+  mode = "multi",
+  variant = "default",
+  required = false,
+  value,
+  onChange,
+}: ChipSelectProps) {
   const toggle = (id: string) => {
     const isSelected = value.includes(id);
     if (mode === "single") {
+      if (isSelected && required) return;
       onChange(isSelected ? [] : [id]);
       return;
     }
@@ -75,6 +104,7 @@ export function ChipSelect({ options, mode = "multi", value, onChange }: ChipSel
           key={option.id}
           label={option.label}
           isSelected={value.includes(option.id)}
+          variant={variant}
           onPress={() => toggle(option.id)}
         />
       ))}

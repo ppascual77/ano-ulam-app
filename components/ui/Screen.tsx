@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { View } from "react-native";
+import { Keyboard, TouchableWithoutFeedback, View } from "react-native";
 import { SafeAreaView, Edge } from "react-native-safe-area-context";
 
 type ScreenProps = {
@@ -18,7 +18,9 @@ export function Screen({
 }: ScreenProps) {
   return (
     <SafeAreaView edges={edges} className="flex-1 bg-white">
-      <View className={`flex-1 ${padded ? "px-6" : ""} ${className}`}>{children}</View>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View className={`flex-1 ${padded ? "px-7 py-2" : ""} ${className}`}>{children}</View>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }

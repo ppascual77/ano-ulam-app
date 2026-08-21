@@ -17,6 +17,30 @@ module.exports = {
           DEFAULT: "#444444", // normal text
           emphasis: "#2B3437", // text needing emphasis
         },
+        avatar: {
+          // Generated-avatar fallback palette only (see components/ui/Avatar.tsx).
+          // Not general-purpose brand colors — reach for primary/accent instead.
+          navy: "#294E61",
+        },
+        category: {
+          // Category card bg/border pairs + badge-icon colors (Home's
+          // Categories section). Not general-purpose brand colors.
+          breakfast: "#FEF1E6",
+          "breakfast-border": "#FAEAD2",
+          // Selected-state border: 10% darker than the base border (see CategoryCard.tsx). Fill stays unchanged.
+          "breakfast-border-selected": "#E1D3BD",
+          lunch: "#EEEFE2",
+          "lunch-border": "#E5EDCA",
+          "lunch-border-selected": "#CED5B6",
+          dinner: "#FDEFE0",
+          "dinner-border": "#FFE2CF",
+          "dinner-icon": "#F4A188",
+          "dinner-border-selected": "#E6CBBA",
+          fastfood: "#FCEBE1",
+          "fastfood-border": "#FFE2CF",
+          "fastfood-icon": "#DF6969",
+          "fastfood-border-selected": "#E6CBBA",
+        },
       },
       fontFamily: {
         // One family, whole app — Inter. Named by weight, not by role
@@ -35,7 +59,7 @@ module.exports = {
         subhero: ["55px", { lineHeight: "59px" }],
         heading: "24px",
         subheading: "18px",
-        body: "18px",
+        body: "14px",
         sub: ["10px", { lineHeight: "10px" }],
       },
     },

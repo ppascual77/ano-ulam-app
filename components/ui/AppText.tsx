@@ -11,7 +11,8 @@ type Variant =
   | "bodyBold"
   | "caption"
   | "eyebrow"
-  | "subhero";
+  | "subhero"
+  | "navLabel";
 
 const variantClasses: Record<Variant, string> = {
   // Hero/marketing headline (e.g. onboarding screens). Usually built from
@@ -30,6 +31,9 @@ const variantClasses: Record<Variant, string> = {
   // that small anyway. Uppercase is applied here, not in the copy itself.
   eyebrow:
     "font-inter-semibold text-[14px] tracking-[2px] text-ink-subtle uppercase",
+  // Tab bar label (e.g. BottomNav). Pass className="text-primary" to
+  // override the default ink color for an active tab.
+  navLabel: "font-inter-medium text-sub text-ink",
 };
 
 type AppTextProps = TextProps & {
