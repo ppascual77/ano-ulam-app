@@ -22,6 +22,7 @@ export const colors = {
     dinnerIcon: "#F4A188",
     fastfoodIcon: "#DF6969",
   },
+  like: "#EF4444",
 } as const;
 
 export const fonts = {

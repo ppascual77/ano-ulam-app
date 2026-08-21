@@ -8,3 +8,5 @@ export { ChipSelect } from "./ChipSelect";
 export type { ChipOption } from "./ChipSelect";
 export { TextField } from "./TextField";
 export { Stepper } from "./Stepper";
+export { Chips } from "./Chips";
+export { Carousel } from "./Carousel";

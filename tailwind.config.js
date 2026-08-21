@@ -4,6 +4,7 @@ module.exports = {
     "./app/**/*.{js,jsx,ts,tsx}",
     "./components/**/*.{js,jsx,ts,tsx}",
     "./features/**/*.{js,jsx,ts,tsx}",
+    "./core/**/*.{js,jsx,ts,tsx}",
   ],
   presets: [require("nativewind/preset")],
   theme: {
@@ -41,6 +42,16 @@ module.exports = {
           "fastfood-icon": "#DF6969",
           "fastfood-border-selected": "#E6CBBA",
         },
+        macro: {
+          // MacroBreakdown's per-macro accent colors (features/meals).
+          protein: "#006D4D",
+          carbs: "#FB923C",
+          fats: "#F46767",
+        },
+        // Liked-heart red (MealCard). Not a general-purpose brand color.
+        like: "#EF4444",
+        // Button's "tinted" variant fill (e.g. a meal card's "View Details").
+        "tinted-bg": "#DFF3E3",
       },
       fontFamily: {
         // One family, whole app — Inter. Named by weight, not by role
@@ -61,6 +72,8 @@ module.exports = {
         subheading: "18px",
         body: "14px",
         sub: ["10px", { lineHeight: "10px" }],
+        // A meal card's description text (12px/20px, 0.5px tracking).
+        small: ["13px", { lineHeight: "20px", letterSpacing: "0.5px" }],
       },
     },
   },

@@ -1,24 +1,39 @@
-import { View } from "react-native";
-import { Screen } from "@/components/ui";
+import { useState } from "react";
+import { ScrollView, View } from "react-native";
+import { ChipSelect, Screen } from "@/components/ui";
 import { Header } from "@/features/home/components/Header";
-import { MealSuggestionForm } from "@/features/home/components/MealSuggestionForm";
-import { CategoriesSection } from "@/features/home/components/CategoriesSection";
+import { BudgetSection } from "@/core/budget/components/BudgetSection";
+import { PantrySection } from "@/core/pantry/components/PantrySection";
 import { BottomNav } from "@/components/navigation/BottomNav";
 
+const MODE_OPTIONS = [
+  { id: "budget", label: "By Budget" },
+  { id: "pantry", label: "By Pantry" },
+];
+
 export default function HomeScreen() {
+  const [mode, setMode] = useState<string[]>(["budget"]);
+
   return (
     <Screen>
-      <View className="flex-1">
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* TODO: "Patrick" is a placeholder — replace with the authenticated
             user's first name once auth/profile data is wired up. */}
         <Header name="Patrick" />
-        <View className="mt-6">
-          <MealSuggestionForm />
+
+        <View className="mt-6 mb-4">
+          <ChipSelect
+            variant="segmented"
+            mode="single"
+            required
+            options={MODE_OPTIONS}
+            value={mode}
+            onChange={setMode}
+          />
         </View>
-        <View className="mt-6">
-          <CategoriesSection />
-        </View>
-      </View>
+
+        {mode[0] === "budget" ? <BudgetSection /> : <PantrySection />}
+      </ScrollView>
       <BottomNav />
     </Screen>
   );
