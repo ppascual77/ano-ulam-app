@@ -52,7 +52,7 @@ export default function OnboardingScreen() {
     bottomBlobRef.current?.pulse();
   };
 
-  const goToSignup = () => router.replace("/signup");
+  const goToHome = () => router.replace("/home");
 
   const handleScrollBeginDrag = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollStartOffsetRef.current = e.nativeEvent.contentOffset.x;
@@ -77,7 +77,7 @@ export default function OnboardingScreen() {
 
   const handleNext = () => {
     if (isLast) {
-      goToSignup();
+      goToHome();
       return;
     }
     scrollStartOffsetRef.current = width * index;
