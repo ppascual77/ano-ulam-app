@@ -24,7 +24,7 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router",
+      ["expo-router", { "root": "./frontend/app" }],
       "expo-font",
       "expo-splash-screen"
     ],
