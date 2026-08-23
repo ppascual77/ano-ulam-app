@@ -11,6 +11,29 @@ export const colors = {
     emphasis: "#2B3437",
   },
   white: "#FFFFFF",
+  avatar: {
+    // Generated-avatar fallback palette only (see components/ui/Avatar.tsx).
+    sage: "#89B6A1",
+    navy: "#294E61",
+  },
+  category: {
+    // Badge-icon colors for the Home Categories section (bg/border pairs
+    // are Tailwind-only, see tailwind.config.js's colors.category).
+    dinnerIcon: "#F4A188",
+    fastfoodIcon: "#DF6969",
+  },
+  like: "#EF4444",
+  macro: {
+    // Per-macro accent colors (DonutChart stroke colors, MacroBreakdown).
+    protein: "#006D4D",
+    carbs: "#FB923C",
+    fats: "#F46767",
+  },
+  notice: {
+    // Amber info/disclaimer banners (bg/border/text are Tailwind-only, see
+    // tailwind.config.js's colors.notice).
+    icon: "#F59E0B",
+  },
 } as const;
 
 export const fonts = {

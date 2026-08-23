@@ -1,27 +1,37 @@
-import { View } from "react-native";
-import { Screen, AppText, Button, Card } from "@/components/ui";
+import { useState } from "react";
+import { ScrollView, View } from "react-native";
+import { ChipSelect, Screen } from "@/components/ui";
+import { Header } from "@/features/home/components/Header";
+import { BudgetSection } from "@/core/budget/components/BudgetSection";
+import { PantrySection } from "@/core/pantry/components/PantrySection";
+
+const MODE_OPTIONS = [
+  { id: "budget", label: "By Budget" },
+  { id: "pantry", label: "By Pantry" },
+];
 
 export default function HomeScreen() {
+  const [mode, setMode] = useState<string[]>(["budget"]);
+
   return (
-    <Screen className="items-center justify-center">
-      <AppText variant="heading" className="text-center">
-        AnoUlam
-      </AppText>
-      <AppText variant="caption" className="mt-2 mb-8 text-center">
-        Kain nang tama, gastos nang sakto.
-      </AppText>
+    <Screen edges={["top"]}>
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* TODO: "Patrick" is a placeholder — replace with the authenticated
+            user's first name once auth/profile data is wired up. */}
+        <Header name="Patrick" />
 
-      <Card className="w-full mb-6">
-        <AppText variant="title">Today's suggestion</AppText>
-        <AppText variant="body" className="mt-1">
-          This card and the button below use the shared UI primitives from
-          components/ui — swap this content for real screens as you build.
-        </AppText>
-      </Card>
-
-      <View className="w-full">
-        <Button label="Get started" variant="primary" />
-      </View>
+        <View className="mt-6 mb-4">
+          <ChipSelect
+            variant="segmented"
+            mode="single"
+            required
+            options={MODE_OPTIONS}
+            value={mode}
+            onChange={setMode}
+          />
+        </View>
+        {mode[0] === "budget" ? <BudgetSection /> : <PantrySection />}
+      </ScrollView>
     </Screen>
   );
 }

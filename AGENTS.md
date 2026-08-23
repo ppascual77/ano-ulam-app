@@ -12,21 +12,33 @@ later SDK is safe to upgrade to — verify Expo Go's actual store version, don't
   `export { default } from "@/features/home/screens/HomeScreen";` — no UI/logic lives directly
   in `app/`. Exception: `_layout.tsx` files (providers, fonts, tab bar setup) stay in `app/`
   as-is since there's no feature to colocate them with.
-- `features/<name>/` — one folder per business domain, holds everything for that feature:
+- `features/<name>/` — one folder per *routable* domain, holds everything needed to render that
+  domain's screen(s):
   - `screens/` — the actual screen component(s) that `app/` re-exports
   - `components/` — UI used only within this feature
-  - `hooks/`, `api.ts`, `types.ts` — as needed
-  Current features: `home/`. Create a new feature folder only when actually building that
-  feature — don't pre-scaffold empty ones.
+  - `hooks/`, `api.ts` — as needed
+  Current features: `home/`, `onboarding/`, `auth/`, `browse/`, `discover/`, `meal-planner/`,
+  `price-watch/`. Create a new feature folder only when actually building that feature — don't
+  pre-scaffold empty ones.
+- `core/<name>/` — a shared *business domain* with no screen of its own, consumed by one or more
+  `features/*` screens (e.g. `core/meals/`, used by Home's Recommendations/Community Favorites
+  and eventually Discover). Holds everything for that domain in one place — types, calculation/
+  rule functions, mock data, *and* its presentational components (in a `components/` subfolder,
+  e.g. `core/meals/components/MealCard.tsx`) — rather than splitting logic and UI into separate
+  top-level trees. If a domain's logic/components are only ever used by a single feature, keep
+  them inside that feature instead of creating a `core/` folder for it — this is for things
+  actually shared across features.
 - `components/ui/` — generic, app-agnostic primitives (`Screen`, `AppText`, `Button`, `Card`).
   No feature/business logic here. Exported via `components/ui/index.ts` — import as
   `import { Button } from "@/components/ui"`.
+- `components/navigation/` — app-wide navigation chrome (`BottomNav`) that isn't a generic
+  primitive and isn't tied to one business domain, so it doesn't fit `components/ui/` or a
+  `core/<name>/`.
 - `constants/theme.ts` — raw brand values (hex colors, font names) for contexts that can't take
   a `className` (StatusBar config, splash screen, chart libraries). Keep in sync with the color
   values in `tailwind.config.js` by hand — small enough duplication that a build-time sync isn't
   worth the complexity.
-- `lib/`, `types/` — not created yet; add `lib/` when wiring up Supabase/Posthog clients, add
-  `types/` when a type is actually shared across 2+ features. Don't pre-scaffold either.
+- `lib/` — not created yet; add it when wiring up Supabase/Posthog clients. Don't pre-scaffold.
 - `@/*` path alias resolves to the project root (see `tsconfig.json`) — prefer
   `@/features/home/screens/HomeScreen` over relative `../../` imports for anything outside the
   current file's own folder.
