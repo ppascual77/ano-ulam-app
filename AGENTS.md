@@ -7,41 +7,65 @@ later SDK is safe to upgrade to — verify Expo Go's actual store version, don't
 
 # Folder structure
 
-- `app/` — Expo Router routing ONLY. File path = route. Route files re-export their screen from
-  `features/*/screens/`, e.g. `app/index.tsx` is just
-  `export { default } from "@/features/home/screens/HomeScreen";` — no UI/logic lives directly
-  in `app/`. Exception: `_layout.tsx` files (providers, fonts, tab bar setup) stay in `app/`
-  as-is since there's no feature to colocate them with.
-- `features/<name>/` — one folder per *routable* domain, holds everything needed to render that
-  domain's screen(s):
-  - `screens/` — the actual screen component(s) that `app/` re-exports
-  - `components/` — UI used only within this feature
-  - `hooks/`, `api.ts` — as needed
-  Current features: `home/`, `onboarding/`, `auth/`, `browse/`, `discover/`, `meal-planner/`,
-  `price-watch/`. Create a new feature folder only when actually building that feature — don't
-  pre-scaffold empty ones.
-- `core/<name>/` — a shared *business domain* with no screen of its own, consumed by one or more
-  `features/*` screens (e.g. `core/meals/`, used by Home's Recommendations/Community Favorites
-  and eventually Discover). Holds everything for that domain in one place — types, calculation/
-  rule functions, mock data, *and* its presentational components (in a `components/` subfolder,
-  e.g. `core/meals/components/MealCard.tsx`) — rather than splitting logic and UI into separate
-  top-level trees. If a domain's logic/components are only ever used by a single feature, keep
-  them inside that feature instead of creating a `core/` folder for it — this is for things
-  actually shared across features.
-- `components/ui/` — generic, app-agnostic primitives (`Screen`, `AppText`, `Button`, `Card`).
-  No feature/business logic here. Exported via `components/ui/index.ts` — import as
-  `import { Button } from "@/components/ui"`.
-- `components/navigation/` — app-wide navigation chrome (`BottomNav`) that isn't a generic
-  primitive and isn't tied to one business domain, so it doesn't fit `components/ui/` or a
-  `core/<name>/`.
-- `constants/theme.ts` — raw brand values (hex colors, font names) for contexts that can't take
-  a `className` (StatusBar config, splash screen, chart libraries). Keep in sync with the color
-  values in `tailwind.config.js` by hand — small enough duplication that a build-time sync isn't
-  worth the complexity.
-- `lib/` — not created yet; add it when wiring up Supabase/Posthog clients. Don't pre-scaffold.
+Four top-level trees, kept deliberately separate: `frontend/` (all UI/app code), `api/` (backend
+query functions), `supabase/` (Supabase project config/SQL), `lib/` (infrastructure shared by the
+other two). This split was made when backend work started (2026-08-23) so the query layer and
+Supabase project config don't get tangled with UI code.
+
+- `frontend/` — everything below was a project root before the 2026-08-23 restructure; internal
+  conventions are unchanged, only the `frontend/` prefix is new.
+  - `app/` — Expo Router routing ONLY. File path = route. Route files re-export their screen from
+    `features/*/screens/`, e.g. `frontend/app/index.tsx` is just
+    `export { default } from "@/frontend/features/home/screens/HomeScreen";` — no UI/logic lives
+    directly in `app/`. Exception: `_layout.tsx` files (providers, fonts, tab bar setup) stay in
+    `app/` as-is since there's no feature to colocate them with. The Expo Router app-directory
+    root is repointed at `frontend/app` via the `expo-router` config plugin in `app.json`
+    (`["expo-router", { "root": "./frontend/app" }]`).
+  - `features/<name>/` — one folder per *routable* domain, holds everything needed to render that
+    domain's screen(s):
+    - `screens/` — the actual screen component(s) that `app/` re-exports
+    - `components/` — UI used only within this feature
+    - `hooks/` — as needed, e.g. `useAuth.ts` wrapping calls into the top-level `api/<domain>.ts`
+      for that feature's backend data. Backend query functions themselves live in `api/`, not
+      here — see below.
+    Current features: `home/`, `onboarding/`, `auth/`, `browse/`, `discover/`, `meal-planner/`,
+    `price-watch/`, `meals/`. Create a new feature folder only when actually building that
+    feature — don't pre-scaffold empty ones.
+  - `core/<name>/` — a shared *business domain* with no screen of its own, consumed by one or
+    more `features/*` screens (e.g. `core/meals/`, used by Home's Recommendations/Community
+    Favorites and eventually Discover). Holds everything for that domain in one place — types,
+    calculation/rule functions, mock data, `queryKeys.ts` + `hooks/` for backend data (wrapping
+    calls into the top-level `api/<domain>.ts`), *and* its presentational components (in a
+    `components/` subfolder, e.g. `core/meals/components/MealCard.tsx`) — rather than splitting
+    logic and UI into separate top-level trees. If a domain's logic/components are only ever used
+    by a single feature, keep them inside that feature instead of creating a `core/` folder for
+    it — this is for things actually shared across features.
+  - `components/ui/` — generic, app-agnostic primitives (`Screen`, `AppText`, `Button`, `Card`).
+    No feature/business logic here. Exported via `components/ui/index.ts` — import as
+    `import { Button } from "@/frontend/components/ui"`.
+  - `components/navigation/` — app-wide navigation chrome (`BottomNav`) that isn't a generic
+    primitive and isn't tied to one business domain, so it doesn't fit `components/ui/` or a
+    `core/<name>/`.
+  - `constants/theme.ts` — raw brand values (hex colors, font names) for contexts that can't take
+    a `className` (StatusBar config, splash screen, chart libraries). Keep in sync with the color
+    values in `tailwind.config.js` by hand — small enough duplication that a build-time sync
+    isn't worth the complexity.
+- `api/` — pure Supabase query/mutation functions, one file per domain (`api/meals.ts`,
+  `api/auth.ts`, `api/budget.ts`, `api/pantry.ts`). Plain async functions wrapping
+  `supabase.from(...)`, importing the client from `@/lib/supabase` and types from
+  `@/lib/database.types` — no React or TanStack Query here. Consumed by the `hooks/` in
+  `frontend/core/<domain>/` or `frontend/features/<name>/`. Created per-domain as backend work
+  reaches it, not pre-scaffolded.
+- `supabase/` — Supabase CLI project config: `migrations/*.sql` (versioned schema changes,
+  CLI-managed, not dashboard-only), `seed.sql` (dev seed data), `functions/` (Edge Functions,
+  e.g. price-watch's data ingestion job).
+- `lib/` — infrastructure shared by both `api/` and `frontend/`: `supabase.ts` (the
+  `createClient<Database>(...)` instance), `database.types.ts` (generated wholesale by
+  `supabase gen types typescript`, regenerated on every schema change), `queryClient.ts` (shared
+  TanStack Query client config).
 - `@/*` path alias resolves to the project root (see `tsconfig.json`) — prefer
-  `@/features/home/screens/HomeScreen` over relative `../../` imports for anything outside the
-  current file's own folder.
+  `@/frontend/features/home/screens/HomeScreen` (or `@/api/meals`, `@/lib/supabase`) over
+  relative `../../` imports for anything outside the current file's own folder.
 
 # UI conventions
 
