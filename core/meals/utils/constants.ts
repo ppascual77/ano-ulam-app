@@ -1,5 +1,5 @@
 import { Zap, BicepsFlexed, ArrowDown, ArrowUp, Droplets, Leaf, Flame, Scale, Clock } from "lucide-react-native";
-import type { MealPillType } from "./mealTypes";
+import type { MealPillType } from "../mealTypes";
 
 export const MACRO_PILLS_CONFIG = {
   highProtein: {

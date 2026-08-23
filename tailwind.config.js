@@ -52,6 +52,18 @@ module.exports = {
         like: "#EF4444",
         // Button's "tinted" variant fill (e.g. a meal card's "View Details").
         "tinted-bg": "#DFF3E3",
+        // Browse's mood-selection card background (features/browse).
+        "mood-bg": "#F3F7F3",
+        notice: {
+          // Amber info/disclaimer banners (e.g. meal detail's price note).
+          bg: "#FFFBEB",
+          border: "#FDE68A",
+          icon: "#F59E0B",
+          text: "#92400E",
+          // Soft green "reassurance" tone (e.g. Preferences sheet's save note)
+          // — same NoticeBanner shape, calmer palette than the amber default.
+          "positive-bg": "#F3F7EF",
+        },
       },
       fontFamily: {
         // One family, whole app — Inter. Named by weight, not by role

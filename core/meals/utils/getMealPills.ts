@@ -1,4 +1,4 @@
-import type { MealPillType, PillType } from "./mealTypes";
+import type { MealPillType, PillType } from "../mealTypes";
 import { MACRO_RULES, NON_MACRO_RULES, MACRO_PILLS_CONFIG, NON_NUTRITION_PILLS_CONFIG } from "./constants";
 
 export default function getMealPills(meal: MealPillType) {

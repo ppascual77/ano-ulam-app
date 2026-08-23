@@ -1,4 +1,5 @@
 import { Pressable, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router, usePathname } from "expo-router";
 import { House, Search, TrendingUp, Salad, Utensils } from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
@@ -56,12 +57,15 @@ function DiscoverTabButton() {
   );
 }
 
-// Cancels Screen's default px-6 so the bar itself spans edge-to-edge; the
-// inner row restores px-6 so tab content still lines up with screen content.
+// Rendered as the Tabs navigator's custom tabBar (see app/(tabs)/_layout.tsx),
+// so it stays mounted across tab switches instead of sliding with each
+// screen's content. Owns its own bottom safe-area inset since it's no longer
+// nested inside a screen's <Screen> (which only covers the "top" edge for
+// tab screens).
 export function BottomNav() {
   return (
-    <View className="-mx-6 border-t border-ink-emphasis/10 bg-white">
-      <View className="flex-row items-end justify-between pt-2 pb-1">
+    <SafeAreaView edges={["bottom"]} className="border-t border-ink-emphasis/10 bg-white">
+      <View className="flex-row items-end justify-between px-6 pt-2 pb-1">
         {LEFT_TABS.map((tab) => (
           <TabButton key={tab.href} {...tab} />
         ))}
@@ -70,6 +74,6 @@ export function BottomNav() {
           <TabButton key={tab.href} {...tab} />
         ))}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }

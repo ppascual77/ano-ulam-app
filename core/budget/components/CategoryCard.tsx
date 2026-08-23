@@ -31,7 +31,7 @@ export function CategoryCard({
     <Pressable
       onPress={onPress}
       className={`flex-1 items-center border ${bgClassName} ${selected ? selectedBorderClassName : borderClassName}`}
-      style={{ borderRadius: 8, paddingVertical: 12, borderWidth: selected ? 2 : 1 }}
+      style={{ borderRadius: 8, paddingVertical: 12, borderWidth: 2 }}
     >
       <View className="absolute" style={{ top: 8, right: 8, zIndex: 10 }}>
         <BadgeIcon color={badgeColor} size={16} strokeWidth={1} />

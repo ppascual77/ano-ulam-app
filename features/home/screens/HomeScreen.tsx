@@ -4,7 +4,6 @@ import { ChipSelect, Screen } from "@/components/ui";
 import { Header } from "@/features/home/components/Header";
 import { BudgetSection } from "@/core/budget/components/BudgetSection";
 import { PantrySection } from "@/core/pantry/components/PantrySection";
-import { BottomNav } from "@/components/navigation/BottomNav";
 
 const MODE_OPTIONS = [
   { id: "budget", label: "By Budget" },
@@ -15,7 +14,7 @@ export default function HomeScreen() {
   const [mode, setMode] = useState<string[]>(["budget"]);
 
   return (
-    <Screen>
+    <Screen edges={["top"]}>
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* TODO: "Patrick" is a placeholder — replace with the authenticated
             user's first name once auth/profile data is wired up. */}
@@ -31,10 +30,8 @@ export default function HomeScreen() {
             onChange={setMode}
           />
         </View>
-
         {mode[0] === "budget" ? <BudgetSection /> : <PantrySection />}
       </ScrollView>
-      <BottomNav />
     </Screen>
   );
 }

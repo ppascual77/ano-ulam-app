@@ -9,7 +9,7 @@ type MacroStatProps = {
 
 function MacroStat({ value, label, valueClassName }: MacroStatProps) {
   return (
-    <View className="w-12 items-center justify-center">
+    <View className="flex-1 items-center justify-center">
       <Text className={`font-inter-regular text-body ${valueClassName}`}>{value}</Text>
       <Text className="font-inter-regular text-body text-ink-subtle">{label}</Text>
     </View>
@@ -20,9 +20,11 @@ type MacroBreakdownProps = {
   macros: MacroType;
   isSectioned?: boolean;
   variant?: "light" | "dark";
+  /** Set false when calories are shown elsewhere (e.g. MealCard's grid variant overlays it on the image). */
+  showCalories?: boolean;
 };
 
-export function MacroBreakdown({ macros, isSectioned = true, variant = "light" }: MacroBreakdownProps) {
+export function MacroBreakdown({ macros, isSectioned = true, variant = "light", showCalories = true }: MacroBreakdownProps) {
   const isDark = variant === "dark";
 
   const valueClassName = isDark ? "text-white font-inter-semibold" : "text-ink font-inter-regular";
@@ -36,7 +38,7 @@ export function MacroBreakdown({ macros, isSectioned = true, variant = "light" }
         isSectioned && !isDark ? "border border-ink-emphasis/10" : ""
       }`}
     >
-      <MacroStat value={macros.calories} label="kcal" valueClassName={valueClassName} />
+      {showCalories && <MacroStat value={macros.calories} label="kcal" valueClassName={valueClassName} />}
       {isDark && <View className="w-px self-stretch bg-white/20" />}
       <MacroStat value={`${macros.protein}g`} label="Protein" valueClassName={proteinClassName} />
       {isDark && <View className="w-px self-stretch bg-white/20" />}

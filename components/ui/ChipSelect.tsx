@@ -64,8 +64,8 @@ function Chip({
       style={[
         {
           borderRadius: variant === "segmented" ? 20 : 999,
-          paddingHorizontal: 16,
-          paddingVertical: variant === "segmented" ? 4 : 8,
+          paddingHorizontal: 20,
+          paddingVertical: variant === "segmented" ? 4 : 10,
           borderWidth: variant === "segmented" ? 1 : 0,
           borderColor: colors.primary,
         },

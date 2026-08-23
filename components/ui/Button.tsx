@@ -5,7 +5,9 @@ import { AppText } from "./AppText";
 // "social" is a neutral white/bordered button for third-party auth
 // (Google, Apple) — the icon carries the brand identity, not our palette.
 // "tinted" is a soft, low-emphasis fill (e.g. a meal card's "View Details").
-type Variant = "primary" | "secondary" | "outline" | "social" | "tinted";
+// "muted" is a generic neutral white/bordered button (e.g. an icon-only
+// filter trigger) — same treatment as "social" but not scoped to auth.
+type Variant = "primary" | "secondary" | "outline" | "social" | "tinted" | "muted";
 // "default" spans its parent's width (e.g. a carousel's bottom CTA).
 // "pill" hugs its content and pushes to the left edge of its parent
 // (align-self: flex-start gives both at once) — e.g. a corner "Get Started".
@@ -19,6 +21,7 @@ const containerClasses: Record<Variant, string> = {
   outline: "bg-transparent border border-primary active:bg-primary/5",
   social: "bg-white border border-ink-emphasis/10 active:bg-ink-emphasis/5",
   tinted: "bg-tinted-bg active:opacity-80",
+  muted: "bg-white border border-ink-emphasis/10 active:bg-ink-emphasis/5",
 };
 
 const labelClasses: Record<Variant, string> = {
@@ -29,6 +32,7 @@ const labelClasses: Record<Variant, string> = {
   // 14px + light weight, overriding the "title" AppText variant's default
   // subheading/semibold (last class wins on a shared property).
   tinted: "text-primary text-body font-inter-light",
+  muted: "text-ink",
 };
 
 const shapeClasses: Record<Shape, string> = {

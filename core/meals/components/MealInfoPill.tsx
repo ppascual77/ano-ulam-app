@@ -1,5 +1,5 @@
 import { Text, View } from "react-native";
-import getMealPills from "@/core/meals/getMealPills";
+import getMealPills from "@/core/meals/utils/getMealPills";
 import type { MealPillType, PillType } from "@/core/meals/mealTypes";
 
 type MealInfoPillProps = {
@@ -30,11 +30,11 @@ export function MealInfoPill({ meal, iconOnly = false }: MealInfoPillProps) {
         return (
           <View
             key={i}
-            className="flex-row items-center rounded-xl px-2 py-1"
+            className="flex-row items-center rounded-full px-2 py-2"
             style={{ backgroundColor: pill.bgColor }}
           >
             <Icon color="#FFFFFF" strokeWidth={1} size={14} />
-            <Text className="ml-1 font-inter-regular text-sub text-white">{pill.label}</Text>
+            <Text className="ml-1 font-inter-regular text-caption text-white">{pill.label}</Text>
           </View>
         );
       })}

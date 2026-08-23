@@ -1,17 +1,55 @@
-import { View } from "react-native";
-import { Screen, AppText } from "@/components/ui";
-import { BottomNav } from "@/components/navigation/BottomNav";
+import { useState } from "react";
+import { ScrollView, View } from "react-native";
+import { Filter } from "lucide-react-native";
+import { AppText, Avatar, Button, Screen, SearchBar } from "@/components/ui";
+import { colors } from "@/constants/theme";
+import { CravingTagline } from "@/features/browse/components/CravingTagline";
+import { MoodSelection } from "@/features/browse/components/MoodSelection";
+import { TodaysPickCard } from "@/core/meals/components/card/TodaysPickCard";
+import { MealDetailSheet } from "@/core/meals/components/detail/MealDetailSheet";
+import { mockMeals } from "@/core/meals/mocks/meals";
+import type { MealType } from "@/core/meals/mealTypes";
+
+const todaysPick = mockMeals.find((meal) => meal.normalized_name === "bananaandpeanutbutter");
 
 export default function BrowseScreen() {
+  const [selectedMeal, setSelectedMeal] = useState<MealType | null>(null);
+
   return (
-    <Screen>
-      <View className="flex-1 items-center justify-center">
-        <AppText variant="title">Browse</AppText>
-        <AppText variant="body" className="mt-1 text-center">
-          Coming soon.
+    <Screen edges={["top"]}>
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        <AppText variant="title" className="ml-3 mt-3">
+          What are you craving today?
         </AppText>
-      </View>
-      <BottomNav />
+
+        <View className="ml-3">
+          <CravingTagline />
+        </View>
+
+        <View className="mt-3 flex-row items-center gap-3">
+          <SearchBar className="flex-1" />
+          <Button
+            icon={<Filter color={colors.ink.subtle} size={18} />}
+            variant="muted"
+            shape="circle"
+          />
+        </View>
+
+        {todaysPick && (
+          <View className="mt-6 mb-6">
+            <AppText variant="title" className="mb-3">
+              Today&apos;s pick
+            </AppText>
+            <TodaysPickCard meal={todaysPick} onPress={() => setSelectedMeal(todaysPick)} />
+          </View>
+        )}
+
+        <View className="mb-6">
+          <MoodSelection onSelectMeal={setSelectedMeal} />
+        </View>
+      </ScrollView>
+
+      <MealDetailSheet meal={selectedMeal} onClose={() => setSelectedMeal(null)} />
     </Screen>
   );
 }

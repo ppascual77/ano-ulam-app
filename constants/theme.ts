@@ -23,6 +23,17 @@ export const colors = {
     fastfoodIcon: "#DF6969",
   },
   like: "#EF4444",
+  macro: {
+    // Per-macro accent colors (DonutChart stroke colors, MacroBreakdown).
+    protein: "#006D4D",
+    carbs: "#FB923C",
+    fats: "#F46767",
+  },
+  notice: {
+    // Amber info/disclaimer banners (bg/border/text are Tailwind-only, see
+    // tailwind.config.js's colors.notice).
+    icon: "#F59E0B",
+  },
 } as const;
 
 export const fonts = {
