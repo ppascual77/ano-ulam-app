@@ -23,7 +23,36 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      users: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          email: string
+          id: string
+          preferences: Json
+          tier: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          email: string
+          id: string
+          preferences?: Json
+          tier?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string
+          id?: string
+          preferences?: Json
+          tier?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

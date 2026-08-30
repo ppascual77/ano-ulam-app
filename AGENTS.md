@@ -28,6 +28,10 @@ Supabase project config don't get tangled with UI code.
     - `hooks/` — as needed, e.g. `useAuth.ts` wrapping calls into the top-level `api/<domain>.ts`
       for that feature's backend data. Backend query functions themselves live in `api/`, not
       here — see below.
+    - `store/` — as needed, for a Zustand store backing state that's event-driven rather than a
+      normal fetch (e.g. `auth/store/useAuthStore.ts` holding the Supabase session, updated via
+      `onAuthStateChange` rather than a query). Most features won't need this — reach for
+      TanStack Query hooks first; only add a store when the data genuinely isn't request/response.
     Current features: `home/`, `onboarding/`, `auth/`, `browse/`, `discover/`, `meal-planner/`,
     `price-watch/`, `meals/`. Create a new feature folder only when actually building that
     feature — don't pre-scaffold empty ones.

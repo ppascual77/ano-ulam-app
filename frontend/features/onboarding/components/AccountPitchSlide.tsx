@@ -13,9 +13,11 @@ const heroColorClass = {
 type Props = {
   slide: AccountPitchSlideData;
   width: number;
+  onContinueWithGoogle: () => void;
+  isSigningIn: boolean;
 };
 
-export function AccountPitchSlide({ slide, width }: Props) {
+export function AccountPitchSlide({ slide, width, onContinueWithGoogle, isSigningIn }: Props) {
   return (
     <View style={{ width }} className="flex-1 px-10 justify-center">
       <View className="w-full items-center mt-4">
@@ -54,8 +56,9 @@ export function AccountPitchSlide({ slide, width }: Props) {
 
       <View className="gap-3 mb-4">
         <Button
-          label="Continue with Google"
+          label={isSigningIn ? "Signing in..." : "Continue with Google"}
           variant="social"
+          disabled={isSigningIn}
           icon={
             <Image
               source={require("@/assets/icons/google-logo.png")}
@@ -63,11 +66,13 @@ export function AccountPitchSlide({ slide, width }: Props) {
               contentFit="contain"
             />
           }
-          onPress={() => {}}
+          onPress={onContinueWithGoogle}
         />
+        {/* Apple Sign In needs a paid Apple Developer account, not set up yet — no-op until then. */}
         <Button
           label="Continue with Apple"
           variant="social"
+          disabled
           icon={
             <Image
               source={require("@/assets/icons/apple-logo.png")}
@@ -78,10 +83,6 @@ export function AccountPitchSlide({ slide, width }: Props) {
           onPress={() => {}}
         />
       </View>
-
-      <AppText variant="body" className="text-primary text-center" onPress={() => {}}>
-        Continue without an account
-      </AppText>
     </View>
   );
 }
