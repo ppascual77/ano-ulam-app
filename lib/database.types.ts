@@ -26,12 +26,16 @@ export type Database = {
       ingredients: {
         Row: {
           aliases: string[]
+          basis_amount: number
+          basis_unit: string
           calories: number | null
           canonical_name: string
           carbohydrates: number | null
           category: string | null
           created_at: string
           display_name: string | null
+          estimated_price: number | null
+          estimated_price_unit: string | null
           fat: number | null
           fiber: number | null
           food_group: string | null
@@ -41,7 +45,10 @@ export type Database = {
           last_verified_at: string | null
           match_type: string | null
           piece_label: string | null
+          price_last_updated_at: string | null
+          price_source: string
           protein: number | null
+          role: string | null
           sodium: number | null
           source: string | null
           source_description: string | null
@@ -53,12 +60,16 @@ export type Database = {
         }
         Insert: {
           aliases?: string[]
+          basis_amount?: number
+          basis_unit?: string
           calories?: number | null
           canonical_name: string
           carbohydrates?: number | null
           category?: string | null
           created_at?: string
           display_name?: string | null
+          estimated_price?: number | null
+          estimated_price_unit?: string | null
           fat?: number | null
           fiber?: number | null
           food_group?: string | null
@@ -68,7 +79,10 @@ export type Database = {
           last_verified_at?: string | null
           match_type?: string | null
           piece_label?: string | null
+          price_last_updated_at?: string | null
+          price_source?: string
           protein?: number | null
+          role?: string | null
           sodium?: number | null
           source?: string | null
           source_description?: string | null
@@ -80,12 +94,16 @@ export type Database = {
         }
         Update: {
           aliases?: string[]
+          basis_amount?: number
+          basis_unit?: string
           calories?: number | null
           canonical_name?: string
           carbohydrates?: number | null
           category?: string | null
           created_at?: string
           display_name?: string | null
+          estimated_price?: number | null
+          estimated_price_unit?: string | null
           fat?: number | null
           fiber?: number | null
           food_group?: string | null
@@ -95,7 +113,10 @@ export type Database = {
           last_verified_at?: string | null
           match_type?: string | null
           piece_label?: string | null
+          price_last_updated_at?: string | null
+          price_source?: string
           protein?: number | null
+          role?: string | null
           sodium?: number | null
           source?: string | null
           source_description?: string | null
