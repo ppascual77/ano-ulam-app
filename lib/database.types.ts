@@ -26,6 +26,7 @@ export type Database = {
       ingredients: {
         Row: {
           aliases: string[]
+          archived_at: string | null
           basis_amount: number
           basis_unit: string
           calories: number | null
@@ -60,6 +61,7 @@ export type Database = {
         }
         Insert: {
           aliases?: string[]
+          archived_at?: string | null
           basis_amount?: number
           basis_unit?: string
           calories?: number | null
@@ -94,6 +96,7 @@ export type Database = {
         }
         Update: {
           aliases?: string[]
+          archived_at?: string | null
           basis_amount?: number
           basis_unit?: string
           calories?: number | null

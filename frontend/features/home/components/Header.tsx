@@ -1,5 +1,6 @@
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import { AppText, Avatar } from "@/frontend/components/ui";
 
 type HeaderProps = {
@@ -32,7 +33,13 @@ export function Header({ name, avatarUrl }: HeaderProps) {
           />
         </View>
       </View>
-      <Avatar name={name ?? "Guest"} imageUri={avatarUrl} size={48} />
+      {/* TEMP: this branch doesn't have the admin dropdown menu built on
+          feat/auth-backend yet — direct navigate for testing Manage
+          Ingredients in isolation. Reconcile (replace with the real
+          dropdown) once that branch merges. */}
+      <Pressable onPress={() => router.push("/manage-ingredients")}>
+        <Avatar name={name ?? "Guest"} imageUri={avatarUrl} size={48} />
+      </Pressable>
     </View>
   );
 }
