@@ -1,5 +1,6 @@
 import { View, Text } from "react-native";
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import { Check } from "lucide-react-native";
 import { AppText, Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -68,11 +69,14 @@ export function AccountPitchSlide({ slide, width, onContinueWithGoogle, isSignin
           }
           onPress={onContinueWithGoogle}
         />
-        {/* Apple Sign In needs a paid Apple Developer account, not set up yet — no-op until then. */}
+        {/* TEMP/TEST ONLY: Apple Sign In isn't implemented (needs a paid Apple
+            Developer account) — this just jumps to Home to unblock testing
+            the rest of the app while Google sign-in's redirect bug is being
+            sorted out. Remove once Apple Sign In (or another way past this
+            screen) is real. */}
         <Button
           label="Continue with Apple"
           variant="social"
-          disabled
           icon={
             <Image
               source={require("@/assets/icons/apple-logo.png")}
@@ -80,7 +84,7 @@ export function AccountPitchSlide({ slide, width, onContinueWithGoogle, isSignin
               contentFit="contain"
             />
           }
-          onPress={() => {}}
+          onPress={() => router.replace("/home")}
         />
       </View>
     </View>

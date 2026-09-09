@@ -1,6 +1,7 @@
 import "../../global.css";
 
 import { useEffect, useCallback } from "react";
+import { View } from "react-native";
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -69,12 +70,21 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <Stack screenOptions={{ headerShown: false }} />
-        </QueryClientProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    // TEMP: no iPad-specific layout designed yet — letterbox to a phone-sized
+    // box (like Instagram on iPad) instead of stretching, bars on all sides.
+    // Remove once a real tablet layout exists. 430x932 matches the largest
+    // current iPhone (Pro Max); not themeable values, so not in
+    // constants/theme.ts.
+    <View style={{ flex: 1, backgroundColor: "black", alignItems: "center", justifyContent: "center" }}>
+      <View style={{ width: "100%", maxWidth: 430, height: "100%", maxHeight: 932 }}>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <SafeAreaProvider>
+            <QueryClientProvider client={queryClient}>
+              <Stack screenOptions={{ headerShown: false }} />
+            </QueryClientProvider>
+          </SafeAreaProvider>
+        </GestureHandlerRootView>
+      </View>
+    </View>
   );
 }
