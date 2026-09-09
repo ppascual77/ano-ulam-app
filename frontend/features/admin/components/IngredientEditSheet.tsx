@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
-import { View, ScrollView } from "react-native";
+import { View, ScrollView, Pressable } from "react-native";
 import { AppText, BottomSheet, Button, ChipSelect, TextField } from "@/frontend/components/ui";
-import type { IngredientRow } from "@/api/ingredients";
+import { applyUsdaMatch, groundIngredientsUsda, type IngredientRow, type UsdaGroundingResult } from "@/api/ingredients";
 
 type Props = {
   visible: boolean;
@@ -176,9 +176,13 @@ function NumberField({
 
 export function IngredientEditSheet({ visible, onClose, ingredient, onSave, isSaving }: Props) {
   const [form, setForm] = useState<FormState | null>(null);
+  const [usdaResult, setUsdaResult] = useState<UsdaGroundingResult | null>(null);
+  const [usdaCandidateIndex, setUsdaCandidateIndex] = useState(0);
+  const [isFetchingUsda, setIsFetchingUsda] = useState(false);
 
   useEffect(() => {
     if (ingredient) setForm(toFormState(ingredient));
+    setUsdaResult(null);
   }, [ingredient]);
 
   if (!form) return null;
@@ -186,13 +190,56 @@ export function IngredientEditSheet({ visible, onClose, ingredient, onSave, isSa
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
 
+  const setMany = (patch: Partial<FormState>) =>
+    setForm((prev) => (prev ? { ...prev, ...patch } : prev));
+
   const handleSave = () => {
     onSave(buildPatch(form));
   };
 
+  // Re-searches using the CURRENT form name (not the original DB value), so
+  // fixing a typo in Name and re-fetching reflects the correction. Populates
+  // the form only — still requires pressing Save to persist, same as any
+  // other field edit here.
+  const handleFetchUsda = async () => {
+    if (!ingredient) return;
+    setIsFetchingUsda(true);
+    setUsdaResult(null);
+    try {
+      const [result] = await groundIngredientsUsda([
+        { id: ingredient.id, canonicalName: form.canonical_name },
+      ]);
+      setUsdaResult(result ?? null);
+      setUsdaCandidateIndex(0);
+    } finally {
+      setIsFetchingUsda(false);
+    }
+  };
+
+  const handleApplyUsdaCandidate = () => {
+    if (!usdaResult || usdaResult.confidence === "NONE" || usdaResult.confidence === "ERROR") return;
+    const candidate = usdaResult.candidates[usdaCandidateIndex] ?? usdaResult.candidates[0];
+    const patch = applyUsdaMatch(candidate, usdaResult.confidence);
+    setMany({
+      calories: patch.calories?.toString() ?? "",
+      protein: patch.protein?.toString() ?? "",
+      carbohydrates: patch.carbohydrates?.toString() ?? "",
+      fat: patch.fat?.toString() ?? "",
+      sugar: patch.sugar?.toString() ?? "",
+      fiber: patch.fiber?.toString() ?? "",
+      sodium: patch.sodium?.toString() ?? "",
+      source: patch.source ? [patch.source] : [],
+      source_ref_id: patch.source_ref_id ?? "",
+      source_description: patch.source_description ?? "",
+      match_type: patch.match_type ? [patch.match_type] : [],
+      verification_status: patch.verification_status ? [patch.verification_status] : [],
+    });
+    setUsdaResult(null);
+  };
+
   return (
     <BottomSheet visible={visible} onClose={onClose} heightPercent={0.9}>
-      <ScrollView className="flex-1 px-6 pt-16" contentContainerStyle={{ paddingBottom: 24 }}>
+      <ScrollView className="flex-1 px-8 pt-16" contentContainerStyle={{ paddingBottom: 24 }}>
         <AppText variant="heading" className="mb-6">
           Edit Ingredient
         </AppText>
@@ -249,6 +296,57 @@ export function IngredientEditSheet({ visible, onClose, ingredient, onSave, isSa
         </Section>
 
         <Section title="Grounding / source">
+          <Button
+            label={isFetchingUsda ? "Fetching..." : "Fetch from USDA"}
+            variant="outline"
+            disabled={isFetchingUsda}
+            onPress={handleFetchUsda}
+          />
+
+          {usdaResult && (
+            <View className="gap-2 rounded-2xl border border-ink-emphasis/10 p-3">
+              {usdaResult.confidence === "NONE" && (
+                <AppText variant="caption" className="text-ink-subtle">
+                  No confident USDA match found.
+                </AppText>
+              )}
+              {usdaResult.confidence === "ERROR" && (
+                <AppText variant="caption" className="text-like">
+                  {usdaResult.error}
+                </AppText>
+              )}
+              {(usdaResult.confidence === "HIGH" || usdaResult.confidence === "LOW") && (
+                <>
+                  <AppText
+                    variant="caption"
+                    className={usdaResult.confidence === "HIGH" ? "text-primary" : "text-accent"}
+                  >
+                    {usdaResult.confidence} confidence
+                  </AppText>
+                  <View className="flex-row flex-wrap gap-2">
+                    {usdaResult.candidates.map((c, i) => (
+                      <Pressable
+                        key={c.fdcId}
+                        onPress={() => setUsdaCandidateIndex(i)}
+                        className={`rounded-full px-3 py-1 border ${
+                          i === usdaCandidateIndex ? "border-primary bg-primary/10" : "border-ink-emphasis/10"
+                        }`}
+                      >
+                        <AppText
+                          variant="caption"
+                          className={i === usdaCandidateIndex ? "text-primary" : "text-ink-subtle"}
+                        >
+                          {c.description} ({c.calories ?? "?"} cal/100g)
+                        </AppText>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Button label="Apply to form" onPress={handleApplyUsdaCandidate} />
+                </>
+              )}
+            </View>
+          )}
+
           <AppText variant="caption">Source</AppText>
           <ChipSelect mode="single" options={SOURCE_OPTIONS} value={form.source} onChange={(v) => set("source", v)} />
           <TextField label="Source reference ID" value={form.source_ref_id} onChangeText={(v) => set("source_ref_id", v)} />

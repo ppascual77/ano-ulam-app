@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   archiveIngredient,
   getIngredients,
+  groundIngredientsUsda,
   updateIngredient,
   type IngredientFilters,
   type IngredientRow,
@@ -33,5 +34,12 @@ export function useArchiveIngredient() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "ingredients"] });
     },
+  });
+}
+
+export function useGroundIngredientsUsda() {
+  return useMutation({
+    mutationFn: (ingredients: { id: string; canonicalName: string }[]) =>
+      groundIngredientsUsda(ingredients),
   });
 }

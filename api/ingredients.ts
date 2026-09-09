@@ -49,3 +49,51 @@ export async function updateIngredient(id: string, patch: Partial<IngredientRow>
 export async function archiveIngredient(id: string) {
   return updateIngredient(id, { archived_at: new Date().toISOString() });
 }
+
+export type UsdaGroundingMatch = {
+  fdcId: number;
+  description: string;
+  dataType: string;
+  score: number;
+  calories: number | null;
+  protein: number | null;
+  carbohydrates: number | null;
+  fat: number | null;
+  sugar: number | null;
+  fiber: number | null;
+  sodium: number | null;
+};
+
+export type UsdaGroundingResult =
+  | { id: string; confidence: "NONE" }
+  | { id: string; confidence: "ERROR"; error: string }
+  | { id: string; confidence: "HIGH" | "LOW"; candidates: UsdaGroundingMatch[] };
+
+export async function groundIngredientsUsda(
+  ingredients: { id: string; canonicalName: string }[],
+) {
+  const { data, error } = await supabase.functions.invoke<{ results: UsdaGroundingResult[] }>(
+    "ground-ingredients-usda",
+    { body: { ingredients } },
+  );
+  if (error) throw error;
+  return data?.results ?? [];
+}
+
+export function applyUsdaMatch(matched: UsdaGroundingMatch, confidence: "HIGH" | "LOW"): Partial<IngredientRow> {
+  return {
+    calories: matched.calories,
+    protein: matched.protein,
+    carbohydrates: matched.carbohydrates,
+    fat: matched.fat,
+    sugar: matched.sugar,
+    fiber: matched.fiber,
+    sodium: matched.sodium,
+    source: "USDA",
+    source_ref_id: matched.fdcId.toString(),
+    source_description: matched.description,
+    match_type: confidence === "HIGH" ? "exact" : "approximate",
+    verification_status: confidence === "HIGH" ? "HIGH_CONFIDENCE" : "NEEDS_REVIEW",
+    last_verified_at: new Date().toISOString(),
+  };
+}

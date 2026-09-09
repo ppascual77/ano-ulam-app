@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { View, Pressable, FlatList } from "react-native";
+import { View, Pressable } from "react-native";
+import { ScrollView } from "react-native-gesture-handler";
 import { router } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import { AppText, ErrorState, LoadingState, Screen, SearchBar, Toggle } from "@/frontend/components/ui";
@@ -8,6 +9,7 @@ import { useArchiveIngredient, useIngredients, useUpdateIngredient } from "../ho
 import { IngredientListItem } from "../components/IngredientListItem";
 import { IngredientEditSheet } from "../components/IngredientEditSheet";
 import { FilterPill } from "../components/FilterPill";
+import { UsdaGroundingPanel } from "../components/UsdaGroundingPanel";
 import type { IngredientRow } from "@/api/ingredients";
 
 const ROLE_OPTIONS = [
@@ -89,10 +91,13 @@ export default function ManageIngredientsScreen() {
         ))}
       </View>
 
-      {tab !== "all" ? (
+      {tab === "usda" ? (
+        <UsdaGroundingPanel />
+      ) : tab === "fnri" ? (
         <View className="flex-1 items-center justify-center px-10">
           <AppText variant="body" className="text-ink-subtle text-center">
-            Not built yet — {tab === "usda" ? "USDA" : "FNRI"} grounding tooling is future work.
+            Not built yet — FNRI import is future work (its existing data structure is more manual, see
+            docs/ingredient-data-architecture.md section 21).
           </AppText>
         </View>
       ) : (
@@ -119,18 +124,16 @@ export default function ManageIngredientsScreen() {
           ) : isError ? (
             <ErrorState />
           ) : (
-            <FlatList
-              style={{ flex: 1 }}
-              data={ingredients ?? []}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
+            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+              {(ingredients ?? []).map((item) => (
                 <IngredientListItem
+                  key={item.id}
                   ingredient={item}
                   onEdit={() => setEditing(item)}
                   onArchive={() => archiveIngredient.mutate(item.id)}
                 />
-              )}
-            />
+              ))}
+            </ScrollView>
           )}
         </>
       )}
