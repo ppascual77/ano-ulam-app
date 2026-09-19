@@ -60,21 +60,23 @@ PROCESSED_HINTS = [
 # under-12g protein here isn't a sign of a wrong match. Excluded from the
 # plain-meat carb/protein floor checks, same reasoning as PROCESSED_HINTS.
 MOLLUSK_HINTS = ["squid", "octopus", "mussel", "oyster", "clam", "scallop", "snail"]
-# Eggs/dairy: lactose gives real carbs to milk/cream/cheese/yogurt, and fats
-# like butter/margarine are near-zero protein by design — none of that is a
-# sign of a wrong match. Also covers egg-based items (balut's carb content
-# from partial embryo development is normal, not a mismatch). This list is
-# checked regardless of whether a food_group column is present, since none
-# of the CSVs pasted into this workflow so far have included one.
-EGG_DAIRY_HINTS = [
-    "egg", "balut", "milk", "cream", "cheese", "yogurt", "yoghurt", "butter",
-    "margarine", "curd",
-]
-# Grains/starches are inherently carb-dominant and low-protein — that's the
-# defining trait of the food group, not a sign of a mismatched USDA record.
-GRAIN_HINTS = [
-    "rice", "noodle", "pasta", "macaroni", "spaghetti", "oat", "corn",
-    "flour", "bread", "grits", "cornstarch", "sinangag", "pandesal",
+# The plain-meat carb/protein floor check (below) only means something for
+# an actual cut of animal muscle. Every non-meat food group hit so far
+# (eggs/dairy: lactose carbs, low protein by design; grains: carb-dominant
+# by definition; vegetables: same) has produced a wall of false positives
+# when this was an *exclusion* list — a new one was needed for every batch
+# that wasn't meat or fish. Flipped to an *inclusion* signal instead: name
+# must contain one of the species/animal-type words actually used across
+# this project's meat/fish batches (poultry, pork, beef, fish & seafood).
+# Every batch from eggs/dairy onward is non-meat, so this should rarely
+# need new entries — add one only if a genuine new meat/fish canonical name
+# doesn't already match.
+MEAT_FISH_SPECIES_HINTS = [
+    "chicken", "duck", "pork", "pig", "beef", "cow", "goat", "lamb",
+    "milkfish", "bangus", "tilapia", "scad", "galunggong", "tuna", "mackerel",
+    "catfish", "hito", "grouper", "lapu-lapu", "sardine", "anchovy", "dilis",
+    "herring", "tuyo", "rabbitfish", "danggit", "mudfish", "dalag", "mullet",
+    "banak", "marlin", "dory", "salmon", "shrimp", "hipon", "crab",
 ]
 
 
@@ -176,10 +178,14 @@ def plausibility_checks(f, name, state, macro_vals, price, food_group=None):
     if any(h in lname for h in BLOOD_HINTS) and fa is not None and fa > 5:
         f.add("REVIEW", name, f"name suggests blood, expected very low fat, got fat={fa}g")
 
+    is_meat_or_fish = (
+        (food_group is not None and food_group in MEAT_FISH_FOOD_GROUPS)
+        or (food_group is None and any(h in lname for h in MEAT_FISH_SPECIES_HINTS))
+    )
     is_plain_meat = (
-        not any(h in lname for h in FAT_DOMINANT_HINTS + ORGAN_HINTS + BLOOD_HINTS + PROCESSED_HINTS + MOLLUSK_HINTS + EGG_DAIRY_HINTS + GRAIN_HINTS)
+        is_meat_or_fish
+        and not any(h in lname for h in FAT_DOMINANT_HINTS + ORGAN_HINTS + BLOOD_HINTS + PROCESSED_HINTS + MOLLUSK_HINTS)
         and (state or "").strip().lower() in ("raw", "cooked")
-        and (food_group is None or food_group in MEAT_FISH_FOOD_GROUPS)
     )
     if is_plain_meat:
         if c is not None and c > 2:
