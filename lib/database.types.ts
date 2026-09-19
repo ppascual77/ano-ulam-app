@@ -57,6 +57,7 @@ export type Database = {
           state: string | null
           sugar: number | null
           updated_at: string
+          usda_last_attempted_at: string | null
           verification_status: string
         }
         Insert: {
@@ -92,6 +93,7 @@ export type Database = {
           state?: string | null
           sugar?: number | null
           updated_at?: string
+          usda_last_attempted_at?: string | null
           verification_status?: string
         }
         Update: {
@@ -127,6 +129,7 @@ export type Database = {
           state?: string | null
           sugar?: number | null
           updated_at?: string
+          usda_last_attempted_at?: string | null
           verification_status?: string
         }
         Relationships: []

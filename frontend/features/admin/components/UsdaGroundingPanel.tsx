@@ -5,7 +5,12 @@ import { Check, ExternalLink } from "lucide-react-native";
 import { AppText, Button, LoadingState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { applyUsdaMatch, getUsdaSourceUrl, type IngredientRow, type UsdaGroundingResult } from "@/api/ingredients";
-import { useGroundIngredientsUsda, useIngredients, useUpdateIngredient } from "../hooks/useIngredients";
+import {
+  useGroundIngredientsUsda,
+  useIngredients,
+  useMarkUsdaGroundingAttempted,
+  useUpdateIngredient,
+} from "../hooks/useIngredients";
 
 const CONFIDENCE_TONE: Record<string, string> = {
   HIGH: "text-primary",
@@ -16,13 +21,28 @@ const CONFIDENCE_TONE: Record<string, string> = {
 
 export function UsdaGroundingPanel() {
   const { data: ingredients, isLoading } = useIngredients({ showArchived: false });
-  // Only ingredients that haven't been through a real grounding pass yet —
-  // never re-ground something already sourced from FNRI/USDA this way (use
+  // Ingredients still tagged manual — the pool a fresh batch seed lands in.
+  // Never re-ground something already sourced from FNRI/USDA this way (use
   // the per-ingredient "Fetch from USDA" in Edit for a deliberate re-run).
-  const groundingCandidates = useMemo(
+  const manualIngredients = useMemo(
     () => (ingredients ?? []).filter((i) => i.source === "manual" || i.source === null),
     [ingredients],
   );
+  // Of those, the ones never run through a grounding attempt at all —
+  // `source` alone can't tell a freshly-seeded row apart from one that WAS
+  // checked and stayed manual on purpose (no confident match, or a bad
+  // match that got reverted). Without this split, every batch's default
+  // run re-includes every previously-checked manual ingredient across the
+  // whole table, forcing a re-review of the same items each time.
+  const neverAttempted = useMemo(
+    () => manualIngredients.filter((i) => !i.usda_last_attempted_at),
+    [manualIngredients],
+  );
+  // Safety-net toggle: run against every manual ingredient regardless of
+  // whether it's been checked before, in case something was missed.
+  const [includeAlreadyChecked, setIncludeAlreadyChecked] = useState(false);
+  const groundingCandidates = includeAlreadyChecked ? manualIngredients : neverAttempted;
+  const alreadyCheckedCount = manualIngredients.length - neverAttempted.length;
 
   const [results, setResults] = useState<UsdaGroundingResult[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -34,6 +54,7 @@ export function UsdaGroundingPanel() {
   const [candidateChoice, setCandidateChoice] = useState<Map<string, number>>(new Map());
   const ground = useGroundIngredientsUsda();
   const updateIngredient = useUpdateIngredient();
+  const markAttempted = useMarkUsdaGroundingAttempted();
   const [applying, setApplying] = useState(false);
 
   const byId = useMemo(() => {
@@ -43,13 +64,20 @@ export function UsdaGroundingPanel() {
   }, [ingredients]);
 
   const handleRun = () => {
+    const batch = groundingCandidates;
     ground.mutate(
-      groundingCandidates.map((i) => ({ id: i.id, canonicalName: i.canonical_name })),
+      batch.map((i) => ({ id: i.id, canonicalName: i.canonical_name })),
       {
         onSuccess: (data) => {
           setResults(data);
           setSelected(new Set(data.filter((r) => r.confidence === "HIGH").map((r) => r.id)));
           setCandidateChoice(new Map());
+          // Mark every ingredient in this run as checked, regardless of
+          // outcome — a NONE/ERROR/unticked result still means "we looked,
+          // don't surface this by default next time." Applying a match
+          // separately flips `source` off 'manual' anyway, so this is
+          // mainly what keeps NONE/ERROR/skipped rows from resurfacing.
+          markAttempted.mutate(batch.map((i) => i.id));
         },
       },
     );
@@ -89,14 +117,31 @@ export function UsdaGroundingPanel() {
 
   return (
     <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 40 }}>
-      <AppText variant="body" className="text-ink-subtle mb-4">
-        {groundingCandidates.length} ingredient{groundingCandidates.length === 1 ? "" : "s"} still manual
-        (never grounded). Already USDA/FNRI-sourced ingredients are never re-ground here automatically —
-        use "Fetch from USDA" in Edit for a deliberate one-off re-run.
+      <AppText variant="body" className="text-ink-subtle mb-2">
+        {neverAttempted.length} ingredient{neverAttempted.length === 1 ? "" : "s"} never checked against USDA.
+        Already USDA/FNRI-sourced ingredients are never re-ground here automatically — use "Fetch from
+        USDA" in Edit for a deliberate one-off re-run.
       </AppText>
 
+      {alreadyCheckedCount > 0 && (
+        <Pressable
+          onPress={() => setIncludeAlreadyChecked((prev) => !prev)}
+          className="flex-row items-center gap-3 mb-4"
+        >
+          <View
+            className={`w-6 h-6 rounded-md items-center justify-center ${includeAlreadyChecked ? "bg-primary" : "border border-primary/20"}`}
+          >
+            {includeAlreadyChecked && <Check color={colors.white} size={14} />}
+          </View>
+          <AppText variant="caption" className="text-ink-subtle flex-1">
+            Also include {alreadyCheckedCount} already-checked manual ingredient
+            {alreadyCheckedCount === 1 ? "" : "s"} (safety net, in case something was missed)
+          </AppText>
+        </Pressable>
+      )}
+
       <Button
-        label={ground.isPending ? "Grounding..." : "Run USDA Grounding"}
+        label={ground.isPending ? "Grounding..." : `Run USDA Grounding (${groundingCandidates.length})`}
         disabled={ground.isPending || groundingCandidates.length === 0}
         onPress={handleRun}
       />

@@ -1,0 +1,14 @@
+-- Tracks whether an ingredient has ever been run through USDA grounding —
+-- regardless of outcome (matched, no confident match, error, or a match
+-- found but never applied / later reverted). Distinct from `source`,
+-- which reverts to 'manual' whenever a bad match is manually undone.
+--
+-- Without this, the batch grounding panel's default candidate pool
+-- (source='manual') accumulates every ingredient that's never been
+-- successfully grounded, across ALL batches — forcing the admin to
+-- re-review the same already-checked items every time a new batch is
+-- seeded, since a freshly-seeded batch's manual rows are
+-- indistinguishable from ones already checked and left manual on
+-- purpose. NULL means never attempted; set on every grounding run
+-- regardless of whether the admin applies a resulting match.
+alter table public.ingredients add column usda_last_attempted_at timestamptz;

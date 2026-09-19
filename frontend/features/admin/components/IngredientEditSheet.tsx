@@ -7,6 +7,7 @@ import {
   applyUsdaMatch,
   getUsdaSourceUrl,
   groundIngredientsUsda,
+  markUsdaGroundingAttempted,
   type IngredientRow,
   type UsdaGroundingResult,
 } from "@/api/ingredients";
@@ -219,6 +220,9 @@ export function IngredientEditSheet({ visible, onClose, ingredient, onSave, isSa
       ]);
       setUsdaResult(result ?? null);
       setUsdaCandidateIndex(0);
+      // So the batch grounding panel doesn't re-surface this ingredient as
+      // "never checked" after a deliberate one-off re-run here.
+      markUsdaGroundingAttempted([ingredient.id]).catch(() => {});
     } finally {
       setIsFetchingUsda(false);
     }

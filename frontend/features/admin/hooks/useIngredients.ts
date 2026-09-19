@@ -3,6 +3,7 @@ import {
   archiveIngredient,
   getIngredients,
   groundIngredientsUsda,
+  markUsdaGroundingAttempted,
   updateIngredient,
   type IngredientFilters,
   type IngredientRow,
@@ -41,5 +42,15 @@ export function useGroundIngredientsUsda() {
   return useMutation({
     mutationFn: (ingredients: { id: string; canonicalName: string }[]) =>
       groundIngredientsUsda(ingredients),
+  });
+}
+
+export function useMarkUsdaGroundingAttempted() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => markUsdaGroundingAttempted(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "ingredients"] });
+    },
   });
 }

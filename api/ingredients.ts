@@ -50,6 +50,21 @@ export async function archiveIngredient(id: string) {
   return updateIngredient(id, { archived_at: new Date().toISOString() });
 }
 
+// Marks ingredients as having gone through a USDA grounding attempt,
+// regardless of outcome (matched, no confident match, error, or a match
+// found but never applied). Call this after every batch grounding run so
+// the "still manual" candidate pool doesn't keep resurfacing ingredients
+// that were already checked — see migration
+// 20260919000000_ingredients_track_usda_grounding_attempts.sql.
+export async function markUsdaGroundingAttempted(ids: string[]) {
+  if (ids.length === 0) return;
+  const { error } = await supabase
+    .from("ingredients")
+    .update({ usda_last_attempted_at: new Date().toISOString() })
+    .in("id", ids);
+  if (error) throw error;
+}
+
 // Confirmed working directly (not the older /fdc-app.html hash-routed URL,
 // which redirects to a dead route).
 export function getUsdaSourceUrl(fdcId: string | number) {
