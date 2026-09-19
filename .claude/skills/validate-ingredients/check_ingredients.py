@@ -103,7 +103,10 @@ class Findings:
         return 1 if self.items["MUST-FIX"] else 0
 
 
-def plausibility_checks(f, name, state, macro_vals, price):
+MEAT_FISH_FOOD_GROUPS = {"Meat & Poultry", "Fish & Seafood"}
+
+
+def plausibility_checks(f, name, state, macro_vals, price, food_group=None):
     """Checks that apply to any ingredient row regardless of where it came
     from (a pasted post-grounding CSV, or a seed batch's own AI-estimated
     placeholder numbers before it's ever applied) — negative values,
@@ -152,6 +155,7 @@ def plausibility_checks(f, name, state, macro_vals, price):
     is_plain_meat = (
         not any(h in lname for h in FAT_DOMINANT_HINTS + ORGAN_HINTS + BLOOD_HINTS + PROCESSED_HINTS + MOLLUSK_HINTS)
         and (state or "").strip().lower() in ("raw", "cooked")
+        and (food_group is None or food_group in MEAT_FISH_FOOD_GROUPS)
     )
     if is_plain_meat:
         if c is not None and c > 2:
@@ -193,7 +197,8 @@ def validate_csv(path):
                 continue
             macro_vals[field] = to_float(row.get(field))
         price = to_float(row.get("estimated_price")) if "estimated_price" in cols else None
-        plausibility_checks(f, name, row.get("state", ""), macro_vals, price)
+        food_group = row.get("food_group") if "food_group" in cols else None
+        plausibility_checks(f, name, row.get("state", ""), macro_vals, price, food_group)
 
         # 5. Enum/unit validation.
         if "role" in cols and row.get("role") and row["role"] not in VALID_ROLE:
@@ -323,7 +328,8 @@ def validate_seed(path):
         macro_vals = {field: to_float(row[field]) for field in MACRO_FIELDS if field in row}
         price = to_float(row["estimated_price"]) if "estimated_price" in row else None
         state = row.get("state", "").strip("' ")
-        plausibility_checks(f, name, state, macro_vals, price)
+        food_group = row.get("food_group", "").strip("' ") or None
+        plausibility_checks(f, name, state, macro_vals, price, food_group)
 
     return f.report()
 
