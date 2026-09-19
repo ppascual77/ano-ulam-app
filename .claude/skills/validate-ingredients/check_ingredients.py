@@ -70,6 +70,12 @@ EGG_DAIRY_HINTS = [
     "egg", "balut", "milk", "cream", "cheese", "yogurt", "yoghurt", "butter",
     "margarine", "curd",
 ]
+# Grains/starches are inherently carb-dominant and low-protein — that's the
+# defining trait of the food group, not a sign of a mismatched USDA record.
+GRAIN_HINTS = [
+    "rice", "noodle", "pasta", "macaroni", "spaghetti", "oat", "corn",
+    "flour", "bread", "grits", "cornstarch", "sinangag", "pandesal",
+]
 
 
 def is_blank(v):
@@ -171,7 +177,7 @@ def plausibility_checks(f, name, state, macro_vals, price, food_group=None):
         f.add("REVIEW", name, f"name suggests blood, expected very low fat, got fat={fa}g")
 
     is_plain_meat = (
-        not any(h in lname for h in FAT_DOMINANT_HINTS + ORGAN_HINTS + BLOOD_HINTS + PROCESSED_HINTS + MOLLUSK_HINTS + EGG_DAIRY_HINTS)
+        not any(h in lname for h in FAT_DOMINANT_HINTS + ORGAN_HINTS + BLOOD_HINTS + PROCESSED_HINTS + MOLLUSK_HINTS + EGG_DAIRY_HINTS + GRAIN_HINTS)
         and (state or "").strip().lower() in ("raw", "cooked")
         and (food_group is None or food_group in MEAT_FISH_FOOD_GROUPS)
     )
