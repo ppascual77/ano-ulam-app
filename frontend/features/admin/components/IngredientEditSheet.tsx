@@ -1,7 +1,15 @@
 import { ReactNode, useEffect, useState } from "react";
-import { View, ScrollView, Pressable } from "react-native";
+import { View, ScrollView, Pressable, Linking } from "react-native";
+import { ExternalLink } from "lucide-react-native";
 import { AppText, BottomSheet, Button, ChipSelect, TextField } from "@/frontend/components/ui";
-import { applyUsdaMatch, groundIngredientsUsda, type IngredientRow, type UsdaGroundingResult } from "@/api/ingredients";
+import { colors } from "@/frontend/constants/theme";
+import {
+  applyUsdaMatch,
+  getUsdaSourceUrl,
+  groundIngredientsUsda,
+  type IngredientRow,
+  type UsdaGroundingResult,
+} from "@/api/ingredients";
 
 type Props = {
   visible: boolean;
@@ -341,6 +349,19 @@ export function IngredientEditSheet({ visible, onClose, ingredient, onSave, isSa
                       </Pressable>
                     ))}
                   </View>
+                  <Pressable
+                    onPress={() =>
+                      Linking.openURL(
+                        getUsdaSourceUrl(usdaResult.candidates[usdaCandidateIndex]?.fdcId ?? usdaResult.candidates[0].fdcId),
+                      )
+                    }
+                    className="flex-row items-center gap-1"
+                  >
+                    <AppText variant="caption" className="text-primary">
+                      View on USDA
+                    </AppText>
+                    <ExternalLink color={colors.primary} size={12} />
+                  </Pressable>
                   <Button label="Apply to form" onPress={handleApplyUsdaCandidate} />
                 </>
               )}
@@ -350,6 +371,17 @@ export function IngredientEditSheet({ visible, onClose, ingredient, onSave, isSa
           <AppText variant="caption">Source</AppText>
           <ChipSelect mode="single" options={SOURCE_OPTIONS} value={form.source} onChange={(v) => set("source", v)} />
           <TextField label="Source reference ID" value={form.source_ref_id} onChangeText={(v) => set("source_ref_id", v)} />
+          {form.source[0] === "USDA" && form.source_ref_id.trim() !== "" && (
+            <Pressable
+              onPress={() => Linking.openURL(getUsdaSourceUrl(form.source_ref_id.trim()))}
+              className="flex-row items-center gap-1 -mt-2"
+            >
+              <AppText variant="caption" className="text-primary">
+                View on USDA
+              </AppText>
+              <ExternalLink color={colors.primary} size={12} />
+            </Pressable>
+          )}
           <TextField
             label="Source description"
             value={form.source_description}

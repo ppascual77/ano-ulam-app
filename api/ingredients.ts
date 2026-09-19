@@ -50,6 +50,12 @@ export async function archiveIngredient(id: string) {
   return updateIngredient(id, { archived_at: new Date().toISOString() });
 }
 
+// Confirmed working directly (not the older /fdc-app.html hash-routed URL,
+// which redirects to a dead route).
+export function getUsdaSourceUrl(fdcId: string | number) {
+  return `https://fdc.nal.usda.gov/food-details/${fdcId}/nutrients`;
+}
+
 export type UsdaGroundingMatch = {
   fdcId: number;
   description: string;

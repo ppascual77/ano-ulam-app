@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import { View, Pressable } from "react-native";
+import { View, Pressable, Linking } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { Check, ExternalLink } from "lucide-react-native";
 import { AppText, Button, LoadingState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { applyUsdaMatch, type IngredientRow, type UsdaGroundingResult } from "@/api/ingredients";
+import { applyUsdaMatch, getUsdaSourceUrl, type IngredientRow, type UsdaGroundingResult } from "@/api/ingredients";
 import { useGroundIngredientsUsda, useIngredients, useUpdateIngredient } from "../hooks/useIngredients";
 
 const CONFIDENCE_TONE: Record<string, string> = {
@@ -160,12 +160,15 @@ export function UsdaGroundingPanel() {
                       </AppText>
                     )}
                     {activeCandidate && (
-                      <View className="flex-row items-center gap-1">
+                      <Pressable
+                        onPress={() => Linking.openURL(getUsdaSourceUrl(activeCandidate.fdcId))}
+                        className="flex-row items-center gap-1"
+                      >
                         <AppText variant="caption" className="text-ink-subtle">
                           → {activeCandidate.description} ({activeCandidate.calories ?? "?"} cal/100g)
                         </AppText>
                         <ExternalLink color={colors.ink.subtle} size={12} />
-                      </View>
+                      </Pressable>
                     )}
                   </View>
                 </Pressable>
