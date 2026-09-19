@@ -62,4 +62,7 @@ insert into public.ingredients (
    200, 'L', 'manual', null, null),
   ('Yogurt, plain', 'Plain yogurt', array['yogurt', 'plain yogurt'], 'Dairy', 'Eggs & Dairy', 'raw', 'pantry',
    100, 'ml', 61, 3.5, 4.7, 3.3, 4.7, 0, 46, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
-   180, 'L', 'manual', null, null);
+   180, 'L', 'manual', null, null),
+  ('Yogurt, Greek, plain', 'Greek yogurt', array['greek yogurt', 'strained yogurt'], 'Dairy', 'Eggs & Dairy', 'raw', 'pantry',
+   100, 'ml', 97, 9, 3.6, 5, 3.6, 0, 35, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   350, 'L', 'manual', null, null);
