@@ -131,11 +131,19 @@ def plausibility_checks(f, name, state, macro_vals, price, food_group=None):
     if price is not None and price < 0:
         f.add("MUST-FIX", name, f"estimated_price = {price} is negative")
 
-    # Calorie/macro-math consistency (Atwater factors).
+    # Calorie/macro-math consistency (Atwater factors). Fiber is counted
+    # inside `carbohydrates` (standard label convention) but only
+    # contributes ~2 kcal/g, not 4 like digestible carbs — ignoring that
+    # overstates expected calories for any high-fiber food (grains, produce,
+    # legumes) and would throw false MUST-FIX flags on correct data. Net out
+    # the difference when fiber is known.
     cal = macro_vals.get("calories")
     p, c, fa = macro_vals.get("protein"), macro_vals.get("carbohydrates"), macro_vals.get("fat")
+    fiber = macro_vals.get("fiber")
     if cal is not None and None not in (p, c, fa):
         expected = p * 4 + c * 4 + fa * 9
+        if fiber is not None and fiber > 0:
+            expected -= fiber * 2
         if cal > 1 and expected > 1:
             diff_pct = abs(cal - expected) / max(cal, expected)
             if diff_pct > 0.35:
