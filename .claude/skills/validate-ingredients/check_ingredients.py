@@ -42,7 +42,7 @@ REQUIRED_CSV_FIELDS = [
     "verification_status",
 ]
 
-FAT_DOMINANT_HINTS = ["skin", "fat", "lard", "bacon", "chicharon", "crackling"]
+FAT_DOMINANT_HINTS = ["skin", "fat", "lard", "bacon", "chicharon", "crackling", "marrow"]
 ORGAN_HINTS = ["liver", "gizzard", "heart", "kidney", "intestine", "tripe"]
 BLOOD_HINTS = ["blood", "dinuguan"]
 # Processed/sauced/breaded items legitimately carry carbs and can legitimately
@@ -96,6 +96,67 @@ class Findings:
         return 1 if self.items["MUST-FIX"] else 0
 
 
+def plausibility_checks(f, name, state, macro_vals, price):
+    """Checks that apply to any ingredient row regardless of where it came
+    from (a pasted post-grounding CSV, or a seed batch's own AI-estimated
+    placeholder numbers before it's ever applied) — negative values,
+    calorie/macro-math consistency, and category-plausibility heuristics by
+    name keyword. Mutates `f` (a Findings instance) in place."""
+    # Negative values.
+    for field, val in macro_vals.items():
+        if val is not None and val < 0:
+            sev = "REVIEW" if val >= -1 else "MUST-FIX"
+            f.add(sev, name, f"{field} = {val} is negative "
+                  f"({'likely USDA by-difference rounding artifact, clamp to 0' if sev == 'REVIEW' else 'data corruption'})")
+    if price is not None and price < 0:
+        f.add("MUST-FIX", name, f"estimated_price = {price} is negative")
+
+    # Calorie/macro-math consistency (Atwater factors).
+    cal = macro_vals.get("calories")
+    p, c, fa = macro_vals.get("protein"), macro_vals.get("carbohydrates"), macro_vals.get("fat")
+    if cal is not None and None not in (p, c, fa):
+        expected = p * 4 + c * 4 + fa * 9
+        if cal > 1 and expected > 1:
+            diff_pct = abs(cal - expected) / max(cal, expected)
+            if diff_pct > 0.35:
+                f.add("MUST-FIX", name,
+                      f"calories={cal} vs macro-derived={expected:.0f} ({diff_pct:.0%} off) — "
+                      f"arithmetic doesn't add up, likely a mistyped/wrong value")
+            elif diff_pct > 0.15:
+                f.add("REVIEW", name,
+                      f"calories={cal} vs macro-derived={expected:.0f} ({diff_pct:.0%} off) — worth a second look")
+
+    # Category-plausibility heuristics by name keyword.
+    lname = name.lower()
+    if any(h in lname for h in FAT_DOMINANT_HINTS) and None not in (p, fa):
+        fat_kcal = fa * 9
+        protein_kcal = p * 4
+        if fat_kcal <= protein_kcal:
+            f.add("REVIEW", name,
+                  f"name suggests a fat-dominant cut but protein ({p}g/{protein_kcal:.0f}kcal) "
+                  f">= fat ({fa}g/{fat_kcal:.0f}kcal) — possibly matched/estimated as a lean-meat record instead")
+    if any(h in lname for h in ORGAN_HINTS) and None not in (p, fa):
+        if p < fa:
+            f.add("REVIEW", name,
+                  f"name suggests organ meat, usually protein >= fat, but fat ({fa}g) > protein ({p}g) here")
+    if any(h in lname for h in BLOOD_HINTS) and fa is not None and fa > 5:
+        f.add("REVIEW", name, f"name suggests blood, expected very low fat, got fat={fa}g")
+
+    is_plain_meat = (
+        not any(h in lname for h in FAT_DOMINANT_HINTS + ORGAN_HINTS + BLOOD_HINTS + PROCESSED_HINTS)
+        and (state or "").strip().lower() in ("raw", "cooked")
+    )
+    if is_plain_meat:
+        if c is not None and c > 2:
+            f.add("REVIEW", name,
+                  f"plain {state} meat cut but carbohydrates={c}g — meat itself is near-zero carb; "
+                  f"matched/estimated record may include sauce/breading/marinade")
+        if p is not None and p < 12:
+            f.add("REVIEW", name,
+                  f"plain {state} meat cut but protein={p}g is unusually low for muscle tissue "
+                  f"(compare to organ meats, often 15-21g) — record may actually be fat/skin")
+
+
 def validate_csv(path):
     f = Findings()
     with open(path, newline="", encoding="utf-8") as fh:
@@ -118,66 +179,14 @@ def validate_csv(path):
             if field in cols and is_blank(row.get(field)):
                 f.add("MUST-FIX", name, f"{field} is blank/null — every field must be filled per project rule")
 
-        # 2. Negative values.
+        # 2-4. Negative values, calorie-math consistency, category-plausibility.
         macro_vals = {}
         for field in MACRO_FIELDS:
             if field not in cols:
                 continue
-            val = to_float(row.get(field))
-            macro_vals[field] = val
-            if val is not None and val < 0:
-                sev = "REVIEW" if val >= -1 else "MUST-FIX"
-                f.add(sev, name, f"{field} = {val} is negative "
-                      f"({'likely USDA by-difference rounding artifact, clamp to 0' if sev == 'REVIEW' else 'data corruption'})")
-        if "estimated_price" in cols:
-            price = to_float(row.get("estimated_price"))
-            if price is not None and price < 0:
-                f.add("MUST-FIX", name, f"estimated_price = {price} is negative")
-
-        # 3. Calorie/macro-math consistency (Atwater factors).
-        cal = macro_vals.get("calories")
-        p, c, fa = macro_vals.get("protein"), macro_vals.get("carbohydrates"), macro_vals.get("fat")
-        if cal is not None and None not in (p, c, fa):
-            expected = p * 4 + c * 4 + fa * 9
-            if cal > 1 and expected > 1:
-                diff_pct = abs(cal - expected) / max(cal, expected)
-                if diff_pct > 0.35:
-                    f.add("MUST-FIX", name,
-                          f"calories={cal} vs macro-derived={expected:.0f} ({diff_pct:.0%} off) — "
-                          f"likely wrong USDA record matched")
-                elif diff_pct > 0.15:
-                    f.add("REVIEW", name,
-                          f"calories={cal} vs macro-derived={expected:.0f} ({diff_pct:.0%} off) — worth a second look")
-
-        # 4. Category-plausibility heuristics by name keyword.
-        lname = name.lower()
-        if any(h in lname for h in FAT_DOMINANT_HINTS) and None not in (p, fa):
-            fat_kcal = fa * 9
-            protein_kcal = p * 4
-            if fat_kcal <= protein_kcal:
-                f.add("REVIEW", name,
-                      f"name suggests a fat-dominant cut but protein ({p}g/{protein_kcal:.0f}kcal) "
-                      f">= fat ({fa}g/{fat_kcal:.0f}kcal) — possibly matched to a lean-meat record instead")
-        if any(h in lname for h in ORGAN_HINTS) and None not in (p, fa):
-            if p < fa:
-                f.add("REVIEW", name,
-                      f"name suggests organ meat, usually protein >= fat, but fat ({fa}g) > protein ({p}g) here")
-        if any(h in lname for h in BLOOD_HINTS) and fa is not None and fa > 5:
-            f.add("REVIEW", name, f"name suggests blood, expected very low fat, got fat={fa}g")
-
-        is_plain_meat = (
-            not any(h in lname for h in FAT_DOMINANT_HINTS + ORGAN_HINTS + BLOOD_HINTS + PROCESSED_HINTS)
-            and row.get("state", "").strip().lower() in ("raw", "cooked")
-        )
-        if is_plain_meat:
-            if c is not None and c > 2:
-                f.add("REVIEW", name,
-                      f"plain {row.get('state')} meat cut but carbohydrates={c}g — meat itself is near-zero carb; "
-                      f"matched USDA record may include sauce/breading/marinade")
-            if p is not None and p < 12:
-                f.add("REVIEW", name,
-                      f"plain {row.get('state')} meat cut but protein={p}g is unusually low for muscle tissue "
-                      f"(compare to organ meats, often 15-21g) — matched record may actually be fat/skin")
+            macro_vals[field] = to_float(row.get(field))
+        price = to_float(row.get("estimated_price")) if "estimated_price" in cols else None
+        plausibility_checks(f, name, row.get("state", ""), macro_vals, price)
 
         # 5. Enum/unit validation.
         if "role" in cols and row.get("role") and row["role"] not in VALID_ROLE:
@@ -304,14 +313,11 @@ def validate_seed(path):
         if "verification_status" in row and row["verification_status"].strip("' ") != "NEEDS_REVIEW":
             f.add("REVIEW", name, f"verification_status='{row['verification_status'].strip(chr(39))}' — seed batches are expected to be NEEDS_REVIEW")
 
-        for numeric_col in ["calories", "protein", "carbohydrates", "fat", "sugar", "fiber", "sodium", "estimated_price"]:
-            if numeric_col in row:
-                v = to_float(row[numeric_col])
-                if v is not None and v < 0:
-                    f.add("MUST-FIX", name, f"{numeric_col} = {v} is negative")
+        macro_vals = {field: to_float(row[field]) for field in MACRO_FIELDS if field in row}
+        price = to_float(row["estimated_price"]) if "estimated_price" in row else None
+        state = row.get("state", "").strip("' ")
+        plausibility_checks(f, name, state, macro_vals, price)
 
-    # Duplicate canonical_name within the same batch file.
-    names = [row_tup.split(",")[0].strip("' ") for row_tup in tuples if row_tup]
     return f.report()
 
 
