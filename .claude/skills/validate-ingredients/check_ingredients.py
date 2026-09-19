@@ -52,7 +52,14 @@ BLOOD_HINTS = ["blood", "dinuguan"]
 PROCESSED_HINTS = [
     "sauce", "sisig", "tocino", "longganisa", "tapa", "breaded", "batter",
     "gravy", "adobo", "sweet", "cured", "marinated", "tinapa", "smoked",
+    "fish ball", "crab stick", "imitation", "surimi", "kani",
 ]
+# Bivalves and cephalopods genuinely store glycogen and carry real (if
+# small) carbohydrate content, and aren't as protein-dense as vertebrate
+# muscle per 100g — unlike a vertebrate "meat" cut, a few g of carbs or
+# under-12g protein here isn't a sign of a wrong match. Excluded from the
+# plain-meat carb/protein floor checks, same reasoning as PROCESSED_HINTS.
+MOLLUSK_HINTS = ["squid", "octopus", "mussel", "oyster", "clam", "scallop", "snail"]
 
 
 def is_blank(v):
@@ -143,7 +150,7 @@ def plausibility_checks(f, name, state, macro_vals, price):
         f.add("REVIEW", name, f"name suggests blood, expected very low fat, got fat={fa}g")
 
     is_plain_meat = (
-        not any(h in lname for h in FAT_DOMINANT_HINTS + ORGAN_HINTS + BLOOD_HINTS + PROCESSED_HINTS)
+        not any(h in lname for h in FAT_DOMINANT_HINTS + ORGAN_HINTS + BLOOD_HINTS + PROCESSED_HINTS + MOLLUSK_HINTS)
         and (state or "").strip().lower() in ("raw", "cooked")
     )
     if is_plain_meat:
