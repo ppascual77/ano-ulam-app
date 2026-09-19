@@ -1,0 +1,80 @@
+-- Batch 10/~13: Legumes (20 items). Same treatment as batches 1-9 —
+-- AI-estimated placeholders, honestly tagged source='manual',
+-- verification_status='NEEDS_REVIEW', so the "Ground from USDA" tool has
+-- real candidates to upgrade against, and any item it can't confidently
+-- match still has usable (if approximate) data rather than nulls blocking
+-- the meal-nutrition pipeline.
+--
+-- Covers dried beans/lentils (raw + cooked, since cooking roughly triples
+-- mass via water absorption and meaningfully changes the per-100g profile,
+-- same cooking-state-as-identity rule as every prior batch), peanuts, and
+-- soy products (tofu, peanut butter). New food_group='Legumes & Nuts'
+-- rather than folding into 'Vegetables' — botanically/nutritionally a
+-- distinct category (protein/fat-bearing) worth its own browse filter.
+insert into public.ingredients (
+  canonical_name, display_name, aliases, category, food_group, state, role,
+  basis_amount, basis_unit, calories, protein, carbohydrates, fat, sugar, fiber, sodium,
+  source, source_description, verification_status,
+  estimated_price, estimated_price_unit, price_source,
+  grams_per_piece, piece_label
+) values
+  ('Mung beans, dried', 'Mung beans (monggo)', array['monggo', 'munggo', 'mung beans'], 'Legume', 'Legumes & Nuts', 'dried', 'pantry',
+   100, 'g', 347, 23.9, 62.6, 1.2, 6.6, 16.3, 15, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   120, 'kg', 'manual', null, null),
+  ('Mung beans, cooked', 'Cooked mung beans (monggo)', array['cooked monggo', 'ginisang monggo'], 'Legume', 'Legumes & Nuts', 'cooked', 'pantry',
+   100, 'g', 105, 7, 19.2, 0.4, 2, 7.6, 2, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   50, 'kg', 'manual', null, null),
+  ('Kidney beans, dried', 'Kidney beans', array['kidney beans', 'red beans'], 'Legume', 'Legumes & Nuts', 'dried', 'pantry',
+   100, 'g', 333, 23.6, 60, 0.8, 2.3, 24.9, 12, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   150, 'kg', 'manual', null, null),
+  ('Kidney beans, cooked', 'Cooked kidney beans', array['cooked kidney beans', 'cooked red beans'], 'Legume', 'Legumes & Nuts', 'cooked', 'pantry',
+   100, 'g', 127, 8.7, 22.8, 0.5, 0.3, 6.4, 1, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   60, 'kg', 'manual', null, null),
+  ('White beans, dried', 'White beans (patani)', array['patani', 'white beans', 'lima beans'], 'Legume', 'Legumes & Nuts', 'dried', 'pantry',
+   100, 'g', 338, 21.5, 63.4, 1.4, 3.3, 19, 18, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   160, 'kg', 'manual', null, null),
+  ('White beans, cooked', 'Cooked white beans (patani)', array['cooked patani', 'cooked white beans'], 'Legume', 'Legumes & Nuts', 'cooked', 'pantry',
+   100, 'g', 127, 8.2, 23.7, 0.5, 1.4, 6.6, 2, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   65, 'kg', 'manual', null, null),
+  ('Black beans, dried', 'Black beans', array['black beans'], 'Legume', 'Legumes & Nuts', 'dried', 'pantry',
+   100, 'g', 341, 21.6, 62.4, 1.4, 2, 15.5, 5, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   180, 'kg', 'manual', null, null),
+  ('Black beans, cooked', 'Cooked black beans', array['cooked black beans'], 'Legume', 'Legumes & Nuts', 'cooked', 'pantry',
+   100, 'g', 132, 8.9, 23.7, 0.5, 0.3, 8.7, 1, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   70, 'kg', 'manual', null, null),
+  ('Garbanzo beans, dried', 'Garbanzo beans (chickpeas)', array['chickpeas', 'garbanzo beans', 'garbanzos'], 'Legume', 'Legumes & Nuts', 'dried', 'pantry',
+   100, 'g', 364, 19.3, 61, 6, 10.7, 17.4, 24, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   220, 'kg', 'manual', null, null),
+  ('Garbanzo beans, cooked', 'Cooked garbanzo beans (chickpeas)', array['cooked chickpeas', 'cooked garbanzos'], 'Legume', 'Legumes & Nuts', 'cooked', 'pantry',
+   100, 'g', 164, 8.9, 27.4, 2.6, 4.8, 7.6, 7, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   90, 'kg', 'manual', null, null),
+  ('Soybeans, dried', 'Soybeans', array['soybeans', 'utaw'], 'Legume', 'Legumes & Nuts', 'dried', 'pantry',
+   100, 'g', 446, 36.5, 30.2, 19.9, 7.3, 9.3, 2, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   130, 'kg', 'manual', null, null),
+  ('Soybeans, cooked', 'Cooked soybeans', array['cooked soybeans'], 'Legume', 'Legumes & Nuts', 'cooked', 'pantry',
+   100, 'g', 173, 16.6, 9.9, 9, 3, 6, 1, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   55, 'kg', 'manual', null, null),
+  ('Peanuts, raw', 'Peanuts', array['mani', 'peanuts', 'groundnuts'], 'Nut', 'Legumes & Nuts', 'raw', 'pantry',
+   100, 'g', 567, 25.8, 16.1, 49.2, 4, 8.5, 18, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   150, 'kg', 'manual', null, null),
+  ('Peanuts, roasted', 'Roasted peanuts', array['roasted peanuts', 'inihaw na mani'], 'Nut', 'Legumes & Nuts', 'cooked', 'pantry',
+   100, 'g', 585, 24, 21, 49.7, 4.5, 8.4, 400, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   200, 'kg', 'manual', null, null),
+  ('Tofu, firm', 'Firm tofu', array['tokwa', 'firm tofu', 'tofu'], 'Soy Product', 'Legumes & Nuts', 'raw', 'main',
+   100, 'g', 144, 15.8, 3.3, 8.7, 0.6, 1.2, 12, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   90, 'kg', 'manual', 350, 'block'),
+  ('Tofu, fried', 'Fried tofu (tokwa)', array['fried tokwa', 'fried tofu'], 'Soy Product', 'Legumes & Nuts', 'fried', 'main',
+   100, 'g', 271, 17.2, 9.4, 20.2, 0.6, 2, 20, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   150, 'kg', 'manual', null, null),
+  ('Lentils, dried', 'Lentils', array['lentils'], 'Legume', 'Legumes & Nuts', 'dried', 'pantry',
+   100, 'g', 353, 25.8, 60.1, 1.1, 2, 10.7, 6, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   200, 'kg', 'manual', null, null),
+  ('Lentils, cooked', 'Cooked lentils', array['cooked lentils'], 'Legume', 'Legumes & Nuts', 'cooked', 'pantry',
+   100, 'g', 116, 9, 20, 0.4, 1.8, 7.9, 2, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   80, 'kg', 'manual', null, null),
+  ('Pigeon peas, dried', 'Pigeon peas (kadyos)', array['kadyos', 'pigeon peas'], 'Legume', 'Legumes & Nuts', 'dried', 'pantry',
+   100, 'g', 343, 21.7, 62.8, 1.5, 4, 15, 17, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   180, 'kg', 'manual', null, null),
+  ('Peanut butter', 'Peanut butter', array['peanut butter'], 'Nut', 'Legumes & Nuts', 'raw', 'pantry',
+   100, 'g', 588, 25, 20, 50, 9, 6, 450, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
+   250, 'kg', 'manual', null, null);
