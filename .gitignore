@@ -40,3 +40,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# local-only reference material (its own separate git repo, not ours to track)
+/ano-ulam-reference

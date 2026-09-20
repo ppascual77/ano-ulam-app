@@ -23,21 +23,30 @@ const UNFOCUSED_BORDER = "rgba(43, 52, 55, 0.1)";
 export function TextField({ label, icon, value, onFocus, onBlur, className = "", ...props }: TextFieldProps) {
   const [isFocused, setIsFocused] = useState(false);
   const isFloating = isFocused || !!value;
-  const progress = useSharedValue(isFloating ? 1 : 0);
+  // Label position reacts to isFloating (focus OR has a value, so it never
+  // overlaps a prepopulated value); border/background color reacts to
+  // isFocused alone, so a prepopulated-but-unfocused field doesn't look
+  // focused.
+  const labelProgress = useSharedValue(isFloating ? 1 : 0);
+  const focusProgress = useSharedValue(isFocused ? 1 : 0);
 
   useEffect(() => {
-    progress.value = withTiming(isFloating ? 1 : 0, { duration: 180 });
-  }, [isFloating, progress]);
+    labelProgress.value = withTiming(isFloating ? 1 : 0, { duration: 180 });
+  }, [isFloating, labelProgress]);
+
+  useEffect(() => {
+    focusProgress.value = withTiming(isFocused ? 1 : 0, { duration: 180 });
+  }, [isFocused, focusProgress]);
 
   const containerStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(progress.value, [0, 1], [UNFOCUSED_BG, colors.white]),
-    borderColor: interpolateColor(progress.value, [0, 1], [UNFOCUSED_BORDER, colors.primary]),
+    backgroundColor: interpolateColor(focusProgress.value, [0, 1], [UNFOCUSED_BG, colors.white]),
+    borderColor: interpolateColor(focusProgress.value, [0, 1], [UNFOCUSED_BORDER, colors.primary]),
   }));
 
   const labelStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateY: interpolate(progress.value, [0, 1], [0, -12]) },
-      { scale: interpolate(progress.value, [0, 1], [1, 0.72]) },
+      { translateY: interpolate(labelProgress.value, [0, 1], [0, -12]) },
+      { scale: interpolate(labelProgress.value, [0, 1], [1, 0.72]) },
     ],
   }));
 

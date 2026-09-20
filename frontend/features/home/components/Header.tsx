@@ -60,7 +60,7 @@ export function Header({ name, avatarUrl }: HeaderProps) {
             {
               label: "Manage Ingredients",
               icon: <Carrot color={colors.ink.subtle} size={18} />,
-              onPress: () => console.log("TODO: Manage Ingredients"),
+              onPress: () => router.push("/manage-ingredients"),
             },
             {
               label: "Seed Meal",

@@ -596,6 +596,8 @@ After working through the tradeoffs, the schema is **one flat table** — no sep
 **If a recipe's unit can't be resolved** (neither `grams_per_ml` nor `grams_per_piece` covers it), the seeder must fail loud and flag it as `NEEDS_REVIEW`/`UNRESOLVED` rather than guess a number — same "preserve uncertainty" principle as nutrition matching (section 8).
 
 ```sql
+-- As actually implemented (see section 22 for role/price/basis additions
+-- made after this was first written — this block is kept up to date).
 create table ingredients (
   id uuid primary key default gen_random_uuid(),
   canonical_name text not null,
@@ -604,12 +606,15 @@ create table ingredients (
   category text,
   food_group text,
   state text,                  -- "raw" | "cooked" | "fried" | "dried" | null
+  role text,                   -- 'main' | 'pantry' — see section 22
 
   grams_per_ml numeric,
   grams_per_piece numeric,
   piece_label text,
 
-  calories numeric,             -- all nutrition below is always per 100g
+  basis_amount numeric not null default 100,   -- explicit, not just an assumed convention — see section 22
+  basis_unit text not null default 'g',
+  calories numeric,
   protein numeric,
   carbohydrates numeric,
   fat numeric,
@@ -617,12 +622,17 @@ create table ingredients (
   fiber numeric,
   sodium numeric,
 
-  source text,                  -- 'FNRI' | 'USDA'
+  source text,                  -- 'FNRI' | 'USDA' | 'manual'
   source_ref_id text,
   source_description text,
   match_type text,              -- 'exact' | 'approximate'
-  verification_status text,     -- 'VERIFIED' | 'HIGH_CONFIDENCE' | 'NEEDS_REVIEW' | 'UNRESOLVED'
+  verification_status text not null default 'UNRESOLVED',  -- 'VERIFIED' | 'HIGH_CONFIDENCE' | 'NEEDS_REVIEW' | 'UNRESOLVED'
   last_verified_at timestamptz,
+
+  estimated_price numeric,                 -- deliberate stopgap, see section 22 — not the final procurement system
+  estimated_price_unit text,               -- e.g. 'kg', 'L', 'piece', 'pack'
+  price_source text not null default 'manual',  -- 'manual' | 'price_watch'
+  price_last_updated_at timestamptz,
 
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -630,3 +640,62 @@ create table ingredients (
 ```
 
 `meal_ingredients` (the Meal↔Ingredient many-to-many join) is still a separate table regardless of any of the above — that's an unavoidable relationship, not a nesting choice: one ingredient is used by many meals at different quantities each time. Not yet finalized as of this writing — next step once ingredient seeding is underway.
+
+Implemented as migrations `20260909121739_ingredients_init.sql`, `20260909121740_ingredients_rls.sql`, `20260909122628_ingredients_allow_manual_source.sql` (adds `'manual'` to the `source` check — see section 21). RLS: publicly readable (`using (true)` on select), no write policy yet — writes are service_role/direct-connection only for now, since there's no enforced admin role in the schema.
+
+---
+
+# 21. The `manual` Source, and the Grounding Review Workflow (decided 2026-08-30)
+
+## Why a third source value, `manual`
+
+Grounding (matching an ingredient against FNRI/USDA) won't find a confident match for every ingredient — some are Filipino-specific items USDA doesn't carry, some just won't match well. The rule: **when grounding finds nothing confident, keep whatever data the ingredient already has rather than nulling it out**, and label its `source` as `'manual'` so it's honest about not being grounded against an official reference. This is a real, checked value now (`source in ('FNRI', 'USDA', 'manual')`), not a gap in the schema.
+
+## The initial seed intentionally has AI-estimated placeholder macros, not empty rows
+
+The first design of the seed data left all nutrition columns `null` until a real grounding pass could populate them, reasoning that filling them from AI's general knowledge would be exactly the "AI as authoritative nutritional truth" problem section 8 warns against.
+
+That was reconsidered: the seed instead ships with real, usable AI-estimated macro values per 100g, but explicitly marked `source = 'manual'` and `verification_status = 'NEEDS_REVIEW'` — honestly labeled as ungrounded rather than pretending to be verified. Reasoning: an ingredient with a labeled, honest placeholder is more useful right now (it lets the meal seeder and nutrition-calculation pipeline actually be tested end-to-end) than an ingredient with nothing at all, as long as the label makes clear it hasn't been checked against FNRI/USDA yet. This isn't "pretending every match is correct" (section 8's actual concern) — it's a clearly-tagged interim value, upgradeable later. A future FNRI/USDA grounding pass should overwrite these with real reference data wherever it finds a confident match; ingredients that never get a confident match simply stay `manual` rather than losing their data.
+
+## Grounding is USDA-first for now, not both sources
+
+The web app's existing "Manage Ingredients" admin flow already implements FNRI Import and USDA Grounding as separate actions. FNRI's existing structure is more manual/less API-groundable, so **only USDA grounding is being built for the mobile/new backend right now**; FNRI import is deferred until its data pipeline is cleaner. This doesn't change the schema (FNRI is still a valid `source` value) — it only affects which grounding tooling gets built first.
+
+## The review-and-apply workflow to replicate (learned from the existing web app)
+
+The existing web app's USDA grounding flow (screenshotted during this session) is a good reference for the tooling to build later:
+
+1. **Seed identity first, ground later** — ingredients get their `canonical_name`/`aliases`/`category` populated before any nutrition matching runs. This is already how the current seed works.
+2. **Grounding runs as a batch job with live progress** ("Fetching macros... 20/539 (4%)"), searching USDA per ingredient.
+3. **Two distinct "no data" outcomes, not one** — critical distinction:
+   - **`NONE` / no confident match**: USDA responded successfully but nothing matched well enough. A resolved outcome — the ingredient should stay `UNRESOLVED`/`manual`, not be retried automatically. ("No confident USDA match — resolve individually via Edit → Fetch from USDA, or leave for FNRI.")
+   - **`ERROR`**: the USDA API call itself failed (network, auth, bad request). Not a "no match" conclusion — this should be retryable, not treated as settled.
+4. **Confidence-based default selection, not blind bulk-apply**: matches come back tagged `HIGH`/`LOW` confidence (plus the `NONE`/`ERROR` cases above). `HIGH` confidence matches are pre-checked (opt-out to apply); `LOW` confidence matches are unchecked (opt-in — a human has to actively decide); `NONE`/`ERROR` rows have nothing to apply. A "Confirm N selected" action applies only the checked rows — running the grounding job itself **never** silently overwrites live data; applying is a separate, deliberate step.
+5. **Never downgrade already-good data**: grounding should only be run against `UNRESOLVED`/`NEEDS_REVIEW` rows by default. A `VERIFIED`/`HIGH_CONFIDENCE` row (especially one already sourced from the preferred FNRI) should never get silently clobbered by a lower-priority USDA guess just because a grounding batch was rerun. A "force re-ground everything" action, if ever needed, must be a distinct, deliberate action — never the default button behavior.
+6. Each matched row shows the actual matched reference name and value (e.g. "→ Papayas, raw (43 cal/100g, 4 units found)") — per-100g, consistent with section 20's basis decision — plus how many candidate matches were found, so ambiguous cases are visible rather than silently picking one.
+
+Not yet built: the USDA API integration, confidence scoring, and this review/apply UI are future work — this section documents the target design, decided ahead of implementation.
+
+---
+
+# 22. `role`, Estimated Price, and Making the Nutrition Basis Explicit (decided 2026-08-30)
+
+## `role`: 'main' vs 'pantry'
+
+Matches the existing mock `IngredientType.type` concept already used elsewhere in the app: **`main`** is a headline ingredient you'd shop for specifically for a given meal (e.g. chicken breast); **`pantry`** is a staple usually already on hand (salt, cooking oil, garlic, rice, condiments). Stored as `role text check (role is null or role in ('main', 'pantry'))`.
+
+## Estimated price — a deliberate, flagged compromise
+
+This one sits in real tension with section 11's principle that nutrition and price/procurement are separate concerns (nutrition is stable, price is dynamic, and price eventually needs full history/sourcing via Price Watch). Adding a single static price value directly on `ingredients` is exactly the kind of undifferentiated object that section 11 warns against as the *permanent* design.
+
+The resolution: treat it the same way as the nutrition placeholders — a clearly-tagged, honest stopgap, not the final system. `estimated_price` + `estimated_price_unit` (denominated in whatever unit people actually shop in — `kg`, `L`, `piece`, `pack` — not forced into the per-100g nutrition basis, since nobody buys "100g of rice" at a store) + `price_source` (`'manual'` | `'price_watch'`, defaulting to `'manual'` since no price-grounding pipeline exists yet — unlike nutrition, there isn't currently a clear plan for *how* to ground this against real market data) + `price_last_updated_at`. When Price Watch grounding exists, this should migrate into its own `price_observations`-style table (per section 11's original vision — per-store/per-time price history), not stay bolted onto `ingredients` forever.
+
+## Making "always per 100g" explicit instead of an unenforced assumption
+
+Section 20 originally dropped `basis_amount`/`basis_unit` as columns, reasoning the value never varies so it wasn't worth storing. That was a mistake, caught during implementation: an unenforced convention that only exists in documentation is exactly the kind of silent-assumption risk section 15/16 warns against — nothing would catch a future import that's actually per-serving instead of per-100g. Restored as real columns: `basis_amount numeric not null default 100`, `basis_unit text not null default 'g'`.
+
+## The seed's `grams_per_ml`/`grams_per_piece` are AI-estimated too, same as nutrition/price
+
+Unlike nutrition and price, there's no provenance-tracking pair added for these (no `conversion_source` column) — no grounding pipeline is planned for unit conversions, they're expected to stay manual/cooking-reference values long-term rather than progressing through a verification pipeline the way nutrition does.
+
+Implemented as migrations `20260909123703_ingredients_add_role_and_price.sql` and `20260909123842_ingredients_add_nutrition_basis.sql`, with `supabase/seed.sql` updated to populate all of the above for the 10 test ingredients.
