@@ -50,6 +50,20 @@ export async function archiveIngredient(id: string) {
   return updateIngredient(id, { archived_at: new Date().toISOString() });
 }
 
+// Used by the meal seeder's "Add + use" USDA fallback — when an admin
+// building a meal can't find a matching row in `ingredients` at all, this
+// creates one from a chosen USDA candidate (via applyUsdaMatch's patch
+// shape) so meal_ingredients always has a real row to reference, never an
+// ad-hoc unlinked guess. `canonical_name` is the only required field the
+// caller must supply on top of applyUsdaMatch's output; everything else
+// (category/food_group/role/state/price) is left for the admin to fill in
+// via the normal edit sheet afterward, same as any freshly-seeded batch row.
+export async function createIngredient(patch: Partial<IngredientRow> & { canonical_name: string }) {
+  const { data, error } = await supabase.from("ingredients").insert(patch).select().single();
+  if (error) throw error;
+  return data;
+}
+
 // Marks ingredients as having gone through a USDA grounding attempt,
 // regardless of outcome (matched, no confident match, error, or a match
 // found but never applied). Call this after every batch grounding run so

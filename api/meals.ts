@@ -1,0 +1,306 @@
+import { supabase } from "@/lib/supabase";
+import type { Database } from "@/lib/database.types";
+import type { IngredientRow } from "./ingredients";
+
+export type MealRow = Database["public"]["Tables"]["meals"]["Row"];
+export type MealIngredientRow = Database["public"]["Tables"]["meal_ingredients"]["Row"];
+
+export type MealWithIngredients = MealRow & {
+  meal_ingredients: (MealIngredientRow & { ingredient: IngredientRow })[];
+};
+
+export type MealFilters = {
+  category?: string;
+  showArchived?: boolean;
+  search?: string;
+};
+
+export async function getMeals(filters: MealFilters = {}) {
+  let query = supabase.from("meals").select("*").order("name");
+
+  if (!filters.showArchived) {
+    query = query.is("archived_at", null);
+  }
+  if (filters.category) {
+    query = query.eq("category", filters.category);
+  }
+  if (filters.search) {
+    query = query.ilike("name", `%${filters.search}%`);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data;
+}
+
+export async function getMeal(id: string): Promise<MealWithIngredients> {
+  const { data, error } = await supabase
+    .from("meals")
+    .select("*, meal_ingredients(*, ingredient:ingredients(*))")
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+  return data as unknown as MealWithIngredients;
+}
+
+export async function createMeal(patch: Partial<MealRow> & { name: string }) {
+  const { data, error } = await supabase.from("meals").insert(patch).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateMeal(id: string, patch: Partial<MealRow>) {
+  const { data, error } = await supabase
+    .from("meals")
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function archiveMeal(id: string) {
+  return updateMeal(id, { archived_at: new Date().toISOString() });
+}
+
+export type MealIngredientInput = {
+  ingredient_id: string;
+  quantity_amount: number | null;
+  quantity_unit: string | null;
+  display_text: string;
+  sort_order?: number;
+};
+
+export async function addMealIngredient(mealId: string, input: MealIngredientInput) {
+  const { data, error } = await supabase
+    .from("meal_ingredients")
+    .insert({ meal_id: mealId, ...input })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateMealIngredient(id: string, patch: Partial<MealIngredientRow>) {
+  const { data, error } = await supabase
+    .from("meal_ingredients")
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteMealIngredient(id: string) {
+  const { error } = await supabase.from("meal_ingredients").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------------------------
+// Ingredient matching — ranks candidates from OUR OWN ingredients table
+// against a free-text name the admin typed while building a meal. Distinct
+// from USDA grounding (api/ingredients.ts's groundIngredientsUsda), which
+// matches a canonical ingredient's name against USDA's external database;
+// this matches an as-typed meal-ingredient name against ingredients we
+// already have. No external calls — small enough table (~500 rows) to fetch
+// and score client-side.
+// ---------------------------------------------------------------------------
+
+export async function getIngredientsForMatching() {
+  const { data, error } = await supabase
+    .from("ingredients")
+    .select("*")
+    .is("archived_at", null);
+  if (error) throw error;
+  return data;
+}
+
+const STOPWORDS = new Set(["raw", "cooked", "fried", "dried", "the", "and", "of", "a", "in", "with", "fresh"]);
+
+function significantWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 1 && !STOPWORDS.has(w));
+}
+
+// Word-overlap scoring, same family as the USDA grounding function's
+// hasWordOverlap check but scoring rather than pass/fail: canonical_name
+// matches weighted highest, alias matches count too (unlike the word
+// "search_term" pattern in some reference implementations, this project's
+// `aliases` are genuinely per-ingredient synonyms — e.g. "bawang" only on
+// Garlic, not a shared generic bucket across many rows — so weighting them
+// doesn't reintroduce the "Garlic auto-matches Garlic Powder via a shared
+// generic term" class of bug).
+export function scoreIngredientMatch(query: string, ingredient: IngredientRow): number {
+  const queryWords = new Set(significantWords(query));
+  if (queryWords.size === 0) return 0;
+
+  const nameWords = significantWords(ingredient.canonical_name);
+  const nameOverlap = nameWords.filter((w) => queryWords.has(w)).length;
+
+  const aliasWords = ingredient.aliases.flatMap(significantWords);
+  const aliasOverlap = aliasWords.filter((w) => queryWords.has(w)).length;
+
+  let score = nameOverlap * 3 + aliasOverlap;
+  if (nameWords.length > 0 && nameOverlap === nameWords.length) {
+    score += 2; // full canonical-name coverage bonus
+  }
+  return score;
+}
+
+export type IngredientMatchCandidate = {
+  ingredient: IngredientRow;
+  score: number;
+};
+
+export function matchIngredientCandidates(
+  query: string,
+  allIngredients: IngredientRow[],
+  limit = 5,
+): IngredientMatchCandidate[] {
+  return allIngredients
+    .map((ingredient) => ({ ingredient, score: scoreIngredientMatch(query, ingredient) }))
+    .filter((c) => c.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}
+
+// ---------------------------------------------------------------------------
+// Quantity conversion — the same "universal unit math + per-ingredient
+// bridge" model as docs/ingredient-data-architecture.md: g<->kg and ml<->L
+// are ingredient-independent; going between weight and volume/piece needs
+// the ingredient's own grams_per_ml/grams_per_piece bridge. Converts into
+// whatever basis_unit that ingredient's macros are actually stored in
+// ('g' or 'ml'), since not everything is stored per-100g (liquid dairy,
+// vinegars, etc. use per-100ml).
+// ---------------------------------------------------------------------------
+
+export type QuantityConversion =
+  | { ok: true; basisAmount: number; basisUnit: string }
+  | { ok: false; reason: string };
+
+export function convertQuantityToBasis(
+  amount: number,
+  unit: string,
+  ingredient: IngredientRow,
+): QuantityConversion {
+  let grams: number | null = null;
+  let ml: number | null = null;
+
+  if (unit === "g") grams = amount;
+  else if (unit === "kg") grams = amount * 1000;
+  else if (unit === "ml") ml = amount;
+  else if (unit === "L") ml = amount * 1000;
+  else if (unit === "piece") {
+    if (ingredient.grams_per_piece == null) {
+      return { ok: false, reason: `${ingredient.canonical_name} has no grams_per_piece bridge set` };
+    }
+    grams = amount * ingredient.grams_per_piece;
+  } else {
+    return { ok: false, reason: `Unrecognized unit "${unit}"` };
+  }
+
+  if (ingredient.basis_unit === "g") {
+    if (grams != null) return { ok: true, basisAmount: grams, basisUnit: "g" };
+    // have ml, need grams
+    if (ingredient.grams_per_ml == null) {
+      return { ok: false, reason: `${ingredient.canonical_name} has no grams_per_ml bridge set` };
+    }
+    return { ok: true, basisAmount: (ml as number) * ingredient.grams_per_ml, basisUnit: "g" };
+  }
+
+  if (ingredient.basis_unit === "ml") {
+    if (ml != null) return { ok: true, basisAmount: ml, basisUnit: "ml" };
+    // have grams, need ml
+    if (ingredient.grams_per_ml == null) {
+      return { ok: false, reason: `${ingredient.canonical_name} has no grams_per_ml bridge set` };
+    }
+    return { ok: true, basisAmount: (grams as number) / ingredient.grams_per_ml, basisUnit: "ml" };
+  }
+
+  return { ok: false, reason: `${ingredient.canonical_name} has an unrecognized basis_unit "${ingredient.basis_unit}"` };
+}
+
+export type ProposedTotals = {
+  calories: number | null;
+  protein: number | null;
+  carbohydrates: number | null;
+  fat: number | null;
+  price: number | null;
+};
+
+// Scales an ingredient's per-basis_amount macros/price to the actual
+// quantity used. Price is scaled independently since estimated_price_unit
+// isn't always the same unit as basis_unit (e.g. priced per 'kg' while
+// macros are stored per-100'g') — assumes price_unit and basis_unit share
+// the same weight-vs-volume domain, true for every ingredient seeded so
+// far; returns a null price rather than guessing if they don't.
+export function computeProposedTotals(ingredient: IngredientRow, conversion: QuantityConversion): ProposedTotals {
+  if (!conversion.ok) {
+    return { calories: null, protein: null, carbohydrates: null, fat: null, price: null };
+  }
+  const macroScale = conversion.basisAmount / ingredient.basis_amount;
+  const scaleOrNull = (v: number | null) => (v == null ? null : v * macroScale);
+
+  let price: number | null = null;
+  if (ingredient.estimated_price != null && ingredient.estimated_price_unit) {
+    const priceUnit = ingredient.estimated_price_unit;
+    const isWeightUnit = priceUnit === "g" || priceUnit === "kg";
+    const isVolumeUnit = priceUnit === "ml" || priceUnit === "L";
+    const conversionIsWeight = conversion.basisUnit === "g";
+    const conversionIsVolume = conversion.basisUnit === "ml";
+    if ((isWeightUnit && conversionIsWeight) || (isVolumeUnit && conversionIsVolume)) {
+      const unitBase = priceUnit === "kg" || priceUnit === "L" ? 1000 : 1;
+      price = (ingredient.estimated_price / unitBase) * conversion.basisAmount;
+    }
+  }
+
+  return {
+    calories: scaleOrNull(ingredient.calories),
+    protein: scaleOrNull(ingredient.protein),
+    carbohydrates: scaleOrNull(ingredient.carbohydrates),
+    fat: scaleOrNull(ingredient.fat),
+    price,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Recompute a meal's cached totals from its current meal_ingredients — sums
+// only role === 'main' ingredients (pantry seasonings/oils aren't counted
+// toward a meal's headline macros/price, matching the reference behavior
+// this was modeled on). Call explicitly after binding/editing ingredients;
+// nothing recomputes automatically.
+// ---------------------------------------------------------------------------
+
+export async function recomputeMealTotals(mealId: string) {
+  const meal = await getMeal(mealId);
+  let calories = 0;
+  let protein = 0;
+  let carbohydrates = 0;
+  let fat = 0;
+  let price = 0;
+
+  for (const mi of meal.meal_ingredients) {
+    if (mi.ingredient.role !== "main") continue;
+    if (mi.quantity_amount == null || mi.quantity_unit == null) continue;
+    const conversion = convertQuantityToBasis(mi.quantity_amount, mi.quantity_unit, mi.ingredient);
+    const totals = computeProposedTotals(mi.ingredient, conversion);
+    calories += totals.calories ?? 0;
+    protein += totals.protein ?? 0;
+    carbohydrates += totals.carbohydrates ?? 0;
+    fat += totals.fat ?? 0;
+    price += totals.price ?? 0;
+  }
+
+  return updateMeal(mealId, {
+    calories,
+    protein,
+    carbohydrates,
+    fat,
+    price,
+    ingredients_synced_at: new Date().toISOString(),
+  });
+}
