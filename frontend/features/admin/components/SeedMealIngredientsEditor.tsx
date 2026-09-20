@@ -118,6 +118,7 @@ function IngredientRowCard({
   const [editSheetVisible, setEditSheetVisible] = useState(false);
   const [confirmPatch, setConfirmPatch] = useState<(Partial<IngredientRow> & { canonical_name: string }) | null>(null);
   const [confirmSaving, setConfirmSaving] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const candidates = useMemo(
     () => (item.name.trim() ? matchIngredientCandidates(item.name, allIngredients) : []),
@@ -168,6 +169,7 @@ function IngredientRowCard({
 
   const handleAddAndUse = async (candidate: UsdaGroundingMatch) => {
     setCreating(true);
+    setCreateError(null);
     try {
       const patch = applyUsdaMatch(candidate, "HIGH");
       const created = await createIngredient({
@@ -181,6 +183,11 @@ function IngredientRowCard({
       });
       onResolve(created);
       setUsdaSearch(null);
+    } catch (err) {
+      // Surfaced, not swallowed — an insert can fail (RLS, a constraint)
+      // without onResolve ever running, which otherwise looks identical to
+      // "nothing happened" with no indication whether it reached the DB.
+      setCreateError(err instanceof Error ? err.message : String(err));
     } finally {
       setCreating(false);
     }
@@ -207,11 +214,16 @@ function IngredientRowCard({
   const handleConfirmCreate = async () => {
     if (!confirmPatch) return;
     setConfirmSaving(true);
+    setCreateError(null);
     try {
       const created = await createIngredient(confirmPatch);
       onResolve(created);
       setConfirmPatch(null);
       setAiDraft(null);
+    } catch (err) {
+      // Keep the sheet open with the error visible rather than closing on
+      // failure — same silent-failure risk as handleAddAndUse above.
+      setCreateError(err instanceof Error ? err.message : String(err));
     } finally {
       setConfirmSaving(false);
     }
@@ -276,6 +288,12 @@ function IngredientRowCard({
         </AppText>
       )}
 
+      {createError && (
+        <AppText variant="caption" className="text-like">
+          Couldn't add ingredient: {createError}
+        </AppText>
+      )}
+
       {usdaSearch?.candidates && usdaSearch.candidates.length > 0 ? (
         <Dropdown
           trigger={
@@ -327,6 +345,7 @@ function IngredientRowCard({
         ingredient={null}
         initialDraft={aiDraft}
         onSave={(patch) => {
+          setCreateError(null);
           setConfirmPatch({ ...patch, canonical_name: patch.canonical_name ?? item.name });
           setEditSheetVisible(false);
         }}
@@ -343,6 +362,7 @@ function IngredientRowCard({
         }}
         onConfirm={handleConfirmCreate}
         isSaving={confirmSaving}
+        error={createError}
       />
     </View>
   );

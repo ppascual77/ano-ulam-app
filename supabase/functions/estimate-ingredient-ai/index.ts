@@ -48,7 +48,7 @@ CONVENTIONS (match this database's existing ~500 seeded ingredients):
 - state: "raw" | "cooked" | "fried" | "dried" | null — null only when state genuinely doesn't apply (e.g. a liquid condiment).
 - basis_amount/basis_unit: almost always 100 with basis_unit "g" for solids or "ml" for liquids — macros are PER that basis.
 - calories/protein/carbohydrates/fat/sugar/fiber/sodium: realistic estimates per basis_amount basis_unit. Sanity-check with Atwater math (calories ≈ protein*4 + carbohydrates*4 + fat*9) UNLESS the ingredient is one of the known exceptions where Atwater doesn't apply cleanly: vinegar, cocoa/cacao, coffee, wine, vanilla extract, gulaman/agar-agar.
-- estimated_price/estimated_price_unit: realistic Philippine peso (PHP) wet-market/grocery pricing, with a sensible unit for how it's actually sold (e.g. "kg", "L", "piece", "pack", "bundle", "sachet").
+- estimated_price/estimated_price_unit: realistic Philippine peso (PHP) wet-market/grocery pricing. estimated_price_unit MUST be exactly "g", "kg", "ml", or "L" — never "piece"/"pack"/"bundle"/etc, since the app has no gram conversion bridge for a discrete unit. For an ingredient normally sold/priced by piece (egg, clove, sheet), estimate its typical per-piece weight instead and express price per "kg" (e.g. garlic priced ~₱280/kg, with grams_per_piece ~5 for one clove) — same approach already used for this database's other per-piece ingredients.
 - grams_per_ml: only set (non-null) when this ingredient bridges weight/volume in a way the app needs (e.g. a liquid whose macros are stored per-gram but commonly measured by volume); otherwise null.
 - grams_per_piece + piece_label: only set both when this ingredient is commonly counted by piece (e.g. egg, clove, sheet, bundle); otherwise both null.
 
@@ -71,7 +71,7 @@ OUTPUT SHAPE — return ONLY a JSON object (no markdown fences) matching exactly
   "fiber": number,
   "sodium": number,
   "estimated_price": number,
-  "estimated_price_unit": string,
+  "estimated_price_unit": "g" | "kg" | "ml" | "L",
   "grams_per_ml": number | null,
   "grams_per_piece": number | null,
   "piece_label": string | null

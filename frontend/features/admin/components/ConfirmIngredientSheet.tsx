@@ -8,6 +8,7 @@ type Props = {
   onCancel: () => void;
   onConfirm: () => void;
   isSaving: boolean;
+  error?: string | null;
 };
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -27,7 +28,7 @@ function Row({ label, value }: { label: string; value: string }) {
 // gets written to the shared ingredients table and linked to this meal —
 // nothing persists until the admin explicitly confirms here, same
 // "grounding never silently applies" principle as USDA matching.
-export function ConfirmIngredientSheet({ visible, patch, onCancel, onConfirm, isSaving }: Props) {
+export function ConfirmIngredientSheet({ visible, patch, onCancel, onConfirm, isSaving, error }: Props) {
   if (!patch) return null;
 
   return (
@@ -76,6 +77,12 @@ export function ConfirmIngredientSheet({ visible, patch, onCancel, onConfirm, is
         </View>
 
         <View className="flex-1" />
+
+        {error && (
+          <AppText variant="caption" className="text-like mb-2">
+            Couldn't add ingredient: {error}
+          </AppText>
+        )}
 
         <View className="gap-2 pb-8">
           <Button
