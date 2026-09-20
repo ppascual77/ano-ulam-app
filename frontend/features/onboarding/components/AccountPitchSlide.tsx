@@ -69,24 +69,15 @@ export function AccountPitchSlide({ slide, width, onContinueWithGoogle, isSignin
           }
           onPress={onContinueWithGoogle}
         />
-        {/* TEMP/TEST ONLY: Apple Sign In isn't implemented (needs a paid Apple
-            Developer account) — this just jumps to Home to unblock testing
-            the rest of the app while Google sign-in's redirect bug is being
-            sorted out. Remove once Apple Sign In (or another way past this
-            screen) is real. */}
-        <Button
-          label="Continue with Apple"
-          variant="social"
-          icon={
-            <Image
-              source={require("@/assets/icons/apple-logo.png")}
-              style={{ width: 18, height: 18 }}
-              contentFit="contain"
-            />
-          }
-          onPress={() => router.replace("/home")}
-        />
       </View>
+
+      <AppText
+        variant="body"
+        className="text-primary text-center mb-4"
+        onPress={() => router.replace("/home")}
+      >
+        Continue without an account
+      </AppText>
     </View>
   );
 }
