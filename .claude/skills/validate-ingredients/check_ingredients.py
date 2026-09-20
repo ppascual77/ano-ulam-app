@@ -248,15 +248,20 @@ def validate_csv(path):
         plausibility_checks(f, name, row.get("state", ""), macro_vals, price, food_group)
 
         # 5. Enum/unit validation.
-        if "role" in cols and row.get("role") and row["role"] not in VALID_ROLE:
+        # is_blank (not raw truthiness) so a literal "null" string in a
+        # pasted CSV is treated as absent, not as an actual invalid enum
+        # value — state=null is legitimate for condiments/seasonings (see
+        # REQUIRED_CSV_FIELDS above), and a source/verification_status a
+        # USDA record simply didn't return shouldn't misreport as garbage.
+        if "role" in cols and not is_blank(row.get("role")) and row["role"] not in VALID_ROLE:
             f.add("MUST-FIX", name, f"role='{row['role']}' not in {sorted(VALID_ROLE)}")
-        if "state" in cols and row.get("state") and row["state"] not in VALID_STATE:
+        if "state" in cols and not is_blank(row.get("state")) and row["state"] not in VALID_STATE:
             f.add("MUST-FIX", name, f"state='{row['state']}' not in {sorted(VALID_STATE)}")
-        if "source" in cols and row.get("source") and row["source"] not in VALID_SOURCE:
+        if "source" in cols and not is_blank(row.get("source")) and row["source"] not in VALID_SOURCE:
             f.add("MUST-FIX", name, f"source='{row['source']}' not in {sorted(VALID_SOURCE)}")
-        if "verification_status" in cols and row.get("verification_status") and row["verification_status"] not in VALID_VERIFICATION:
+        if "verification_status" in cols and not is_blank(row.get("verification_status")) and row["verification_status"] not in VALID_VERIFICATION:
             f.add("MUST-FIX", name, f"verification_status='{row['verification_status']}' not in {sorted(VALID_VERIFICATION)}")
-        if "estimated_price_unit" in cols and row.get("estimated_price_unit") and row["estimated_price_unit"] not in VALID_PRICE_UNIT:
+        if "estimated_price_unit" in cols and not is_blank(row.get("estimated_price_unit")) and row["estimated_price_unit"] not in VALID_PRICE_UNIT:
             f.add("MUST-FIX", name, f"estimated_price_unit='{row['estimated_price_unit']}' not in {sorted(VALID_PRICE_UNIT)} (matches DB CHECK constraint)")
 
         # 6. Source/verification tagging consistency.
