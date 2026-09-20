@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { View, Text } from "react-native";
 import { Image } from "expo-image";
 import { Lock } from "lucide-react-native";
@@ -9,15 +8,11 @@ import type { PreferenceGroupsSlideData } from "../slides";
 type Props = {
   slide: PreferenceGroupsSlideData;
   width: number;
+  selections: Record<string, string[]>;
+  onGroupChange: (groupId: string, value: string[]) => void;
 };
 
-export function PreferenceGroupsSlide({ slide, width }: Props) {
-  const [selections, setSelections] = useState<Record<string, string[]>>({});
-
-  const setGroupValue = (groupId: string, value: string[]) => {
-    setSelections((prev) => ({ ...prev, [groupId]: value }));
-  };
-
+export function PreferenceGroupsSlide({ slide, width, selections, onGroupChange }: Props) {
   return (
     <View style={{ width }} className="flex-1 px-10 py-16">
       <View className="mb-4">
@@ -47,7 +42,7 @@ export function PreferenceGroupsSlide({ slide, width }: Props) {
               options={group.options}
               mode={group.mode}
               value={selections[group.id] ?? []}
-              onChange={(value) => setGroupValue(group.id, value)}
+              onChange={(value) => onGroupChange(group.id, value)}
             />
           </View>
         ))}

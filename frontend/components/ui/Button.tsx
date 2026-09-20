@@ -64,6 +64,7 @@ export function Button({
   variant = "primary",
   shape = "default",
   style,
+  disabled,
   ...props
 }: ButtonProps) {
   // "fullPill" (currently only the "tinted" View Details button) centers its
@@ -77,8 +78,9 @@ export function Button({
 
   return (
     <Pressable
-      className={`items-center justify-center ${containerClasses[variant]} ${shapeClasses[shape]}`}
+      className={`items-center justify-center ${containerClasses[variant]} ${shapeClasses[shape]} ${disabled ? "opacity-30" : ""}`}
       style={[shapeStyles[shape], style]}
+      disabled={disabled}
       {...props}
     >
       {isFullPill ? (

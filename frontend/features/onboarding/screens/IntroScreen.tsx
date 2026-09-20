@@ -1,11 +1,24 @@
+import { useEffect } from "react";
 import { View, Text } from "react-native";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppText, Button } from "@/frontend/components/ui";
 import { RotatingBlob } from "../components/RotatingBlob";
+import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 
 export default function IntroScreen() {
+  const { isSignedIn } = useAuth();
+
+  // app/_layout.tsx already waits for the initial session check before
+  // rendering any screen, so by the time this mounts `isSignedIn` is settled —
+  // skip the onboarding carousel entirely for a returning signed-in user.
+  useEffect(() => {
+    if (isSignedIn) {
+      router.replace("/home");
+    }
+  }, [isSignedIn]);
+
   return (
     <View style={{ flex: 1 }} className="bg-white">
       <View className="absolute inset-0">

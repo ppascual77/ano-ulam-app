@@ -9,11 +9,14 @@ import {
 } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 
+// Kept in sync by hand with frontend/features/onboarding/slides.ts's
+// "preferenceGroups" slide — same underlying preference, two entry points.
 const DIETARY_FOCUS_OPTIONS = [
   { id: "vegan", label: "Vegan" },
   { id: "vegetarian", label: "Vegetarian" },
   { id: "keto", label: "Keto" },
   { id: "pescatarian", label: "Pescatarian" },
+  { id: "none", label: "None" },
   { id: "paleo", label: "Paleo" },
 ];
 
@@ -23,6 +26,9 @@ const ALLERGEN_OPTIONS = [
   { id: "dairy", label: "Dairy" },
   { id: "shellfish", label: "Shellfish" },
   { id: "soy", label: "Soy" },
+  { id: "coconut", label: "Coconut" },
+  { id: "sesame", label: "Sesame" },
+  { id: "none", label: "None" },
 ];
 
 type PreferencesSheetProps = {
@@ -34,9 +40,9 @@ type PreferencesSheetProps = {
   onAllergensChange: (value: string[]) => void;
 };
 
-// No backend yet — selections are local-only UI state, not persisted
-// (despite what the save note beneath them promises). "Save Preferences"
-// just closes the sheet for now.
+// dietaryFocus/allergens are controlled by the parent, backed by the real
+// profile (see MealSuggestion.tsx) — each ChipSelect change persists
+// immediately, "Save Preferences" just closes the sheet.
 export function PreferencesSheet({
   visible,
   onClose,

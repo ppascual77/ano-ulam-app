@@ -16,3 +16,5 @@ export { Toggle } from "./Toggle";
 export { NoticeBanner } from "./NoticeBanner";
 export { LoadingState } from "./LoadingState";
 export { ErrorState } from "./ErrorState";
+export { Dropdown } from "./Dropdown";
+export type { DropdownItem } from "./Dropdown";
