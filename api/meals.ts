@@ -41,9 +41,9 @@ export type ImportedMealDraft = {
 // "calculate" there. What's genuinely automatable is reading the number
 // that's already sitting in the text instead of leaving the field blank
 // for the admin to retype by hand. Returns null (leave blank) rather than
-// guess when the unit isn't one this schema models (cups/tablespoons have
-// no fixed gram equivalent without knowing the ingredient's density, and
-// this project doesn't invent conversions it can't verify).
+// guess when the unit has no fixed equivalent in this schema's units at
+// all (e.g. "a pinch", "to taste") — this project doesn't invent
+// conversions it can't verify.
 const UNIT_WORDS: Record<string, QuantityUnit> = {
   g: "g", gram: "g", grams: "g",
   kg: "kg", kilogram: "kg", kilograms: "kg",
@@ -53,10 +53,24 @@ const UNIT_WORDS: Record<string, QuantityUnit> = {
   clove: "piece", cloves: "piece", whole: "piece",
   lb: "kg", lbs: "kg", pound: "kg", pounds: "kg",
   oz: "g", ounce: "g", ounces: "g",
+  tbsp: "ml", tbsps: "ml", tablespoon: "ml", tablespoons: "ml",
+  tsp: "ml", tsps: "ml", teaspoon: "ml", teaspoons: "ml",
+  cup: "ml", cups: "ml",
 };
 // lb/oz aren't native units here — converted to this schema's nearest
 // weight unit at parse time (universal unit math, not ingredient-specific).
-const UNIT_SCALE: Partial<Record<string, number>> = { lb: 0.453592, lbs: 0.453592, pound: 0.453592, pounds: 0.453592, oz: 28.3495, ounce: 28.3495, ounces: 28.3495 };
+// Same for tbsp/tsp/cup -> ml: these are volume units by definition, so the
+// conversion is exact regardless of what's being measured — unlike
+// volume-to-WEIGHT (e.g. "1 cup flour" -> grams), which does depend on the
+// ingredient's density and is deliberately left to convertQuantityToBasis's
+// per-ingredient grams_per_ml bridge, not guessed here.
+const UNIT_SCALE: Partial<Record<string, number>> = {
+  lb: 0.453592, lbs: 0.453592, pound: 0.453592, pounds: 0.453592,
+  oz: 28.3495, ounce: 28.3495, ounces: 28.3495,
+  tbsp: 14.7868, tbsps: 14.7868, tablespoon: 14.7868, tablespoons: 14.7868,
+  tsp: 4.92892, tsps: 4.92892, teaspoon: 4.92892, teaspoons: 4.92892,
+  cup: 236.588, cups: 236.588,
+};
 
 export function parseQuantityText(text: string): { amount: string; unit: QuantityUnit } | null {
   // Leading number, optionally a simple fraction (e.g. "1/4"), optionally
