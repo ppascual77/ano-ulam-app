@@ -55,7 +55,7 @@ export function Header({ name, avatarUrl }: HeaderProps) {
             {
               label: "Manage Meals",
               icon: <Utensils color={colors.ink.subtle} size={18} />,
-              onPress: () => console.log("TODO: Manage Meals"),
+              onPress: () => router.push("/manage-meals"),
             },
             {
               label: "Manage Ingredients",
@@ -65,7 +65,7 @@ export function Header({ name, avatarUrl }: HeaderProps) {
             {
               label: "Seed Meal",
               icon: <Sprout color={colors.ink.subtle} size={18} />,
-              onPress: () => console.log("TODO: Seed Meal"),
+              onPress: () => router.push("/seed-meal"),
             },
             {
               label: "Visit Profile",
