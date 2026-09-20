@@ -7,6 +7,7 @@ import {
   getIngredientsForMatching,
   getMeal,
   getMeals,
+  importMealFromUrl,
   recomputeMealTotals,
   updateMeal,
   updateMealIngredient,
@@ -45,6 +46,12 @@ export function useIngredientsForMatching() {
     queryKey: mealKeys.matchable,
     queryFn: getIngredientsForMatching,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useImportMealFromUrl() {
+  return useMutation({
+    mutationFn: (url: string) => importMealFromUrl(url),
   });
 }
 

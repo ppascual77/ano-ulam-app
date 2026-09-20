@@ -9,6 +9,39 @@ export type MealWithIngredients = MealRow & {
   meal_ingredients: (MealIngredientRow & { ingredient: IngredientRow })[];
 };
 
+// ---------------------------------------------------------------------------
+// Import from URL — scrapes + LLM-rewrites a recipe page into a meal draft.
+// Never writes to the database; SeedMealScreen reviews/edits the draft and
+// the admin explicitly saves, same "nothing auto-applies" principle as
+// USDA grounding.
+// ---------------------------------------------------------------------------
+
+export type ImportedMealDraft = {
+  name: string;
+  description: string;
+  category: "luto";
+  prep_time: number | null;
+  total_time: number | null;
+  difficulty: "easy" | "medium" | "hard" | null;
+  protein_type: string | null;
+  servings: number;
+  procedure: string[];
+  allergens: string[];
+  dietary_tags: string[];
+  tags: string[];
+  ingredients: { name: string; quantity_text: string }[];
+};
+
+export async function importMealFromUrl(url: string) {
+  const { data, error } = await supabase.functions.invoke<{
+    meal: ImportedMealDraft;
+    extraction_tier: "json-ld" | "raw-text";
+  }>("import-meal-from-url", { body: { url } });
+  if (error) throw error;
+  if (!data) throw new Error("Import returned no data");
+  return data;
+}
+
 export type MealFilters = {
   category?: string;
   showArchived?: boolean;
