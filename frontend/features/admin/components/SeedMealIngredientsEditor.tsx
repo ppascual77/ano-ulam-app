@@ -1,20 +1,19 @@
 import { useMemo, useState } from "react";
-import { View, Text, Pressable, Linking } from "react-native";
-import { Trash2, Check, ChevronDown, ExternalLink } from "lucide-react-native";
+import { View, Text, Pressable } from "react-native";
+import { Trash2, Check, ChevronDown } from "lucide-react-native";
 import { AppText, Button, Dropdown, TextField } from "@/frontend/components/ui";
 import type { DropdownItem } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import {
   applyUsdaMatch,
   createIngredient,
-  getUsdaSourceUrl,
   groundIngredientsUsda,
   type IngredientRow,
   type UsdaGroundingMatch,
 } from "@/api/ingredients";
-import { computeProposedTotals, convertQuantityToBasis, matchIngredientCandidates } from "@/api/meals";
+import { matchIngredientCandidates, type QuantityUnit } from "@/api/meals";
 
-export type QuantityUnit = "g" | "kg" | "ml" | "L" | "piece";
+export type { QuantityUnit };
 
 export type PendingMealIngredient = {
   key: string;
@@ -109,9 +108,6 @@ function IngredientRowCard({
   const [usdaSearch, setUsdaSearch] = useState<UsdaSearchState | null>(null);
   const [creating, setCreating] = useState(false);
 
-  const amount = Number(item.quantityAmount);
-  const hasQty = item.quantityAmount.trim() !== "" && !Number.isNaN(amount);
-
   const candidates = useMemo(
     () => (item.name.trim() ? matchIngredientCandidates(item.name, allIngredients) : []),
     [item.name, allIngredients],
@@ -122,19 +118,23 @@ function IngredientRowCard({
     onPress: () => onChange({ quantityUnit: opt.id }),
   }));
 
-  const candidateItems: DropdownItem[] = candidates.map(({ ingredient }) => {
-    const conversion = hasQty
-      ? convertQuantityToBasis(amount, item.quantityUnit, ingredient)
-      : { ok: false as const, reason: "" };
-    const proposed = computeProposedTotals(ingredient, conversion);
-    const preview = conversion.ok
-      ? ` — ${proposed.calories?.toFixed(0) ?? "?"} cal`
-      : "";
-    return {
-      label: `${ingredient.canonical_name}${preview}`,
-      onPress: () => onResolve(ingredient),
-    };
-  });
+  // Per-100g macros of the candidate itself (not scaled to this meal's
+  // quantity) — what actually lets an admin sanity-check "is this really
+  // the same food", since scaled totals depend on a quantity that might
+  // not even be filled in yet.
+  const macroPreview = (calories: number | null, protein: number | null, carbohydrates: number | null, fat: number | null) => {
+    const parts: string[] = [];
+    if (calories != null) parts.push(`${calories.toFixed(0)} cal`);
+    if (protein != null) parts.push(`${protein.toFixed(1)}g P`);
+    if (carbohydrates != null) parts.push(`${carbohydrates.toFixed(1)}g C`);
+    if (fat != null) parts.push(`${fat.toFixed(1)}g F`);
+    return parts.length > 0 ? `${parts.join(" · ")} per 100g` : "no macro data";
+  };
+
+  const candidateItems: DropdownItem[] = candidates.map(({ ingredient, score }) => ({
+    label: `${ingredient.canonical_name} — score ${score}\n${macroPreview(ingredient.calories, ingredient.protein, ingredient.carbohydrates, ingredient.fat)}`,
+    onPress: () => onResolve(ingredient),
+  }));
 
   const handleSearchUsda = async () => {
     setUsdaSearch({ loading: true, candidates: null, error: null });
@@ -229,11 +229,26 @@ function IngredientRowCard({
         </AppText>
       )}
 
-      <Pressable onPress={handleSearchUsda} disabled={usdaSearch?.loading}>
-        <AppText variant="caption" className="text-primary">
-          {usdaSearch?.loading ? "Searching USDA..." : "Search USDA"}
-        </AppText>
-      </Pressable>
+      {usdaSearch?.candidates && usdaSearch.candidates.length > 0 ? (
+        <Dropdown
+          trigger={
+            <SelectField
+              label="USDA match"
+              valueLabel={creating ? "Adding..." : `${usdaSearch.candidates.length} result(s) — tap to add + use`}
+            />
+          }
+          items={usdaSearch.candidates.map((c) => ({
+            label: `${c.description} — score ${c.score}\n${macroPreview(c.calories, c.protein, c.carbohydrates, c.fat)}`,
+            onPress: () => handleAddAndUse(c),
+          }))}
+        />
+      ) : (
+        <Pressable onPress={handleSearchUsda} disabled={usdaSearch?.loading}>
+          <AppText variant="caption" className="text-primary">
+            {usdaSearch?.loading ? "Searching USDA..." : "Search USDA"}
+          </AppText>
+        </Pressable>
+      )}
 
       {usdaSearch?.error && (
         <AppText variant="caption" className="text-like">
@@ -245,22 +260,6 @@ function IngredientRowCard({
           No USDA match either — try adjusting the name.
         </AppText>
       )}
-      {usdaSearch?.candidates?.map((c) => (
-        <View key={c.fdcId} className="flex-row items-center justify-between gap-2 rounded-xl bg-ink-emphasis/5 p-2">
-          <View className="flex-1 gap-1">
-            <Pressable onPress={() => Linking.openURL(getUsdaSourceUrl(c.fdcId))} className="flex-row items-center gap-1">
-              <AppText variant="caption" numberOfLines={1}>
-                {c.description}
-              </AppText>
-              <ExternalLink color={colors.ink.subtle} size={10} />
-            </Pressable>
-            <AppText variant="caption" className="text-ink-subtle">
-              {c.calories ?? "?"} cal/100g
-            </AppText>
-          </View>
-          <Button label={creating ? "Adding..." : "Add + use"} variant="outline" disabled={creating} onPress={() => handleAddAndUse(c)} />
-        </View>
-      ))}
     </View>
   );
 }

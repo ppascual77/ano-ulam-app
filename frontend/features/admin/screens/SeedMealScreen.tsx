@@ -5,7 +5,7 @@ import { router } from "expo-router";
 import { ArrowLeft, Link2, Trash2 } from "lucide-react-native";
 import { AppText, Button, ChipSelect, ErrorState, LoadingState, Screen, TextField } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import type { ImportedMealDraft } from "@/api/meals";
+import { parseQuantityText, type ImportedMealDraft } from "@/api/meals";
 import {
   useAddMealIngredient,
   useCreateMeal,
@@ -34,20 +34,23 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function draftIngredientsToPending(draft: ImportedMealDraft): PendingMealIngredient[] {
-  return draft.ingredients.map((ing, i) => ({
-    key: `imported-${i}`,
-    name: ing.name,
-    // The LLM returns a human quantity string ("1/4 cup", "3 cloves") this
-    // schema can't parse directly (no cup/tbsp units) — kept as the
-    // display text so nothing is lost, while amount/unit start blank for
-    // the admin to set the real numeric value while binding each
-    // ingredient's database match inline below.
-    quantityAmount: "",
-    quantityUnit: "g",
-    displayText: ing.quantity_text,
-    ingredientId: null,
-    ingredientName: null,
-  }));
+  return draft.ingredients.map((ing, i) => {
+    // Best-effort prefill from the LLM's free-text quantity ("2 pieces",
+    // "500 g") — the amount is a fact about this recipe, not something the
+    // ingredients DB can supply, so this is a parse of what's already in
+    // the text, not a calculation. Units this schema doesn't model (cups,
+    // tablespoons) fall through and stay blank for the admin to set.
+    const parsed = parseQuantityText(ing.quantity_text);
+    return {
+      key: `imported-${i}`,
+      name: ing.name,
+      quantityAmount: parsed?.amount ?? "",
+      quantityUnit: parsed?.unit ?? "g",
+      displayText: ing.quantity_text,
+      ingredientId: null,
+      ingredientName: null,
+    };
+  });
 }
 
 export default function SeedMealScreen() {

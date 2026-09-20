@@ -8,6 +8,7 @@ import {
   type IngredientFilters,
   type IngredientRow,
 } from "@/api/ingredients";
+import { recomputeMealsUsingIngredient } from "@/api/meals";
 import { adminKeys } from "../queryKeys";
 
 export function useIngredients(filters: IngredientFilters) {
@@ -22,8 +23,14 @@ export function useUpdateIngredient() {
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Partial<IngredientRow> }) =>
       updateIngredient(id, patch),
-    onSuccess: () => {
+    onSuccess: async (_data, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "ingredients"] });
+      // Every meal built on this ingredient has its own cached
+      // calories/protein/carbohydrates/fat/price — without this, editing
+      // an ingredient (a manual correction, a re-ground, applying a USDA
+      // match) would leave those meals silently showing stale numbers.
+      await recomputeMealsUsingIngredient(id);
+      queryClient.invalidateQueries({ queryKey: ["admin", "meals"] });
     },
   });
 }

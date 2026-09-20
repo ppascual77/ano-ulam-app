@@ -9,6 +9,8 @@ export type MealWithIngredients = MealRow & {
   meal_ingredients: (MealIngredientRow & { ingredient: IngredientRow })[];
 };
 
+export type QuantityUnit = "g" | "kg" | "ml" | "L" | "piece";
+
 // ---------------------------------------------------------------------------
 // Import from URL — scrapes + LLM-rewrites a recipe page into a meal draft.
 // Never writes to the database; SeedMealScreen reviews/edits the draft and
@@ -31,6 +33,46 @@ export type ImportedMealDraft = {
   tags: string[];
   ingredients: { name: string; quantity_text: string }[];
 };
+
+// Best-effort extraction of a numeric amount + this schema's unit enum from
+// a recipe's free-text quantity ("2 pieces (diced)", "500 g", "1/4 cup").
+// The AMOUNT is a fact about the recipe (how much THIS dish uses), not
+// something derivable from the ingredients table — there's nothing to
+// "calculate" there. What's genuinely automatable is reading the number
+// that's already sitting in the text instead of leaving the field blank
+// for the admin to retype by hand. Returns null (leave blank) rather than
+// guess when the unit isn't one this schema models (cups/tablespoons have
+// no fixed gram equivalent without knowing the ingredient's density, and
+// this project doesn't invent conversions it can't verify).
+const UNIT_WORDS: Record<string, QuantityUnit> = {
+  g: "g", gram: "g", grams: "g",
+  kg: "kg", kilogram: "kg", kilograms: "kg",
+  ml: "ml", milliliter: "ml", milliliters: "ml", millilitre: "ml", millilitres: "ml",
+  l: "L", liter: "L", liters: "L", litre: "L", litres: "L",
+  piece: "piece", pieces: "piece", pc: "piece", pcs: "piece",
+  clove: "piece", cloves: "piece", whole: "piece",
+  lb: "kg", lbs: "kg", pound: "kg", pounds: "kg",
+  oz: "g", ounce: "g", ounces: "g",
+};
+// lb/oz aren't native units here — converted to this schema's nearest
+// weight unit at parse time (universal unit math, not ingredient-specific).
+const UNIT_SCALE: Partial<Record<string, number>> = { lb: 0.453592, lbs: 0.453592, pound: 0.453592, pounds: 0.453592, oz: 28.3495, ounce: 28.3495, ounces: 28.3495 };
+
+export function parseQuantityText(text: string): { amount: string; unit: QuantityUnit } | null {
+  // Leading number, optionally a simple fraction (e.g. "1/4"), optionally
+  // followed by "to N" (a range — take the first number, close enough for
+  // a draft the admin reviews anyway).
+  const match = text.trim().match(/^(\d+(?:\.\d+)?)(?:\s*\/\s*(\d+))?\s*([a-zA-Z]+)/);
+  if (!match) return null;
+  const whole = Number(match[1]);
+  const denominator = match[2] ? Number(match[2]) : null;
+  const amount = denominator ? whole / denominator : whole;
+  const unitWord = match[3].toLowerCase();
+  const unit = UNIT_WORDS[unitWord];
+  if (!unit) return null;
+  const scale = UNIT_SCALE[unitWord] ?? 1;
+  return { amount: (amount * scale).toString(), unit };
+}
 
 export async function importMealFromUrl(url: string) {
   const { data, error } = await supabase.functions.invoke<{
@@ -336,4 +378,21 @@ export async function recomputeMealTotals(mealId: string) {
     price,
     ingredients_synced_at: new Date().toISOString(),
   });
+}
+
+// Cascades an ingredient's data change to every meal that references it —
+// called from useUpdateIngredient's onSuccess (the single chokepoint both
+// IngredientEditSheet and the batch UsdaGroundingPanel go through), so a
+// re-grounded or manually corrected ingredient's macros/price don't go
+// silently stale on meals built from it before the edit.
+export async function recomputeMealsUsingIngredient(ingredientId: string) {
+  const { data, error } = await supabase
+    .from("meal_ingredients")
+    .select("meal_id")
+    .eq("ingredient_id", ingredientId);
+  if (error) throw error;
+
+  const mealIds = Array.from(new Set((data ?? []).map((row) => row.meal_id)));
+  await Promise.all(mealIds.map((id) => recomputeMealTotals(id)));
+  return mealIds;
 }
