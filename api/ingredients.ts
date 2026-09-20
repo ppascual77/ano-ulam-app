@@ -147,6 +147,53 @@ export async function estimateIngredientAi(name: string): Promise<AiIngredientEs
   };
 }
 
+// Fills in the operational fields USDA never provides (role, category,
+// price, the piece-count bridge) for an ingredient that was just created
+// from a real USDA match. Without this, a recipe quantifying that
+// ingredient by piece silently contributes nothing to a meal's totals —
+// convertQuantityToBasis has no grams_per_piece to work with — and price
+// stays permanently null. Never touches the nutrition/source fields
+// already set from the real USDA match; only asks the LLM for what's
+// actually missing, echoing the known macros back unchanged as context.
+export async function estimateIngredientGaps(ingredient: IngredientRow): Promise<Partial<IngredientRow>> {
+  const { data, error } = await supabase.functions.invoke<{ ingredient: AiIngredientEstimate }>(
+    "estimate-ingredient-ai",
+    {
+      body: {
+        name: ingredient.canonical_name,
+        known: {
+          basis_amount: ingredient.basis_amount,
+          basis_unit: ingredient.basis_unit,
+          calories: ingredient.calories,
+          protein: ingredient.protein,
+          carbohydrates: ingredient.carbohydrates,
+          fat: ingredient.fat,
+          sugar: ingredient.sugar,
+          fiber: ingredient.fiber,
+          sodium: ingredient.sodium,
+        },
+      },
+    },
+  );
+  if (error) throw error;
+  const est = data?.ingredient;
+  if (!est) throw new Error("AI gap-fill returned no data");
+
+  return {
+    display_name: ingredient.display_name ?? est.display_name ?? null,
+    aliases: ingredient.aliases && ingredient.aliases.length > 0 ? ingredient.aliases : est.aliases ?? [],
+    category: ingredient.category ?? est.category ?? null,
+    food_group: ingredient.food_group ?? est.food_group ?? null,
+    role: ingredient.role ?? est.role ?? null,
+    state: ingredient.state ?? est.state ?? null,
+    estimated_price: ingredient.estimated_price ?? est.estimated_price ?? null,
+    estimated_price_unit: ingredient.estimated_price_unit ?? est.estimated_price_unit ?? null,
+    grams_per_ml: ingredient.grams_per_ml ?? est.grams_per_ml ?? null,
+    grams_per_piece: ingredient.grams_per_piece ?? est.grams_per_piece ?? null,
+    piece_label: ingredient.piece_label ?? est.piece_label ?? null,
+  };
+}
+
 export function applyUsdaMatch(matched: UsdaGroundingMatch, confidence: "HIGH" | "LOW"): Partial<IngredientRow> {
   return {
     calories: matched.calories,

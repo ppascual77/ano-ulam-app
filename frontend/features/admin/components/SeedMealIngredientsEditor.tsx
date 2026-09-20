@@ -9,7 +9,9 @@ import {
   classifyUsdaConfidence,
   createIngredient,
   estimateIngredientAi,
+  estimateIngredientGaps,
   groundIngredientsUsda,
+  updateIngredient,
   type AiIngredientEstimate,
   type IngredientRow,
   type UsdaGroundingMatch,
@@ -181,7 +183,19 @@ function IngredientRowCard({
         price_source: "manual",
         ...patch,
       });
-      onResolve(created);
+      // USDA gives real nutrition but nothing operational (price, the
+      // piece-count bridge) — an LLM fills exactly those gaps so this
+      // ingredient never sits with a null price/bridge that silently
+      // zeroes it out of a meal's totals. Best-effort: the ingredient is
+      // already created and linked either way, just missing gap fields if
+      // this fails (fixable later in Manage Ingredients).
+      try {
+        const gaps = await estimateIngredientGaps(created);
+        const filled = await updateIngredient(created.id, gaps);
+        onResolve(filled);
+      } catch {
+        onResolve(created);
+      }
       setUsdaSearch(null);
     } catch (err) {
       // Surfaced, not swallowed — an insert can fail (RLS, a constraint)
@@ -299,7 +313,7 @@ function IngredientRowCard({
           trigger={
             <SelectField
               label="USDA match"
-              valueLabel={creating ? "Adding..." : `${usdaSearch.candidates.length} result(s) — tap to add + use`}
+              valueLabel={creating ? "Adding + filling in details..." : `${usdaSearch.candidates.length} result(s) — tap to add + use`}
             />
           }
           items={usdaSearch.candidates.map((c) => ({
