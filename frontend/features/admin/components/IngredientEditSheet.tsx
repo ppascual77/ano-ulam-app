@@ -16,8 +16,15 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   ingredient: IngredientRow | null;
+  /** Prefill for creating a brand-new ingredient (e.g. an AI estimate) —
+   *  used only when `ingredient` is null. */
+  initialDraft?: (Partial<IngredientRow> & { canonical_name: string }) | null;
   onSave: (patch: Partial<IngredientRow>) => void;
   isSaving: boolean;
+  /** Overrides the Save button's idle label — e.g. "Review" when the
+   *  caller wants a confirmation step before this patch is actually
+   *  persisted, rather than saving immediately. */
+  saveLabel?: string;
 };
 
 const ROLE_OPTIONS = [
@@ -115,6 +122,42 @@ function toFormState(ingredient: IngredientRow): FormState {
   };
 }
 
+// Create-mode starting point — a brand-new row, optionally prefilled from
+// an AI estimate. source/price_source/verification_status default to the
+// same "manual, needs review" tagging every hand-added ingredient in this
+// project gets, never presented as pre-verified.
+function draftFormState(draft: Partial<IngredientRow> & { canonical_name: string }): FormState {
+  return {
+    canonical_name: draft.canonical_name,
+    display_name: draft.display_name ?? "",
+    aliases: (draft.aliases ?? []).join(", "),
+    category: draft.category ?? "",
+    food_group: draft.food_group ?? "",
+    role: draft.role ? [draft.role] : ["main"],
+    state: draft.state ? [draft.state] : [],
+    estimated_price: draft.estimated_price?.toString() ?? "",
+    estimated_price_unit: draft.estimated_price_unit ?? "",
+    price_source: [draft.price_source ?? "manual"],
+    basis_amount: draft.basis_amount?.toString() ?? "100",
+    basis_unit: draft.basis_unit ?? "g",
+    calories: draft.calories?.toString() ?? "",
+    protein: draft.protein?.toString() ?? "",
+    carbohydrates: draft.carbohydrates?.toString() ?? "",
+    fat: draft.fat?.toString() ?? "",
+    sugar: draft.sugar?.toString() ?? "",
+    fiber: draft.fiber?.toString() ?? "",
+    sodium: draft.sodium?.toString() ?? "",
+    source: [draft.source ?? "manual"],
+    source_ref_id: draft.source_ref_id ?? "",
+    source_description: draft.source_description ?? "",
+    match_type: draft.match_type ? [draft.match_type] : [],
+    verification_status: [draft.verification_status ?? "NEEDS_REVIEW"],
+    grams_per_ml: draft.grams_per_ml?.toString() ?? "",
+    grams_per_piece: draft.grams_per_piece?.toString() ?? "",
+    piece_label: draft.piece_label ?? "",
+  };
+}
+
 function numOrNull(value: string): number | null {
   if (value.trim() === "") return null;
   const n = Number(value);
@@ -183,7 +226,15 @@ function NumberField({
   );
 }
 
-export function IngredientEditSheet({ visible, onClose, ingredient, onSave, isSaving }: Props) {
+export function IngredientEditSheet({
+  visible,
+  onClose,
+  ingredient,
+  initialDraft,
+  onSave,
+  isSaving,
+  saveLabel,
+}: Props) {
   const [form, setForm] = useState<FormState | null>(null);
   const [usdaResult, setUsdaResult] = useState<UsdaGroundingResult | null>(null);
   const [usdaCandidateIndex, setUsdaCandidateIndex] = useState(0);
@@ -191,8 +242,13 @@ export function IngredientEditSheet({ visible, onClose, ingredient, onSave, isSa
 
   useEffect(() => {
     if (ingredient) setForm(toFormState(ingredient));
+    else if (initialDraft) setForm(draftFormState(initialDraft));
+    else setForm(null);
     setUsdaResult(null);
-  }, [ingredient]);
+    // Re-derive only when the sheet is opened for a genuinely different
+    // target, not on every initialDraft object identity change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ingredient, visible]);
 
   if (!form) return null;
 
@@ -253,7 +309,7 @@ export function IngredientEditSheet({ visible, onClose, ingredient, onSave, isSa
     <BottomSheet visible={visible} onClose={onClose} heightPercent={0.9}>
       <ScrollView className="flex-1 px-8 pt-16" contentContainerStyle={{ paddingBottom: 24 }}>
         <AppText variant="heading" className="mb-6">
-          Edit Ingredient
+          {ingredient ? "Edit Ingredient" : "Add Ingredient"}
         </AppText>
 
         <Section title="Identity">
@@ -414,7 +470,7 @@ export function IngredientEditSheet({ visible, onClose, ingredient, onSave, isSa
           <TextField label="Piece label (e.g. clove, medium egg)" value={form.piece_label} onChangeText={(v) => set("piece_label", v)} />
         </Section>
 
-        <Button label={isSaving ? "Saving..." : "Save"} disabled={isSaving} onPress={handleSave} />
+        <Button label={isSaving ? "Saving..." : (saveLabel ?? "Save")} disabled={isSaving} onPress={handleSave} />
       </ScrollView>
     </BottomSheet>
   );

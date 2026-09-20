@@ -6,12 +6,17 @@ import type { DropdownItem } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import {
   applyUsdaMatch,
+  classifyUsdaConfidence,
   createIngredient,
+  estimateIngredientAi,
   groundIngredientsUsda,
+  type AiIngredientEstimate,
   type IngredientRow,
   type UsdaGroundingMatch,
 } from "@/api/ingredients";
 import { matchIngredientCandidates, type QuantityUnit } from "@/api/meals";
+import { IngredientEditSheet } from "./IngredientEditSheet";
+import { ConfirmIngredientSheet } from "./ConfirmIngredientSheet";
 
 export type { QuantityUnit };
 
@@ -107,6 +112,12 @@ function IngredientRowCard({
 }) {
   const [usdaSearch, setUsdaSearch] = useState<UsdaSearchState | null>(null);
   const [creating, setCreating] = useState(false);
+  const [aiEstimating, setAiEstimating] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiDraft, setAiDraft] = useState<AiIngredientEstimate | null>(null);
+  const [editSheetVisible, setEditSheetVisible] = useState(false);
+  const [confirmPatch, setConfirmPatch] = useState<(Partial<IngredientRow> & { canonical_name: string }) | null>(null);
+  const [confirmSaving, setConfirmSaving] = useState(false);
 
   const candidates = useMemo(
     () => (item.name.trim() ? matchIngredientCandidates(item.name, allIngredients) : []),
@@ -131,8 +142,11 @@ function IngredientRowCard({
     return parts.length > 0 ? `${parts.join(" · ")} per 100g` : "no macro data";
   };
 
-  const candidateItems: DropdownItem[] = candidates.map(({ ingredient, score }) => ({
-    label: `${ingredient.canonical_name} — score ${score}\n${macroPreview(ingredient.calories, ingredient.protein, ingredient.carbohydrates, ingredient.fat)}`,
+  // Confidence label instead of a raw score — same HIGH/LOW vocabulary and
+  // meaning as the USDA grounding panel/edit sheet, so an admin reading
+  // this dropdown doesn't need a second mental scale.
+  const candidateItems: DropdownItem[] = candidates.map(({ ingredient, confidence }) => ({
+    label: `${ingredient.canonical_name} — ${confidence} confidence\n${macroPreview(ingredient.calories, ingredient.protein, ingredient.carbohydrates, ingredient.fat)}`,
     onPress: () => onResolve(ingredient),
   }));
 
@@ -172,6 +186,37 @@ function IngredientRowCard({
     }
   };
 
+  // Fallback for when neither the local ingredients table nor USDA has a
+  // match: an LLM estimates a full draft row, the admin reviews/edits every
+  // field in the same sheet used to edit real ingredients, then confirms in
+  // a read-only summary before anything is written — never auto-applied.
+  const handleAiEstimate = async () => {
+    setAiEstimating(true);
+    setAiError(null);
+    try {
+      const draft = await estimateIngredientAi(item.name);
+      setAiDraft(draft);
+      setEditSheetVisible(true);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAiEstimating(false);
+    }
+  };
+
+  const handleConfirmCreate = async () => {
+    if (!confirmPatch) return;
+    setConfirmSaving(true);
+    try {
+      const created = await createIngredient(confirmPatch);
+      onResolve(created);
+      setConfirmPatch(null);
+      setAiDraft(null);
+    } finally {
+      setConfirmSaving(false);
+    }
+  };
+
   return (
     <View className="gap-2 rounded-2xl border border-ink-emphasis/10 p-3">
       <View className="flex-row items-center gap-2">
@@ -196,6 +241,7 @@ function IngredientRowCard({
           <Dropdown
             trigger={<SelectField label="Unit" valueLabel={item.quantityUnit} />}
             items={unitItems}
+            matchTriggerWidth
           />
         </View>
       </View>
@@ -214,6 +260,7 @@ function IngredientRowCard({
           />
         }
         items={candidateItems.length > 0 ? candidateItems : [{ label: "No matches yet", onPress: () => {} }]}
+        matchTriggerWidth
       />
 
       {item.ingredientId ? (
@@ -238,9 +285,10 @@ function IngredientRowCard({
             />
           }
           items={usdaSearch.candidates.map((c) => ({
-            label: `${c.description} — score ${c.score}\n${macroPreview(c.calories, c.protein, c.carbohydrates, c.fat)}`,
+            label: `${c.description} — ${classifyUsdaConfidence(c.score)} confidence\n${macroPreview(c.calories, c.protein, c.carbohydrates, c.fat)}`,
             onPress: () => handleAddAndUse(c),
           }))}
+          matchTriggerWidth
         />
       ) : (
         <Pressable onPress={handleSearchUsda} disabled={usdaSearch?.loading}>
@@ -256,10 +304,46 @@ function IngredientRowCard({
         </AppText>
       )}
       {usdaSearch?.candidates?.length === 0 && (
-        <AppText variant="caption" className="text-ink-subtle">
-          No USDA match either — try adjusting the name.
-        </AppText>
+        <View className="gap-2">
+          <AppText variant="caption" className="text-ink-subtle">
+            No USDA match either — try adjusting the name.
+          </AppText>
+          <Pressable onPress={handleAiEstimate} disabled={aiEstimating}>
+            <AppText variant="caption" className="text-primary">
+              {aiEstimating ? "Estimating with AI..." : "+ Add ingredient manually (AI-curated)"}
+            </AppText>
+          </Pressable>
+          {aiError && (
+            <AppText variant="caption" className="text-like">
+              {aiError}
+            </AppText>
+          )}
+        </View>
       )}
+
+      <IngredientEditSheet
+        visible={editSheetVisible}
+        onClose={() => setEditSheetVisible(false)}
+        ingredient={null}
+        initialDraft={aiDraft}
+        onSave={(patch) => {
+          setConfirmPatch({ ...patch, canonical_name: patch.canonical_name ?? item.name });
+          setEditSheetVisible(false);
+        }}
+        isSaving={false}
+        saveLabel="Review"
+      />
+
+      <ConfirmIngredientSheet
+        visible={!!confirmPatch}
+        patch={confirmPatch}
+        onCancel={() => {
+          setConfirmPatch(null);
+          setEditSheetVisible(true);
+        }}
+        onConfirm={handleConfirmCreate}
+        isSaving={confirmSaving}
+      />
     </View>
   );
 }

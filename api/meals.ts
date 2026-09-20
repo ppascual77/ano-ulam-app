@@ -243,7 +243,19 @@ export function scoreIngredientMatch(query: string, ingredient: IngredientRow): 
 export type IngredientMatchCandidate = {
   ingredient: IngredientRow;
   score: number;
+  // HIGH when every word of the ingredient's canonical name was found in
+  // the query (the same "full coverage" signal scoreIngredientMatch's
+  // bonus is based on) — a meaningful match-quality signal, unlike the raw
+  // word-overlap score which has no fixed scale for an admin to read.
+  confidence: "HIGH" | "LOW";
 };
+
+function localMatchConfidence(query: string, ingredient: IngredientRow): "HIGH" | "LOW" {
+  const queryWords = new Set(significantWords(query));
+  const nameWords = significantWords(ingredient.canonical_name);
+  const nameOverlap = nameWords.filter((w) => queryWords.has(w)).length;
+  return nameWords.length > 0 && nameOverlap === nameWords.length ? "HIGH" : "LOW";
+}
 
 export function matchIngredientCandidates(
   query: string,
@@ -251,7 +263,11 @@ export function matchIngredientCandidates(
   limit = 5,
 ): IngredientMatchCandidate[] {
   return allIngredients
-    .map((ingredient) => ({ ingredient, score: scoreIngredientMatch(query, ingredient) }))
+    .map((ingredient) => ({
+      ingredient,
+      score: scoreIngredientMatch(query, ingredient),
+      confidence: localMatchConfidence(query, ingredient),
+    }))
     .filter((c) => c.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);

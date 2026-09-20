@@ -115,6 +115,38 @@ export async function groundIngredientsUsda(
   return data?.results ?? [];
 }
 
+// Mirrors ground-ingredients-usda's own HIGH_SCORE_THRESHOLD (300) so a
+// per-candidate label in the UI means the same thing here as it does in
+// the USDA grounding panel/edit sheet, rather than showing a raw score the
+// admin has no reference scale for.
+const USDA_HIGH_SCORE_THRESHOLD = 300;
+export function classifyUsdaConfidence(score: number): "HIGH" | "LOW" {
+  return score >= USDA_HIGH_SCORE_THRESHOLD ? "HIGH" : "LOW";
+}
+
+export type AiIngredientEstimate = Partial<IngredientRow> & { canonical_name: string };
+
+// AI-curated fallback for the meal seeder — when a recipe ingredient has no
+// ingredients-table match AND no confident USDA candidate. Returns a DRAFT
+// only; never writes to the database. The caller (SeedMealIngredientsEditor)
+// opens this in IngredientEditSheet for review/edit, then a confirmation
+// step before actually calling createIngredient.
+export async function estimateIngredientAi(name: string): Promise<AiIngredientEstimate> {
+  const { data, error } = await supabase.functions.invoke<{ ingredient: AiIngredientEstimate }>(
+    "estimate-ingredient-ai",
+    { body: { name } },
+  );
+  if (error) throw error;
+  if (!data?.ingredient) throw new Error("AI estimate returned no data");
+  return {
+    ...data.ingredient,
+    source: "manual",
+    source_description: data.ingredient.source_description ?? "AI-estimated via OpenAI, pending FNRI/USDA grounding",
+    verification_status: "NEEDS_REVIEW",
+    price_source: "manual",
+  };
+}
+
 export function applyUsdaMatch(matched: UsdaGroundingMatch, confidence: "HIGH" | "LOW"): Partial<IngredientRow> {
   return {
     calories: matched.calories,
