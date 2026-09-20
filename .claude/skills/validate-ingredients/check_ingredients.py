@@ -273,7 +273,19 @@ def validate_csv(path):
             f.add("INFO", name, f"source='{source}' but still NEEDS_REVIEW — fine if genuinely approximate, confirm it's intentional")
 
         # 7. Duplicate macro-profile fingerprint (catches shared/duplicate grounding matches).
-        if all(k in macro_vals and macro_vals[k] is not None for k in ["calories", "protein", "carbohydrates", "fat", "sodium"]):
+        # Pure fats/oils are the one legitimate exception: real nutrition
+        # data for any plain oil is ~884 kcal/100g fat, 0 everything else,
+        # because that's what pure fat actually is — two different oils
+        # sharing that exact profile is physically correct, not a sign
+        # they were both matched to the same wrong record (unlike, say,
+        # "whole chicken" and "ground chicken" sharing a profile, which was
+        # a real bug). Skip fingerprinting rows that are ~100% fat.
+        is_pure_fat = (
+            macro_vals.get("protein") is not None and macro_vals.get("protein") <= 1
+            and macro_vals.get("carbohydrates") is not None and macro_vals.get("carbohydrates") <= 1
+            and macro_vals.get("fat") is not None and macro_vals.get("fat") >= 95
+        )
+        if not is_pure_fat and all(k in macro_vals and macro_vals[k] is not None for k in ["calories", "protein", "carbohydrates", "fat", "sodium"]):
             fingerprint = tuple(
                 round(macro_vals[k], 2)
                 for k in ["calories", "protein", "carbohydrates", "fat", "sugar", "fiber", "sodium"]
