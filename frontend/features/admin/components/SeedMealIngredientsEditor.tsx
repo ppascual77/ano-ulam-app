@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { View, Pressable, Linking } from "react-native";
+import { View, Text, Pressable, Linking } from "react-native";
 import { Trash2, Check, ChevronDown, ExternalLink } from "lucide-react-native";
 import { AppText, Button, Dropdown, TextField } from "@/frontend/components/ui";
 import type { DropdownItem } from "@/frontend/components/ui";
@@ -65,17 +65,28 @@ export function resolvePendingIngredient(
   );
 }
 
-// A plain bordered box that looks/behaves like a select input — Dropdown
-// itself is just an anchored menu with no notion of "current value" shown
-// on the trigger, so that display is built here.
+// Mirrors TextField's floating-label layout (small label above the value,
+// both inside the same bordered box) so a select reads as the same kind of
+// field, not a different control — just statically in the "filled" state
+// since a select always has a current value, no empty/focus transition to
+// animate between.
 function SelectField({ label, valueLabel }: { label: string; valueLabel: string }) {
   return (
-    <View className="gap-1">
-      <AppText variant="caption">{label}</AppText>
-      <View className="flex-row items-center justify-between rounded-xl border border-ink-emphasis/15 px-3 py-2.5">
-        <AppText variant="body">{valueLabel}</AppText>
-        <ChevronDown color={colors.ink.subtle} size={16} />
+    <View
+      className="flex-row items-center justify-between px-4"
+      style={{ borderRadius: 16, borderWidth: 1, height: 55, borderColor: "rgba(43, 52, 55, 0.1)" }}
+    >
+      <View className="flex-1 justify-center" style={{ height: 44 }}>
+        <Text className="font-inter-medium text-caption text-ink-subtle">{label}</Text>
+        <Text
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          className="font-inter-semibold text-subheading text-ink-emphasis"
+        >
+          {valueLabel}
+        </Text>
       </View>
+      <ChevronDown color={colors.ink.subtle} size={16} />
     </View>
   );
 }
