@@ -145,13 +145,25 @@ function IngredientRowCard({
     return parts.length > 0 ? `${parts.join(" · ")} per 100g` : "no macro data";
   };
 
+  // FNRI/USDA/Manual — same vocabulary as IngredientEditSheet's Source
+  // field. This is the whole point of searching the local DB first: a
+  // match already grounded to a real FNRI/USDA record is trustworthy in a
+  // way a "manual" AI-estimated placeholder isn't, and the admin can't
+  // tell the difference without this shown.
+  const sourceLabel = (source: string | null) => source ?? "unverified";
+
   // Confidence label instead of a raw score — same HIGH/LOW vocabulary and
   // meaning as the USDA grounding panel/edit sheet, so an admin reading
   // this dropdown doesn't need a second mental scale.
   const candidateItems: DropdownItem[] = candidates.map(({ ingredient, confidence }) => ({
-    label: `${ingredient.canonical_name} — ${confidence} confidence\n${macroPreview(ingredient.calories, ingredient.protein, ingredient.carbohydrates, ingredient.fat)}`,
+    label: `${ingredient.canonical_name} — ${confidence} confidence · ${sourceLabel(ingredient.source)}\n${macroPreview(ingredient.calories, ingredient.protein, ingredient.carbohydrates, ingredient.fat)}`,
     onPress: () => onResolve(ingredient),
   }));
+
+  // The already-linked ingredient's own source, looked up from the full
+  // list rather than stored on PendingMealIngredient — same reasoning as
+  // above, so "Linked to X" still shows how trustworthy that link is.
+  const linkedIngredient = item.ingredientId ? allIngredients.find((i) => i.id === item.ingredientId) : null;
 
   const handleSearchUsda = async () => {
     setUsdaSearch({ loading: true, candidates: null, error: null });
@@ -282,7 +294,13 @@ function IngredientRowCard({
         trigger={
           <SelectField
             label="Ingredient database match"
-            valueLabel={item.ingredientName ?? (candidates.length > 0 ? `${candidates.length} match(es) found` : "No match — try Search USDA below")}
+            valueLabel={
+              linkedIngredient
+                ? `${linkedIngredient.canonical_name} (${sourceLabel(linkedIngredient.source)})`
+                : candidates.length > 0
+                  ? `${candidates.length} match(es) found`
+                  : "No match — try Search USDA below"
+            }
           />
         }
         items={candidateItems.length > 0 ? candidateItems : [{ label: "No matches yet", onPress: () => {} }]}
@@ -294,6 +312,7 @@ function IngredientRowCard({
           <Check color={colors.primary} size={14} />
           <AppText variant="caption" className="text-primary">
             Linked to {item.ingredientName}
+            {linkedIngredient ? ` (${sourceLabel(linkedIngredient.source)})` : ""}
           </AppText>
         </View>
       ) : (
