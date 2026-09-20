@@ -20,7 +20,17 @@ type TextFieldProps = Omit<TextInputProps, "placeholder"> & {
 const UNFOCUSED_BG = "rgba(0, 0, 0, 0)";
 const UNFOCUSED_BORDER = "rgba(43, 52, 55, 0.1)";
 
-export function TextField({ label, icon, value, onFocus, onBlur, className = "", ...props }: TextFieldProps) {
+export function TextField({
+  label,
+  icon,
+  value,
+  onFocus,
+  onBlur,
+  className = "",
+  multiline,
+  numberOfLines,
+  ...props
+}: TextFieldProps) {
   const [isFocused, setIsFocused] = useState(false);
   const isFloating = isFocused || !!value;
   // Label position reacts to isFloating (focus OR has a value, so it never
@@ -50,13 +60,23 @@ export function TextField({ label, icon, value, onFocus, onBlur, className = "",
     ],
   }));
 
+  // Multiline fields (procedure steps, descriptions) shouldn't clip to the
+  // single-line height — the container grows with content instead of
+  // fixing it, so a long step is fully visible rather than scrolling
+  // inside a tiny box.
   return (
     <Animated.View
-      style={[{ borderRadius: 16, borderWidth: 1, height: 55 }, containerStyle]}
-      className={`flex-row items-center px-4 ${className}`}
+      style={[
+        multiline ? { borderRadius: 16, borderWidth: 1, minHeight: 55 } : { borderRadius: 16, borderWidth: 1, height: 55 },
+        containerStyle,
+      ]}
+      className={`flex-row items-center px-4 ${multiline ? "py-3" : ""} ${className}`}
     >
       {icon}
-      <View className="ml-2 flex-1 justify-center" style={{ height: 44 }}>
+      <View
+        className={`ml-2 flex-1 ${multiline ? "" : "justify-center"}`}
+        style={multiline ? { minHeight: 44 } : { height: 44 }}
+      >
         <Animated.View
           style={[
             { position: "absolute", left: 0, right: 0, transformOrigin: "left" },
@@ -81,7 +101,10 @@ export function TextField({ label, icon, value, onFocus, onBlur, className = "",
             setIsFocused(false);
             onBlur?.(e);
           }}
-          className="font-inter-semibold text-subheading text-ink-emphasis"
+          multiline={multiline}
+          numberOfLines={numberOfLines}
+          textAlignVertical={multiline ? "top" : undefined}
+          className="font-inter-regular text-subheading text-ink-emphasis"
           style={{ marginTop: isFloating ? 16 : 0, padding: 0 }}
           {...props}
         />
