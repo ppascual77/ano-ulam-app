@@ -23,7 +23,7 @@ insert into public.ingredients (
   estimated_price, estimated_price_unit, price_source,
   grams_per_piece, piece_label
 ) values
-  ('Vinegar, cane', 'Cane vinegar', array['sukang maasim', 'cane vinegar'], 'Condiments & Sauces', 'Condiments', null, 'pantry',
+  ('Vinegar, cane', 'Cane vinegar', array['sukang puti', 'cane vinegar'], 'Condiments & Sauces', 'Condiments', null, 'pantry',
    100, 'ml', 18, 0, 0.9, 0, 0.4, 0, 2, 'manual', 'AI-estimated placeholder, pending FNRI/USDA grounding', 'NEEDS_REVIEW',
    40, 'L', 'manual', null, null),
   ('Vinegar, coconut', 'Coconut vinegar', array['sukang tuba', 'coconut vinegar'], 'Condiments & Sauces', 'Condiments', null, 'pantry',

@@ -160,6 +160,20 @@ function classifyConfidence(score: number): "HIGH" | "LOW" {
   return score >= HIGH_SCORE_THRESHOLD ? "HIGH" : "LOW";
 }
 
+// This score-only classification only means something if the candidate
+// actually HAS usable nutrition data — confirmed necessary after
+// "Mayonnaise" and "Ranch dressing" both matched real USDA records
+// (textually confident enough to score HIGH) whose detail endpoint
+// returned every core macro as null. Applying that "HIGH_CONFIDENCE"
+// match overwrote a working manual placeholder with nulls, violating the
+// project's own rule that every ingredient field must carry a value.
+// Text-match confidence and data completeness are independent signals;
+// a candidate with none of the four core macros is never usable
+// regardless of how well its description matched the query.
+function hasUsableNutrients(c: Pick<Candidate, "calories" | "protein" | "carbohydrates" | "fat">): boolean {
+  return c.calories !== null || c.protein !== null || c.carbohydrates !== null || c.fat !== null;
+}
+
 type GroundingResult =
   | { id: string; confidence: "NONE" }
   | { id: string; confidence: "ERROR"; error: string }
@@ -177,7 +191,7 @@ async function groundOne(id: string, canonicalName: string): Promise<GroundingRe
       return { id, confidence: "NONE" };
     }
 
-    const candidates: Candidate[] = await Promise.all(
+    const fetched: Candidate[] = await Promise.all(
       eligible.map(async (f) => {
         const nutrients = await fetchUsdaFoodDetail(f.fdcId);
         return {
@@ -189,6 +203,11 @@ async function groundOne(id: string, canonicalName: string): Promise<GroundingRe
         };
       }),
     );
+    const candidates = fetched.filter(hasUsableNutrients);
+
+    if (candidates.length === 0) {
+      return { id, confidence: "NONE" };
+    }
 
     return { id, confidence: classifyConfidence(candidates[0].score), candidates };
   } catch (err) {
