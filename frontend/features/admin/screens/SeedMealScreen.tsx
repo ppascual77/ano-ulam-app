@@ -15,10 +15,8 @@ import {
 } from "../hooks/useMeals";
 import {
   SeedMealIngredientsEditor,
-  resolvePendingIngredient,
   type PendingMealIngredient,
 } from "../components/SeedMealIngredientsEditor";
-import { SyncIngredientsPanel } from "../components/SyncIngredientsPanel";
 
 const DIFFICULTY_OPTIONS = [
   { id: "easy", label: "Easy" },
@@ -42,8 +40,8 @@ function draftIngredientsToPending(draft: ImportedMealDraft): PendingMealIngredi
     // The LLM returns a human quantity string ("1/4 cup", "3 cloves") this
     // schema can't parse directly (no cup/tbsp units) — kept as the
     // display text so nothing is lost, while amount/unit start blank for
-    // the admin to set the real numeric value while binding in
-    // SyncIngredientsPanel below.
+    // the admin to set the real numeric value while binding each
+    // ingredient's database match inline below.
     quantityAmount: "",
     quantityUnit: "g",
     displayText: ing.quantity_text,
@@ -212,18 +210,8 @@ export default function SeedMealScreen() {
           </Section>
 
           <Section title="Ingredients">
-            <SeedMealIngredientsEditor items={ingredients} onChange={setIngredients} />
+            <SeedMealIngredientsEditor items={ingredients} allIngredients={allIngredients} onChange={setIngredients} />
           </Section>
-
-          {trimmedIngredients.length > 0 && (
-            <Section title="">
-              <SyncIngredientsPanel
-                items={trimmedIngredients}
-                allIngredients={allIngredients}
-                onResolve={(key, ingredient) => setIngredients((prev) => resolvePendingIngredient(prev, key, ingredient))}
-              />
-            </Section>
-          )}
 
           <Button
             label={
