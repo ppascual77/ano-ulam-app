@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import { Trash2, Check, ChevronDown } from "lucide-react-native";
 import { AppText, Button, Dropdown, TextField } from "@/frontend/components/ui";
 import type { DropdownItem } from "@/frontend/components/ui";
@@ -76,7 +76,7 @@ export function resolvePendingIngredient(
 // field, not a different control — just statically in the "filled" state
 // since a select always has a current value, no empty/focus transition to
 // animate between.
-function SelectField({ label, valueLabel }: { label: string; valueLabel: string }) {
+function SelectField({ label, valueLabel, loading }: { label: string; valueLabel: string; loading?: boolean }) {
   return (
     <View
       className="flex-row items-center justify-between px-4"
@@ -92,12 +92,26 @@ function SelectField({ label, valueLabel }: { label: string; valueLabel: string 
           {valueLabel}
         </Text>
       </View>
-      <ChevronDown color={colors.ink.subtle} size={16} />
+      {loading ? <ActivityIndicator size="small" color={colors.primary} /> : <ChevronDown color={colors.ink.subtle} size={16} />}
     </View>
   );
 }
 
 type UsdaSearchState = { loading: boolean; candidates: UsdaGroundingMatch[] | null; error: string | null };
+
+// Edge Function calls occasionally fail at the network layer on mobile
+// (a dropped WiFi/cellular hop, not an error the function itself
+// returned) — surfaces as supabase-js's generic "Failed to send a
+// request to Edge Function" with no real diagnostic value. One silent
+// retry absorbs that class of transient blip before bothering the admin
+// with an error for what's usually just a flaky connection.
+async function withOneRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch {
+    return await fn();
+  }
+}
 
 function IngredientRowCard({
   item,
@@ -168,7 +182,9 @@ function IngredientRowCard({
   const handleSearchUsda = async () => {
     setUsdaSearch({ loading: true, candidates: null, error: null });
     try {
-      const [result] = await groundIngredientsUsda([{ id: item.key, canonicalName: item.name }]);
+      const [result] = await withOneRetry(() =>
+        groundIngredientsUsda([{ id: item.key, canonicalName: item.name }]),
+      );
       if (!result || result.confidence === "NONE") {
         setUsdaSearch({ loading: false, candidates: [], error: null });
       } else if (result.confidence === "ERROR") {
@@ -219,15 +235,16 @@ function IngredientRowCard({
     }
   };
 
-  // Fallback for when neither the local ingredients table nor USDA has a
-  // match: an LLM estimates a full draft row, the admin reviews/edits every
-  // field in the same sheet used to edit real ingredients, then confirms in
-  // a read-only summary before anything is written — never auto-applied.
+  // The admin's own call that nothing found so far (local DB or USDA) is a
+  // real match: an LLM estimates a full draft row, the admin reviews/edits
+  // every field in the same sheet used to edit real ingredients, then
+  // confirms in a read-only summary before anything is written — never
+  // auto-applied.
   const handleAiEstimate = async () => {
     setAiEstimating(true);
     setAiError(null);
     try {
-      const draft = await estimateIngredientAi(item.name);
+      const draft = await withOneRetry(() => estimateIngredientAi(item.name));
       setAiDraft(draft);
       setEditSheetVisible(true);
     } catch (err) {
@@ -333,6 +350,7 @@ function IngredientRowCard({
             <SelectField
               label="USDA match"
               valueLabel={creating ? "Adding + filling in details..." : `${usdaSearch.candidates.length} result(s) — tap to add + use`}
+              loading={creating}
             />
           }
           items={usdaSearch.candidates.map((c) => ({
@@ -342,7 +360,8 @@ function IngredientRowCard({
           matchTriggerWidth
         />
       ) : (
-        <Pressable onPress={handleSearchUsda} disabled={usdaSearch?.loading}>
+        <Pressable onPress={handleSearchUsda} disabled={usdaSearch?.loading} className="flex-row items-center gap-2">
+          {usdaSearch?.loading && <ActivityIndicator size="small" color={colors.primary} />}
           <AppText variant="caption" className="text-primary">
             {usdaSearch?.loading ? "Searching USDA..." : "Search USDA"}
           </AppText>
@@ -364,9 +383,10 @@ function IngredientRowCard({
           admin's own judgment call ("none of these actually match") to
           make at any point, not something gated behind a specific search
           result. */}
-      <Pressable onPress={handleAiEstimate} disabled={aiEstimating}>
+      <Pressable onPress={handleAiEstimate} disabled={aiEstimating} className="flex-row items-center gap-2">
+        {aiEstimating && <ActivityIndicator size="small" color={colors.primary} />}
         <AppText variant="caption" className="text-primary">
-          {aiEstimating ? "Estimating with AI..." : "None of these match — add manually (AI-curated)"}
+          {aiEstimating ? "Estimating..." : "AI Estimate"}
         </AppText>
       </Pressable>
       {aiError && (
