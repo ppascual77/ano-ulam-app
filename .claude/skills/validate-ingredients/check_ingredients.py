@@ -36,8 +36,14 @@ VALID_VERIFICATION = {"VERIFIED", "HIGH_CONFIDENCE", "NEEDS_REVIEW", "UNRESOLVED
 VALID_PRICE_UNIT = {"g", "kg", "ml", "L"}
 
 MACRO_FIELDS = ["calories", "protein", "carbohydrates", "fat", "sugar", "fiber", "sodium"]
+# `state` deliberately excluded: raw/cooked/fried/dried genuinely doesn't
+# apply to a bottled sauce, salt, or oil (confirmed by the project's own
+# original seed — Soy sauce, Vinegar white, Bay leaf, Black pepper,
+# Cooking oil, and Salt all use state=null on purpose). Still filled in
+# for meat/fish/produce where it's meaningful — this just stops
+# condiments/seasonings from being falsely flagged for omitting it.
 REQUIRED_CSV_FIELDS = [
-    "canonical_name", "role", "state", "calories", "protein", "carbohydrates",
+    "canonical_name", "role", "calories", "protein", "carbohydrates",
     "fat", "sodium", "estimated_price", "estimated_price_unit", "source",
     "verification_status",
 ]
@@ -152,7 +158,13 @@ def plausibility_checks(f, name, state, macro_vals, price, food_group=None):
         expected = p * 4 + c * 4 + fa * 9
         if fiber is not None and fiber > 0:
             expected -= fiber * 2
-        if cal > 1 and expected > 1:
+        # Vinegar's calories come from acetic acid, which isn't captured by
+        # protein/carb/fat at all — the project's own original seed already
+        # accepts this mismatch for "Vinegar, white" (18 cal vs ~4
+        # macro-derived) as correct, not a bug. Atwater math fundamentally
+        # doesn't apply here, so skip the check rather than false-flag it.
+        is_vinegar = "vinegar" in name.lower() or "suka" in name.lower()
+        if cal > 1 and expected > 1 and not is_vinegar:
             diff_pct = abs(cal - expected) / max(cal, expected)
             if diff_pct > 0.35:
                 f.add("MUST-FIX", name,
@@ -346,7 +358,10 @@ def validate_seed(path):
         for col, val in row.items():
             if val.strip().lower() == "null":
                 # These are legitimately optional even under the "fill everything" rule.
-                if col in ("grams_per_ml", "grams_per_piece", "piece_label", "display_name", "aliases"):
+                # `state` specifically: raw/cooked/fried/dried doesn't apply to bottled
+                # condiments/seasonings (Soy sauce, Vinegar white, Bay leaf, Black pepper,
+                # Cooking oil, Salt all use null on purpose in the project's own seed).
+                if col in ("grams_per_ml", "grams_per_piece", "piece_label", "display_name", "aliases", "state"):
                     continue
                 f.add("MUST-FIX", name, f"{col} is null — project rule says every field must carry an AI-estimated value")
 
