@@ -158,13 +158,16 @@ def plausibility_checks(f, name, state, macro_vals, price, food_group=None):
         expected = p * 4 + c * 4 + fa * 9
         if fiber is not None and fiber > 0:
             expected -= fiber * 2
-        # Vinegar's calories come from acetic acid, which isn't captured by
-        # protein/carb/fat at all — the project's own original seed already
-        # accepts this mismatch for "Vinegar, white" (18 cal vs ~4
-        # macro-derived) as correct, not a bug. Atwater math fundamentally
-        # doesn't apply here, so skip the check rather than false-flag it.
-        is_vinegar = "vinegar" in name.lower() or "suka" in name.lower()
-        if cal > 1 and expected > 1 and not is_vinegar:
+        # A handful of foods have well-documented real-world exceptions to
+        # simple Atwater math, not data errors: vinegar's calories come from
+        # acetic acid (not captured by protein/carb/fat at all — the
+        # project's own original seed already accepts "Vinegar, white" at
+        # 18 cal vs ~4 macro-derived as correct); cocoa powder's true
+        # metabolizable energy is well below its naive macro sum because of
+        # its very high fiber/theobromine content, a known nutrition-label
+        # quirk. Skip the check for these rather than false-flag them.
+        is_atwater_exception = any(h in name.lower() for h in ["vinegar", "suka", "cocoa", "cacao"])
+        if cal > 1 and expected > 1 and not is_atwater_exception:
             diff_pct = abs(cal - expected) / max(cal, expected)
             if diff_pct > 0.35:
                 f.add("MUST-FIX", name,
