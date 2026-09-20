@@ -134,6 +134,147 @@ export type Database = {
         }
         Relationships: []
       }
+      meal_ingredients: {
+        Row: {
+          created_at: string
+          display_text: string
+          id: string
+          ingredient_id: string
+          meal_id: string
+          quantity_amount: number | null
+          quantity_unit: string | null
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          display_text: string
+          id?: string
+          ingredient_id: string
+          meal_id: string
+          quantity_amount?: number | null
+          quantity_unit?: string | null
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          display_text?: string
+          id?: string
+          ingredient_id?: string
+          meal_id?: string
+          quantity_amount?: number | null
+          quantity_unit?: string | null
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_ingredients_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_ingredients_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meals: {
+        Row: {
+          allergens: string[]
+          archived_at: string | null
+          budget_range: string | null
+          calories: number | null
+          carbohydrates: number | null
+          category: string | null
+          created_at: string
+          description: string | null
+          dietary_tags: string[]
+          difficulty: string | null
+          fat: number | null
+          id: string
+          image_attribution: string | null
+          image_url: string | null
+          ingredients_synced_at: string | null
+          name: string
+          prep_time: number | null
+          price: number | null
+          procedure: string[]
+          protein: number | null
+          protein_type: string | null
+          restaurant: string | null
+          serving_size: number
+          source: string | null
+          source_type: string | null
+          tags: string[]
+          total_time: number | null
+          updated_at: string
+        }
+        Insert: {
+          allergens?: string[]
+          archived_at?: string | null
+          budget_range?: string | null
+          calories?: number | null
+          carbohydrates?: number | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          dietary_tags?: string[]
+          difficulty?: string | null
+          fat?: number | null
+          id?: string
+          image_attribution?: string | null
+          image_url?: string | null
+          ingredients_synced_at?: string | null
+          name: string
+          prep_time?: number | null
+          price?: number | null
+          procedure?: string[]
+          protein?: number | null
+          protein_type?: string | null
+          restaurant?: string | null
+          serving_size?: number
+          source?: string | null
+          source_type?: string | null
+          tags?: string[]
+          total_time?: number | null
+          updated_at?: string
+        }
+        Update: {
+          allergens?: string[]
+          archived_at?: string | null
+          budget_range?: string | null
+          calories?: number | null
+          carbohydrates?: number | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          dietary_tags?: string[]
+          difficulty?: string | null
+          fat?: number | null
+          id?: string
+          image_attribution?: string | null
+          image_url?: string | null
+          ingredients_synced_at?: string | null
+          name?: string
+          prep_time?: number | null
+          price?: number | null
+          procedure?: string[]
+          protein?: number | null
+          protein_type?: string | null
+          restaurant?: string | null
+          serving_size?: number
+          source?: string | null
+          source_type?: string | null
+          tags?: string[]
+          total_time?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           avatar_url: string | null
