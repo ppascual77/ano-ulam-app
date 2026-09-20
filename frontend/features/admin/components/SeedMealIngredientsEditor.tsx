@@ -355,21 +355,24 @@ function IngredientRowCard({
         </AppText>
       )}
       {usdaSearch?.candidates?.length === 0 && (
-        <View className="gap-2">
-          <AppText variant="caption" className="text-ink-subtle">
-            No USDA match either — try adjusting the name.
-          </AppText>
-          <Pressable onPress={handleAiEstimate} disabled={aiEstimating}>
-            <AppText variant="caption" className="text-primary">
-              {aiEstimating ? "Estimating with AI..." : "+ Add ingredient manually (AI-curated)"}
-            </AppText>
-          </Pressable>
-          {aiError && (
-            <AppText variant="caption" className="text-like">
-              {aiError}
-            </AppText>
-          )}
-        </View>
+        <AppText variant="caption" className="text-ink-subtle">
+          No USDA match either — try adjusting the name.
+        </AppText>
+      )}
+
+      {/* Always available, independent of USDA search state — this is the
+          admin's own judgment call ("none of these actually match") to
+          make at any point, not something gated behind a specific search
+          result. */}
+      <Pressable onPress={handleAiEstimate} disabled={aiEstimating}>
+        <AppText variant="caption" className="text-primary">
+          {aiEstimating ? "Estimating with AI..." : "None of these match — add manually (AI-curated)"}
+        </AppText>
+      </Pressable>
+      {aiError && (
+        <AppText variant="caption" className="text-like">
+          {aiError}
+        </AppText>
       )}
 
       <IngredientEditSheet
