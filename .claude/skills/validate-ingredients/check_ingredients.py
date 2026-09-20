@@ -174,20 +174,25 @@ def plausibility_checks(f, name, state, macro_vals, price, food_group=None):
                 f.add("REVIEW", name,
                       f"calories={cal} vs macro-derived={expected:.0f} ({diff_pct:.0%} off) — worth a second look")
 
-    # Category-plausibility heuristics by name keyword.
+    # Category-plausibility heuristics by name keyword. Gated against
+    # PROCESSED_HINTS throughout — a prepared product carrying an organ/fat/
+    # blood word in its name (e.g. "Liver sauce", a Mang Tomas-style
+    # condiment) isn't raw organ meat and shouldn't be held to that macro
+    # shape; same reasoning already applied to the plain-meat check below.
     lname = name.lower()
-    if any(h in lname for h in FAT_DOMINANT_HINTS) and None not in (p, fa):
+    is_processed = any(h in lname for h in PROCESSED_HINTS)
+    if any(h in lname for h in FAT_DOMINANT_HINTS) and not is_processed and None not in (p, fa):
         fat_kcal = fa * 9
         protein_kcal = p * 4
         if fat_kcal <= protein_kcal:
             f.add("REVIEW", name,
                   f"name suggests a fat-dominant cut but protein ({p}g/{protein_kcal:.0f}kcal) "
                   f">= fat ({fa}g/{fat_kcal:.0f}kcal) — possibly matched/estimated as a lean-meat record instead")
-    if any(h in lname for h in ORGAN_HINTS) and None not in (p, fa):
+    if any(h in lname for h in ORGAN_HINTS) and not is_processed and None not in (p, fa):
         if p < fa:
             f.add("REVIEW", name,
                   f"name suggests organ meat, usually protein >= fat, but fat ({fa}g) > protein ({p}g) here")
-    if any(h in lname for h in BLOOD_HINTS) and fa is not None and fa > 5:
+    if any(h in lname for h in BLOOD_HINTS) and not is_processed and fa is not None and fa > 5:
         f.add("REVIEW", name, f"name suggests blood, expected very low fat, got fat={fa}g")
 
     is_meat_or_fish = (
