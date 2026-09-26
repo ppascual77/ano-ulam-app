@@ -436,7 +436,7 @@ export function computeProposedTotals(ingredient: IngredientRow, conversion: Qua
 // recomputes automatically.
 // ---------------------------------------------------------------------------
 
-function countsTowardMealTotals(ingredient: IngredientRow): boolean {
+export function countsTowardMealTotals(ingredient: IngredientRow): boolean {
   return ingredient.role === "main" || ingredient.category === "Oils";
 }
 

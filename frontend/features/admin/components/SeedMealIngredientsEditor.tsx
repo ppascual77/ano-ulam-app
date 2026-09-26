@@ -16,7 +16,14 @@ import {
   type IngredientRow,
   type UsdaGroundingMatch,
 } from "@/api/ingredients";
-import { matchIngredientCandidates, type QuantityUnit } from "@/api/meals";
+import {
+  computeProposedTotals,
+  convertQuantityToBasis,
+  countsTowardMealTotals,
+  matchIngredientCandidates,
+  type ProposedTotals,
+  type QuantityUnit,
+} from "@/api/meals";
 import { IngredientEditSheet } from "./IngredientEditSheet";
 import { ConfirmIngredientSheet } from "./ConfirmIngredientSheet";
 
@@ -98,6 +105,43 @@ function SelectField({ label, valueLabel, loading }: { label: string; valueLabel
 }
 
 type UsdaSearchState = { loading: boolean; candidates: UsdaGroundingMatch[] | null; error: string | null };
+
+type ItemContribution =
+  | { status: "unlinked" }
+  | { status: "no_quantity" }
+  | { status: "error"; reason: string }
+  | { status: "ok"; totals: ProposedTotals; counted: boolean };
+
+// The same conversion/scaling pipeline recomputeMealTotals uses server-side,
+// run here client-side so the admin sees a live "this is what will actually
+// get counted" preview WHILE editing — not just after saving. This is
+// exactly the surface that would have caught a "main" ingredient silently
+// contributing nothing because its grams_per_piece bridge was never set:
+// instead of a suspiciously-low total discovered later, the row itself
+// shows "Can't calculate: ... has no grams_per_piece bridge set".
+function computeItemContribution(item: PendingMealIngredient, allIngredients: IngredientRow[]): ItemContribution {
+  if (!item.ingredientId) return { status: "unlinked" };
+  const ingredient = allIngredients.find((i) => i.id === item.ingredientId);
+  if (!ingredient) return { status: "unlinked" };
+
+  const amount = Number(item.quantityAmount);
+  if (item.quantityAmount.trim() === "" || Number.isNaN(amount)) return { status: "no_quantity" };
+
+  const conversion = convertQuantityToBasis(amount, item.quantityUnit, ingredient);
+  if (!conversion.ok) return { status: "error", reason: conversion.reason };
+
+  return { status: "ok", totals: computeProposedTotals(ingredient, conversion), counted: countsTowardMealTotals(ingredient) };
+}
+
+function contributionLabel(totals: ProposedTotals): string {
+  const parts: string[] = [];
+  if (totals.price != null) parts.push(`₱${totals.price.toFixed(2)}`);
+  if (totals.calories != null) parts.push(`${totals.calories.toFixed(0)} cal`);
+  if (totals.protein != null) parts.push(`${totals.protein.toFixed(1)}g P`);
+  if (totals.carbohydrates != null) parts.push(`${totals.carbohydrates.toFixed(1)}g C`);
+  if (totals.fat != null) parts.push(`${totals.fat.toFixed(1)}g F`);
+  return parts.length > 0 ? parts.join(" · ") : "no price/macro data";
+}
 
 // Edge Function calls occasionally fail at the network layer on mobile
 // (a dropped WiFi/cellular hop, not an error the function itself
@@ -187,6 +231,8 @@ function IngredientRowCard({
   // above, so "Linked to X" still shows how trustworthy that link is.
   const linkedIngredient = item.ingredientId ? allIngredients.find((i) => i.id === item.ingredientId) : null;
 
+  const contribution = computeItemContribution(item, allIngredients);
+
   const handleSearchUsda = async () => {
     setUsdaSearch({ loading: true, candidates: null, error: null });
     try {
@@ -223,14 +269,20 @@ function IngredientRowCard({
       // piece-count bridge) — an LLM fills exactly those gaps so this
       // ingredient never sits with a null price/bridge that silently
       // zeroes it out of a meal's totals. Best-effort: the ingredient is
-      // already created and linked either way, just missing gap fields if
-      // this fails (fixable later in Manage Ingredients).
+      // already created and linked either way, but if the gap-fill call
+      // fails, say so — silently falling back to bare defaults (role
+      // hardcoded "main", no grams_per_ml/grams_per_piece) is exactly what
+      // let garlic/onion powder sit mis-tagged as "main" with no bridge,
+      // undetected, until a meal's totals came back wrong.
       try {
         const gaps = await estimateIngredientGaps(created);
         const filled = await updateIngredient(created.id, gaps);
         onResolve(filled);
-      } catch {
+      } catch (gapErr) {
         onResolve(created);
+        setCreateError(
+          `Added, but couldn't fill in price/role/unit details automatically (${gapErr instanceof Error ? gapErr.message : String(gapErr)}) — check "${item.name}" in Manage Ingredients before relying on this meal's totals.`,
+        );
       }
       setUsdaSearch(null);
     } catch (err) {
@@ -343,6 +395,23 @@ function IngredientRowCard({
       ) : (
         <AppText variant="caption" className="text-like">
           Not yet linked to a real ingredient
+        </AppText>
+      )}
+
+      {contribution.status === "ok" && (
+        <AppText variant="caption" className={contribution.counted ? "text-ink" : "text-ink-subtle"}>
+          {contributionLabel(contribution.totals)}
+          {!contribution.counted && " · pantry — not counted in meal total"}
+        </AppText>
+      )}
+      {contribution.status === "error" && (
+        <AppText variant="caption" className="text-like">
+          Can't calculate price/macros: {contribution.reason}
+        </AppText>
+      )}
+      {contribution.status === "no_quantity" && item.ingredientId && (
+        <AppText variant="caption" className="text-ink-subtle">
+          Set a quantity to calculate price/macros
         </AppText>
       )}
 
@@ -475,6 +544,26 @@ export function SeedMealIngredientsEditor({ items, allIngredients, onChange }: P
 
   const remove = (key: string) => onChange(items.filter((item) => item.key !== key));
 
+  // Live running total — the exact same rule recomputeMealTotals applies
+  // server-side (role='main' or category='Oils', a working quantity
+  // conversion), computed here so the admin sees what saving will actually
+  // produce WHILE still editing, not just after.
+  const total = items.reduce(
+    (acc, item) => {
+      const c = computeItemContribution(item, allIngredients);
+      if (c.status === "ok" && c.counted) {
+        acc.price += c.totals.price ?? 0;
+        acc.calories += c.totals.calories ?? 0;
+        acc.protein += c.totals.protein ?? 0;
+        acc.carbohydrates += c.totals.carbohydrates ?? 0;
+        acc.fat += c.totals.fat ?? 0;
+        acc.count += 1;
+      }
+      return acc;
+    },
+    { price: 0, calories: 0, protein: 0, carbohydrates: 0, fat: 0, count: 0 },
+  );
+
   return (
     <View className="gap-4">
       {items.map((item) => (
@@ -487,6 +576,20 @@ export function SeedMealIngredientsEditor({ items, allIngredients, onChange }: P
           onResolve={(ingredient) => resolve(item.key, ingredient)}
         />
       ))}
+
+      {total.count > 0 && (
+        <View className="gap-1 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+          <AppText variant="caption" className="text-ink-subtle">
+            Estimated total ({total.count} ingredient{total.count === 1 ? "" : "s"} counted)
+          </AppText>
+          <AppText variant="title" className="font-inter-semibold text-primary">
+            ₱{total.price.toFixed(2)} · {Math.round(total.calories)} cal
+          </AppText>
+          <AppText variant="caption" className="text-ink-subtle">
+            {total.protein.toFixed(1)}g protein · {total.carbohydrates.toFixed(1)}g carbs · {total.fat.toFixed(1)}g fat
+          </AppText>
+        </View>
+      )}
 
       <Button label="+ Add ingredient" variant="outline" onPress={() => onChange([...items, newPendingIngredient()])} />
     </View>
