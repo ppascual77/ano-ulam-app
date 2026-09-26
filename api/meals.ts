@@ -95,8 +95,27 @@ const UNIT_SCALE: Partial<Record<string, number>> = {
   small: 0.7, large: 1.5, big: 1.5,
 };
 
+// Recipe sites commonly write fractions as a single Unicode glyph ("½ cup")
+// rather than ASCII "1/2" — invisible to \d, so the whole parse would
+// otherwise fail silently. Normalized to ASCII before anything else runs.
+// A digit immediately before the glyph (no space) means a mixed number
+// written without a space ("1½ cups") — insert one so it flows into the
+// mixed-number pattern below; a bare glyph ("½ cup") just becomes "1/2".
+const UNICODE_FRACTIONS: Record<string, string> = {
+  "½": "1/2", "⅓": "1/3", "⅔": "2/3", "¼": "1/4", "¾": "3/4",
+  "⅕": "1/5", "⅖": "2/5", "⅗": "3/5", "⅘": "4/5",
+  "⅙": "1/6", "⅚": "5/6", "⅐": "1/7", "⅛": "1/8", "⅜": "3/8", "⅝": "5/8", "⅞": "7/8",
+  "⅑": "1/9", "⅒": "1/10",
+};
+function normalizeUnicodeFractions(text: string): string {
+  return text.replace(/(\d)?([½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅐⅛⅜⅝⅞⅑⅒])/g, (_m, digit: string | undefined, glyph: string) => {
+    const ascii = UNICODE_FRACTIONS[glyph];
+    return digit ? `${digit} ${ascii}` : ascii;
+  });
+}
+
 export function parseQuantityText(text: string): { amount: string; unit: QuantityUnit } | null {
-  const trimmed = text.trim();
+  const trimmed = normalizeUnicodeFractions(text.trim());
 
   // Mixed number first (e.g. "1 1/2 cups") — must be tried before the
   // plain pattern below, since that one matches just the leading "1" and
