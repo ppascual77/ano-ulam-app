@@ -16,6 +16,13 @@ function contributionLabel(totals: ProposedTotals): string {
   return parts.length > 0 ? parts.join(" · ") : "no price/macro data";
 }
 
+function bridgeLabel(ingredient: { grams_per_piece: number | null; grams_per_ml: number | null; piece_label: string | null }): string | null {
+  const parts: string[] = [];
+  if (ingredient.grams_per_piece != null) parts.push(`${ingredient.grams_per_piece}g per ${ingredient.piece_label ?? "piece"}`);
+  if (ingredient.grams_per_ml != null) parts.push(`${ingredient.grams_per_ml}g/ml`);
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 const IMAGE_HEIGHT = 220;
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -178,6 +185,9 @@ export default function ViewMealScreen() {
                             {mi.ingredient.source ?? "manual"}
                           </AppText>
                         </View>
+                        <AppText variant="caption" className="text-ink-subtle">
+                          {bridgeLabel(mi.ingredient) ?? "no piece/ml bridge set"}
+                        </AppText>
                         {conversion?.ok ? (
                           <AppText variant="caption" className={counted ? "text-primary" : "text-ink-subtle"}>
                             {contributionLabel(computeProposedTotals(mi.ingredient, conversion))}

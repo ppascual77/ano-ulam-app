@@ -222,11 +222,22 @@ function IngredientRowCard({
   // tell the difference without this shown.
   const sourceLabel = (source: string | null) => source ?? "unverified";
 
+  // What convertQuantityToBasis will actually use for a "piece"/"ml"
+  // quantity, shown up front — the whole point being to see this BEFORE
+  // picking a match or typing a quantity, not only after hitting a "can't
+  // calculate" error.
+  const bridgeLabel = (ingredient: IngredientRow): string | null => {
+    const parts: string[] = [];
+    if (ingredient.grams_per_piece != null) parts.push(`${ingredient.grams_per_piece}g per ${ingredient.piece_label ?? "piece"}`);
+    if (ingredient.grams_per_ml != null) parts.push(`${ingredient.grams_per_ml}g/ml`);
+    return parts.length > 0 ? parts.join(" · ") : null;
+  };
+
   // Confidence label instead of a raw score — same HIGH/LOW vocabulary and
   // meaning as the USDA grounding panel/edit sheet, so an admin reading
   // this dropdown doesn't need a second mental scale.
   const candidateItems: DropdownItem[] = candidates.map(({ ingredient, confidence }) => ({
-    label: `${ingredient.canonical_name} — ${confidence} confidence · ${sourceLabel(ingredient.source)}\n${macroPreview(ingredient.calories, ingredient.protein, ingredient.carbohydrates, ingredient.fat)}`,
+    label: `${ingredient.canonical_name} — ${confidence} confidence · ${sourceLabel(ingredient.source)}\n${macroPreview(ingredient.calories, ingredient.protein, ingredient.carbohydrates, ingredient.fat)}\n${bridgeLabel(ingredient) ?? "no piece/ml bridge set"}`,
     onPress: () => onResolve(ingredient),
   }));
 
@@ -479,6 +490,7 @@ function IngredientRowCard({
           <AppText variant="caption" className="text-primary">
             Linked to {item.ingredientName}
             {linkedIngredient ? ` (${sourceLabel(linkedIngredient.source)})` : ""}
+            {linkedIngredient ? ` · ${bridgeLabel(linkedIngredient) ?? "no piece/ml bridge set"}` : ""}
           </AppText>
         </View>
       ) : (
