@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import { Trash2, Check, ChevronDown } from "lucide-react-native";
 import { AppText, Button, Dropdown, TextField } from "@/frontend/components/ui";
@@ -187,6 +188,9 @@ function IngredientRowCard({
   const [pendingReopenEdit, setPendingReopenEdit] = useState(false);
   const [confirmSaving, setConfirmSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [bridgeFixing, setBridgeFixing] = useState(false);
+  const [bridgeError, setBridgeError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const candidates = useMemo(
     () => (item.name.trim() ? matchIngredientCandidates(item.name, allIngredients) : []),
@@ -232,6 +236,35 @@ function IngredientRowCard({
   const linkedIngredient = item.ingredientId ? allIngredients.find((i) => i.id === item.ingredientId) : null;
 
   const contribution = computeItemContribution(item, allIngredients);
+  // Only the two "no ... bridge set" reasons from convertQuantityToBasis
+  // are actually fixable by estimating a bridge — an "unrecognized unit"
+  // or "unrecognized basis_unit" error means something else is wrong
+  // (wrong unit picked, bad basis_unit data) that an AI-suggested bridge
+  // wouldn't address.
+  const canSuggestBridge = contribution.status === "error" && contribution.reason.includes("bridge");
+
+  // Reuses the same gap-fill mechanism handleAddAndUse already applies to
+  // freshly-created USDA ingredients, just triggered reactively here once
+  // a conversion has actually failed for a real, already-linked ingredient
+  // — only fills whichever bridge field is still null, never touches an
+  // already-set one. Persists to the ingredients table directly (this
+  // ingredient may be reused by other meals too) and invalidates the
+  // matching-ingredients query so `allIngredients` — and this row's own
+  // contribution — reflect the new bridge immediately.
+  const handleFixBridge = async () => {
+    if (!linkedIngredient) return;
+    setBridgeFixing(true);
+    setBridgeError(null);
+    try {
+      const gaps = await withOneRetry(() => estimateIngredientGaps(linkedIngredient));
+      await updateIngredient(linkedIngredient.id, gaps);
+      await queryClient.invalidateQueries({ queryKey: ["admin", "meals"] });
+    } catch (err) {
+      setBridgeError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBridgeFixing(false);
+    }
+  };
 
   const handleSearchUsda = async () => {
     setUsdaSearch({ loading: true, candidates: null, error: null });
@@ -374,9 +407,24 @@ function IngredientRowCard({
             </AppText>
           )}
           {contribution.status === "error" && (
-            <AppText variant="caption" className="text-like">
-              Can't calculate price/macros: {contribution.reason}
-            </AppText>
+            <View className="gap-1.5">
+              <AppText variant="caption" className="text-like">
+                Can't calculate price/macros: {contribution.reason}
+              </AppText>
+              {canSuggestBridge && (
+                <Pressable onPress={handleFixBridge} disabled={bridgeFixing} className="flex-row items-center gap-2 self-start">
+                  {bridgeFixing && <ActivityIndicator size="small" color={colors.primary} />}
+                  <AppText variant="caption" className="text-primary">
+                    {bridgeFixing ? "Estimating..." : "Suggest bridge with AI"}
+                  </AppText>
+                </Pressable>
+              )}
+              {bridgeError && (
+                <AppText variant="caption" className="text-like">
+                  {bridgeError}
+                </AppText>
+              )}
+            </View>
           )}
           {contribution.status === "no_quantity" && (
             <AppText variant="caption" className="text-ink-subtle">
