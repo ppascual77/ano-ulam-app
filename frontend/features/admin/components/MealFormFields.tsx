@@ -3,6 +3,7 @@ import { Trash2 } from "lucide-react-native";
 import { AppText, Button, ChipSelect, TextField } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import type { IngredientRow } from "@/api/ingredients";
+import { PILL_TAG_IDS, PILL_TAG_OPTIONS } from "../utils/pillTags";
 import { SeedMealIngredientsEditor, type PendingMealIngredient } from "./SeedMealIngredientsEditor";
 
 // Shared by SeedMealScreen's post-import review and EditMealScreen — both
@@ -43,20 +44,15 @@ const DIETARY_TAG_OPTIONS = [
   { id: "halal", label: "Halal" },
 ];
 
-const TAG_OPTIONS = [
-  { id: "salad", label: "Salad" },
+// Way of cooking — filter-only (see QuickFilters), no pill badge like the
+// nutrition/style tags get, so these live here rather than in
+// core/meals/utils/constants.ts's pill config.
+const COOKING_METHOD_OPTIONS = [
+  { id: "soupy", label: "Soupy" },
   { id: "grilled", label: "Grilled" },
   { id: "fried", label: "Fried" },
-  { id: "soup", label: "Soup" },
-  { id: "stir_fry", label: "Stir-fry" },
-  { id: "budget_friendly", label: "Budget-friendly" },
-  { id: "high_protein", label: "High-protein" },
-  { id: "no_cook", label: "No-cook" },
-  { id: "quick", label: "Quick" },
-  { id: "spicy", label: "Spicy" },
-  { id: "comfort_food", label: "Comfort food" },
-  { id: "one_pot", label: "One-pot" },
 ];
+const COOKING_METHOD_IDS = new Set(COOKING_METHOD_OPTIONS.map((o) => o.id));
 
 const ALLERGEN_OPTIONS = [
   { id: "nuts", label: "Nuts" },
@@ -93,6 +89,12 @@ export function MealFormFields({ value, onChange, allIngredients }: Props) {
   };
   const removeProcedureStep = (index: number) => {
     set("procedure", value.procedure.filter((_, i) => i !== index));
+  };
+
+  // tags holds two independent groups of values merged into one array —
+  // toggling one group must never clobber the other's current selection.
+  const setTagGroup = (groupIds: Set<string>, next: string[]) => {
+    set("tags", [...value.tags.filter((t) => !groupIds.has(t)), ...next]);
   };
 
   return (
@@ -145,8 +147,26 @@ export function MealFormFields({ value, onChange, allIngredients }: Props) {
       <Section title="Tags & Dietary">
         <AppText variant="caption">Dietary tags</AppText>
         <ChipSelect mode="multi" options={DIETARY_TAG_OPTIONS} value={value.dietaryTags} onChange={(v) => set("dietaryTags", v)} />
-        <AppText variant="caption">Tags</AppText>
-        <ChipSelect mode="multi" options={TAG_OPTIONS} value={value.tags} onChange={(v) => set("tags", v)} />
+
+        <AppText variant="caption">Nutrition &amp; style tags</AppText>
+        <AppText variant="caption" className="text-ink-subtle -mt-2">
+          Auto-recalculated from the meal's macros whenever totals are recomputed — edit here only to override.
+        </AppText>
+        <ChipSelect
+          mode="multi"
+          options={PILL_TAG_OPTIONS}
+          value={value.tags.filter((t) => PILL_TAG_IDS.has(t))}
+          onChange={(v) => setTagGroup(PILL_TAG_IDS, v)}
+        />
+
+        <AppText variant="caption">Way of cooking</AppText>
+        <ChipSelect
+          mode="multi"
+          options={COOKING_METHOD_OPTIONS}
+          value={value.tags.filter((t) => COOKING_METHOD_IDS.has(t))}
+          onChange={(v) => setTagGroup(COOKING_METHOD_IDS, v)}
+        />
+
         <AppText variant="caption">Allergens</AppText>
         <ChipSelect mode="multi" options={ALLERGEN_OPTIONS} value={value.allergens} onChange={(v) => set("allergens", v)} />
       </Section>
