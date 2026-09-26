@@ -161,6 +161,14 @@ export async function archiveMeal(id: string) {
   return updateMeal(id, { archived_at: new Date().toISOString() });
 }
 
+// Hard delete — permanent, unlike archiveMeal's reversible hide. Its
+// meal_ingredients rows cascade-delete with it (on delete cascade), so no
+// manual cleanup needed here.
+export async function deleteMeal(id: string) {
+  const { error } = await supabase.from("meals").delete().eq("id", id);
+  if (error) throw error;
+}
+
 export type MealIngredientInput = {
   ingredient_id: string;
   quantity_amount: number | null;

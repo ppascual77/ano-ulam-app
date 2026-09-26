@@ -3,6 +3,7 @@ import {
   addMealIngredient,
   archiveMeal,
   createMeal,
+  deleteMeal,
   deleteMealIngredient,
   getIngredientsForMatching,
   getMeal,
@@ -81,6 +82,16 @@ export function useArchiveMeal() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => archiveMeal(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "meals"] });
+    },
+  });
+}
+
+export function useDeleteMeal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteMeal(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "meals"] });
     },

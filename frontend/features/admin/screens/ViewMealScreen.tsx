@@ -1,11 +1,12 @@
+import { useState } from "react";
 import { View, Pressable } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, ImageOff, Pencil, Archive } from "lucide-react-native";
-import { AppText, Button, ErrorState, LoadingState, Screen } from "@/frontend/components/ui";
+import { ArrowLeft, ImageOff, Pencil, Archive, Trash2 } from "lucide-react-native";
+import { AppText, BottomSheet, Button, ErrorState, LoadingState, Screen } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { useArchiveMeal, useMeal } from "../hooks/useMeals";
+import { useArchiveMeal, useDeleteMeal, useMeal } from "../hooks/useMeals";
 
 const IMAGE_HEIGHT = 220;
 
@@ -41,10 +42,22 @@ export default function ViewMealScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: meal, isLoading, isError } = useMeal(id ?? null);
   const archiveMeal = useArchiveMeal();
+  const deleteMeal = useDeleteMeal();
+  const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
 
   const handleArchive = () => {
     if (!meal) return;
     archiveMeal.mutate(meal.id, { onSuccess: () => router.back() });
+  };
+
+  const handleDelete = () => {
+    if (!meal) return;
+    deleteMeal.mutate(meal.id, {
+      onSuccess: () => {
+        setConfirmDeleteVisible(false);
+        router.back();
+      },
+    });
   };
 
   return (
@@ -172,15 +185,54 @@ export default function ViewMealScreen() {
             </Section>
           )}
 
-          <Button
-            label={archiveMeal.isPending ? "Archiving..." : "Archive meal"}
-            variant="outline"
-            icon={<Archive color={colors.primary} size={16} />}
-            disabled={archiveMeal.isPending}
-            onPress={handleArchive}
-          />
+          <View className="gap-2">
+            <Button
+              label={archiveMeal.isPending ? "Archiving..." : "Archive meal"}
+              variant="outline"
+              icon={<Archive color={colors.primary} size={16} />}
+              disabled={archiveMeal.isPending}
+              onPress={handleArchive}
+            />
+            <Pressable
+              onPress={() => setConfirmDeleteVisible(true)}
+              className="flex-row items-center justify-center gap-2 rounded-xl border border-like py-3.5"
+            >
+              <Trash2 color={colors.like} size={16} />
+              <AppText variant="title" className="text-like">
+                Delete meal
+              </AppText>
+            </Pressable>
+          </View>
         </ScrollView>
       )}
+
+      <BottomSheet visible={confirmDeleteVisible} onClose={() => setConfirmDeleteVisible(false)} heightPercent={0.4}>
+        <View className="flex-1 px-8 pt-16 items-center">
+          <AppText variant="heading" className="text-center mb-2">
+            Delete this meal?
+          </AppText>
+          <AppText variant="body" className="text-ink-subtle text-center mb-8">
+            {meal ? `"${meal.name}" will be removed from the catalog. This cannot be undone.` : ""}
+          </AppText>
+          <View className="w-full gap-2">
+            <Pressable
+              onPress={handleDelete}
+              disabled={deleteMeal.isPending}
+              className="items-center justify-center rounded-xl bg-like py-3.5"
+            >
+              <AppText variant="title" className="text-white">
+                {deleteMeal.isPending ? "Deleting..." : "Delete"}
+              </AppText>
+            </Pressable>
+            <Button
+              label="Cancel"
+              variant="outline"
+              disabled={deleteMeal.isPending}
+              onPress={() => setConfirmDeleteVisible(false)}
+            />
+          </View>
+        </View>
+      </BottomSheet>
     </Screen>
   );
 }
