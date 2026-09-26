@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, invokeEdgeFunction } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
 import type { IngredientRow } from "./ingredients";
 
@@ -98,13 +98,10 @@ export function parseQuantityText(text: string): { amount: string; unit: Quantit
 }
 
 export async function importMealFromUrl(url: string) {
-  const { data, error } = await supabase.functions.invoke<{
-    meal: ImportedMealDraft;
-    extraction_tier: "json-ld" | "raw-text";
-  }>("import-meal-from-url", { body: { url } });
-  if (error) throw error;
-  if (!data) throw new Error("Import returned no data");
-  return data;
+  return invokeEdgeFunction<{ meal: ImportedMealDraft; extraction_tier: "json-ld" | "raw-text" }>(
+    "import-meal-from-url",
+    { url },
+  );
 }
 
 export type MealFilters = {

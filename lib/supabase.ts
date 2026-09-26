@@ -81,3 +81,29 @@ AppState.addEventListener("change", (state) => {
     supabase.auth.stopAutoRefresh();
   }
 });
+
+// supabase-js's error for a non-2xx Edge Function response is a generic
+// "Edge Function returned a non-2xx status code" — it never reads the
+// function's own {error: "..."} JSON body, so every failure (a bad URL,
+// bot-protected site, OpenAI error, whatever) looked identical and
+// undiagnosable from the app. This reads that body and throws its real
+// message instead, falling back to the generic one only if the body isn't
+// the JSON shape every Edge Function in this project returns on error.
+export async function invokeEdgeFunction<T>(name: string, body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke<T>(name, { body });
+  if (error) {
+    const context = (error as { context?: Response }).context;
+    let detail: string | null = null;
+    if (context && typeof context.json === "function") {
+      try {
+        const parsed = await context.clone().json();
+        if (parsed?.error) detail = parsed.error;
+      } catch {
+        // body wasn't JSON (or already consumed) — fall back below
+      }
+    }
+    throw new Error(detail ?? error.message);
+  }
+  if (!data) throw new Error(`${name} returned no data`);
+  return data;
+}

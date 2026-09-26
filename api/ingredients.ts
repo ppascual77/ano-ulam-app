@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, invokeEdgeFunction } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
 
 export type IngredientRow = Database["public"]["Tables"]["ingredients"]["Row"];
@@ -107,12 +107,11 @@ export type UsdaGroundingResult =
 export async function groundIngredientsUsda(
   ingredients: { id: string; canonicalName: string }[],
 ) {
-  const { data, error } = await supabase.functions.invoke<{ results: UsdaGroundingResult[] }>(
+  const data = await invokeEdgeFunction<{ results: UsdaGroundingResult[] }>(
     "ground-ingredients-usda",
-    { body: { ingredients } },
+    { ingredients },
   );
-  if (error) throw error;
-  return data?.results ?? [];
+  return data.results ?? [];
 }
 
 // Mirrors ground-ingredients-usda's own HIGH_SCORE_THRESHOLD (300) so a
@@ -132,12 +131,8 @@ export type AiIngredientEstimate = Partial<IngredientRow> & { canonical_name: st
 // opens this in IngredientEditSheet for review/edit, then a confirmation
 // step before actually calling createIngredient.
 export async function estimateIngredientAi(name: string): Promise<AiIngredientEstimate> {
-  const { data, error } = await supabase.functions.invoke<{ ingredient: AiIngredientEstimate }>(
-    "estimate-ingredient-ai",
-    { body: { name } },
-  );
-  if (error) throw error;
-  if (!data?.ingredient) throw new Error("AI estimate returned no data");
+  const data = await invokeEdgeFunction<{ ingredient: AiIngredientEstimate }>("estimate-ingredient-ai", { name });
+  if (!data.ingredient) throw new Error("AI estimate returned no data");
   return {
     ...data.ingredient,
     source: "manual",
@@ -156,27 +151,21 @@ export async function estimateIngredientAi(name: string): Promise<AiIngredientEs
 // already set from the real USDA match; only asks the LLM for what's
 // actually missing, echoing the known macros back unchanged as context.
 export async function estimateIngredientGaps(ingredient: IngredientRow): Promise<Partial<IngredientRow>> {
-  const { data, error } = await supabase.functions.invoke<{ ingredient: AiIngredientEstimate }>(
-    "estimate-ingredient-ai",
-    {
-      body: {
-        name: ingredient.canonical_name,
-        known: {
-          basis_amount: ingredient.basis_amount,
-          basis_unit: ingredient.basis_unit,
-          calories: ingredient.calories,
-          protein: ingredient.protein,
-          carbohydrates: ingredient.carbohydrates,
-          fat: ingredient.fat,
-          sugar: ingredient.sugar,
-          fiber: ingredient.fiber,
-          sodium: ingredient.sodium,
-        },
-      },
+  const data = await invokeEdgeFunction<{ ingredient: AiIngredientEstimate }>("estimate-ingredient-ai", {
+    name: ingredient.canonical_name,
+    known: {
+      basis_amount: ingredient.basis_amount,
+      basis_unit: ingredient.basis_unit,
+      calories: ingredient.calories,
+      protein: ingredient.protein,
+      carbohydrates: ingredient.carbohydrates,
+      fat: ingredient.fat,
+      sugar: ingredient.sugar,
+      fiber: ingredient.fiber,
+      sodium: ingredient.sodium,
     },
-  );
-  if (error) throw error;
-  const est = data?.ingredient;
+  });
+  const est = data.ingredient;
   if (!est) throw new Error("AI gap-fill returned no data");
 
   return {
