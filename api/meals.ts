@@ -163,8 +163,21 @@ export async function archiveMeal(id: string) {
 
 // Hard delete — permanent, unlike archiveMeal's reversible hide. Its
 // meal_ingredients rows cascade-delete with it (on delete cascade), so no
-// manual cleanup needed here.
+// manual cleanup needed there — but its uploaded photo(s) live in Storage
+// (uploadMealImage's `${mealId}/...` path), which the DB delete has no
+// knowledge of, so that's cleaned up explicitly here. Best-effort: a
+// Storage hiccup shouldn't block the meal from actually being deleted, and
+// an orphaned image file is a harmless leftover, not a correctness issue.
 export async function deleteMeal(id: string) {
+  try {
+    const { data: files } = await supabase.storage.from("meal-images").list(id);
+    if (files && files.length > 0) {
+      await supabase.storage.from("meal-images").remove(files.map((f) => `${id}/${f.name}`));
+    }
+  } catch {
+    // ignore — see comment above
+  }
+
   const { error } = await supabase.from("meals").delete().eq("id", id);
   if (error) throw error;
 }
