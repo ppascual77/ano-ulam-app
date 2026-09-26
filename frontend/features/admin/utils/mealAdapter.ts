@@ -1,4 +1,4 @@
-import { computeProposedTotals, convertQuantityToBasis, type MealRow, type MealWithIngredients } from "@/api/meals";
+import { computeItemTotals, convertQuantityToBasis, type MealRow, type MealWithIngredients } from "@/api/meals";
 import type { IngredientType, MealType } from "@/frontend/core/meals/mealTypes";
 
 // Real computed totals carry long floating-point tails (e.g. summing many
@@ -65,13 +65,18 @@ function mealIngredientToIngredientType(
   // The detail sheet's "Show details" toggle expects each ingredient's OWN
   // calories/price to be its actual contribution at the quantity used in
   // this recipe (it later multiplies by a servings scale factor) — not the
-  // per-100g figure stored on the ingredient row. Same conversion
-  // recomputeMealTotals itself uses.
+  // per-100g figure stored on the ingredient row. Same computation
+  // recomputeMealTotals itself uses, including the price_quantity_amount/
+  // unit override (e.g. bulk frying oil: macros from the absorbed amount,
+  // price from the full amount actually used).
   const conversion =
     mi.quantity_amount != null && mi.quantity_unit != null
       ? convertQuantityToBasis(mi.quantity_amount, mi.quantity_unit, mi.ingredient)
       : null;
-  const totals = conversion?.ok ? computeProposedTotals(mi.ingredient, conversion) : null;
+  const totals =
+    conversion?.ok && mi.quantity_amount != null && mi.quantity_unit != null
+      ? computeItemTotals(mi.ingredient, mi.quantity_amount, mi.quantity_unit, mi.price_quantity_amount, mi.price_quantity_unit)
+      : null;
 
   const bridgeParts: string[] = [];
   if (mi.ingredient.grams_per_piece != null) {

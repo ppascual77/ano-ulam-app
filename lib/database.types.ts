@@ -139,6 +139,8 @@ export type Database = {
           ingredient_id: string
           meal_id: string
           note: string | null
+          price_quantity_amount: number | null
+          price_quantity_unit: string | null
           quantity_amount: number | null
           quantity_unit: string | null
           sort_order: number
@@ -150,6 +152,8 @@ export type Database = {
           ingredient_id: string
           meal_id: string
           note?: string | null
+          price_quantity_amount?: number | null
+          price_quantity_unit?: string | null
           quantity_amount?: number | null
           quantity_unit?: string | null
           sort_order?: number
@@ -161,6 +165,8 @@ export type Database = {
           ingredient_id?: string
           meal_id?: string
           note?: string | null
+          price_quantity_amount?: number | null
+          price_quantity_unit?: string | null
           quantity_amount?: number | null
           quantity_unit?: string | null
           sort_order?: number

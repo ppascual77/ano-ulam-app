@@ -18,7 +18,7 @@ import {
   type UsdaGroundingMatch,
 } from "@/api/ingredients";
 import {
-  computeProposedTotals,
+  computeItemTotals,
   convertQuantityToBasis,
   countsTowardMealTotals,
   matchIngredientCandidates,
@@ -41,6 +41,12 @@ export type PendingMealIngredient = {
   // short explanation — e.g. bulk deep-frying oil where only a fraction is
   // actually absorbed.
   note: string;
+  // Overrides the quantity PRICE is computed from, independent of
+  // quantityAmount/quantityUnit (which macros always use). Empty string =
+  // no override, price falls back to the same quantity as macros — the
+  // common case. Set together, both or neither.
+  priceQuantityAmount: string;
+  priceQuantityUnit: QuantityUnit | "";
   ingredientId: string | null;
   ingredientName: string | null; // for display once resolved, without refetching
 };
@@ -63,6 +69,8 @@ export function newPendingIngredient(): PendingMealIngredient {
     quantityUnit: "g",
     displayText: "",
     note: "",
+    priceQuantityAmount: "",
+    priceQuantityUnit: "",
     ingredientId: null,
     ingredientName: null,
   };
@@ -137,7 +145,16 @@ function computeItemContribution(item: PendingMealIngredient, allIngredients: In
   const conversion = convertQuantityToBasis(amount, item.quantityUnit, ingredient);
   if (!conversion.ok) return { status: "error", reason: conversion.reason };
 
-  return { status: "ok", totals: computeProposedTotals(ingredient, conversion), counted: countsTowardMealTotals(ingredient) };
+  const priceAmount = item.priceQuantityAmount.trim() !== "" ? Number(item.priceQuantityAmount) : null;
+  const totals = computeItemTotals(
+    ingredient,
+    amount,
+    item.quantityUnit,
+    priceAmount != null && !Number.isNaN(priceAmount) ? priceAmount : null,
+    item.priceQuantityUnit || null,
+  );
+
+  return { status: "ok", totals, counted: countsTowardMealTotals(ingredient) };
 }
 
 function contributionLabel(totals: ProposedTotals): string {
@@ -305,10 +322,26 @@ function IngredientRowCard({
     // changed qty as "might describe a different food now"), but this is
     // adjusting how much of the SAME already-correct ingredient counts,
     // not re-describing what it is. See `update` in the parent component.
+    //
+    // Preserves the ORIGINAL quantity as a price override before
+    // overwriting quantityAmount/Unit with the absorbed estimate — the
+    // cook still buys/uses the full amount poured (that's what price
+    // should reflect), only the dish's macros reflect what's absorbed.
     onChange({
       quantityAmount: String(OIL_ABSORBED_SUGGESTION_G),
       quantityUnit: "g",
-      note: "Used for frying — only the absorbed amount (~14g) is counted, not what's poured.",
+      note: "Used for frying — macros reflect ~14g absorbed; price still reflects the full amount used.",
+      priceQuantityAmount: item.quantityAmount,
+      priceQuantityUnit: item.quantityUnit,
+      ingredientId: item.ingredientId,
+      ingredientName: item.ingredientName,
+    });
+  };
+
+  const clearPriceOverride = () => {
+    onChange({
+      priceQuantityAmount: "",
+      priceQuantityUnit: "",
       ingredientId: item.ingredientId,
       ingredientName: item.ingredientName,
     });
@@ -480,10 +513,24 @@ function IngredientRowCard({
           }`}
         >
           {contribution.status === "ok" && (
-            <AppText variant="bodyBold" className={contribution.counted ? "text-primary" : "text-ink-subtle"}>
-              {contributionLabel(contribution.totals)}
-              {!contribution.counted && "  ·  pantry — not counted in meal total"}
-            </AppText>
+            <>
+              <AppText variant="bodyBold" className={contribution.counted ? "text-primary" : "text-ink-subtle"}>
+                {contributionLabel(contribution.totals)}
+                {!contribution.counted && "  ·  pantry — not counted in meal total"}
+              </AppText>
+              {item.priceQuantityAmount.trim() !== "" && (
+                <View className="mt-1 flex-row items-center gap-2">
+                  <AppText variant="caption" className="text-ink-subtle">
+                    Price uses {item.priceQuantityAmount} {item.priceQuantityUnit} instead of the macro quantity
+                  </AppText>
+                  <Pressable onPress={clearPriceOverride}>
+                    <AppText variant="caption" className="text-primary">
+                      Clear
+                    </AppText>
+                  </Pressable>
+                </View>
+              )}
+            </>
           )}
           {contribution.status === "error" && (
             <View className="gap-1.5">
@@ -531,7 +578,7 @@ function IngredientRowCard({
           </AppText>
           <Pressable onPress={useAbsorbedOilEstimate} className="mt-1 self-start">
             <AppText variant="caption" className="text-primary">
-              Use ~14g instead
+              Use ~14g for macros, keep full amount for price
             </AppText>
           </Pressable>
         </NoticeBanner>

@@ -31,6 +31,8 @@ function draftIngredientsToPending(draft: ImportedMealDraft): PendingMealIngredi
       quantityUnit: parsed?.unit ?? "g",
       displayText: ing.quantity_text,
       note: "",
+      priceQuantityAmount: "",
+      priceQuantityUnit: "",
       ingredientId: null,
       ingredientName: null,
     };
@@ -116,6 +118,8 @@ export default function SeedMealScreen() {
           quantity_unit: item.quantityAmount.trim() === "" ? null : item.quantityUnit,
           display_text: item.displayText.trim() || item.name,
           note: item.note.trim() || null,
+          price_quantity_amount: item.priceQuantityAmount.trim() === "" ? null : Number(item.priceQuantityAmount),
+          price_quantity_unit: item.priceQuantityAmount.trim() === "" ? null : item.priceQuantityUnit,
           sort_order: i,
         },
       });

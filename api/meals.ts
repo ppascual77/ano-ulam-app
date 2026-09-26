@@ -223,6 +223,13 @@ export type MealIngredientInput = {
   // explanation (e.g. bulk deep-frying oil where only a fraction is
   // actually absorbed) — not oil-specific.
   note?: string | null;
+  // Overrides the quantity PRICE is computed from, independent of the
+  // quantity macros are computed from — e.g. bulk deep-frying oil, where
+  // the cook buys/uses a full cup (price) but the dish only absorbs a
+  // fraction of it (macros). Null (the default) means price falls back to
+  // quantity_amount/quantity_unit, unchanged from before this existed.
+  price_quantity_amount?: number | null;
+  price_quantity_unit?: string | null;
 };
 
 export async function addMealIngredient(mealId: string, input: MealIngredientInput) {
@@ -471,6 +478,30 @@ export function computeProposedTotals(ingredient: IngredientRow, conversion: Qua
   };
 }
 
+// Macros and price can reflect DIFFERENT effective quantities for the same
+// row — e.g. bulk deep-frying oil, where the cook buys/uses a full cup
+// (what price should reflect) but the dish only absorbs a fraction of it
+// (what macros should reflect). priceQuantityAmount/Unit override the
+// quantity price is computed from; when either is null, price falls back
+// to the same quantity macros use (the common case — nothing overridden).
+export function computeItemTotals(
+  ingredient: IngredientRow,
+  quantityAmount: number,
+  quantityUnit: string,
+  priceQuantityAmount?: number | null,
+  priceQuantityUnit?: string | null,
+): ProposedTotals {
+  const macroConversion = convertQuantityToBasis(quantityAmount, quantityUnit, ingredient);
+  const macroTotals = computeProposedTotals(ingredient, macroConversion);
+
+  const hasOverride = priceQuantityAmount != null && priceQuantityUnit != null;
+  const priceTotals = hasOverride
+    ? computeProposedTotals(ingredient, convertQuantityToBasis(priceQuantityAmount, priceQuantityUnit, ingredient))
+    : macroTotals;
+
+  return { ...macroTotals, price: priceTotals.price };
+}
+
 // ---------------------------------------------------------------------------
 // Recompute a meal's cached totals from its current meal_ingredients — sums
 // role === 'main' ingredients plus oils (category 'Oils'), matching the
@@ -499,8 +530,13 @@ export async function recomputeMealTotals(mealId: string) {
   for (const mi of meal.meal_ingredients) {
     if (!countsTowardMealTotals(mi.ingredient)) continue;
     if (mi.quantity_amount == null || mi.quantity_unit == null) continue;
-    const conversion = convertQuantityToBasis(mi.quantity_amount, mi.quantity_unit, mi.ingredient);
-    const totals = computeProposedTotals(mi.ingredient, conversion);
+    const totals = computeItemTotals(
+      mi.ingredient,
+      mi.quantity_amount,
+      mi.quantity_unit,
+      mi.price_quantity_amount,
+      mi.price_quantity_unit,
+    );
     calories += totals.calories ?? 0;
     protein += totals.protein ?? 0;
     carbohydrates += totals.carbohydrates ?? 0;
