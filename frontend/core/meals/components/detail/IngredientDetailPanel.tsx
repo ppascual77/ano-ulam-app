@@ -16,11 +16,11 @@ export function IngredientDetailPanel({ item }: IngredientDetailPanelProps) {
       {item.calories != null ? (
         <>
           <Text className="mb-1 font-inter-regular text-body text-ink-subtle">Total for this quantity</Text>
-          <Text className="font-inter-medium text-caption text-ink">{item.calories} kcal</Text>
+          <Text className="font-inter-medium text-caption text-ink">{Math.round(item.calories)} kcal</Text>
           <Text className="mt-0.5 font-inter-regular text-caption text-ink-subtle">
-            <Text className="font-inter-medium text-ink">{item.protein ?? 0}g</Text> P{"  "}
-            <Text className="font-inter-medium text-ink">{item.fats ?? 0}g</Text> F{"  "}
-            <Text className="font-inter-medium text-ink">{item.carbs ?? 0}g</Text> C
+            <Text className="font-inter-medium text-ink">{(item.protein ?? 0).toFixed(1)}g</Text> P{"  "}
+            <Text className="font-inter-medium text-ink">{(item.fats ?? 0).toFixed(1)}g</Text> F{"  "}
+            <Text className="font-inter-medium text-ink">{(item.carbs ?? 0).toFixed(1)}g</Text> C
           </Text>
         </>
       ) : (
@@ -28,10 +28,13 @@ export function IngredientDetailPanel({ item }: IngredientDetailPanelProps) {
           <Text className="font-inter-medium text-caption text-like">Can't calculate: {item.calculationError}</Text>
         )
       )}
-      {item.bridgeLabel !== undefined && (
-        <Text className="mt-1 font-inter-regular text-sub text-ink-subtle">
-          {item.bridgeLabel ?? "no piece/ml bridge set"}
-        </Text>
+      {/* Only shown when a bridge is actually set — a working conversion
+          that didn't need one (e.g. a weight unit like "14 oz") has
+          nothing worth reporting here, and showing "no bridge set" next
+          to a perfectly correct total reads as a false alarm. The real
+          "no bridge" case is already explained by calculationError above. */}
+      {item.bridgeLabel && (
+        <Text className="mt-1 font-inter-regular text-sub text-ink-subtle">{item.bridgeLabel}</Text>
       )}
       {item.source && (
         <Text className="mt-0.5 font-inter-regular text-sub text-ink-subtle">Source: {item.source}</Text>

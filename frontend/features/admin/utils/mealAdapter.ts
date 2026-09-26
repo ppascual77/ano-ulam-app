@@ -1,6 +1,17 @@
 import { computeProposedTotals, convertQuantityToBasis, type MealRow, type MealWithIngredients } from "@/api/meals";
 import type { IngredientType, MealType } from "@/frontend/core/meals/mealTypes";
 
+// Real computed totals carry long floating-point tails (e.g. summing many
+// ingredients' scaled macros) that mock data never had — MealCard/
+// MacroBreakdown/IngredientDetailPanel render whatever number they're
+// given with no formatting of their own, so it's formatted once here at
+// the source rather than patched into every display component downstream.
+// Calories as a whole number (standard nutrition-label convention),
+// protein/carbs/fat to 1 decimal, price to 2.
+const roundCalories = (n: number | null | undefined) => Math.round(n ?? 0);
+const roundMacro = (n: number | null | undefined) => Number((n ?? 0).toFixed(1));
+const roundPrice = (n: number | null | undefined) => Number((n ?? 0).toFixed(2));
+
 // Bridges this project's real `meals`/`meal_ingredients` schema into the
 // mock-era `MealType` shape that MealCard/MealDetailSheet (used throughout
 // Home/Browse/MealList) already render — reused as-is rather than forked
@@ -14,12 +25,12 @@ export function mealRowToMealType(meal: MealRow, mealIngredients?: MealWithIngre
     name: meal.name,
     description: meal.description ?? "",
     category: meal.category ?? undefined,
-    price: (meal.price ?? 0).toString(),
+    price: roundPrice(meal.price).toFixed(2),
     budget_range: meal.budget_range ?? undefined,
-    calories: meal.calories ?? 0,
-    protein: meal.protein ?? 0,
-    carbs: meal.carbohydrates ?? 0,
-    fats: meal.fat ?? 0,
+    calories: roundCalories(meal.calories),
+    protein: roundMacro(meal.protein),
+    carbs: roundMacro(meal.carbohydrates),
+    fats: roundMacro(meal.fat),
     prep_time: meal.prep_time ?? undefined,
     total_time: meal.total_time ?? undefined,
     difficulty: (meal.difficulty as MealType["difficulty"]) ?? undefined,
@@ -73,11 +84,11 @@ function mealIngredientToIngredientType(
     qty: mi.display_text,
     name: mi.ingredient.canonical_name,
     type: (mi.ingredient.role as "main" | "pantry") ?? "pantry",
-    calories: totals?.calories ?? undefined,
-    protein: totals?.protein ?? undefined,
-    carbs: totals?.carbohydrates ?? undefined,
-    fats: totals?.fat ?? undefined,
-    price: totals?.price ?? undefined,
+    calories: totals?.calories != null ? roundCalories(totals.calories) : undefined,
+    protein: totals?.protein != null ? roundMacro(totals.protein) : undefined,
+    carbs: totals?.carbohydrates != null ? roundMacro(totals.carbohydrates) : undefined,
+    fats: totals?.fat != null ? roundMacro(totals.fat) : undefined,
+    price: totals?.price != null ? roundPrice(totals.price) : undefined,
     bridgeLabel: bridgeParts.length > 0 ? bridgeParts.join(" · ") : null,
     calculationError: conversion && !conversion.ok ? conversion.reason : null,
     source: mi.ingredient.source,

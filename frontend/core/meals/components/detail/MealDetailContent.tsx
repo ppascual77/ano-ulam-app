@@ -107,7 +107,7 @@ function IngredientRow({ ingredient, scale, showDetails, isLast }: IngredientRow
             isMain &&
             (ingredient.price != null && ingredient.price > 0 ? (
               <AppText variant="caption" className="font-inter-semibold text-primary">
-                ~₱{Math.round(ingredient.price * scale)}
+                ~₱{(ingredient.price * scale).toFixed(2)}
               </AppText>
             ) : (
               <View className="flex-row items-center gap-0.5">
@@ -202,12 +202,12 @@ export function MealDetailContent({
 
   const scale = servings / (meal.serving_size ?? 1);
   const displayCalories = Math.round(meal.calories * scale);
-  const displayProtein = Math.round(meal.protein * scale);
-  const displayCarbs = Math.round(meal.carbs * scale);
-  const displayFats = parseFloat((meal.fats * scale).toFixed(1));
-  const displayPrice = Math.round(Number(meal.price) * scale);
+  const displayProtein = Number((meal.protein * scale).toFixed(1));
+  const displayCarbs = Number((meal.carbs * scale).toFixed(1));
+  const displayFats = Number((meal.fats * scale).toFixed(1));
+  const displayPrice = Number((Number(meal.price) * scale).toFixed(2));
   const displayBufferPrice = meal.buffer_price
-    ? Math.round(meal.buffer_price * scale)
+    ? Number((meal.buffer_price * scale).toFixed(2))
     : null;
 
   const isFastFood = meal.category === "fast_food";
@@ -351,8 +351,8 @@ export function MealDetailContent({
                 variant="title"
                 className="font-inter-semibold text-primary"
               >
-                ₱{displayPrice}
-                {displayBufferPrice ? ` – ₱${displayBufferPrice}` : ""}
+                ₱{displayPrice.toFixed(2)}
+                {displayBufferPrice ? ` – ₱${displayBufferPrice.toFixed(2)}` : ""}
               </AppText>
               <AppText
                 variant="caption"
