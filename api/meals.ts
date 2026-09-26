@@ -60,6 +60,14 @@ const UNIT_WORDS: Record<string, QuantityUnit> = {
   bulb: "piece", bulbs: "piece",
   slice: "piece", slices: "piece",
   thumb: "piece", thumbs: "piece", knob: "piece", knobs: "piece",
+  // Size qualifiers on a countable produce item ("1 medium potato", "2
+  // large onions") — these were previously captured by the regex as the
+  // "unit" word (right after the number, before the ingredient name) and
+  // failed to match anything, leaving the quantity blank. "medium" is the
+  // baseline (grams_per_piece is estimated as a typical/medium piece, per
+  // this project's own seeding convention) so it scales by 1; small/large
+  // scale relative to it via UNIT_SCALE below, same mechanism as lb/oz.
+  medium: "piece", small: "piece", large: "piece", big: "piece", extra: "piece",
   lb: "kg", lbs: "kg", pound: "kg", pounds: "kg",
   oz: "g", ounce: "g", ounces: "g",
   tbsp: "ml", tbsps: "ml", tablespoon: "ml", tablespoons: "ml",
@@ -73,12 +81,18 @@ const UNIT_WORDS: Record<string, QuantityUnit> = {
 // volume-to-WEIGHT (e.g. "1 cup flour" -> grams), which does depend on the
 // ingredient's density and is deliberately left to convertQuantityToBasis's
 // per-ingredient grams_per_ml bridge, not guessed here.
+//
+// small/large/big are rough (0.7x / 1.5x a medium piece) — close enough for
+// a draft the admin reviews, same spirit as this project's other estimates.
+// "extra" alone (e.g. a stray "extra large") isn't scaled further here;
+// it just resolves to a plain piece rather than blocking the parse.
 const UNIT_SCALE: Partial<Record<string, number>> = {
   lb: 0.453592, lbs: 0.453592, pound: 0.453592, pounds: 0.453592,
   oz: 28.3495, ounce: 28.3495, ounces: 28.3495,
   tbsp: 14.7868, tbsps: 14.7868, tablespoon: 14.7868, tablespoons: 14.7868,
   tsp: 4.92892, tsps: 4.92892, teaspoon: 4.92892, teaspoons: 4.92892,
   cup: 236.588, cups: 236.588,
+  small: 0.7, large: 1.5, big: 1.5,
 };
 
 export function parseQuantityText(text: string): { amount: string; unit: QuantityUnit } | null {
