@@ -12,6 +12,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import {
+  Archive,
   Bookmark,
   Heart,
   ShieldCheck,
@@ -20,6 +21,7 @@ import {
   Flame,
   ChefHat,
   Minus,
+  Pencil,
   Plus,
   User2,
   Users,
@@ -27,6 +29,7 @@ import {
   Info,
   ChevronDown,
   ArrowLeft,
+  Trash2,
 } from "lucide-react-native";
 import { AppText, Button, Chips, NoticeBanner, Toggle } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -39,16 +42,19 @@ import { multiplyQty } from "../../utils/multiplyQty";
 import { DIETARY_ICONS, capitalize } from "../../utils/dietary";
 import type { IngredientType, MealType } from "../../mealTypes";
 
-// A pantry item counts as having a detail worth expanding only if it's
-// cooking oil with known calories — most pantry items (salt, pepper) don't.
-function isOilWithCalories(item: IngredientType) {
-  return item.type === "pantry" && /oil/i.test(item.name) && item.calories != null;
+// Whether IngredientDetailPanel actually has something to show — either
+// real computed macros, or (admin-only) a reason those couldn't be
+// computed / the bridge that was used. A pantry item counts only if it's
+// cooking oil, since most pantry items (salt, pepper) never show detail.
+function hasIngredientDetail(item: IngredientType) {
+  if (item.type === "pantry" && !/oil/i.test(item.name)) return false;
+  return item.calories != null || !!item.calculationError;
 }
 
 function orderIngredients(ingredients: IngredientType[]) {
   const main = ingredients.filter((it) => it.type === "main");
-  const oils = ingredients.filter(isOilWithCalories);
-  const rest = ingredients.filter((it) => it.type === "pantry" && !isOilWithCalories(it));
+  const oils = ingredients.filter((it) => it.type === "pantry" && /oil/i.test(it.name));
+  const rest = ingredients.filter((it) => it.type === "pantry" && !/oil/i.test(it.name));
   return [...main, ...oils, ...rest];
 }
 
@@ -61,7 +67,7 @@ type IngredientRowProps = {
 
 function IngredientRow({ ingredient, scale, showDetails, isLast }: IngredientRowProps) {
   const isMain = ingredient.type === "main";
-  const hasDetail = (isMain || isOilWithCalories(ingredient)) && ingredient.calories != null;
+  const hasDetail = hasIngredientDetail(ingredient);
   const interactive = showDetails && hasDetail;
 
   const [expanded, setExpanded] = useState(false);
@@ -162,6 +168,11 @@ type MealDetailContentProps = {
    *  slides in from the right; "none" (initial open) plays no slide —
    *  BottomSheet's own slide-up already covers that. Defaults to "none". */
   direction?: "none" | "forward" | "back";
+  /** Admin-only — omitted for every consumer-facing usage of this
+   *  component, which renders nothing extra when they're absent. */
+  onEdit?: () => void;
+  onArchive?: () => void;
+  onDelete?: () => void;
 };
 
 // The scrollable body rendered inside a BottomSheet (see MealDetailSheet).
@@ -175,6 +186,9 @@ export function MealDetailContent({
   onSelectMeal,
   onBack,
   direction = "none",
+  onEdit,
+  onArchive,
+  onDelete,
 }: MealDetailContentProps) {
   const [isLiked, setIsLiked] = useState(meal.liked_by_me ?? false);
   const [likeCount, setLikeCount] = useState(meal.like_count ?? 0);
@@ -232,6 +246,17 @@ export function MealDetailContent({
                   <ShieldCheck color={colors.white} size={10} strokeWidth={2} />
                 }
               />
+            </View>
+          )}
+
+          {onEdit && (
+            <View className="absolute right-4 top-4">
+              <Pressable
+                onPress={onEdit}
+                className="h-9 w-9 items-center justify-center rounded-full bg-ink-emphasis/50"
+              >
+                <Pencil color={colors.white} size={16} />
+              </Pressable>
             </View>
           )}
 
@@ -451,13 +476,39 @@ export function MealDetailContent({
             </View>
           )}
 
-          <View className="mb-6">
-            <RelatedMeals meal={meal} onSelectMeal={onSelectMeal} />
-          </View>
+          {/* RelatedMeals pulls from the mock catalog regardless of which
+              meal is actually open (no backend for real relations yet) —
+              meaningless in admin context, and tapping one would swap the
+              sheet to fake data while Edit/Archive/Delete stay bound to the
+              real meal being managed, a confusing mismatch. */}
+          {!onEdit && !onArchive && !onDelete && (
+            <View className="mb-6">
+              <RelatedMeals meal={meal} onSelectMeal={onSelectMeal} />
+            </View>
+          )}
         </View>
       </ScrollView>
 
-      <View className="border-t border-ink-emphasis/10 px-5 py-4">
+      <View className="border-t border-ink-emphasis/10 px-5 py-4 gap-2">
+        {onArchive && (
+          <Button
+            label="Archive meal"
+            variant="outline"
+            icon={<Archive color={colors.primary} size={16} />}
+            onPress={onArchive}
+          />
+        )}
+        {onDelete && (
+          <Pressable
+            onPress={onDelete}
+            className="flex-row items-center justify-center gap-2 rounded-xl border border-like py-3.5"
+          >
+            <Trash2 color={colors.like} size={16} />
+            <AppText variant="title" className="text-like">
+              Delete meal
+            </AppText>
+          </Pressable>
+        )}
         <Button
           label={isSaved ? "Unsave" : "Save Meal"}
           variant={isSaved ? "primary" : "outline"}

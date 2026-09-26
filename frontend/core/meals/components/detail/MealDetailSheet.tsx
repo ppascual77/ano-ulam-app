@@ -7,9 +7,21 @@ type MealDetailSheetProps = {
   /** null closes the sheet. */
   meal: MealType | null;
   onClose: () => void;
+  /** Fires once this sheet's close animation has actually finished — see
+   *  BottomSheet's onClosed. Admin callers use this to sequence opening a
+   *  second sheet (e.g. a delete confirmation) right after this one
+   *  closes, so the two are never both visible at once. */
+  onClosed?: () => void;
+  /** Admin-only actions — omitted for every consumer-facing usage (Home,
+   *  Browse, MealList), which renders nothing extra for them. Manage
+   *  Meals passes these to get Edit/Archive/Delete in the same sheet
+   *  everyone already taps a meal card to open. */
+  onEdit?: () => void;
+  onArchive?: () => void;
+  onDelete?: () => void;
 };
 
-export function MealDetailSheet({ meal, onClose }: MealDetailSheetProps) {
+export function MealDetailSheet({ meal, onClose, onClosed, onEdit, onArchive, onDelete }: MealDetailSheetProps) {
   // Keep the last meal rendered while the sheet animates closed, so the
   // content doesn't flash empty before it's off-screen.
   const [renderedMeal, setRenderedMeal] = useState(meal);
@@ -51,7 +63,7 @@ export function MealDetailSheet({ meal, onClose }: MealDetailSheetProps) {
   };
 
   return (
-    <BottomSheet visible={!!meal} onClose={onClose} handleClassName="bg-white/70">
+    <BottomSheet visible={!!meal} onClose={onClose} onClosed={onClosed} handleClassName="bg-white/70">
       {renderedMeal && (
         <MealDetailContent
           key={renderedMeal.id}
@@ -61,6 +73,9 @@ export function MealDetailSheet({ meal, onClose }: MealDetailSheetProps) {
           onSelectMeal={handleSelectMeal}
           onBack={history.length > 0 ? handleBack : undefined}
           direction={direction}
+          onEdit={onEdit}
+          onArchive={onArchive}
+          onDelete={onDelete}
         />
       )}
     </BottomSheet>
