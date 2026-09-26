@@ -33,7 +33,13 @@
       "expo-font",
       "expo-splash-screen",
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "AnoUlam accesses your photos so an admin can set a meal's photo."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

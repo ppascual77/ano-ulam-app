@@ -1,13 +1,22 @@
+import { useMemo, useState } from "react";
 import { View, Pressable } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { router } from "expo-router";
-import { ArrowLeft, ChefHat } from "lucide-react-native";
-import { AppText, Button, ErrorState, LoadingState, Screen } from "@/frontend/components/ui";
+import { ArrowLeft } from "lucide-react-native";
+import { AppText, Button, ErrorState, LoadingState, Screen, SearchBar } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useMeals } from "../hooks/useMeals";
+import { AdminMealCard } from "../components/AdminMealCard";
 
 export default function ManageMealsScreen() {
   const { data: meals, isLoading, isError } = useMeals({});
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return meals ?? [];
+    return (meals ?? []).filter((m) => m.name.toLowerCase().includes(q));
+  }, [meals, search]);
 
   return (
     <Screen padded={false}>
@@ -24,8 +33,9 @@ export default function ManageMealsScreen() {
         </View>
       </View>
 
-      <View className="px-5 mb-4">
+      <View className="px-5 gap-3 mb-4">
         <Button label="+ Seed Meal" onPress={() => router.push("/seed-meal")} />
+        <SearchBar value={search} onChangeText={setSearch} placeholder="Search meals..." />
       </View>
 
       {isLoading ? (
@@ -33,22 +43,17 @@ export default function ManageMealsScreen() {
       ) : isError ? (
         <ErrorState />
       ) : (
-        <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
-          {(meals ?? []).map((meal) => (
-            <View key={meal.id} className="flex-row items-center gap-3 border-b border-ink-emphasis/10 py-3">
-              <View className="w-10 h-10 rounded-full bg-primary/10 items-center justify-center">
-                <ChefHat color={colors.primary} size={18} />
-              </View>
-              <View className="flex-1">
-                <AppText variant="bodyBold">{meal.name}</AppText>
-                <AppText variant="caption" className="text-ink-subtle">
-                  {meal.calories != null ? `${Math.round(meal.calories)} cal` : "No macros yet"}
-                  {meal.price != null ? ` · ₱${meal.price.toFixed(0)}` : ""}
-                  {!meal.ingredients_synced_at ? " · not synced" : ""}
-                </AppText>
-              </View>
-            </View>
-          ))}
+        <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+          <View className="gap-4">
+            {filtered.map((meal) => (
+              <AdminMealCard key={meal.id} meal={meal} onPress={() => router.push(`/view-meal/${meal.id}`)} />
+            ))}
+          </View>
+          {filtered.length === 0 && (
+            <AppText variant="body" className="text-ink-subtle text-center mt-8">
+              {search ? "No meals match your search." : "No meals yet — seed one to get started."}
+            </AppText>
+          )}
         </ScrollView>
       )}
     </Screen>

@@ -9,8 +9,10 @@ import {
   getMeals,
   importMealFromUrl,
   recomputeMealTotals,
+  replaceMealIngredients,
   updateMeal,
   updateMealIngredient,
+  uploadMealImage,
   type MealFilters,
   type MealIngredientInput,
   type MealIngredientRow,
@@ -125,5 +127,23 @@ export function useRecomputeMealTotals() {
       queryClient.invalidateQueries({ queryKey: mealKeys.detail(mealId) });
       queryClient.invalidateQueries({ queryKey: ["admin", "meals"] });
     },
+  });
+}
+
+export function useReplaceMealIngredients() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ mealId, inputs }: { mealId: string; inputs: MealIngredientInput[] }) =>
+      replaceMealIngredients(mealId, inputs),
+    onSuccess: (_data, { mealId }) => {
+      queryClient.invalidateQueries({ queryKey: mealKeys.detail(mealId) });
+    },
+  });
+}
+
+export function useUploadMealImage() {
+  return useMutation({
+    mutationFn: ({ localUri, mealId }: { localUri: string; mealId: string }) =>
+      uploadMealImage(localUri, mealId),
   });
 }

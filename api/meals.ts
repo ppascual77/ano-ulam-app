@@ -195,6 +195,41 @@ export async function deleteMealIngredient(id: string) {
   if (error) throw error;
 }
 
+// Edit Meal replaces the full ingredient list on save rather than diffing
+// add/update/delete against the original set — these are cheap join-table
+// rows with no history/comments tied to an individual row's id, so a clean
+// replace is simpler and less error-prone than reconciling a diff.
+export async function replaceMealIngredients(mealId: string, inputs: MealIngredientInput[]) {
+  const { error: deleteError } = await supabase.from("meal_ingredients").delete().eq("meal_id", mealId);
+  if (deleteError) throw deleteError;
+  if (inputs.length === 0) return;
+  const { error: insertError } = await supabase
+    .from("meal_ingredients")
+    .insert(inputs.map((input) => ({ meal_id: mealId, ...input })));
+  if (insertError) throw insertError;
+}
+
+// Uploads a locally-picked image (expo-image-picker's file:// URI) to the
+// meal-images Storage bucket and returns its public URL. Path is namespaced
+// by mealId so repeated edits of the same meal don't collide, timestamped
+// so successive uploads for the same meal don't silently overwrite a URL
+// still cached/displayed elsewhere before the admin confirms the change.
+export async function uploadMealImage(localUri: string, mealId: string): Promise<string> {
+  const response = await fetch(localUri);
+  const blob = await response.blob();
+  const ext = localUri.split(".").pop()?.toLowerCase().split("?")[0] || "jpg";
+  const path = `${mealId}/${Date.now()}.${ext}`;
+
+  const { error } = await supabase.storage.from("meal-images").upload(path, blob, {
+    contentType: blob.type || `image/${ext}`,
+    upsert: true,
+  });
+  if (error) throw error;
+
+  const { data } = supabase.storage.from("meal-images").getPublicUrl(path);
+  return data.publicUrl;
+}
+
 // ---------------------------------------------------------------------------
 // Ingredient matching — ranks candidates from OUR OWN ingredients table
 // against a free-text name the admin typed while building a meal. Distinct

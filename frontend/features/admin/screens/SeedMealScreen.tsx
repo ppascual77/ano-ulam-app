@@ -2,8 +2,8 @@ import { useState } from "react";
 import { View, Pressable } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { router } from "expo-router";
-import { ArrowLeft, Link2, Trash2 } from "lucide-react-native";
-import { AppText, Button, ChipSelect, ErrorState, LoadingState, Screen, TextField } from "@/frontend/components/ui";
+import { ArrowLeft, Link2 } from "lucide-react-native";
+import { AppText, Button, ErrorState, LoadingState, Screen, TextField } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { parseQuantityText, type ImportedMealDraft } from "@/api/meals";
 import {
@@ -13,33 +13,16 @@ import {
   useIngredientsForMatching,
   useRecomputeMealTotals,
 } from "../hooks/useMeals";
-import {
-  SeedMealIngredientsEditor,
-  type PendingMealIngredient,
-} from "../components/SeedMealIngredientsEditor";
-
-const DIFFICULTY_OPTIONS = [
-  { id: "easy", label: "Easy" },
-  { id: "medium", label: "Medium" },
-  { id: "hard", label: "Hard" },
-];
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <View className="gap-3 mb-6">
-      <AppText variant="bodyBold">{title}</AppText>
-      {children}
-    </View>
-  );
-}
+import { MealFormFields, type MealFormState } from "../components/MealFormFields";
+import type { PendingMealIngredient } from "../components/SeedMealIngredientsEditor";
 
 function draftIngredientsToPending(draft: ImportedMealDraft): PendingMealIngredient[] {
   return draft.ingredients.map((ing, i) => {
     // Best-effort prefill from the LLM's free-text quantity ("2 pieces",
     // "500 g") — the amount is a fact about this recipe, not something the
     // ingredients DB can supply, so this is a parse of what's already in
-    // the text, not a calculation. Units this schema doesn't model (cups,
-    // tablespoons) fall through and stay blank for the admin to set.
+    // the text, not a calculation. Units this schema doesn't model fall
+    // through and stay blank for the admin to set.
     const parsed = parseQuantityText(ing.quantity_text);
     return {
       key: `imported-${i}`,
@@ -53,18 +36,30 @@ function draftIngredientsToPending(draft: ImportedMealDraft): PendingMealIngredi
   });
 }
 
+function draftToFormState(draft: ImportedMealDraft): MealFormState {
+  return {
+    name: draft.name,
+    description: draft.description,
+    prepTime: draft.prep_time?.toString() ?? "",
+    totalTime: draft.total_time?.toString() ?? "",
+    servingSize: draft.servings?.toString() ?? "1",
+    difficulty: draft.difficulty ? [draft.difficulty] : [],
+    proteinType: draft.protein_type ?? "",
+    restaurant: "",
+    source: "",
+    budgetRange: "",
+    dietaryTags: draft.dietary_tags,
+    tags: draft.tags,
+    allergens: draft.allergens,
+    procedure: draft.procedure,
+    ingredients: draftIngredientsToPending(draft),
+  };
+}
+
 export default function SeedMealScreen() {
   const [url, setUrl] = useState("");
   const [draft, setDraft] = useState<ImportedMealDraft | null>(null);
-
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [difficulty, setDifficulty] = useState<string[]>([]);
-  const [prepTime, setPrepTime] = useState("");
-  const [totalTime, setTotalTime] = useState("");
-  const [servingSize, setServingSize] = useState("1");
-  const [procedure, setProcedure] = useState<string[]>([]);
-  const [ingredients, setIngredients] = useState<PendingMealIngredient[]>([]);
+  const [form, setForm] = useState<MealFormState | null>(null);
 
   const importMeal = useImportMealFromUrl();
   const { data: allIngredients, isLoading: ingredientsLoading, isError: ingredientsError } = useIngredientsForMatching();
@@ -78,44 +73,35 @@ export default function SeedMealScreen() {
     importMeal.mutate(trimmed, {
       onSuccess: ({ meal }) => {
         setDraft(meal);
-        setName(meal.name);
-        setDescription(meal.description);
-        setDifficulty(meal.difficulty ? [meal.difficulty] : []);
-        setPrepTime(meal.prep_time?.toString() ?? "");
-        setTotalTime(meal.total_time?.toString() ?? "");
-        setServingSize(meal.servings?.toString() ?? "1");
-        setProcedure(meal.procedure);
-        setIngredients(draftIngredientsToPending(meal));
+        setForm(draftToFormState(meal));
       },
     });
   };
 
-  const handleProcedureChange = (index: number, text: string) => {
-    setProcedure((prev) => prev.map((step, i) => (i === index ? text : step)));
-  };
-  const removeProcedureStep = (index: number) => {
-    setProcedure((prev) => prev.filter((_, i) => i !== index));
-  };
+  const updateForm = (patch: Partial<MealFormState>) => setForm((prev) => (prev ? { ...prev, ...patch } : prev));
 
-  const trimmedIngredients = ingredients.filter((i) => i.name.trim() !== "");
+  const trimmedIngredients = (form?.ingredients ?? []).filter((i) => i.name.trim() !== "");
   const allResolved = trimmedIngredients.length > 0 && trimmedIngredients.every((i) => i.ingredientId);
-  const canSave = !!draft && name.trim() !== "" && allResolved && !createMeal.isPending;
+  const canSave = !!draft && !!form && form.name.trim() !== "" && allResolved && !createMeal.isPending;
 
   const handleSave = async () => {
-    if (!draft) return;
+    if (!draft || !form) return;
     const meal = await createMeal.mutateAsync({
-      name: name.trim(),
-      description: description.trim() || null,
+      name: form.name.trim(),
+      description: form.description.trim() || null,
       category: draft.category,
-      difficulty: difficulty[0] ?? null,
-      protein_type: draft.protein_type,
-      prep_time: prepTime ? Number(prepTime) : null,
-      total_time: totalTime ? Number(totalTime) : null,
-      serving_size: Number(servingSize) || 1,
-      procedure: procedure.map((s) => s.trim()).filter(Boolean),
-      allergens: draft.allergens,
-      dietary_tags: draft.dietary_tags,
-      tags: draft.tags,
+      difficulty: form.difficulty[0] ?? null,
+      protein_type: form.proteinType.trim() || null,
+      restaurant: form.restaurant.trim() || null,
+      source: form.source.trim() || null,
+      budget_range: form.budgetRange.trim() || null,
+      prep_time: form.prepTime ? Number(form.prepTime) : null,
+      total_time: form.totalTime ? Number(form.totalTime) : null,
+      serving_size: Number(form.servingSize) || 1,
+      procedure: form.procedure.map((s) => s.trim()).filter(Boolean),
+      allergens: form.allergens,
+      dietary_tags: form.dietaryTags,
+      tags: form.tags,
       source_type: "ai_estimated",
     });
 
@@ -149,7 +135,7 @@ export default function SeedMealScreen() {
         </View>
       </View>
 
-      {!draft ? (
+      {!draft || !form ? (
         <View className="px-5 gap-3">
           <AppText variant="body" className="text-ink-subtle">
             Paste a link to a recipe page. It will be rewritten and re-priced for the catalog —
@@ -180,41 +166,7 @@ export default function SeedMealScreen() {
         <ErrorState />
       ) : (
         <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 40 }}>
-          <Section title="Basic Info">
-            <TextField label="Meal name" value={name} onChangeText={setName} />
-            <TextField label="Description" value={description} onChangeText={setDescription} multiline />
-          </Section>
-
-          <Section title="Timing & Details">
-            <TextField label="Prep time (min)" value={prepTime} onChangeText={setPrepTime} keyboardType="numeric" />
-            <TextField label="Total time (min)" value={totalTime} onChangeText={setTotalTime} keyboardType="numeric" />
-            <TextField label="Serving size" value={servingSize} onChangeText={setServingSize} keyboardType="numeric" />
-            <AppText variant="caption">Difficulty</AppText>
-            <ChipSelect mode="single" options={DIFFICULTY_OPTIONS} value={difficulty} onChange={setDifficulty} />
-          </Section>
-
-          <Section title="Procedure">
-            {procedure.map((step, index) => (
-              <View key={index} className="flex-row items-center gap-2">
-                <View className="flex-1">
-                  <TextField
-                    label={`Step ${index + 1}`}
-                    value={step}
-                    onChangeText={(v) => handleProcedureChange(index, v)}
-                    multiline
-                  />
-                </View>
-                <Pressable onPress={() => removeProcedureStep(index)} className="h-9 w-9 items-center justify-center">
-                  <Trash2 color={colors.like} size={18} />
-                </Pressable>
-              </View>
-            ))}
-            <Button label="+ Add step" variant="outline" onPress={() => setProcedure((prev) => [...prev, ""])} />
-          </Section>
-
-          <Section title="Ingredients">
-            <SeedMealIngredientsEditor items={ingredients} allIngredients={allIngredients} onChange={setIngredients} />
-          </Section>
+          <MealFormFields value={form} onChange={updateForm} allIngredients={allIngredients} />
 
           <Button
             label={
