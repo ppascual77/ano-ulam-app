@@ -25,6 +25,11 @@ type Props = {
    *  caller wants a confirmation step before this patch is actually
    *  persisted, rather than saving immediately. */
   saveLabel?: string;
+  /** Fires once this sheet's close animation has actually finished — see
+   *  BottomSheet's onClosed. Use this (not onSave itself) to trigger
+   *  opening a second sheet right after, so the two are never both
+   *  presented at once. */
+  onClosed?: () => void;
 };
 
 const ROLE_OPTIONS = [
@@ -234,6 +239,7 @@ export function IngredientEditSheet({
   onSave,
   isSaving,
   saveLabel,
+  onClosed,
 }: Props) {
   const [form, setForm] = useState<FormState | null>(null);
   const [usdaResult, setUsdaResult] = useState<UsdaGroundingResult | null>(null);
@@ -306,7 +312,7 @@ export function IngredientEditSheet({
   };
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} heightPercent={0.9}>
+    <BottomSheet visible={visible} onClose={onClose} onClosed={onClosed} heightPercent={0.9}>
       <ScrollView className="flex-1 px-8 pt-16" contentContainerStyle={{ paddingBottom: 24 }}>
         <AppText variant="heading" className="mb-6">
           {ingredient ? "Edit Ingredient" : "Add Ingredient"}

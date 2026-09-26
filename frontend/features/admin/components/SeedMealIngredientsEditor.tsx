@@ -133,6 +133,14 @@ function IngredientRowCard({
   const [aiDraft, setAiDraft] = useState<AiIngredientEstimate | null>(null);
   const [editSheetVisible, setEditSheetVisible] = useState(false);
   const [confirmPatch, setConfirmPatch] = useState<(Partial<IngredientRow> & { canonical_name: string }) | null>(null);
+  // Two RN Modals presented at once (even briefly, mid-transition) can leave
+  // an orphaned full-screen overlay that blocks all touches underneath — so
+  // the edit sheet and confirm sheet are never both visible together. These
+  // hold the handoff data until the sheet being closed actually finishes
+  // its close animation (BottomSheet's onClosed), not just the instant its
+  // `visible` prop flips.
+  const [pendingConfirmPatch, setPendingConfirmPatch] = useState<(Partial<IngredientRow> & { canonical_name: string }) | null>(null);
+  const [pendingReopenEdit, setPendingReopenEdit] = useState(false);
   const [confirmSaving, setConfirmSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -402,8 +410,14 @@ function IngredientRowCard({
         initialDraft={aiDraft}
         onSave={(patch) => {
           setCreateError(null);
-          setConfirmPatch({ ...patch, canonical_name: patch.canonical_name ?? item.name });
+          setPendingConfirmPatch({ ...patch, canonical_name: patch.canonical_name ?? item.name });
           setEditSheetVisible(false);
+        }}
+        onClosed={() => {
+          if (pendingConfirmPatch) {
+            setConfirmPatch(pendingConfirmPatch);
+            setPendingConfirmPatch(null);
+          }
         }}
         isSaving={false}
         saveLabel="Review"
@@ -413,8 +427,14 @@ function IngredientRowCard({
         visible={!!confirmPatch}
         patch={confirmPatch}
         onCancel={() => {
+          setPendingReopenEdit(true);
           setConfirmPatch(null);
-          setEditSheetVisible(true);
+        }}
+        onClosed={() => {
+          if (pendingReopenEdit) {
+            setEditSheetVisible(true);
+            setPendingReopenEdit(false);
+          }
         }}
         onConfirm={handleConfirmCreate}
         isSaving={confirmSaving}

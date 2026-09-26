@@ -26,6 +26,12 @@ type BottomSheetProps = {
    *  that reads on plain content — pass e.g. "bg-white" when content starts
    *  with a photo instead. */
   handleClassName?: string;
+  /** Fires once the close animation has actually finished and the native
+   *  Modal has unmounted — NOT the same moment `visible` flips false. Use
+   *  this (not a timeout) to open a second sheet right after this one
+   *  closes: two RN `Modal`s presented at once, even briefly, can leave an
+   *  orphaned full-screen overlay that blocks all touches underneath. */
+  onClosed?: () => void;
 };
 
 // Generic slide-up sheet — drag the handle down (or tap the backdrop) to
@@ -36,6 +42,7 @@ export function BottomSheet({
   children,
   heightPercent = 0.8,
   handleClassName = "bg-ink-emphasis/20",
+  onClosed,
 }: BottomSheetProps) {
   const { height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -50,7 +57,10 @@ export function BottomSheet({
       translateY.value = withTiming(0, { duration: 340 });
     } else {
       translateY.value = withTiming(sheetHeight, { duration: 220 }, (finished) => {
-        if (finished) scheduleOnRN(setModalVisible, false);
+        if (finished) {
+          scheduleOnRN(setModalVisible, false);
+          if (onClosed) scheduleOnRN(onClosed);
+        }
       });
     }
     // sheetHeight only changes on rotation/resize, not worth re-triggering for.

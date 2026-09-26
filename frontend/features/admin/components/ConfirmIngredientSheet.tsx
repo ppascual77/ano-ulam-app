@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { AppText, BottomSheet, Button } from "@/frontend/components/ui";
 import type { IngredientRow } from "@/api/ingredients";
@@ -9,6 +10,9 @@ type Props = {
   onConfirm: () => void;
   isSaving: boolean;
   error?: string | null;
+  /** Fires once this sheet's close animation has actually finished — see
+   *  BottomSheet's onClosed. */
+  onClosed?: () => void;
 };
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -28,11 +32,22 @@ function Row({ label, value }: { label: string; value: string }) {
 // gets written to the shared ingredients table and linked to this meal —
 // nothing persists until the admin explicitly confirms here, same
 // "grounding never silently applies" principle as USDA matching.
-export function ConfirmIngredientSheet({ visible, patch, onCancel, onConfirm, isSaving, error }: Props) {
-  if (!patch) return null;
+export function ConfirmIngredientSheet({ visible, patch, onCancel, onConfirm, isSaving, error, onClosed }: Props) {
+  // `visible` and `patch` null out in the same commit (the caller derives
+  // visible from `!!patch`) — retaining the last non-null patch lets
+  // BottomSheet keep rendering (and animating closed) instead of this
+  // component unmounting it abruptly, which would skip the close
+  // animation and never fire onClosed.
+  const [lastPatch, setLastPatch] = useState(patch);
+  useEffect(() => {
+    if (patch) setLastPatch(patch);
+  }, [patch]);
+  const displayPatch = patch ?? lastPatch;
+
+  if (!displayPatch) return null;
 
   return (
-    <BottomSheet visible={visible} onClose={onCancel} heightPercent={0.75}>
+    <BottomSheet visible={visible} onClose={onCancel} onClosed={onClosed} heightPercent={0.75}>
       <View className="flex-1 px-8 pt-16">
         <AppText variant="heading" className="mb-1">
           Review before adding
@@ -42,38 +57,40 @@ export function ConfirmIngredientSheet({ visible, patch, onCancel, onConfirm, is
         </AppText>
 
         <View>
-          <Row label="Name" value={patch.canonical_name} />
-          {patch.display_name && <Row label="Specification" value={patch.display_name} />}
-          {patch.aliases && patch.aliases.length > 0 && <Row label="Aliases" value={patch.aliases.join(", ")} />}
-          <Row label="Category" value={[patch.category, patch.food_group].filter(Boolean).join(" · ") || "—"} />
-          <Row label="Role / State" value={[patch.role, patch.state].filter(Boolean).join(" · ") || "—"} />
+          <Row label="Name" value={displayPatch.canonical_name} />
+          {displayPatch.display_name && <Row label="Specification" value={displayPatch.display_name} />}
+          {displayPatch.aliases && displayPatch.aliases.length > 0 && (
+            <Row label="Aliases" value={displayPatch.aliases.join(", ")} />
+          )}
+          <Row label="Category" value={[displayPatch.category, displayPatch.food_group].filter(Boolean).join(" · ") || "—"} />
+          <Row label="Role / State" value={[displayPatch.role, displayPatch.state].filter(Boolean).join(" · ") || "—"} />
           <Row
             label="Per"
-            value={`${patch.basis_amount ?? "?"} ${patch.basis_unit ?? "?"}`}
+            value={`${displayPatch.basis_amount ?? "?"} ${displayPatch.basis_unit ?? "?"}`}
           />
           <Row
             label="Calories"
-            value={patch.calories != null ? `${patch.calories} kcal` : "—"}
+            value={displayPatch.calories != null ? `${displayPatch.calories} kcal` : "—"}
           />
           <Row
             label="Protein / Carbs / Fat"
-            value={`${patch.protein ?? "?"}g / ${patch.carbohydrates ?? "?"}g / ${patch.fat ?? "?"}g`}
+            value={`${displayPatch.protein ?? "?"}g / ${displayPatch.carbohydrates ?? "?"}g / ${displayPatch.fat ?? "?"}g`}
           />
           <Row
             label="Sugar / Fiber / Sodium"
-            value={`${patch.sugar ?? "?"}g / ${patch.fiber ?? "?"}g / ${patch.sodium ?? "?"}mg`}
+            value={`${displayPatch.sugar ?? "?"}g / ${displayPatch.fiber ?? "?"}g / ${displayPatch.sodium ?? "?"}mg`}
           />
           <Row
             label="Price"
-            value={patch.estimated_price != null ? `₱${patch.estimated_price} / ${patch.estimated_price_unit ?? "?"}` : "—"}
+            value={displayPatch.estimated_price != null ? `₱${displayPatch.estimated_price} / ${displayPatch.estimated_price_unit ?? "?"}` : "—"}
           />
-          {(patch.grams_per_piece || patch.piece_label) && (
+          {(displayPatch.grams_per_piece || displayPatch.piece_label) && (
             <Row
               label="Piece"
-              value={`${patch.grams_per_piece ?? "?"}g per ${patch.piece_label ?? "piece"}`}
+              value={`${displayPatch.grams_per_piece ?? "?"}g per ${displayPatch.piece_label ?? "piece"}`}
             />
           )}
-          <Row label="Source" value={patch.source_description ?? "AI-estimated, pending review"} />
+          <Row label="Source" value={displayPatch.source_description ?? "AI-estimated, pending review"} />
         </View>
 
         <View className="flex-1" />
