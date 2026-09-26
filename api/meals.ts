@@ -59,6 +59,7 @@ const UNIT_WORDS: Record<string, QuantityUnit> = {
   rib: "piece", ribs: "piece",
   bulb: "piece", bulbs: "piece",
   slice: "piece", slices: "piece",
+  thumb: "piece", thumbs: "piece", knob: "piece", knobs: "piece",
   lb: "kg", lbs: "kg", pound: "kg", pounds: "kg",
   oz: "g", ounce: "g", ounces: "g",
   tbsp: "ml", tbsps: "ml", tablespoon: "ml", tablespoons: "ml",

@@ -317,6 +317,10 @@ function IngredientRowCard({
           `Added, but couldn't fill in price/role/unit details automatically (${gapErr instanceof Error ? gapErr.message : String(gapErr)}) — check "${item.name}" in Manage Ingredients before relying on this meal's totals.`,
         );
       }
+      // A brand-new ingredient isn't in the cached matching list yet — without
+      // this, its own contribution can't be looked up (allIngredients.find
+      // comes up empty) and the price/macro box renders with nothing in it.
+      await queryClient.invalidateQueries({ queryKey: ["admin", "meals"] });
       setUsdaSearch(null);
     } catch (err) {
       // Surfaced, not swallowed — an insert can fail (RLS, a constraint)
@@ -354,6 +358,10 @@ function IngredientRowCard({
     try {
       const created = await createIngredient(confirmPatch);
       onResolve(created);
+      // Same reason as handleAddAndUse: a freshly-created ingredient isn't
+      // in the cached matching list yet, so its contribution can't be
+      // looked up without this — the price/macro box would render empty.
+      await queryClient.invalidateQueries({ queryKey: ["admin", "meals"] });
       setConfirmPatch(null);
       setAiDraft(null);
     } catch (err) {
@@ -429,6 +437,14 @@ function IngredientRowCard({
           {contribution.status === "no_quantity" && (
             <AppText variant="caption" className="text-ink-subtle">
               Set a quantity above to calculate price/macros
+            </AppText>
+          )}
+          {/* Briefly hit right after a brand-new ingredient is created,
+              before the matching list has refetched to include it — never
+              leave this rendering nothing, even for that window. */}
+          {contribution.status === "unlinked" && (
+            <AppText variant="caption" className="text-ink-subtle">
+              Refreshing...
             </AppText>
           )}
         </View>
