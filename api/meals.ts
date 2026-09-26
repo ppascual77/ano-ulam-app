@@ -96,10 +96,28 @@ const UNIT_SCALE: Partial<Record<string, number>> = {
 };
 
 export function parseQuantityText(text: string): { amount: string; unit: QuantityUnit } | null {
+  const trimmed = text.trim();
+
+  // Mixed number first (e.g. "1 1/2 cups") — must be tried before the
+  // plain pattern below, since that one matches just the leading "1" and
+  // then fails on " 1/2 cups" (a space, not a unit word), returning null
+  // for a quantity that's actually perfectly parseable.
+  const mixed = trimmed.match(/^(\d+)\s+(\d+)\s*\/\s*(\d+)\s*([a-zA-Z]+)/);
+  if (mixed) {
+    const whole = Number(mixed[1]);
+    const numerator = Number(mixed[2]);
+    const denominator = Number(mixed[3]);
+    const unitWord = mixed[4].toLowerCase();
+    const unit = UNIT_WORDS[unitWord];
+    if (!unit) return null;
+    const scale = UNIT_SCALE[unitWord] ?? 1;
+    return { amount: ((whole + numerator / denominator) * scale).toString(), unit };
+  }
+
   // Leading number, optionally a simple fraction (e.g. "1/4"), optionally
   // followed by "to N" (a range — take the first number, close enough for
   // a draft the admin reviews anyway).
-  const match = text.trim().match(/^(\d+(?:\.\d+)?)(?:\s*\/\s*(\d+))?\s*([a-zA-Z]+)/);
+  const match = trimmed.match(/^(\d+(?:\.\d+)?)(?:\s*\/\s*(\d+))?\s*([a-zA-Z]+)/);
   if (!match) return null;
   const whole = Number(match[1]);
   const denominator = match[2] ? Number(match[2]) : null;
