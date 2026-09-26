@@ -361,6 +361,31 @@ function IngredientRowCard({
         </View>
       </View>
 
+      {item.ingredientId && (
+        <View
+          className={`rounded-xl border px-3 py-2 ${
+            contribution.status === "error" ? "border-like/30 bg-like/5" : "border-primary/20 bg-primary/5"
+          }`}
+        >
+          {contribution.status === "ok" && (
+            <AppText variant="bodyBold" className={contribution.counted ? "text-primary" : "text-ink-subtle"}>
+              {contributionLabel(contribution.totals)}
+              {!contribution.counted && "  ·  pantry — not counted in meal total"}
+            </AppText>
+          )}
+          {contribution.status === "error" && (
+            <AppText variant="caption" className="text-like">
+              Can't calculate price/macros: {contribution.reason}
+            </AppText>
+          )}
+          {contribution.status === "no_quantity" && (
+            <AppText variant="caption" className="text-ink-subtle">
+              Set a quantity above to calculate price/macros
+            </AppText>
+          )}
+        </View>
+      )}
+
       <TextField
         label={'Display text (e.g. "3 cloves", "to taste")'}
         value={item.displayText}
@@ -395,23 +420,6 @@ function IngredientRowCard({
       ) : (
         <AppText variant="caption" className="text-like">
           Not yet linked to a real ingredient
-        </AppText>
-      )}
-
-      {contribution.status === "ok" && (
-        <AppText variant="caption" className={contribution.counted ? "text-ink" : "text-ink-subtle"}>
-          {contributionLabel(contribution.totals)}
-          {!contribution.counted && " · pantry — not counted in meal total"}
-        </AppText>
-      )}
-      {contribution.status === "error" && (
-        <AppText variant="caption" className="text-like">
-          Can't calculate price/macros: {contribution.reason}
-        </AppText>
-      )}
-      {contribution.status === "no_quantity" && item.ingredientId && (
-        <AppText variant="caption" className="text-ink-subtle">
-          Set a quantity to calculate price/macros
         </AppText>
       )}
 

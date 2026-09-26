@@ -6,7 +6,15 @@ import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ImageOff, Pencil, Archive, Trash2 } from "lucide-react-native";
 import { AppText, BottomSheet, Button, ErrorState, LoadingState, Screen } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
+import { computeProposedTotals, convertQuantityToBasis, countsTowardMealTotals, type ProposedTotals } from "@/api/meals";
 import { useArchiveMeal, useDeleteMeal, useMeal } from "../hooks/useMeals";
+
+function contributionLabel(totals: ProposedTotals): string {
+  const parts: string[] = [];
+  if (totals.price != null) parts.push(`₱${totals.price.toFixed(2)}`);
+  if (totals.calories != null) parts.push(`${totals.calories.toFixed(0)} cal`);
+  return parts.length > 0 ? parts.join(" · ") : "no price/macro data";
+}
 
 const IMAGE_HEIGHT = 220;
 
@@ -151,19 +159,42 @@ export default function ViewMealScreen() {
                 {meal.meal_ingredients
                   .slice()
                   .sort((a, b) => a.sort_order - b.sort_order)
-                  .map((mi) => (
-                    <View key={mi.id} className="flex-row items-center justify-between rounded-xl border border-ink-emphasis/10 p-3">
-                      <View className="flex-1 pr-2">
-                        <AppText variant="body">{mi.ingredient.canonical_name}</AppText>
-                        <AppText variant="caption" className="text-ink-subtle">
-                          {mi.display_text} · {mi.ingredient.role}
-                        </AppText>
+                  .map((mi) => {
+                    const conversion =
+                      mi.quantity_amount != null && mi.quantity_unit != null
+                        ? convertQuantityToBasis(mi.quantity_amount, mi.quantity_unit, mi.ingredient)
+                        : null;
+                    const counted = countsTowardMealTotals(mi.ingredient);
+                    return (
+                      <View key={mi.id} className="gap-1.5 rounded-xl border border-ink-emphasis/10 p-3">
+                        <View className="flex-row items-center justify-between">
+                          <View className="flex-1 pr-2">
+                            <AppText variant="body">{mi.ingredient.canonical_name}</AppText>
+                            <AppText variant="caption" className="text-ink-subtle">
+                              {mi.display_text} · {mi.ingredient.role}
+                            </AppText>
+                          </View>
+                          <AppText variant="caption" className="text-ink-subtle">
+                            {mi.ingredient.source ?? "manual"}
+                          </AppText>
+                        </View>
+                        {conversion?.ok ? (
+                          <AppText variant="caption" className={counted ? "text-primary" : "text-ink-subtle"}>
+                            {contributionLabel(computeProposedTotals(mi.ingredient, conversion))}
+                            {!counted && "  ·  pantry, not counted in total"}
+                          </AppText>
+                        ) : conversion && !conversion.ok ? (
+                          <AppText variant="caption" className="text-like">
+                            Can't calculate: {conversion.reason}
+                          </AppText>
+                        ) : (
+                          <AppText variant="caption" className="text-ink-subtle">
+                            No quantity set — not counted in total
+                          </AppText>
+                        )}
                       </View>
-                      <AppText variant="caption" className="text-ink-subtle">
-                        {mi.ingredient.source ?? "manual"}
-                      </AppText>
-                    </View>
-                  ))}
+                    );
+                  })}
               </View>
             </Section>
           )}
