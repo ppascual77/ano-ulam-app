@@ -172,6 +172,12 @@ LEGAL/REWRITE RULES (important — this is what makes the output usable, not a c
 - Despite the rewrite requirement, you MUST preserve every fact: every ingredient the source lists must still appear in your ingredients array, and every distinct sub-step in the source must still get its own procedure step. Dropping an ingredient or merging two distinct steps into one is a data-loss bug, not a valid rewrite.
 - Ingredient names and quantities are facts, not expression — copy those faithfully (just normalize phrasing/casing), do not paraphrase amounts.
 
+DIETARY_TAGS — derive these by actually checking the full ingredients list, don't default to empty:
+1. Scan every ingredient for meat, poultry, fish, shellfish/seafood, gelatin, and animal-derived stock/sauce (fish sauce, oyster sauce, lard).
+2. Scan for dairy (milk, cheese, butter, cream) and eggs.
+3. Apply ALL that hold: no meat/poultry/fish/shellfish/gelatin/animal stock found -> include "vegetarian". Also no dairy/eggs found (nothing animal-derived at all) -> additionally include "vegan". Fish/shellfish present but no meat/poultry -> "pescatarian" instead of "vegetarian"/"vegan". A dish that is genuinely just vegetables/fruit/grains/legumes/oil/vinegar/seasonings — no meat, dairy, or eggs anywhere — MUST get both "vegetarian" and "vegan", never [].
+4. Only return [] when the recipe clearly contains meat/poultry/fish and no other tag applies.
+
 OUTPUT SHAPE — return ONLY a JSON object (no markdown fences) matching exactly:
 {
   "name": string,
@@ -184,7 +190,7 @@ OUTPUT SHAPE — return ONLY a JSON object (no markdown fences) matching exactly
   "servings": number,               // the recipe's actual stated or clearly implied yield; default 4 if truly unknown
   "procedure": string[],            // one array element per distinct step
   "allergens": string[],            // e.g. ["shellfish", "dairy"], [] if none apparent
-  "dietary_tags": string[],         // e.g. ["vegetarian", "pescatarian"], [] if none apply
+  "dietary_tags": string[],         // apply the DIETARY_TAGS rules above — e.g. ["vegetarian", "vegan"], ["pescatarian"], [] only if meat/poultry/fish present
   "tags": string[],                 // e.g. ["grilled", "high_protein", "budget_friendly"]
   "ingredients": [ { "name": string, "quantity_text": string } ]  // quantity_text is a short human string like "500 grams", "3 cloves", "to taste" — do not convert units
 }
