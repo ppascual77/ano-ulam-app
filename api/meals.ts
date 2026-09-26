@@ -200,6 +200,11 @@ export type MealIngredientInput = {
   quantity_unit: string | null;
   display_text: string;
   sort_order?: number;
+  // General-purpose annotation shown to every viewer when the counted
+  // quantity differs from what display_text states and needs a short
+  // explanation (e.g. bulk deep-frying oil where only a fraction is
+  // actually absorbed) — not oil-specific.
+  note?: string | null;
 };
 
 export async function addMealIngredient(mealId: string, input: MealIngredientInput) {

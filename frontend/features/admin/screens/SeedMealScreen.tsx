@@ -30,6 +30,7 @@ function draftIngredientsToPending(draft: ImportedMealDraft): PendingMealIngredi
       quantityAmount: parsed?.amount ?? "",
       quantityUnit: parsed?.unit ?? "g",
       displayText: ing.quantity_text,
+      note: "",
       ingredientId: null,
       ingredientName: null,
     };
@@ -114,6 +115,7 @@ export default function SeedMealScreen() {
           quantity_amount: item.quantityAmount.trim() === "" ? null : Number(item.quantityAmount),
           quantity_unit: item.quantityAmount.trim() === "" ? null : item.quantityUnit,
           display_text: item.displayText.trim() || item.name,
+          note: item.note.trim() || null,
           sort_order: i,
         },
       });

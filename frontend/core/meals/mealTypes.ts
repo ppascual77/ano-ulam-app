@@ -16,6 +16,11 @@ export type IngredientType = {
   bridgeLabel?: string | null;
   calculationError?: string | null;
   source?: string | null;
+  // NOT admin-only — a plain explanation shown to any viewer when the
+  // counted quantity differs from `qty` (e.g. bulk deep-frying oil where
+  // only a fraction is actually absorbed). Set by an admin, read by
+  // everyone.
+  note?: string | null;
 };
 
 export type MealType = {

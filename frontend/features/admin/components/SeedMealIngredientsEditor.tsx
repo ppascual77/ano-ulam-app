@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { View, Text, Pressable, ActivityIndicator } from "react-native";
-import { Trash2, Check, ChevronDown } from "lucide-react-native";
-import { AppText, Button, Dropdown, TextField } from "@/frontend/components/ui";
+import { Trash2, Check, ChevronDown, Info } from "lucide-react-native";
+import { AppText, Button, Dropdown, NoticeBanner, TextField } from "@/frontend/components/ui";
 import type { DropdownItem } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import {
@@ -36,6 +36,11 @@ export type PendingMealIngredient = {
   quantityAmount: string;
   quantityUnit: QuantityUnit;
   displayText: string;
+  // Shown to every viewer (not just admin) alongside this ingredient when
+  // the counted quantity differs from what displayText states and needs a
+  // short explanation — e.g. bulk deep-frying oil where only a fraction is
+  // actually absorbed.
+  note: string;
   ingredientId: string | null;
   ingredientName: string | null; // for display once resolved, without refetching
 };
@@ -57,6 +62,7 @@ export function newPendingIngredient(): PendingMealIngredient {
     quantityAmount: "",
     quantityUnit: "g",
     displayText: "",
+    note: "",
     ingredientId: null,
     ingredientName: null,
   };
@@ -142,6 +148,44 @@ function contributionLabel(totals: ProposedTotals): string {
   if (totals.carbohydrates != null) parts.push(`${totals.carbohydrates.toFixed(1)}g C`);
   if (totals.fat != null) parts.push(`${totals.fat.toFixed(1)}g F`);
   return parts.length > 0 ? parts.join(" · ") : "no price/macro data";
+}
+
+// Oil absorption during frying is a property of the FOOD (surface area,
+// breading, fry time), not a percentage of how much oil was in the pot —
+// frying in 1 cup vs 2 cups of oil doesn't mean ~2x gets absorbed, as long
+// as there's enough to submerge the food either way. So this is a fixed,
+// portion-agnostic estimate, not a fraction of whatever was poured.
+// 30g (~2 tbsp) comfortably exceeds any directly-consumed amount (a
+// dressing, a sauté) while sitting well below what a pot needs to fry in
+// (a cup ≈ 217g) — clean separation between the two real usage patterns
+// this app's ingredients.category === "Oils" currently conflates.
+const OIL_BULK_THRESHOLD_G = 30;
+// ~1 tbsp — inside the commonly-cited 5-15g retained-oil-per-100g-of-
+// fried-food range for a typical single-serving portion. A starting
+// point the admin can override, not a precise verdict.
+const OIL_ABSORBED_SUGGESTION_G = 14;
+
+// Deliberately separate from computeItemContribution/ItemContribution —
+// this answers an orthogonal "is this worth a second look" question, not
+// "what does this row contribute" (which stays true and unaffected until
+// the admin actually edits the row).
+function bulkFryingOilHint(item: PendingMealIngredient, ingredient: IngredientRow | null | undefined): boolean {
+  if (!ingredient || ingredient.category !== "Oils") return false;
+
+  const amount = Number(item.quantityAmount);
+  if (item.quantityAmount.trim() === "" || Number.isNaN(amount)) return false;
+
+  const conversion = convertQuantityToBasis(amount, item.quantityUnit, ingredient);
+  if (!conversion.ok) return false;
+
+  const grams =
+    conversion.basisUnit === "g"
+      ? conversion.basisAmount
+      : ingredient.grams_per_ml != null
+        ? conversion.basisAmount * ingredient.grams_per_ml
+        : null;
+
+  return grams != null && grams > OIL_BULK_THRESHOLD_G;
 }
 
 // Edge Function calls occasionally fail at the network layer on mobile
@@ -253,6 +297,22 @@ function IngredientRowCard({
   // (wrong unit picked, bad basis_unit data) that an AI-suggested bridge
   // wouldn't address.
   const canSuggestBridge = contribution.status === "error" && contribution.reason.includes("bridge");
+  const oilHint = contribution.status === "ok" && bulkFryingOilHint(item, linkedIngredient);
+
+  const useAbsorbedOilEstimate = () => {
+    // Explicitly re-affirms ingredientId/ingredientName — a plain quantity
+    // edit invalidates the current link (the parent's `update` treats a
+    // changed qty as "might describe a different food now"), but this is
+    // adjusting how much of the SAME already-correct ingredient counts,
+    // not re-describing what it is. See `update` in the parent component.
+    onChange({
+      quantityAmount: String(OIL_ABSORBED_SUGGESTION_G),
+      quantityUnit: "g",
+      note: "Used for frying — only the absorbed amount (~14g) is counted, not what's poured.",
+      ingredientId: item.ingredientId,
+      ingredientName: item.ingredientName,
+    });
+  };
 
   // Reuses the same gap-fill mechanism handleAddAndUse already applies to
   // freshly-created USDA ingredients, just triggered reactively here once
@@ -461,10 +521,33 @@ function IngredientRowCard({
         </View>
       )}
 
+      {oilHint && (
+        <NoticeBanner icon={<Info color={colors.notice.icon} size={15} />}>
+          <AppText variant="bodyBold" className="text-notice-text">
+            Frying oil, not a direct addition
+          </AppText>
+          <AppText variant="caption" className="text-notice-text">
+            Most of it stays in the pot — only ~14g (about 1 tbsp) typically gets absorbed.
+          </AppText>
+          <Pressable onPress={useAbsorbedOilEstimate} className="mt-1 self-start">
+            <AppText variant="caption" className="text-primary">
+              Use ~14g instead
+            </AppText>
+          </Pressable>
+        </NoticeBanner>
+      )}
+
       <TextField
         label={'Display text (e.g. "3 cloves", "to taste")'}
         value={item.displayText}
         onChangeText={(v) => onChange({ displayText: v })}
+      />
+
+      <TextField
+        label="Note (optional, shown to everyone)"
+        value={item.note}
+        onChangeText={(v) => onChange({ note: v })}
+        multiline
       />
 
       <Dropdown
@@ -613,7 +696,13 @@ export function SeedMealIngredientsEditor({ items, allIngredients, onChange }: P
               ...patch,
               // Editing the name/qty after a bind invalidates that bind —
               // the resolved ingredient may no longer be the right match.
-              ...(patch.name !== undefined || patch.quantityAmount !== undefined || patch.quantityUnit !== undefined
+              // Skipped when the patch itself explicitly re-affirms
+              // ingredientId (e.g. the bulk-oil quick-action adjusting a
+              // count without re-describing what the ingredient IS) —
+              // undefined here means an ordinary manual edit that didn't
+              // touch the link either way, so the invalidation still fires.
+              ...(patch.ingredientId === undefined &&
+              (patch.name !== undefined || patch.quantityAmount !== undefined || patch.quantityUnit !== undefined)
                 ? { ingredientId: null, ingredientName: null }
                 : {}),
             }
@@ -642,10 +731,12 @@ export function SeedMealIngredientsEditor({ items, allIngredients, onChange }: P
         acc.carbohydrates += c.totals.carbohydrates ?? 0;
         acc.fat += c.totals.fat ?? 0;
         acc.count += 1;
+        const ingredient = allIngredients.find((i) => i.id === item.ingredientId);
+        if (bulkFryingOilHint(item, ingredient)) acc.unreviewedOil += 1;
       }
       return acc;
     },
-    { price: 0, calories: 0, protein: 0, carbohydrates: 0, fat: 0, count: 0 },
+    { price: 0, calories: 0, protein: 0, carbohydrates: 0, fat: 0, count: 0, unreviewedOil: 0 },
   );
 
   return (
@@ -672,6 +763,12 @@ export function SeedMealIngredientsEditor({ items, allIngredients, onChange }: P
           <AppText variant="caption" className="text-ink-subtle">
             {total.protein.toFixed(1)}g protein · {total.carbohydrates.toFixed(1)}g carbs · {total.fat.toFixed(1)}g fat
           </AppText>
+          {total.unreviewedOil > 0 && (
+            <AppText variant="caption" className="text-notice-text">
+              Includes {total.unreviewedOil} bulk-oil ingredient{total.unreviewedOil === 1 ? "" : "s"} not yet reviewed —
+              see the highlighted row above.
+            </AppText>
+          )}
         </View>
       )}
 

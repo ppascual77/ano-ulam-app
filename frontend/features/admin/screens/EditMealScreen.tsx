@@ -48,6 +48,7 @@ function mealToFormState(meal: MealWithIngredients): MealFormState {
           ? mi.quantity_unit
           : "g") as QuantityUnit,
         displayText: mi.display_text,
+        note: mi.note ?? "",
         ingredientId: mi.ingredient_id,
         ingredientName: mi.ingredient.canonical_name,
       })),
@@ -139,6 +140,7 @@ export default function EditMealScreen() {
         quantity_amount: item.quantityAmount.trim() === "" ? null : Number(item.quantityAmount),
         quantity_unit: item.quantityAmount.trim() === "" ? null : item.quantityUnit,
         display_text: item.displayText.trim() || item.name,
+        note: item.note.trim() || null,
         sort_order: i,
       })),
     });

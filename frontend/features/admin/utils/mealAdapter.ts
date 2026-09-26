@@ -92,5 +92,6 @@ function mealIngredientToIngredientType(
     bridgeLabel: bridgeParts.length > 0 ? bridgeParts.join(" · ") : null,
     calculationError: conversion && !conversion.ok ? conversion.reason : null,
     source: mi.ingredient.source,
+    note: mi.note,
   };
 }

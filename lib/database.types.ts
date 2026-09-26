@@ -1,12 +1,9 @@
-// Generated wholesale, regenerate after every schema change. `supabase gen types
-// --db-url` needs a local Docker/Podman runtime this machine doesn't have, so this
-// was pulled via the Management API instead (needs SUPABASE_ACCESS_TOKEN and
-// SUPABASE_PROJECT_REF in .env):
-//   curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+// Generated wholesale — do not hand-edit. Regenerate after any schema
+// change via the Management API (Docker isn't installed locally, so
+// `supabase gen types` itself can't run here):
+//   source .env && curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
 //     "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/types/typescript?included_schemas=public" \
-//     | jq -r '.types' > lib/database.types.ts
-// Switch back to `supabase gen types typescript --db-url "$SUPABASE_DB_URL" --schema public`
-// once Docker/Podman is available, or once CLI login supports sbp_v0_ tokens.
+//     | python3 -c "import json,sys; print(json.load(sys.stdin)['types'])" > lib/database.types.ts
 export type Json =
   | string
   | number
@@ -141,6 +138,7 @@ export type Database = {
           id: string
           ingredient_id: string
           meal_id: string
+          note: string | null
           quantity_amount: number | null
           quantity_unit: string | null
           sort_order: number
@@ -151,6 +149,7 @@ export type Database = {
           id?: string
           ingredient_id: string
           meal_id: string
+          note?: string | null
           quantity_amount?: number | null
           quantity_unit?: string | null
           sort_order?: number
@@ -161,6 +160,7 @@ export type Database = {
           id?: string
           ingredient_id?: string
           meal_id?: string
+          note?: string | null
           quantity_amount?: number | null
           quantity_unit?: string | null
           sort_order?: number

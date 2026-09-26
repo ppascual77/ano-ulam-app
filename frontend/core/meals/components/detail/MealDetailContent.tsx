@@ -48,7 +48,7 @@ import type { IngredientType, MealType } from "../../mealTypes";
 // cooking oil, since most pantry items (salt, pepper) never show detail.
 function hasIngredientDetail(item: IngredientType) {
   if (item.type === "pantry" && !/oil/i.test(item.name)) return false;
-  return item.calories != null || !!item.calculationError;
+  return item.calories != null || !!item.calculationError || !!item.note;
 }
 
 function orderIngredients(ingredients: IngredientType[]) {
