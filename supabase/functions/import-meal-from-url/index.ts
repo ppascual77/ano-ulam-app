@@ -178,6 +178,15 @@ DIETARY_TAGS — derive these by actually checking the full ingredients list, do
 3. Apply ALL that hold: no meat/poultry/fish/shellfish/gelatin/animal stock found -> include "vegetarian". Also no dairy/eggs found (nothing animal-derived at all) -> additionally include "vegan". Fish/shellfish present but no meat/poultry -> "pescatarian" instead of "vegetarian"/"vegan". A dish that is genuinely just vegetables/fruit/grains/legumes/oil/vinegar/seasonings — no meat, dairy, or eggs anywhere — MUST get both "vegetarian" and "vegan", never [].
 4. Only return [] when the recipe clearly contains meat/poultry/fish and no other tag applies.
 
+ALLERGENS — scan every ingredient and include ALL that apply, using exactly these values: "nuts", "gluten", "dairy", "egg", "shellfish", "fish", "soy", "coconut", "sesame". [] only if truly none of these appear.
+
+TAGS — a single flat array combining two independent signals, using exactly these ids (this app's UI renders/filters by these exact strings, do not invent your own):
+1. Nutrition/style — pick AT MOST ONE from each of these two groups, and only when the recipe clearly leans that way (a rough miss here is fine — the real value gets recalculated precisely from actual computed macros later, so don't force a guess for an ordinary dish that doesn't stand out):
+   - Macro character: "highProtein" (a substantial meat/fish/egg/legume-based main), "lowCarb", "highCarb" (rice/noodle/bread-heavy), "highFat", "lowFat", "highCalorie", "lowCalorie".
+   - Overall character: "energyMeal", "filling", "balanced", "quick" — "quick" is NOT a guess: include it whenever total_time is 20 minutes or less, omit it otherwise.
+2. Way of cooking — include ALL that clearly apply based on the actual procedure (this one IS observable from the text, be thorough): "soupy" (broth/soup-based), "grilled", "fried".
+Example: ["highProtein", "quick", "grilled"]. [] only if genuinely nothing applies.
+
 OUTPUT SHAPE — return ONLY a JSON object (no markdown fences) matching exactly:
 {
   "name": string,
@@ -189,9 +198,9 @@ OUTPUT SHAPE — return ONLY a JSON object (no markdown fences) matching exactly
   "protein_type": string | null,    // e.g. "chicken", "pork", "seafood", "vegetarian"
   "servings": number,               // the recipe's actual stated or clearly implied yield; default 4 if truly unknown
   "procedure": string[],            // one array element per distinct step
-  "allergens": string[],            // e.g. ["shellfish", "dairy"], [] if none apparent
+  "allergens": string[],            // apply the ALLERGENS rules above
   "dietary_tags": string[],         // apply the DIETARY_TAGS rules above — e.g. ["vegetarian", "vegan"], ["pescatarian"], [] only if meat/poultry/fish present
-  "tags": string[],                 // e.g. ["grilled", "high_protein", "budget_friendly"]
+  "tags": string[],                 // apply the TAGS rules above — e.g. ["highProtein", "quick", "grilled"]
   "ingredients": [ { "name": string, "quantity_text": string } ]  // quantity_text is a short human string like "500 grams", "3 cloves", "to taste" — do not convert units
 }
 
