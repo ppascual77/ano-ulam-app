@@ -537,19 +537,24 @@ export function MealDetailContent({
             </AppText>
           </Pressable>
         )}
-        <Button
-          label={isSaved ? "Unsave" : "Save Meal"}
-          variant={isSaved ? "primary" : "outline"}
-          icon={
-            <Bookmark
-              color={isSaved ? colors.white : colors.primary}
-              size={16}
-              fill={isSaved ? colors.white : "none"}
-            />
-          }
-          iconPosition="right"
-          onPress={onSave}
-        />
+        {/* Consumer-only action — admin context has Edit/Archive/Delete
+            instead, and there's no consumer "saved list" concept of this
+            meal from the admin's own account. */}
+        {!onEdit && !onArchive && !onDelete && (
+          <Button
+            label={isSaved ? "Unsave" : "Save Meal"}
+            variant={isSaved ? "primary" : "outline"}
+            icon={
+              <Bookmark
+                color={isSaved ? colors.white : colors.primary}
+                size={16}
+                fill={isSaved ? colors.white : "none"}
+              />
+            }
+            iconPosition="right"
+            onPress={onSave}
+          />
+        )}
       </View>
     </Animated.View>
   );

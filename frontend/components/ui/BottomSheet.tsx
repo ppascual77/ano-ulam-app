@@ -110,12 +110,20 @@ export function BottomSheet({
 
           {/* Overlays whatever renders at the top of children (e.g. a hero
               photo) instead of reserving its own bar — present on every
-              BottomSheet, not just ones with a photo up top. */}
-          <GestureDetector gesture={dragGesture}>
-            <View className="absolute left-0 right-0 top-0 items-center pt-3" style={{ height: 100 }}>
-              <View className={`h-1.5 w-24 rounded-full ${handleClassName}`} />
-            </View>
-          </GestureDetector>
+              BottomSheet, not just ones with a photo up top. The outer
+              layer is pointerEvents="box-none" (invisible to touch itself)
+              so only the inner, narrower GestureDetector actually catches
+              drag gestures — previously this spanned the FULL width at
+              height 100, which sat on top of (and completely blocked) any
+              top-corner buttons content rendered there, like a meal detail
+              sheet's Back/Edit actions. */}
+          <View pointerEvents="box-none" className="absolute left-0 right-0 top-0 items-center" style={{ height: 100 }}>
+            <GestureDetector gesture={dragGesture}>
+              <View className="items-center pt-3" style={{ width: 160, height: 56 }}>
+                <View className={`h-1.5 w-24 rounded-full ${handleClassName}`} />
+              </View>
+            </GestureDetector>
+          </View>
         </Animated.View>
       </View>
     </Modal>
