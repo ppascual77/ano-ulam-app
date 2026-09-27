@@ -28,7 +28,7 @@ const IMAGE_URL = "https://api.openai.com/v1/images/generations";
 // the dish, and leans into candid/imperfect framing instead of "as
 // realistic/appetizing as possible" instructions that push the model toward
 // glossy studio-food-photography rendering.
-const BASE_PROMPT = `Photograph this Filipino home-cooked dish like a candid phone photo taken right after cooking, not a staged studio shot. Dish only — no rice, no drinks, no side dishes. Natural, slightly imperfect plating; avoid symmetrical arrangement or magazine-style styling. Only include a garnish, condiment, or utensil if it's genuinely something a Filipino household would have right there in that moment — skip it entirely if it doesn't belong, don't force a prop into every shot. Soft natural light (a warm kitchen-table cast is fine), light background. Close-up framing, food filling most of the frame, roughly 3/4 visible since it's zoomed in. A single wisp of steam only if the dish is actually served hot. Let the angle and background vary naturally between generations rather than repeating the same setup.`;
+const BASE_PROMPT = `Photograph this Filipino home-cooked dish like a candid phone photo taken right after cooking, not a staged studio shot. Strict: dish only — absolutely no rice, no drinks, no side dishes, no dipping sauce on the side, regardless of anything else referenced below. Natural, slightly imperfect plating; avoid symmetrical arrangement or magazine-style styling. Only include a garnish, condiment, or utensil if it's genuinely something a Filipino household would have right there in that moment — skip it entirely if it doesn't belong, don't force a prop into every shot. Neutral, soft daylight — keep the color temperature natural and balanced, not warm or orange-tinted. Light-colored background. Close-up framing, food filling most of the frame, roughly 3/4 visible since it's zoomed in. A single wisp of steam only if the dish is actually served hot. Let the angle and background vary naturally between generations rather than repeating the same setup.`;
 
 async function describeReferenceStyle(referenceImageUrl: string): Promise<string | null> {
   try {
@@ -45,12 +45,12 @@ async function describeReferenceStyle(referenceImageUrl: string): Promise<string
           {
             role: "system",
             content:
-              "You describe a food photo's visual style in neutral, generic terms, for use as creative inspiration when generating a completely different, original photo — never to reproduce this one. In 2-3 short sentences, describe only: plating style, key visible garnishes/textures, color palette, and camera angle/framing. Never mention or describe any watermark, logo, on-image text, brand, or website. Never say anything that would let someone identify or recreate the exact source photo.",
+              "You describe ONLY the abstract photographic STYLE of a food photo — never its actual food content. This description will guide generating a brand-new photo that must show ONLY the main dish itself (no rice, no side dishes, no drinks, even if this reference photo has them) — so naming any specific food, ingredient, side dish, or garnish (e.g. \"rice\", \"egg\", \"tomato\", \"dipping sauce\") would wrongly carry that content into a photo it must not appear in. In 2-3 short sentences, describe purely: plate/surface color and shape, background color and material, lighting direction and warmth (warm/cool, soft/hard), camera angle and framing tightness, and whether any garnish or prop is present WITHOUT naming what it is (e.g. \"a small garnish sits in one corner\", not \"a sprig of parsley\"). Never mention or describe any watermark, logo, on-image text, brand, or website. Never say anything that would let someone identify or recreate the exact source photo.",
           },
           {
             role: "user",
             content: [
-              { type: "text", text: "Describe this dish photo's visual style." },
+              { type: "text", text: "Describe this photo's abstract photographic style only — not what food is on the plate." },
               { type: "image_url", image_url: { url: referenceImageUrl } },
             ],
           },
@@ -133,7 +133,7 @@ Deno.serve(async (req: Request) => {
       "",
       `Dish: ${name.trim()}${description ? ` — ${description.trim()}` : ""}`,
       styleDescription
-        ? `For creative inspiration only (do not copy or reproduce any specific photo, brand, watermark, or text) — general visual style cues from a reference photo of a similar dish: ${styleDescription}`
+        ? `Photographic style inspiration only (do not copy or reproduce any specific photo, brand, watermark, or text, and do not add any food/side dish this style note doesn't mention — the "Strict: dish only" rule above still applies): ${styleDescription}`
         : "",
     ]
       .filter(Boolean)
