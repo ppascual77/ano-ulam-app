@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { Shuffle } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
@@ -30,11 +30,21 @@ const MAX_PULL = 140; // visual cap on how far the cord can stretch while draggi
 const REVEAL_DISTANCE = 90; // past this much extra pull, commit to a reveal
 const REVEAL_VELOCITY = 800; // same magnitude as BottomSheet's DISMISS_VELOCITY
 
-const ENTER_DURATION_MS = 400;
 const SPRING_BACK_DURATION_MS = 220; // mirrors BottomSheet's spring-back
 const RETRACT_DURATION_MS = 280;
 const REVEAL_SNAP_DURATION_MS = 120; // quick overshoot on commit
 const REVEAL_RETRACT_DURATION_MS = 250;
+
+// Entrance physics — a real hanging cord released at the top wouldn't slide
+// down at a constant ease, it'd drop under gravity, overshoot its resting
+// length, and swing a little before settling. withSpring (not withTiming)
+// gives the vertical drop its bounce; the rotation is a second, independent
+// spring from a random starting angle back to 0, so it reads as the whole
+// tab swaying like a pendulum around its top attachment point rather than
+// just a straight-line drop.
+const ENTER_SPRING = { damping: 8, stiffness: 90, mass: 0.6 };
+const SWAY_SPRING = { damping: 4, stiffness: 60, mass: 0.5 };
+const SWAY_MAX_DEG = 14;
 
 function pickRandomMeal(excludeId: string | null): MealType {
   const pool = excludeId ? mockMeals.filter((m) => m.id !== excludeId) : mockMeals;
@@ -50,6 +60,7 @@ export function RandomMealPuller() {
 
   const cordLength = useSharedValue(0);
   const dragStartLength = useSharedValue(0);
+  const swayAngle = useSharedValue(0);
 
   function scheduleNextAppearance() {
     const delay = APPEAR_DELAY_MIN_MS + Math.random() * (APPEAR_DELAY_MAX_MS - APPEAR_DELAY_MIN_MS);
@@ -81,7 +92,12 @@ export function RandomMealPuller() {
   // the ignore-timer — it never re-triggers an entrance mid-reveal.
   useEffect(() => {
     if (!tabVisible) return;
-    cordLength.value = withTiming(REST_LENGTH, { duration: ENTER_DURATION_MS });
+    cordLength.value = withSpring(REST_LENGTH, ENTER_SPRING);
+    // Jump to a random starting lean, then spring back to hanging straight
+    // (0deg) — the instantaneous jump plus the following spring assignment
+    // is what makes it animate FROM that offset rather than just snapping.
+    swayAngle.value = SWAY_MAX_DEG * (0.6 + Math.random() * 0.4) * (Math.random() < 0.5 ? -1 : 1);
+    swayAngle.value = withSpring(0, SWAY_SPRING);
     retractTimeoutRef.current = setTimeout(retract, IGNORE_TIMEOUT_MS);
     return () => clearTimeout(retractTimeoutRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -127,13 +143,25 @@ export function RandomMealPuller() {
     });
 
   const cordStyle = useAnimatedStyle(() => ({ height: cordLength.value }));
+  // Rotates the whole cord+tab group around its top edge — where it hangs
+  // from — rather than its own center, so it actually reads as swinging
+  // from a fixed point instead of spinning in place.
+  const swayStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${swayAngle.value}deg` }],
+    transformOrigin: ["50%", "0%"],
+  }));
 
   return (
     <>
       {tabVisible && (
         <View pointerEvents="box-none" className="absolute left-0 right-0 top-0 items-center">
           <GestureDetector gesture={dragGesture}>
-            <View collapsable={false} hitSlop={{ top: 8, bottom: 20, left: 20, right: 20 }} className="items-center">
+            <Animated.View
+              collapsable={false}
+              hitSlop={{ top: 8, bottom: 20, left: 20, right: 20 }}
+              style={swayStyle}
+              className="items-center"
+            >
               <Animated.View style={cordStyle} className="w-[3px] rounded-full bg-ink-emphasis/20" />
               <View
                 style={{ width: TAB_SIZE, height: TAB_SIZE }}
@@ -141,7 +169,7 @@ export function RandomMealPuller() {
               >
                 <Shuffle color={colors.white} size={14} strokeWidth={2} />
               </View>
-            </View>
+            </Animated.View>
           </GestureDetector>
         </View>
       )}
