@@ -62,7 +62,7 @@ const DRAG_SWAY_MAX_DEG = 40;
 // Degrees of lean per pixel of horizontal drag — tuned so the lean reaches
 // close to DRAG_SWAY_MAX_DEG around a natural ~100px sideways pull, not a
 // full screen-width drag.
-const DRAG_SWAY_SENSITIVITY = 0.4;
+const DRAG_SWAY_SENSITIVITY = -0.4; // negative: dragging right should lean the tab right, not left
 
 function pickRandomMeal(excludeId: string | null): MealType {
   const pool = excludeId ? mockMeals.filter((m) => m.id !== excludeId) : mockMeals;
