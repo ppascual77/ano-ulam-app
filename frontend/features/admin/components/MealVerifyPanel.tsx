@@ -154,6 +154,23 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
     }
   };
 
+  // A price-unit fix must never be applied without its paired price-value
+  // fix, or vice versa — applying only one half would leave the ingredient
+  // priced in a unit the number was never meant for (see verify-meal-
+  // ingredients's check 3: a genuine cross-domain unit correction always
+  // comes with a freshly-estimated price for the new unit). If the result
+  // flagged both for the same ingredient, find the other half.
+  const findPairedIndex = (index: number, issue: MealVerifyIssue): number | null => {
+    if (!result) return null;
+    const pairedField: MealVerifyIssue["field"] | null =
+      issue.field === "estimated_price" ? "estimated_price_unit" : issue.field === "estimated_price_unit" ? "estimated_price" : null;
+    if (!pairedField) return null;
+    const i = result.issues.findIndex(
+      (other, otherIndex) => otherIndex !== index && other.ingredientName === issue.ingredientName && other.field === pairedField,
+    );
+    return i >= 0 ? i : null;
+  };
+
   const handleApply = async (index: number, issue: MealVerifyIssue) => {
     const ingredient = allIngredients.find((i) => i.canonical_name === issue.ingredientName);
     if (!ingredient) {
@@ -165,15 +182,40 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
       setIssueStates((prev) => ({ ...prev, [index]: "error" }));
       return;
     }
-    setIssueStates((prev) => ({ ...prev, [index]: "applying" }));
+
+    const pairedIndex = findPairedIndex(index, issue);
+    const pairedIssue = pairedIndex != null ? result?.issues[pairedIndex] : undefined;
+    const indexes = pairedIndex != null ? [index, pairedIndex] : [index];
+
+    setIssueStates((prev) => {
+      const next = { ...prev };
+      for (const i of indexes) next[i] = "applying";
+      return next;
+    });
     try {
-      const patch = parseMealVerifyFixValue(issue.field, issue.suggestedValue);
+      const patch = {
+        ...parseMealVerifyFixValue(issue.field, issue.suggestedValue),
+        ...(pairedIssue ? parseMealVerifyFixValue(pairedIssue.field, pairedIssue.suggestedValue) : {}),
+      };
       await updateIngredient(ingredient.id, patch);
       await queryClient.invalidateQueries({ queryKey: ["admin", "meals"] });
-      setIssueStates((prev) => ({ ...prev, [index]: "applied" }));
+      setIssueStates((prev) => {
+        const next = { ...prev };
+        for (const i of indexes) next[i] = "applied";
+        return next;
+      });
     } catch (err) {
-      setIssueStates((prev) => ({ ...prev, [index]: "error" }));
-      setIssueErrors((prev) => ({ ...prev, [index]: err instanceof Error ? err.message : String(err) }));
+      const message = err instanceof Error ? err.message : String(err);
+      setIssueStates((prev) => {
+        const next = { ...prev };
+        for (const i of indexes) next[i] = "error";
+        return next;
+      });
+      setIssueErrors((prev) => {
+        const next = { ...prev };
+        for (const i of indexes) next[i] = message;
+        return next;
+      });
     }
   };
 
@@ -266,6 +308,11 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
                 <AppText variant="caption" className="text-ink-subtle">
                   {issue.reasoning}
                 </AppText>
+                {findPairedIndex(index, issue) != null && (
+                  <AppText variant="caption" className="text-ink-subtle italic">
+                    Applies together with this ingredient's other price fix below.
+                  </AppText>
+                )}
 
                 {state === "pending" && (
                   <View className="flex-row gap-4 mt-1">
