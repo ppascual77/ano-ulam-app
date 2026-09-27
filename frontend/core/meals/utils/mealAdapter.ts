@@ -15,10 +15,12 @@ const roundPrice = (n: number | null | undefined) => Number((n ?? 0).toFixed(2))
 // Bridges this project's real `meals`/`meal_ingredients` schema into the
 // mock-era `MealType` shape that MealCard/MealDetailSheet (used throughout
 // Home/Browse/MealList) already render — reused as-is rather than forked
-// into an admin-only card/detail pair, per the explicit ask: "the only
+// into a parallel card/detail pair, per the original admin ask: "the only
 // thing is, Manage Meal will pass out true and existing value from DB."
-// Field-name differences (carbohydrates/fat -> carbs/fats, price as a
-// number -> string) are exactly what this adapter exists to absorb.
+// Lives in core/meals/ (not a single feature's utils) since it's now
+// reused by both admin (Manage Meals) and consumer (Home Recommendations)
+// screens. Field-name differences (carbohydrates/fat -> carbs/fats, price
+// as a number -> string) are exactly what this adapter exists to absorb.
 export function mealRowToMealType(meal: MealRow, mealIngredients?: MealWithIngredients["meal_ingredients"]): MealType {
   return {
     id: meal.id,
@@ -50,7 +52,7 @@ export function mealRowToMealType(meal: MealRow, mealIngredients?: MealWithIngre
     updated_at: meal.updated_at,
     ingredients_synced_at: meal.ingredients_synced_at,
     // No likes/saves/moderation backend yet — always the same neutral
-    // defaults every admin-viewed meal gets, not per-viewer state.
+    // defaults every DB-backed meal gets, not per-viewer state.
     like_count: 0,
     liked_by_me: false,
     poster_id: null,

@@ -8,7 +8,7 @@ import { colors } from "@/frontend/constants/theme";
 import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useArchiveMeal, useDeleteMeal, useMeal, useMeals } from "../hooks/useMeals";
-import { mealRowToMealType } from "../utils/mealAdapter";
+import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 
 const SCREEN_PADDING = 20 * 2; // matches Screen's px-5
 const COLUMN_GAP = 12;

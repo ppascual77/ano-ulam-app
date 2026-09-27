@@ -9,10 +9,11 @@ export type IngredientType = {
   carbs?: number;
   fats?: number;
   price?: number;
-  // Admin-only diagnostics — only ever populated by the Manage Meals
-  // adapter (frontend/features/admin/utils/mealAdapter.ts), never by mock
-  // consumer data, so these stay undefined (and render nothing extra)
-  // everywhere else this type is used.
+  // Admin-only diagnostics — only ever populated when mealRowToMealType
+  // (frontend/core/meals/utils/mealAdapter.ts) is given real ingredient
+  // rows with a join (Manage Meals), never by mock data or by the bulk,
+  // no-join meal lists consumer screens use, so these stay undefined (and
+  // render nothing extra) everywhere else this type is used.
   bridgeLabel?: string | null;
   calculationError?: string | null;
   source?: string | null;

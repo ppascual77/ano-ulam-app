@@ -14,6 +14,7 @@ import { BottomNav } from "@/frontend/components/navigation/BottomNav";
 import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { mockMeals } from "@/frontend/core/meals/mocks/meals";
+import { useRealMeals } from "@/frontend/core/meals/hooks/useRealMeals";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 
 const SCREEN_PADDING = 28 * 2; // matches Screen's px-7
@@ -27,11 +28,15 @@ export default function MealListScreen() {
   }>();
   const { width: screenWidth } = useWindowDimensions();
   const [selectedMeal, setSelectedMeal] = useState<MealType | null>(null);
+  // Ids passed in can come from either pool now — Recommendations links to
+  // real (UUID) meal ids, every other carousel still passes mock ids.
+  const { data: realMeals } = useRealMeals();
 
   const meals = useMemo(() => {
     const idSet = new Set((ids ?? "").split(",").filter(Boolean));
-    return mockMeals.filter((meal) => meal.id && idSet.has(meal.id));
-  }, [ids]);
+    const pool = [...mockMeals, ...(realMeals ?? [])];
+    return pool.filter((meal) => meal.id && idSet.has(meal.id));
+  }, [ids, realMeals]);
 
   const cardWidth = (screenWidth - SCREEN_PADDING - COLUMN_GAP) / 2;
 
