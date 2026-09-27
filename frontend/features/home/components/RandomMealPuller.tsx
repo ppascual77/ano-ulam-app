@@ -1,8 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { Text, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
+import { colors } from "@/frontend/constants/theme";
 import { mockMeals } from "@/frontend/core/meals/mocks/meals";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
@@ -64,17 +72,94 @@ const DRAG_SWAY_MAX_DEG = 40;
 // full screen-width drag.
 const DRAG_SWAY_SENSITIVITY = -0.4; // negative: dragging right should lean the tab right, not left
 
+// Confetti burst when a pull actually commits to a reveal — celebrates the
+// "surprise me" moment, not shown on a spring-back or an ignored retract.
+// Renders as a plain absolutely-positioned overlay (not its own Modal) so it
+// never risks stacking two native Modals at once alongside MealDetailSheet's
+// own — the tradeoff is it falls behind the sheet once that finishes rising,
+// but the initial burst (the satisfying part) is clearly visible first.
+const CONFETTI_COLORS = [colors.primary, colors.accent, colors.like, colors.macro.protein, colors.macro.carbs, colors.macro.fats];
+const CONFETTI_COUNT = 26;
+const CONFETTI_LIFETIME_MS = 2600; // how long pieces are kept mounted before clearing state
+
+type ConfettiPieceConfig = {
+  startX: number;
+  color: string;
+  width: number;
+  height: number;
+  delay: number;
+  fallDuration: number;
+  rotations: number;
+  drift: number;
+};
+
+function buildConfettiPieces(screenWidth: number): ConfettiPieceConfig[] {
+  return Array.from({ length: CONFETTI_COUNT }, () => {
+    const size = 6 + Math.random() * 6;
+    return {
+      startX: Math.random() * screenWidth,
+      color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+      width: size,
+      height: size * 0.4,
+      delay: Math.random() * 400,
+      fallDuration: 1800 + Math.random() * 900,
+      rotations: (180 + Math.random() * 540) * (Math.random() < 0.5 ? -1 : 1),
+      drift: (Math.random() - 0.5) * 100,
+    };
+  });
+}
+
+function ConfettiPiece({ config, screenHeight }: { config: ConfettiPieceConfig; screenHeight: number }) {
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    progress.value = withDelay(config.delay, withTiming(1, { duration: config.fallDuration }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const pieceStyle = useAnimatedStyle(() => {
+    const translateY = interpolate(progress.value, [0, 1], [-20, screenHeight + 20]);
+    const translateX = interpolate(progress.value, [0, 1], [0, config.drift]);
+    const rotate = interpolate(progress.value, [0, 1], [0, config.rotations]);
+    const opacity = interpolate(progress.value, [0, 0.85, 1], [1, 1, 0]);
+    return {
+      opacity,
+      transform: [{ translateX: config.startX + translateX }, { translateY }, { rotate: `${rotate}deg` }],
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[
+        pieceStyle,
+        {
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: config.width,
+          height: config.height,
+          backgroundColor: config.color,
+          borderRadius: 1,
+        },
+      ]}
+    />
+  );
+}
+
 function pickRandomMeal(excludeId: string | null): MealType {
   const pool = excludeId ? mockMeals.filter((m) => m.id !== excludeId) : mockMeals;
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
 export function RandomMealPuller() {
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [tabVisible, setTabVisible] = useState(false);
   const [revealedMeal, setRevealedMeal] = useState<MealType | null>(null);
+  const [confettiPieces, setConfettiPieces] = useState<ConfettiPieceConfig[] | null>(null);
   const lastMealIdRef = useRef<string | null>(null);
   const appearTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const retractTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const confettiTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const cordLength = useSharedValue(0);
   const dragStartLength = useSharedValue(0);
@@ -91,6 +176,7 @@ export function RandomMealPuller() {
     return () => {
       clearTimeout(appearTimeoutRef.current);
       clearTimeout(retractTimeoutRef.current);
+      clearTimeout(confettiTimeoutRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -136,6 +222,8 @@ export function RandomMealPuller() {
     const meal = pickRandomMeal(lastMealIdRef.current);
     lastMealIdRef.current = meal.id ?? null;
     setRevealedMeal(meal);
+    setConfettiPieces(buildConfettiPieces(screenWidth));
+    confettiTimeoutRef.current = setTimeout(() => setConfettiPieces(null), CONFETTI_LIFETIME_MS);
   }
   function finishCommit() {
     setTabVisible(false);
@@ -207,6 +295,14 @@ export function RandomMealPuller() {
               </View>
             </Animated.View>
           </GestureDetector>
+        </View>
+      )}
+
+      {confettiPieces && (
+        <View pointerEvents="none" className="absolute left-0 right-0 top-0 bottom-0">
+          {confettiPieces.map((piece, i) => (
+            <ConfettiPiece key={i} config={piece} screenHeight={screenHeight} />
+          ))}
         </View>
       )}
 
