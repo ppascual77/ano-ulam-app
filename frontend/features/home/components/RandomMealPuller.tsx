@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Text, View, useWindowDimensions } from "react-native";
+import { Modal, Text, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   interpolate,
@@ -74,13 +74,15 @@ const DRAG_SWAY_SENSITIVITY = -0.4; // negative: dragging right should lean the 
 
 // Confetti burst when a pull actually commits to a reveal — celebrates the
 // "surprise me" moment, not shown on a spring-back or an ignored retract.
-// Renders as a plain absolutely-positioned overlay (not its own Modal) so it
-// never risks stacking two native Modals at once alongside MealDetailSheet's
-// own — the tradeoff is it falls behind the sheet once that finishes rising,
-// but the initial burst (the satisfying part) is clearly visible first.
+// Renders in its own transparent Modal, mounted after MealDetailSheet in the
+// JSX below so it presents on top of the sheet's own Modal instead of
+// behind it. pointerEvents="none" throughout means it can't ever block a
+// touch even if stacking order were ever off, which is the actual risk
+// "two Modals at once" usually carries elsewhere in this app.
 const CONFETTI_COLORS = [colors.primary, colors.accent, colors.like, colors.macro.protein, colors.macro.carbs, colors.macro.fats];
 const CONFETTI_COUNT = 26;
 const CONFETTI_LIFETIME_MS = 2600; // how long pieces are kept mounted before clearing state
+const CONFETTI_SIZE_SCALE = 1.2; // 20% larger than the original base size
 
 type ConfettiPieceConfig = {
   startX: number;
@@ -95,7 +97,7 @@ type ConfettiPieceConfig = {
 
 function buildConfettiPieces(screenWidth: number): ConfettiPieceConfig[] {
   return Array.from({ length: CONFETTI_COUNT }, () => {
-    const size = 6 + Math.random() * 6;
+    const size = (6 + Math.random() * 6) * CONFETTI_SIZE_SCALE;
     return {
       startX: Math.random() * screenWidth,
       color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
@@ -298,14 +300,6 @@ export function RandomMealPuller() {
         </View>
       )}
 
-      {confettiPieces && (
-        <View pointerEvents="none" className="absolute left-0 right-0 top-0 bottom-0">
-          {confettiPieces.map((piece, i) => (
-            <ConfettiPiece key={i} config={piece} screenHeight={screenHeight} />
-          ))}
-        </View>
-      )}
-
       <MealDetailSheet
         meal={revealedMeal}
         onClose={() => {
@@ -313,6 +307,25 @@ export function RandomMealPuller() {
           scheduleNextAppearance();
         }}
       />
+
+      {/* Mounted after MealDetailSheet above so its Modal presents on top of
+          the sheet's own — confetti is meant to be seen falling over the
+          revealed meal, not hidden behind it. */}
+      {confettiPieces && (
+        <Modal
+          transparent
+          visible
+          animationType="none"
+          statusBarTranslucent
+          onRequestClose={() => setConfettiPieces(null)}
+        >
+          <View pointerEvents="none" className="absolute left-0 right-0 top-0 bottom-0">
+            {confettiPieces.map((piece, i) => (
+              <ConfettiPiece key={i} config={piece} screenHeight={screenHeight} />
+            ))}
+          </View>
+        </Modal>
+      )}
     </>
   );
 }
