@@ -37,7 +37,13 @@ export function Toggle({ checked, onChange, label }: ToggleProps) {
           {label}
         </AppText>
       )}
-      <Pressable onPress={() => onChange(!checked)}>
+      <Pressable
+        onPress={() => onChange(!checked)}
+        // The track itself is only 44x24 — well under the ~44pt minimum
+        // recommended touch target, especially vertically. This was
+        // reported as taps "intermittently" landing outside it.
+        hitSlop={{ top: 12, bottom: 12, left: 10, right: 10 }}
+      >
         <Animated.View
           style={[{ width: TRACK_WIDTH, height: TRACK_HEIGHT, borderRadius: TRACK_HEIGHT / 2, padding: THUMB_INSET }, trackStyle]}
         >

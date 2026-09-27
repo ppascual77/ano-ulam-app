@@ -42,6 +42,13 @@ import { multiplyQty } from "../../utils/multiplyQty";
 import { DIETARY_ICONS, capitalize } from "../../utils/dietary";
 import type { IngredientType, MealType } from "../../mealTypes";
 
+// Small circular icon buttons (back/edit/like) and the servings +/- steppers
+// are visually ~32-36px, under the ~44pt minimum recommended touch target —
+// this was reported as taps "intermittently" not registering, which is
+// exactly what a target that size feels like rather than an actual bug.
+// hitSlop extends the tappable area without changing how the button looks.
+const ICON_HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
+
 // Whether IngredientDetailPanel actually has something to show — either
 // real computed macros, or (admin-only) a reason those couldn't be
 // computed / the bridge that was used. A pantry item counts only if it's
@@ -243,6 +250,7 @@ export function MealDetailContent({
             <View className="absolute left-4 top-4">
               <Pressable
                 onPress={onBack}
+                hitSlop={ICON_HIT_SLOP}
                 className="h-9 w-9 items-center justify-center rounded-full bg-primary/90"
               >
                 <ArrowLeft color={colors.white} size={18} />
@@ -250,7 +258,12 @@ export function MealDetailContent({
             </View>
           )}
 
-          {meal.status === "approved" && (
+          {/* Consumer-only affordance — in admin context (onEdit present)
+              this sat at the exact same top-right spot as the Edit button
+              below, overlapping it whenever a meal was already published
+              (the normal case for anything reaching Manage Meals), which is
+              what made Edit intermittently untappable. */}
+          {meal.status === "approved" && !onEdit && !onArchive && !onDelete && (
             <View className="absolute right-4 top-4">
               <Chips
                 label="Published"
@@ -265,6 +278,7 @@ export function MealDetailContent({
             <View className="absolute right-4 top-4">
               <Pressable
                 onPress={onEdit}
+                hitSlop={ICON_HIT_SLOP}
                 className="h-9 w-9 items-center justify-center rounded-full bg-ink-emphasis/50"
               >
                 <Pencil color={colors.white} size={16} />
@@ -273,7 +287,7 @@ export function MealDetailContent({
           )}
 
           <View className="absolute bottom-3 right-3">
-            <Pressable onPress={toggleLike} className="items-center gap-0.5">
+            <Pressable onPress={toggleLike} hitSlop={ICON_HIT_SLOP} className="items-center gap-0.5">
               <View
                 className={`h-9 w-9 items-center justify-center rounded-full border ${
                   isLiked
@@ -308,6 +322,7 @@ export function MealDetailContent({
                   <>
                     <Pressable
                       onPress={() => setServings((s) => Math.max(1, s - 1))}
+                      hitSlop={ICON_HIT_SLOP}
                       className="h-8 w-8 items-center justify-center rounded-full border border-ink-emphasis/15"
                     >
                       <Minus color={colors.ink.subtle} size={10} />
@@ -327,6 +342,7 @@ export function MealDetailContent({
                     </View>
                     <Pressable
                       onPress={() => setServings((s) => Math.min(5, s + 1))}
+                      hitSlop={ICON_HIT_SLOP}
                       className="h-8 w-8 items-center justify-center rounded-full border border-ink-emphasis/15"
                     >
                       <Plus color={colors.ink.subtle} size={10} />

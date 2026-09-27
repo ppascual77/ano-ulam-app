@@ -132,9 +132,14 @@ export function MealImageEditor({
 
         {!previewUri && !generating && (
           <View className="absolute top-3 right-3 flex-row gap-2">
+            {/* Horizontal hitSlop kept small and asymmetric (facing outward,
+                not toward each other) so the two enlarged tap areas meet
+                without overlapping — an 8px gap with 4+4 hitSlop just
+                touches, avoiding an ambiguous double-target zone. */}
             <Pressable
               onPress={handlePickImage}
               disabled={busy}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 4 }}
               className={`rounded-full p-2.5 ${busy ? "bg-ink-emphasis/70" : "bg-ink-emphasis/50"}`}
             >
               <Camera color={colors.white} size={16} />
@@ -142,6 +147,7 @@ export function MealImageEditor({
             <Pressable
               onPress={handleGenerate}
               disabled={busy}
+              hitSlop={{ top: 10, bottom: 10, left: 4, right: 10 }}
               className={`rounded-full p-2.5 ${busy ? "bg-ink-emphasis/70" : "bg-ink-emphasis/50"}`}
             >
               <Sparkles color={colors.white} size={16} />
@@ -172,6 +178,7 @@ export function MealImageEditor({
           <Pressable
             onPress={() => setPreviewUri(null)}
             disabled={applying}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             className="h-9 w-9 items-center justify-center"
           >
             <X color={colors.ink.subtle} size={18} />
