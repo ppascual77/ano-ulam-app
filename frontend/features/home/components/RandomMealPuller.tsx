@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { Shuffle } from "lucide-react-native";
-import { colors } from "@/frontend/constants/theme";
 import { mockMeals } from "@/frontend/core/meals/mocks/meals";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
@@ -23,9 +21,13 @@ const APPEAR_DELAY_MIN_MS = 8000;
 const APPEAR_DELAY_MAX_MS = 20000;
 const IGNORE_TIMEOUT_MS = 6000; // how long it peeks, undragged, before retracting
 
-const TAB_SIZE = 28;
 const REST_LENGTH = 44; // resting cord+tab length once slid in
 const MAX_PULL = 140; // visual cap on how far the cord can stretch while dragging
+// Shifted off true-center so the tag doesn't sit dead-center over Header's
+// content — a small, deliberate offset rather than a full-width centered
+// element that visually dominates the top of the screen.
+const TASSEL_OFFSET_X = 10;
+const FADE_IN_DURATION_MS = 250;
 
 const REVEAL_DISTANCE = 90; // past this much extra pull, commit to a reveal
 const REVEAL_VELOCITY = 800; // same magnitude as BottomSheet's DISMISS_VELOCITY
@@ -61,6 +63,7 @@ export function RandomMealPuller() {
   const cordLength = useSharedValue(0);
   const dragStartLength = useSharedValue(0);
   const swayAngle = useSharedValue(0);
+  const tabOpacity = useSharedValue(0);
 
   function scheduleNextAppearance() {
     const delay = APPEAR_DELAY_MIN_MS + Math.random() * (APPEAR_DELAY_MAX_MS - APPEAR_DELAY_MIN_MS);
@@ -77,6 +80,7 @@ export function RandomMealPuller() {
   }, []);
 
   function retract() {
+    tabOpacity.value = withTiming(0, { duration: RETRACT_DURATION_MS });
     cordLength.value = withTiming(0, { duration: RETRACT_DURATION_MS }, (finished) => {
       if (finished) scheduleOnRN(handleRetracted);
     });
@@ -92,6 +96,9 @@ export function RandomMealPuller() {
   // the ignore-timer — it never re-triggers an entrance mid-reveal.
   useEffect(() => {
     if (!tabVisible) return;
+    // Fades in rather than popping into view abruptly — plays alongside the
+    // drop/sway, not before or after it.
+    tabOpacity.value = withTiming(1, { duration: FADE_IN_DURATION_MS });
     cordLength.value = withSpring(REST_LENGTH, ENTER_SPRING);
     // Jump to a random starting lean, then spring back to hanging straight
     // (0deg) — the instantaneous jump plus the following spring assignment
@@ -131,6 +138,7 @@ export function RandomMealPuller() {
         // Committed: quick overshoot "snap", then retract while the sheet
         // opens underneath — the tab visually delivers the meal and leaves.
         cordLength.value = withTiming(MAX_PULL + 20, { duration: REVEAL_SNAP_DURATION_MS }, () => {
+          tabOpacity.value = withTiming(0, { duration: REVEAL_RETRACT_DURATION_MS });
           cordLength.value = withTiming(0, { duration: REVEAL_RETRACT_DURATION_MS }, (finished) => {
             if (finished) scheduleOnRN(finishCommit);
           });
@@ -145,9 +153,12 @@ export function RandomMealPuller() {
   const cordStyle = useAnimatedStyle(() => ({ height: cordLength.value }));
   // Rotates the whole cord+tab group around its top edge — where it hangs
   // from — rather than its own center, so it actually reads as swinging
-  // from a fixed point instead of spinning in place.
+  // from a fixed point instead of spinning in place. The fixed
+  // TASSEL_OFFSET_X rides along in the same transform (a plain constant,
+  // not animated) to keep the tag off dead-center.
   const swayStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${swayAngle.value}deg` }],
+    opacity: tabOpacity.value,
+    transform: [{ translateX: TASSEL_OFFSET_X }, { rotate: `${swayAngle.value}deg` }],
     transformOrigin: ["50%", "0%", 0],
   }));
 
@@ -163,11 +174,10 @@ export function RandomMealPuller() {
               className="items-center"
             >
               <Animated.View style={cordStyle} className="w-[3px] rounded-full bg-ink-emphasis/20" />
-              <View
-                style={{ width: TAB_SIZE, height: TAB_SIZE }}
-                className="items-center justify-center rounded-full bg-primary shadow-sm"
-              >
-                <Shuffle color={colors.white} size={14} strokeWidth={2} />
+              <View className="rounded-lg bg-tag-bg px-3 py-1.5 shadow-md">
+                <Text className="font-handwritten text-ink-emphasis" style={{ fontSize: 18, lineHeight: 20 }} numberOfLines={1}>
+                  Surprise me
+                </Text>
               </View>
             </Animated.View>
           </GestureDetector>

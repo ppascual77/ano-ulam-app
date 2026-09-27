@@ -64,6 +64,11 @@ module.exports = {
           // — same NoticeBanner shape, calmer palette than the amber default.
           "positive-bg": "#F3F7EF",
         },
+        tag: {
+          // RandomMealPuller's "Surprise me" paper-tag background — a
+          // deliberately "dirty"/aged off-white, not general-purpose.
+          bg: "#F2EDE1",
+        },
       },
       fontFamily: {
         // One family, whole app — Inter. Named by weight, not by role
@@ -74,6 +79,10 @@ module.exports = {
         "inter-semibold": ["Inter_600SemiBold"],
         "inter-bold": ["Inter_700Bold"],
         "inter-extrabold": ["Inter_800ExtraBold"],
+        // Single scoped exception to the "one family" rule above — used only
+        // by RandomMealPuller's "Surprise me" tag, styled like a handwritten
+        // note rather than app chrome.
+        handwritten: ["Caveat_700Bold"],
       },
       fontSize: {
         // Real type scale (2026-08-19). "sub" was given as "10px / 10px",

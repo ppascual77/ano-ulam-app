@@ -17,6 +17,9 @@ import {
   Inter_700Bold,
   Inter_800ExtraBold,
 } from "@expo-google-fonts/inter";
+// Scoped exception to "one family, whole app" — just for RandomMealPuller's
+// handwritten "Surprise me" paper tag, not general app typography.
+import { Caveat_700Bold } from "@expo-google-fonts/caveat";
 
 import { queryClient } from "@/lib/queryClient";
 import { supabase } from "@/lib/supabase";
@@ -36,6 +39,7 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
     Inter_800ExtraBold,
+    Caveat_700Bold,
   });
 
   const authLoading = useAuthStore((s) => s.loading);
