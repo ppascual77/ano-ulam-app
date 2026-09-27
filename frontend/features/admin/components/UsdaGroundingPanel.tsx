@@ -5,12 +5,9 @@ import { Check, ExternalLink } from "lucide-react-native";
 import { AppText, Button, LoadingState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { applyUsdaMatch, getUsdaSourceUrl, type IngredientRow, type UsdaGroundingResult } from "@/api/ingredients";
-import {
-  useGroundIngredientsUsda,
-  useIngredients,
-  useMarkUsdaGroundingAttempted,
-  useUpdateIngredient,
-} from "../hooks/useIngredients";
+import { useGroundIngredientsUsda, useIngredients, useMarkUsdaGroundingAttempted } from "../hooks/useIngredients";
+import { useConfirmedIngredientUpdate, type PendingIngredientChange } from "../hooks/useConfirmedIngredientUpdate";
+import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
 
 const CONFIDENCE_TONE: Record<string, string> = {
   HIGH: "text-primary",
@@ -53,9 +50,8 @@ export function UsdaGroundingPanel() {
   // always the right one, hence letting the admin switch it.
   const [candidateChoice, setCandidateChoice] = useState<Map<string, number>>(new Map());
   const ground = useGroundIngredientsUsda();
-  const updateIngredient = useUpdateIngredient();
   const markAttempted = useMarkUsdaGroundingAttempted();
-  const [applying, setApplying] = useState(false);
+  const confirmedUpdate = useConfirmedIngredientUpdate();
 
   const byId = useMemo(() => {
     const map = new Map<string, IngredientRow>();
@@ -96,21 +92,30 @@ export function UsdaGroundingPanel() {
     setCandidateChoice((prev) => new Map(prev).set(id, index));
   };
 
-  const handleConfirm = async () => {
+  // Previews the combined blast radius across every selected ingredient
+  // before writing anything — see ConfirmIngredientUpdateSheet. Actually
+  // applying (looping the writes, same as before) happens in
+  // handleConfirmApply once the admin confirms.
+  const handleRequestConfirm = async () => {
     if (!results) return;
-    setApplying(true);
-    try {
-      for (const r of results) {
-        if (!selected.has(r.id) || r.confidence === "NONE" || r.confidence === "ERROR") continue;
-        const chosen = r.candidates[candidateChoice.get(r.id) ?? 0] ?? r.candidates[0];
-        await updateIngredient.mutateAsync({ id: r.id, patch: applyUsdaMatch(chosen, r.confidence) });
-      }
-      setResults(null);
-      setSelected(new Set());
-      setCandidateChoice(new Map());
-    } finally {
-      setApplying(false);
+    const changes: PendingIngredientChange[] = [];
+    for (const r of results) {
+      if (!selected.has(r.id) || r.confidence === "NONE" || r.confidence === "ERROR") continue;
+      const chosen = r.candidates[candidateChoice.get(r.id) ?? 0] ?? r.candidates[0];
+      changes.push({
+        id: r.id,
+        patch: applyUsdaMatch(chosen, r.confidence),
+        name: byId.get(r.id)?.canonical_name ?? r.id,
+      });
     }
+    await confirmedUpdate.requestUpdate(changes);
+  };
+
+  const handleConfirmApply = async () => {
+    await confirmedUpdate.confirm();
+    setResults(null);
+    setSelected(new Set());
+    setCandidateChoice(new Map());
   };
 
   if (isLoading) return <LoadingState />;
@@ -162,9 +167,9 @@ export function UsdaGroundingPanel() {
           </AppText>
 
           <Button
-            label={applying ? "Applying..." : `Confirm ${selected.size} selected`}
-            disabled={applying || selected.size === 0}
-            onPress={handleConfirm}
+            label={confirmedUpdate.isSaving ? "Applying..." : `Confirm ${selected.size} selected`}
+            disabled={confirmedUpdate.isSaving || selected.size === 0}
+            onPress={handleRequestConfirm}
           />
 
           {results.map((r) => {
@@ -240,6 +245,15 @@ export function UsdaGroundingPanel() {
           })}
         </View>
       )}
+
+      <ConfirmIngredientUpdateSheet
+        pending={confirmedUpdate.pending}
+        affectedMeals={confirmedUpdate.affectedMeals}
+        loading={confirmedUpdate.loadingAffected}
+        isSaving={confirmedUpdate.isSaving}
+        onConfirm={handleConfirmApply}
+        onCancel={confirmedUpdate.cancel}
+      />
     </ScrollView>
   );
 }

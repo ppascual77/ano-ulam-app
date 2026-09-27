@@ -722,3 +722,28 @@ export async function recomputeMealsUsingIngredient(ingredientId: string) {
   await Promise.all(mealIds.map((id) => recomputeMealTotals(id)));
   return mealIds;
 }
+
+// Read-only preview of recomputeMealsUsingIngredient's blast radius — names
+// of every non-archived meal that references any of the given ingredient
+// ids, deduplicated. Used to show an admin "this will affect N meals: ..."
+// before an ingredient edit actually happens, across every path that can
+// write to the shared ingredients table (Manage Ingredients, USDA
+// grounding's batch apply, AI Verify's accepted fixes, Seed Meal's
+// "Suggest bridge with AI") — accepts multiple ids so a batch operation
+// gets one combined list, not one lookup per ingredient.
+export async function getMealsUsingIngredients(ingredientIds: string[]): Promise<{ id: string; name: string }[]> {
+  if (ingredientIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("meal_ingredients")
+    .select("meal:meals!inner(id, name, archived_at)")
+    .in("ingredient_id", ingredientIds)
+    .is("meal.archived_at", null);
+  if (error) throw error;
+
+  const seen = new Map<string, string>();
+  for (const row of data ?? []) {
+    const meal = row.meal as unknown as { id: string; name: string } | null;
+    if (meal) seen.set(meal.id, meal.name);
+  }
+  return Array.from(seen, ([id, name]) => ({ id, name }));
+}

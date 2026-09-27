@@ -11,6 +11,7 @@ import {
   type IngredientRow,
   type UsdaGroundingResult,
 } from "@/api/ingredients";
+import { getMealsUsingIngredients } from "@/api/meals";
 
 type Props = {
   visible: boolean;
@@ -245,12 +246,25 @@ export function IngredientEditSheet({
   const [usdaResult, setUsdaResult] = useState<UsdaGroundingResult | null>(null);
   const [usdaCandidateIndex, setUsdaCandidateIndex] = useState(0);
   const [isFetchingUsda, setIsFetchingUsda] = useState(false);
+  // Editing an EXISTING ingredient (never a brand-new draft — nothing else
+  // could reference an ingredient that doesn't exist yet) previews which
+  // already-saved meals will have their totals recomputed, before Save
+  // actually writes anything. Kept INLINE in this same sheet rather than as
+  // a separate confirm sheet: closing this one and opening another would
+  // re-run the effect below (keyed on `visible`) and reset `form` back to
+  // the ingredient's saved values, silently discarding whatever the admin
+  // had just typed.
+  const [confirming, setConfirming] = useState(false);
+  const [affectedMeals, setAffectedMeals] = useState<{ id: string; name: string }[] | null>(null);
+  const [loadingAffected, setLoadingAffected] = useState(false);
 
   useEffect(() => {
     if (ingredient) setForm(toFormState(ingredient));
     else if (initialDraft) setForm(draftFormState(initialDraft));
     else setForm(null);
     setUsdaResult(null);
+    setConfirming(false);
+    setAffectedMeals(null);
     // Re-derive only when the sheet is opened for a genuinely different
     // target, not on every initialDraft object identity change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -264,7 +278,23 @@ export function IngredientEditSheet({
   const setMany = (patch: Partial<FormState>) =>
     setForm((prev) => (prev ? { ...prev, ...patch } : prev));
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    // First tap on an existing ingredient previews the blast radius instead
+    // of saving immediately; the second tap (button relabels to "Confirm
+    // Update") actually calls onSave. A brand-new draft (no `ingredient`)
+    // skips straight to onSave — nothing else could reference it yet.
+    if (ingredient && !confirming) {
+      setConfirming(true);
+      setLoadingAffected(true);
+      try {
+        setAffectedMeals(await getMealsUsingIngredients([ingredient.id]));
+      } catch {
+        setAffectedMeals([]);
+      } finally {
+        setLoadingAffected(false);
+      }
+      return;
+    }
     onSave(buildPatch(form));
   };
 
@@ -476,7 +506,37 @@ export function IngredientEditSheet({
           <TextField label="Piece label (e.g. clove, medium egg)" value={form.piece_label} onChangeText={(v) => set("piece_label", v)} />
         </Section>
 
-        <Button label={isSaving ? "Saving..." : (saveLabel ?? "Save")} disabled={isSaving} onPress={handleSave} />
+        {confirming && (
+          <View className="gap-2 rounded-2xl border border-ink-emphasis/10 p-3 mb-3">
+            <AppText variant="bodyBold">
+              {loadingAffected
+                ? "Checking affected meals..."
+                : affectedMeals && affectedMeals.length > 0
+                  ? `This will update ${affectedMeals.length} meal${affectedMeals.length === 1 ? "" : "s"}:`
+                  : "Not currently used in any meal — nothing else will be affected."}
+            </AppText>
+            {!loadingAffected && affectedMeals && affectedMeals.length > 0 && (
+              <View>
+                {affectedMeals.map((m) => (
+                  <AppText key={m.id} variant="caption" className="py-0.5 text-ink-subtle">
+                    • {m.name}
+                  </AppText>
+                ))}
+              </View>
+            )}
+            <Pressable onPress={() => setConfirming(false)} disabled={isSaving}>
+              <AppText variant="caption" className="text-primary">
+                Cancel
+              </AppText>
+            </Pressable>
+          </View>
+        )}
+
+        <Button
+          label={isSaving ? "Saving..." : confirming ? "Confirm Update" : (saveLabel ?? "Save")}
+          disabled={isSaving || (confirming && loadingAffected)}
+          onPress={handleSave}
+        />
       </ScrollView>
     </BottomSheet>
   );

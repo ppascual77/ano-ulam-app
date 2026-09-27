@@ -25,9 +25,10 @@ import {
   type ProposedTotals,
   type QuantityUnit,
 } from "@/api/meals";
-import { useUpdateIngredient } from "../hooks/useIngredients";
+import { useConfirmedIngredientUpdate } from "../hooks/useConfirmedIngredientUpdate";
 import { IngredientEditSheet } from "./IngredientEditSheet";
 import { ConfirmIngredientSheet } from "./ConfirmIngredientSheet";
+import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
 
 export type { QuantityUnit };
 
@@ -253,7 +254,7 @@ function IngredientRowCard({
   const [bridgeFixing, setBridgeFixing] = useState(false);
   const [bridgeError, setBridgeError] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const updateIngredientMutation = useUpdateIngredient();
+  const confirmedBridgeUpdate = useConfirmedIngredientUpdate();
 
   const candidates = useMemo(
     () => (item.name.trim() ? matchIngredientCandidates(item.name, allIngredients) : []),
@@ -365,18 +366,19 @@ function IngredientRowCard({
   // freshly-created USDA ingredients, just triggered reactively here once
   // a conversion has actually failed for a real, already-linked ingredient
   // — only fills whichever bridge field is still null, never touches an
-  // already-set one. Goes through the mutation hook (not a raw
-  // updateIngredient call) specifically because this ingredient may
-  // already be used by OTHER, already-saved meals — its onSuccess cascade
-  // (recomputeMealsUsingIngredient) recomputes their stored totals too, not
-  // just invalidating this screen's own query cache.
+  // already-set one. Requests the confirm-update sheet rather than writing
+  // directly — this ingredient may already be used by OTHER, already-saved
+  // meals, so the admin sees that blast radius before anything's written;
+  // confirming is what actually runs the cascade (recomputeMealsUsingIngredient).
   const handleFixBridge = async () => {
     if (!linkedIngredient) return;
     setBridgeFixing(true);
     setBridgeError(null);
     try {
       const gaps = await withOneRetry(() => estimateIngredientGaps(linkedIngredient, requiredBridge));
-      await updateIngredientMutation.mutateAsync({ id: linkedIngredient.id, patch: gaps });
+      await confirmedBridgeUpdate.requestUpdate([
+        { id: linkedIngredient.id, patch: gaps, name: linkedIngredient.canonical_name },
+      ]);
     } catch (err) {
       setBridgeError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -736,6 +738,15 @@ function IngredientRowCard({
         onConfirm={handleConfirmCreate}
         isSaving={confirmSaving}
         error={createError}
+      />
+
+      <ConfirmIngredientUpdateSheet
+        pending={confirmedBridgeUpdate.pending}
+        affectedMeals={confirmedBridgeUpdate.affectedMeals}
+        loading={confirmedBridgeUpdate.loadingAffected}
+        isSaving={confirmedBridgeUpdate.isSaving}
+        onConfirm={confirmedBridgeUpdate.confirm}
+        onCancel={confirmedBridgeUpdate.cancel}
       />
     </View>
   );

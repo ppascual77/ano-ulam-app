@@ -15,7 +15,8 @@ import {
   type MealVerifyResult,
   type ProposedTotals,
 } from "@/api/meals";
-import { useUpdateIngredient } from "../hooks/useIngredients";
+import { useConfirmedIngredientUpdate } from "../hooks/useConfirmedIngredientUpdate";
+import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
 import type { PendingMealIngredient } from "./SeedMealIngredientsEditor";
 
 // Runs AFTER the admin has manually linked/bridged every ingredient below
@@ -57,7 +58,12 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
   const [result, setResult] = useState<MealVerifyResult | null>(null);
   const [issueStates, setIssueStates] = useState<Record<number, IssueState>>({});
   const [issueErrors, setIssueErrors] = useState<Record<number, string>>({});
-  const updateIngredientMutation = useUpdateIngredient();
+  // Which issue index(es) an in-flight confirm-update belongs to — needed
+  // so the confirm sheet's onConfirm/onCancel know which issue card(s) to
+  // mark applied/pending/error afterward (the hook itself only knows about
+  // ingredient patches, not this panel's own issue-index bookkeeping).
+  const [pendingIndexes, setPendingIndexes] = useState<number[] | null>(null);
+  const confirmedUpdate = useConfirmedIngredientUpdate();
 
   // Every item here is already linked (ingredientId set) by the time this
   // panel renders — SeedMealScreen only mounts it once allResolved is true.
@@ -202,6 +208,10 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
     return i >= 0 ? i : null;
   };
 
+  // Requests the confirm-update sheet rather than writing directly — see
+  // ConfirmIngredientUpdateSheet: this ingredient may already be used by
+  // other, already-saved meals, so the admin gets to see that blast radius
+  // before anything is written, not just after.
   const handleApply = async (index: number, issue: MealVerifyIssue) => {
     const ingredient = allIngredients.find((i) => i.canonical_name === issue.ingredientName);
     if (!ingredient) {
@@ -218,22 +228,29 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
     const pairedIssue = pairedIndex != null ? result?.issues[pairedIndex] : undefined;
     const indexes = pairedIndex != null ? [index, pairedIndex] : [index];
 
+    setPendingIndexes(indexes);
     setIssueStates((prev) => {
       const next = { ...prev };
       for (const i of indexes) next[i] = "applying";
       return next;
     });
+
+    const patch = {
+      ...parseMealVerifyFixValue(issue.field, issue.suggestedValue),
+      ...(pairedIssue ? parseMealVerifyFixValue(pairedIssue.field, pairedIssue.suggestedValue) : {}),
+    };
+    await confirmedUpdate.requestUpdate([{ id: ingredient.id, patch, name: ingredient.canonical_name }]);
+  };
+
+  const handleConfirmApply = async () => {
+    if (!pendingIndexes) return;
+    const indexes = pendingIndexes;
     try {
-      const patch = {
-        ...parseMealVerifyFixValue(issue.field, issue.suggestedValue),
-        ...(pairedIssue ? parseMealVerifyFixValue(pairedIssue.field, pairedIssue.suggestedValue) : {}),
-      };
-      // Goes through the mutation hook (not the raw updateIngredient call)
-      // specifically so its onSuccess cascade runs — recomputeMealsUsingIngredient
-      // updates every OTHER meal already built on this ingredient too, not
-      // just invalidating this screen's own query cache. A raw call here
-      // would silently leave those other meals' stored totals stale.
-      await updateIngredientMutation.mutateAsync({ id: ingredient.id, patch });
+      // Goes through the confirm-update hook (not a raw updateIngredient
+      // call) specifically so its onSuccess cascade runs —
+      // recomputeMealsUsingIngredient updates every OTHER meal already
+      // built on this ingredient too, not just this screen's own cache.
+      await confirmedUpdate.confirm();
       setIssueStates((prev) => {
         const next = { ...prev };
         for (const i of indexes) next[i] = "applied";
@@ -251,7 +268,22 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
         for (const i of indexes) next[i] = message;
         return next;
       });
+    } finally {
+      setPendingIndexes(null);
     }
+  };
+
+  const handleCancelApply = () => {
+    if (pendingIndexes) {
+      const indexes = pendingIndexes;
+      setIssueStates((prev) => {
+        const next = { ...prev };
+        for (const i of indexes) next[i] = "pending";
+        return next;
+      });
+    }
+    confirmedUpdate.cancel();
+    setPendingIndexes(null);
   };
 
   const handleSkip = (index: number) => {
@@ -402,6 +434,15 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
           )}
         </View>
       )}
+
+      <ConfirmIngredientUpdateSheet
+        pending={confirmedUpdate.pending}
+        affectedMeals={confirmedUpdate.affectedMeals}
+        loading={confirmedUpdate.loadingAffected}
+        isSaving={confirmedUpdate.isSaving}
+        onConfirm={handleConfirmApply}
+        onCancel={handleCancelApply}
+      />
     </View>
   );
 }
