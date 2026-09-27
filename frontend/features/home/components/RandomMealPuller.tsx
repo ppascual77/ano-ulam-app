@@ -21,12 +21,12 @@ const APPEAR_DELAY_MIN_MS = 8000;
 const APPEAR_DELAY_MAX_MS = 20000;
 const IGNORE_TIMEOUT_MS = 6000; // how long it peeks, undragged, before retracting
 
-const REST_LENGTH = 64; // resting cord+tab length once slid in
-const MAX_PULL = 140; // visual cap on how far the cord can stretch while dragging
+const REST_LENGTH = 70; // resting cord+tab length once slid in
+const MAX_PULL = 200; // visual cap on how far the cord can stretch while dragging
 // Shifted off true-center so the tag doesn't sit dead-center over Header's
 // content — a small, deliberate offset rather than a full-width centered
 // element that visually dominates the top of the screen.
-const TASSEL_OFFSET_X = 50;
+const TASSEL_OFFSET_X = 70;
 const FADE_IN_DURATION_MS = 250;
 
 const REVEAL_DISTANCE = 90; // past this much extra pull, commit to a reveal
@@ -46,7 +46,23 @@ const REVEAL_RETRACT_DURATION_MS = 250;
 // just a straight-line drop.
 const ENTER_SPRING = { damping: 8, stiffness: 90, mass: 0.6 };
 const SWAY_SPRING = { damping: 4, stiffness: 60, mass: 0.5 };
-const SWAY_MAX_DEG = 14;
+const SWAY_MAX_DEG = 30;
+
+// While the user is actively holding/dragging, the tab leans toward
+// wherever their finger has moved horizontally — but a real rope doesn't
+// track a hand 1:1, it lags and catches up. Re-issuing withSpring on every
+// pointer-move event (below, in onUpdate) toward a constantly-moving
+// target is what gives that lag: reanimated smoothly retargets an in-flight
+// spring rather than restarting it, so the tab visibly "chases" the finger
+// instead of snapping straight to it. Looser than SWAY_SPRING (lower
+// stiffness, less damping) since this needs to feel floppy while held, not
+// crisply settle like the entrance/release springs do.
+const DRAG_SWAY_SPRING = { damping: 6, stiffness: 50, mass: 0.4 };
+const DRAG_SWAY_MAX_DEG = 40;
+// Degrees of lean per pixel of horizontal drag — tuned so the lean reaches
+// close to DRAG_SWAY_MAX_DEG around a natural ~100px sideways pull, not a
+// full screen-width drag.
+const DRAG_SWAY_SENSITIVITY = 0.4;
 
 function pickRandomMeal(excludeId: string | null): MealType {
   const pool = excludeId ? mockMeals.filter((m) => m.id !== excludeId) : mockMeals;
@@ -132,6 +148,11 @@ export function RandomMealPuller() {
     })
     .onUpdate((e) => {
       cordLength.value = Math.min(MAX_PULL, Math.max(REST_LENGTH, dragStartLength.value + e.translationY));
+      const targetAngle = Math.max(
+        -DRAG_SWAY_MAX_DEG,
+        Math.min(DRAG_SWAY_MAX_DEG, e.translationX * DRAG_SWAY_SENSITIVITY),
+      );
+      swayAngle.value = withSpring(targetAngle, DRAG_SWAY_SPRING);
     })
     .onEnd((e) => {
       if (e.translationY > REVEAL_DISTANCE || e.velocityY > REVEAL_VELOCITY) {
@@ -139,6 +160,7 @@ export function RandomMealPuller() {
         // opens underneath — the tab visually delivers the meal and leaves.
         cordLength.value = withTiming(MAX_PULL + 20, { duration: REVEAL_SNAP_DURATION_MS }, () => {
           tabOpacity.value = withTiming(0, { duration: REVEAL_RETRACT_DURATION_MS });
+          swayAngle.value = withSpring(0, SWAY_SPRING);
           cordLength.value = withTiming(0, { duration: REVEAL_RETRACT_DURATION_MS }, (finished) => {
             if (finished) scheduleOnRN(finishCommit);
           });
@@ -146,6 +168,10 @@ export function RandomMealPuller() {
         });
       } else {
         cordLength.value = withTiming(REST_LENGTH, { duration: SPRING_BACK_DURATION_MS });
+        // Letting go mid-lean shouldn't leave it hanging crooked — swings
+        // back to straight with the same pendulum-settle feel as the
+        // entrance, not the loose drag-follow spring.
+        swayAngle.value = withSpring(0, SWAY_SPRING);
         scheduleOnRN(resumeIgnoreTimer);
       }
     });
