@@ -125,7 +125,19 @@ function IngredientRow({ ingredient, scale, showDetails, isLast }: IngredientRow
 
       {hasDetail && expanded && (
         <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)}>
-          <IngredientDetailPanel item={ingredient} />
+          <IngredientDetailPanel
+            item={{
+              ...ingredient,
+              // The row's own price above already applies `* scale` — this
+              // was passing the raw, unscaled ingredient straight through,
+              // so the expanded panel kept showing macros for the
+              // original serving size no matter what servings was set to.
+              calories: ingredient.calories != null ? ingredient.calories * scale : undefined,
+              protein: ingredient.protein != null ? ingredient.protein * scale : undefined,
+              carbs: ingredient.carbs != null ? ingredient.carbs * scale : undefined,
+              fats: ingredient.fats != null ? ingredient.fats * scale : undefined,
+            }}
+          />
         </Animated.View>
       )}
     </>
