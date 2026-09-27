@@ -72,7 +72,7 @@ type VerifyIssue = {
   field:
     | "calories" | "protein" | "carbohydrates" | "fat" | "sugar" | "fiber" | "sodium"
     | "estimated_price" | "estimated_price_unit" | "grams_per_ml" | "grams_per_piece"
-    | "piece_label" | "state";
+    | "piece_label" | "state" | "role";
   issue: string;
   currentValue: string;
   suggestedValue: string;
@@ -90,7 +90,7 @@ const SYSTEM_PROMPT = `You are auditing an already-assembled Filipino home-cooki
 For each ingredient you're given: its name, the recipe's own stated quantity ("displayText", e.g. "14 oz can, drained"), the resolved quantity/unit actually used for calculation, its source ("USDA" or "manual"/null), its full per-basisAmount nutrition + price + grams_per_ml/grams_per_piece bridge fields, and its COMPUTED contribution to this recipe at this quantity ("computed": calories/protein/carbohydrates/fat/price).
 
 SOURCE GOVERNS WHICH FIELDS YOU MAY TOUCH — read this before anything else:
-- source is exactly "USDA": its nutrition (calories, protein, carbohydrates, fat, sugar, fiber, sodium) and state came from a real, already-verified USDA match. These are NEVER wrong in a way you get to correct — do not flag them, do not run checks 1 or 6 on this ingredient, no matter how implausible a number looks. You may ONLY flag this ingredient's estimated_price, estimated_price_unit, grams_per_piece, grams_per_ml, or piece_label (checks 2, 3, 4, 5, and the price/bridge angle of 7). If a USDA ingredient's computed contribution looks wrong, the cause must be the price/bridge/quantity side, not its macros — say so in "issue" but only propose a fix on a price/bridge field.
+- source is exactly "USDA": its nutrition (calories, protein, carbohydrates, fat, sugar, fiber, sodium) and state came from a real, already-verified USDA match. These are NEVER wrong in a way you get to correct — do not flag them, do not run checks 1 or 6 on this ingredient, no matter how implausible a number looks. You may ONLY flag this ingredient's estimated_price, estimated_price_unit, grams_per_piece, grams_per_ml, piece_label, or role (checks 2, 3, 4, 5, 9, and the price/bridge angle of 7). If a USDA ingredient's computed contribution looks wrong, the cause must be the price/bridge/quantity/role side, not its macros — say so in "issue" but only propose a fix on one of those fields.
 - source is "manual", null, or anything else: run the full CHECK FOR list below, any field is fair game.
 
 CHECK FOR:
@@ -105,8 +105,9 @@ CHECK FOR:
 6. Atwater sanity (manual-source ingredients only): calories should be close to protein*4 + carbohydrates*4 + fat*9 per basisAmount, UNLESS this is one of the known Atwater-exception ingredients (vinegar, cocoa/cacao, coffee, wine, vanilla extract, gulaman/agar-agar).
 7. Disproportionate computed contribution (any source, but the fix must respect the SOURCE rule above): does an ingredient's computed calorie/price contribution look absurdly large relative to its role/quantity (e.g. a garnish/seasoning outweighing the main protein, or a "main" ingredient's price dwarfing the rest of the recipe combined) — this usually signals a unit/bridge/price-magnitude error (see checks 4-5), not a genuinely large amount.
 8. Overall plausibility: given the recipe's name/description/category and serving size, does the TOTAL computed calories and price PER SERVING look realistic for a Filipino home-cooked dish of this kind (assume Filipino home-market portions and pricing, not Western/restaurant-scale assumptions). This is informational for the summary — it doesn't by itself justify a per-ingredient fix on a USDA ingredient's macros.
+9. Role misclassification (any source) — role should be "main" for a substantial ingredient the dish is genuinely built around, "pantry" for a seasoning/condiment/oil used in a small amount. Judge this from the ACTUAL quantity used here, not just the ingredient's name in the abstract: a "pantry" role on an ingredient contributing a large quantity (hundreds of grams/ml, or clearly a defining component of the dish rather than a background flavoring — e.g. 20oz of canned pineapple in a dish named for pineapple) means the app silently excludes its ENTIRE contribution from the meal's totals, a serious bug, not a style nitpick. If you find this, propose field "role" with suggestedValue "main". Never propose the opposite direction ("main" to "pantry") — that's a much lower-value, higher-risk call better left to the manual review that follows this step.
 
-Only flag REAL, concrete issues you have genuine reason to suspect from the data given — do not invent nitpicks, do not flag ordinary estimation variance. If everything looks fine, return an empty "issues" array and overallAssessment "plausible". Never propose anything outside these exact fields: calories, protein, carbohydrates, fat, sugar, fiber, sodium, estimated_price, estimated_price_unit, grams_per_ml, grams_per_piece, piece_label, state — always a corrected VALUE for a field already on the ingredient given, never a suggestion to use a different ingredient entirely. And never one of the nutrition/state fields for a "USDA"-source ingredient, per the SOURCE rule above.
+Only flag REAL, concrete issues you have genuine reason to suspect from the data given — do not invent nitpicks, do not flag ordinary estimation variance. If everything looks fine, return an empty "issues" array and overallAssessment "plausible". Never propose anything outside these exact fields: calories, protein, carbohydrates, fat, sugar, fiber, sodium, estimated_price, estimated_price_unit, grams_per_ml, grams_per_piece, piece_label, state, role — always a corrected VALUE for a field already on the ingredient given, never a suggestion to use a different ingredient entirely. And never one of the nutrition/state fields for a "USDA"-source ingredient, per the SOURCE rule above.
 
 OUTPUT SHAPE — return ONLY a JSON object (no markdown fences) matching exactly:
 {
@@ -115,7 +116,7 @@ OUTPUT SHAPE — return ONLY a JSON object (no markdown fences) matching exactly
   "issues": [
     {
       "ingredientName": string,
-      "field": "calories" | "protein" | "carbohydrates" | "fat" | "sugar" | "fiber" | "sodium" | "estimated_price" | "estimated_price_unit" | "grams_per_ml" | "grams_per_piece" | "piece_label" | "state",
+      "field": "calories" | "protein" | "carbohydrates" | "fat" | "sugar" | "fiber" | "sodium" | "estimated_price" | "estimated_price_unit" | "grams_per_ml" | "grams_per_piece" | "piece_label" | "state" | "role",
       "issue": string,
       "currentValue": string,
       "suggestedValue": string,

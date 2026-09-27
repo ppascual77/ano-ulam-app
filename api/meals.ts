@@ -613,7 +613,7 @@ export async function recomputeMealTotals(mealId: string) {
 export type MealVerifyField =
   | "calories" | "protein" | "carbohydrates" | "fat" | "sugar" | "fiber" | "sodium"
   | "estimated_price" | "estimated_price_unit" | "grams_per_ml" | "grams_per_piece"
-  | "piece_label" | "state";
+  | "piece_label" | "state" | "role";
 
 export type MealVerifyIssue = {
   ingredientName: string;

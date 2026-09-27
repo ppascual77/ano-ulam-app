@@ -36,6 +36,11 @@ import type { PendingMealIngredient } from "./SeedMealIngredientsEditor";
 
 type IssueState = "pending" | "applying" | "applied" | "skipped" | "error";
 
+// Free-text phrasing that genuinely means "no fixed quantity," as opposed
+// to a blank quantity that's really just missing data (see the blank-
+// quantity branch below for why this distinction matters).
+const NO_FIXED_QUANTITY_PATTERN = /\b(to taste|as needed|as desired|optional|a pinch|pinch of|dash of|drizzle of|for garnish)\b/i;
+
 type Props = {
   mealName: string;
   mealDescription: string;
@@ -65,11 +70,13 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
   // panel can say WHY it's disabled instead of a blanket "link everything"
   // message that's wrong whenever every row already shows "Linked ✓".
   //
-  // A THIRD bucket exists implicitly: an ingredient with no quantity set at
-  // all (e.g. "to taste") is neither resolved nor blocked — it's silently
-  // excluded from both, same as recomputeMealTotals already treats it.
-  // Requiring a quantity just to unlock Verify would force a fake number
-  // onto something that's deliberately unquantified.
+  // A THIRD bucket exists implicitly: an ingredient with no quantity set AND
+  // display text that reads as genuinely unquantified (NO_FIXED_QUANTITY_PATTERN,
+  // e.g. "to taste") is neither resolved nor blocked — silently excluded from
+  // both, same as recomputeMealTotals already treats it. But a blank quantity
+  // WITHOUT that kind of display text still blocks — it usually means the
+  // numeric quantity was simply never captured for what should have been a
+  // real amount, not that none was intended (see the loop below).
   const { resolvedInputs, blocked } = useMemo(() => {
     const resolved: {
       displayText: string;
@@ -87,11 +94,21 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
         continue;
       }
       if (item.quantityAmount.trim() === "") {
-        // No quantity set at all (e.g. "to taste") — recomputeMealTotals
-        // already treats this as "doesn't count," not an error, so Verify
-        // shouldn't require it either. Just skip it silently: it doesn't
-        // block the rest of the meal from being verified, and there's
-        // nothing computed to audit for it anyway.
+        if (NO_FIXED_QUANTITY_PATTERN.test(item.displayText)) {
+          // Genuinely unquantified (e.g. "to taste") — recomputeMealTotals
+          // already treats this as "doesn't count," not an error, so
+          // Verify shouldn't require it either. Skip silently.
+          continue;
+        }
+        // Blank quantity WITHOUT a "to taste"-style display text is a
+        // different situation — displayText looks like it was meant to
+        // carry a real amount (e.g. "1", "2 pieces") but the numeric side
+        // never got captured, silently zeroing this ingredient out of
+        // every total. Caught live on "Bell pepper, red, raw" in a seeded
+        // meal: its sibling green pepper row correctly had "1 piece" set,
+        // this one didn't, and its entire ₱24/38kcal contribution vanished
+        // without a trace. Block instead of skip, so it surfaces.
+        blockedItems.push({ name: item.name, reason: `has "${item.displayText || "no"}" as display text but no quantity set — looks like data went missing, not an intentional "to taste"` });
         continue;
       }
       const amount = Number(item.quantityAmount);
