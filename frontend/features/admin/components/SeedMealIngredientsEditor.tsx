@@ -314,6 +314,18 @@ function IngredientRowCard({
   // (wrong unit picked, bad basis_unit data) that an AI-suggested bridge
   // wouldn't address.
   const canSuggestBridge = contribution.status === "error" && contribution.reason.includes("bridge");
+  // Which exact field convertQuantityToBasis's own error names — reusing
+  // its wording rather than re-deriving from item.quantityUnit means this
+  // always matches the SAME failure the admin is looking at right now,
+  // not a separate guess that could disagree with it.
+  const requiredBridge: "grams_per_ml" | "grams_per_piece" | undefined =
+    contribution.status === "error"
+      ? contribution.reason.includes("grams_per_piece")
+        ? "grams_per_piece"
+        : contribution.reason.includes("grams_per_ml")
+          ? "grams_per_ml"
+          : undefined
+      : undefined;
   const oilHint = contribution.status === "ok" && bulkFryingOilHint(item, linkedIngredient);
 
   const useAbsorbedOilEstimate = () => {
@@ -360,7 +372,7 @@ function IngredientRowCard({
     setBridgeFixing(true);
     setBridgeError(null);
     try {
-      const gaps = await withOneRetry(() => estimateIngredientGaps(linkedIngredient));
+      const gaps = await withOneRetry(() => estimateIngredientGaps(linkedIngredient, requiredBridge));
       await updateIngredient(linkedIngredient.id, gaps);
       await queryClient.invalidateQueries({ queryKey: ["admin", "meals"] });
     } catch (err) {

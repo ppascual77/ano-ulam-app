@@ -150,7 +150,16 @@ export async function estimateIngredientAi(name: string): Promise<AiIngredientEs
 // stays permanently null. Never touches the nutrition/source fields
 // already set from the real USDA match; only asks the LLM for what's
 // actually missing, echoing the known macros back unchanged as context.
-export async function estimateIngredientGaps(ingredient: IngredientRow): Promise<Partial<IngredientRow>> {
+export async function estimateIngredientGaps(
+  ingredient: IngredientRow,
+  // When set, this specific bridge is required for a quantity the admin is
+  // ACTIVELY trying to use right now (a real conversion just failed on
+  // it) — without this, the LLM's own general judgment about whether e.g.
+  // grams_per_ml is "needed" for this ingredient (reasonable in the
+  // abstract — pineapple isn't a liquid) can override what's actually
+  // needed for the recipe in front of the admin, which measures it by cup.
+  requiredBridge?: "grams_per_ml" | "grams_per_piece",
+): Promise<Partial<IngredientRow>> {
   const data = await invokeEdgeFunction<{ ingredient: AiIngredientEstimate }>("estimate-ingredient-ai", {
     name: ingredient.canonical_name,
     known: {
@@ -164,6 +173,7 @@ export async function estimateIngredientGaps(ingredient: IngredientRow): Promise
       fiber: ingredient.fiber,
       sodium: ingredient.sodium,
     },
+    requiredBridge,
   });
   const est = data.ingredient;
   if (!est) throw new Error("AI gap-fill returned no data");

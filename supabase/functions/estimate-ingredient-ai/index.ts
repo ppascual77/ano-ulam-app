@@ -111,10 +111,13 @@ OUTPUT SHAPE — return ONLY a JSON object (no markdown fences) matching exactly
 If the given name isn't a real, identifiable food ingredient, return {"error": "reason"} instead.`;
 }
 
-function gapFillPrompt(known: KnownNutrition): string {
+function gapFillPrompt(known: KnownNutrition, requiredBridge?: "grams_per_ml" | "grams_per_piece"): string {
+  const requiredBridgeNote = requiredBridge
+    ? `\n\nIMPORTANT — OVERRIDES THE GENERAL ${requiredBridge === "grams_per_ml" ? "grams_per_ml" : "grams_per_piece"} GUIDANCE ABOVE: an admin is right now trying to use this ingredient with a quantity that specifically requires ${requiredBridge}, and the conversion just failed because it's missing. You MUST return a real, non-null, non-zero value for ${requiredBridge}${requiredBridge === "grams_per_piece" ? " (and piece_label)" : ""} — this is not optional here, regardless of whether this ingredient would typically need it in the abstract. Estimate your best real-world figure (e.g. a "1 cup diced pineapple" scenario needs grams_per_ml for pineapple even though pineapple isn't a liquid — cup is a volume measure regardless of what's being measured).`
+    : "";
   return `${BASE_PROMPT}
 
-The nutrition values below are ALREADY VERIFIED from USDA for this ingredient — echo them back completely unchanged in your output (including basis_amount/basis_unit). Do not re-estimate or adjust them. Your job is ONLY to fill in the operational fields USDA doesn't provide: display_name, aliases, category, food_group, role, state, estimated_price, estimated_price_unit, grams_per_ml, grams_per_piece, piece_label.
+The nutrition values below are ALREADY VERIFIED from USDA for this ingredient — echo them back completely unchanged in your output (including basis_amount/basis_unit). Do not re-estimate or adjust them. Your job is ONLY to fill in the operational fields USDA doesn't provide: display_name, aliases, category, food_group, role, state, estimated_price, estimated_price_unit, grams_per_ml, grams_per_piece, piece_label.${requiredBridgeNote}
 
 Known verified nutrition (per ${known.basis_amount} ${known.basis_unit}):
 ${JSON.stringify({ calories: known.calories, protein: known.protein, carbohydrates: known.carbohydrates, fat: known.fat, sugar: known.sugar, fiber: known.fiber, sodium: known.sodium })}
@@ -147,10 +150,14 @@ OUTPUT SHAPE — return ONLY a JSON object (no markdown fences) matching exactly
 If the given name isn't a real, identifiable food ingredient, return {"error": "reason"} instead.`;
 }
 
-async function estimateWithOpenAI(name: string, known?: KnownNutrition): Promise<IngredientEstimate> {
+async function estimateWithOpenAI(
+  name: string,
+  known?: KnownNutrition,
+  requiredBridge?: "grams_per_ml" | "grams_per_piece",
+): Promise<IngredientEstimate> {
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
 
-  const systemPrompt = known ? gapFillPrompt(known) : fullEstimatePrompt();
+  const systemPrompt = known ? gapFillPrompt(known, requiredBridge) : fullEstimatePrompt();
 
   const res = await fetch(OPENAI_URL, {
     method: "POST",
@@ -195,11 +202,12 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const name = body?.name as string | undefined;
     const known = body?.known as KnownNutrition | undefined;
+    const requiredBridge = body?.requiredBridge as "grams_per_ml" | "grams_per_piece" | undefined;
     if (!name || !name.trim()) {
       return new Response(JSON.stringify({ error: "name is required" }), { status: 400 });
     }
 
-    const ingredient = await estimateWithOpenAI(name.trim(), known);
+    const ingredient = await estimateWithOpenAI(name.trim(), known, requiredBridge);
 
     return new Response(JSON.stringify({ ingredient }), {
       headers: { "Content-Type": "application/json" },
