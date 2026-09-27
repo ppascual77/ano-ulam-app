@@ -54,32 +54,60 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
   const [issueErrors, setIssueErrors] = useState<Record<number, string>>({});
   const queryClient = useQueryClient();
 
-  const resolvedInputs = useMemo(() => {
-    return items
-      .map((item) => {
-        const ingredient = allIngredients.find((i) => i.id === item.ingredientId);
-        if (!ingredient) return null;
-        const amount = Number(item.quantityAmount);
-        if (item.quantityAmount.trim() === "" || Number.isNaN(amount)) return null;
-        const conversion = convertQuantityToBasis(amount, item.quantityUnit, ingredient);
-        if (!conversion.ok) return null;
-        const priceAmount = item.priceQuantityAmount.trim() !== "" ? Number(item.priceQuantityAmount) : null;
-        const computed = computeItemTotals(
-          ingredient,
-          amount,
-          item.quantityUnit,
-          priceAmount != null && !Number.isNaN(priceAmount) ? priceAmount : null,
-          item.priceQuantityUnit || null,
-        );
-        return {
-          displayText: item.displayText.trim() || item.name,
-          quantityAmount: amount,
-          quantityUnit: item.quantityUnit,
-          ingredient,
-          computed,
-        };
-      })
-      .filter((v): v is NonNullable<typeof v> => v !== null);
+  // Every item here is already linked (ingredientId set) by the time this
+  // panel renders — SeedMealScreen only mounts it once allResolved is true.
+  // But "linked" alone isn't enough to actually verify: it also needs a
+  // working quantity conversion, and (briefly) the just-linked ingredient
+  // has to actually be present in `allIngredients` — a freshly created or
+  // just-relinked ingredient can be missing from that cached list for one
+  // render until its query invalidation refetches. Splitting into
+  // resolved/blocked (with a reason) rather than a single boolean means the
+  // panel can say WHY it's disabled instead of a blanket "link everything"
+  // message that's wrong whenever every row already shows "Linked ✓".
+  const { resolvedInputs, blocked } = useMemo(() => {
+    const resolved: {
+      displayText: string;
+      quantityAmount: number;
+      quantityUnit: string;
+      ingredient: IngredientRow;
+      computed: ProposedTotals;
+    }[] = [];
+    const blockedItems: { name: string; reason: string }[] = [];
+
+    for (const item of items) {
+      const ingredient = allIngredients.find((i) => i.id === item.ingredientId);
+      if (!ingredient) {
+        blockedItems.push({ name: item.name, reason: "still syncing after linking — try again in a moment" });
+        continue;
+      }
+      const amount = Number(item.quantityAmount);
+      if (item.quantityAmount.trim() === "" || Number.isNaN(amount)) {
+        blockedItems.push({ name: item.name, reason: "needs a quantity set" });
+        continue;
+      }
+      const conversion = convertQuantityToBasis(amount, item.quantityUnit, ingredient);
+      if (!conversion.ok) {
+        blockedItems.push({ name: item.name, reason: conversion.reason });
+        continue;
+      }
+      const priceAmount = item.priceQuantityAmount.trim() !== "" ? Number(item.priceQuantityAmount) : null;
+      const computed = computeItemTotals(
+        ingredient,
+        amount,
+        item.quantityUnit,
+        priceAmount != null && !Number.isNaN(priceAmount) ? priceAmount : null,
+        item.priceQuantityUnit || null,
+      );
+      resolved.push({
+        displayText: item.displayText.trim() || item.name,
+        quantityAmount: amount,
+        quantityUnit: item.quantityUnit,
+        ingredient,
+        computed,
+      });
+    }
+
+    return { resolvedInputs: resolved, blocked: blockedItems };
   }, [items, allIngredients]);
 
   const totals: ProposedTotals = resolvedInputs.reduce(
@@ -96,7 +124,7 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
     { calories: 0, protein: 0, carbohydrates: 0, fat: 0, price: 0 } as ProposedTotals,
   );
 
-  const canVerify = resolvedInputs.length > 0 && resolvedInputs.length === items.length;
+  const canVerify = resolvedInputs.length > 0 && blocked.length === 0;
 
   const handleVerify = async () => {
     setLoading(true);
@@ -162,10 +190,14 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
         is changed unless you accept a suggestion below.
       </AppText>
 
-      {!canVerify && (
-        <AppText variant="caption" className="text-like">
-          Link every ingredient above first.
-        </AppText>
+      {!canVerify && blocked.length > 0 && (
+        <View className="gap-0.5">
+          {blocked.map((b, i) => (
+            <AppText key={i} variant="caption" className="text-like">
+              {b.name || "This ingredient"}: {b.reason}
+            </AppText>
+          ))}
+        </View>
       )}
 
       <Button
