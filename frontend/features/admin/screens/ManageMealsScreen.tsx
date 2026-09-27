@@ -30,6 +30,12 @@ export default function ManageMealsScreen() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [pendingDeleteConfirm, setPendingDeleteConfirm] = useState(false);
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
+  // Same reasoning as the delete-confirm sequencing above — navigating to
+  // Edit Meal while this sheet's Modal is still up leaves it floating over
+  // the new screen (a Modal isn't part of the navigation stack, so pushing
+  // a route doesn't close it on its own). Close first, navigate only once
+  // BottomSheet's onClosed confirms the close animation actually finished.
+  const [pendingEditId, setPendingEditId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -102,9 +108,15 @@ export default function ManageMealsScreen() {
             setConfirmDeleteVisible(true);
             setPendingDeleteConfirm(false);
           }
+          if (pendingEditId) {
+            router.push(`/edit-meal/${pendingEditId}`);
+            setPendingEditId(null);
+          }
         }}
         onEdit={() => {
-          if (selectedMealId) router.push(`/edit-meal/${selectedMealId}`);
+          if (!selectedMealId) return;
+          setPendingEditId(selectedMealId);
+          setSelectedMealId(null);
         }}
         onArchive={() => {
           if (!selectedMealId) return;
