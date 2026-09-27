@@ -3,15 +3,17 @@ import { View, Pressable, useWindowDimensions } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { router } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
-import { AppText, BottomSheet, Button, ErrorState, LoadingState, Screen, SearchBar } from "@/frontend/components/ui";
+import { AppText, BottomSheet, Button, ErrorState, Screen, SearchBar } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
+import { MealCardSkeleton } from "@/frontend/core/meals/components/card/MealCardSkeleton";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useArchiveMeal, useDeleteMeal, useMeal, useMeals } from "../hooks/useMeals";
 import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 
 const SCREEN_PADDING = 20 * 2; // matches Screen's px-5
 const COLUMN_GAP = 12;
+const GRID_SKELETON_COUNT = 6;
 
 export default function ManageMealsScreen() {
   const { data: meals, isLoading, isError } = useMeals({});
@@ -76,7 +78,13 @@ export default function ManageMealsScreen() {
       </View>
 
       {isLoading ? (
-        <LoadingState />
+        <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+          <View className="flex-row flex-wrap justify-between gap-y-4">
+            {Array.from({ length: GRID_SKELETON_COUNT }).map((_, i) => (
+              <MealCardSkeleton key={i} width={cardWidth} />
+            ))}
+          </View>
+        </ScrollView>
       ) : isError ? (
         <ErrorState />
       ) : (
