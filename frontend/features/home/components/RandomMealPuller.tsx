@@ -148,7 +148,7 @@ export function RandomMealPuller() {
   // from a fixed point instead of spinning in place.
   const swayStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${swayAngle.value}deg` }],
-    transformOrigin: ["50%", "0%"],
+    transformOrigin: ["50%", "0%", 0],
   }));
 
   return (
