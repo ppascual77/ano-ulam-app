@@ -79,10 +79,29 @@ const DRAG_SWAY_SENSITIVITY = -0.4; // negative: dragging right should lean the 
 // behind it. pointerEvents="none" throughout means it can't ever block a
 // touch even if stacking order were ever off, which is the actual risk
 // "two Modals at once" usually carries elsewhere in this app.
+//
+// It does NOT open in the same tick as the meal sheet, though — presenting
+// two native Modals in the same React commit races iOS's UIKit presentation
+// queue (the second present() call can silently no-op while the first is
+// still animating in), which is exactly why it wasn't showing at all.
+// CONFETTI_START_DELAY_MS waits until just after BottomSheet's own 340ms
+// open animation has actually finished before presenting confetti's Modal —
+// which also happens to match the ask better anyway: confetti falling
+// AFTER the meal is shown, not simultaneously with it appearing.
+const CONFETTI_START_DELAY_MS = 400;
 const CONFETTI_COLORS = [colors.primary, colors.accent, colors.like, colors.macro.protein, colors.macro.carbs, colors.macro.fats];
 const CONFETTI_COUNT = 26;
-const CONFETTI_LIFETIME_MS = 2600; // how long pieces are kept mounted before clearing state
 const CONFETTI_SIZE_SCALE = 1.2; // 20% larger than the original base size
+// Longest any single piece could still be falling: max delay (400) + max
+// fallDuration (1800+900=2700) = 3100ms. Kept mounted comfortably past that
+// so every piece finishes its own per-piece fade-out (see ConfettiPiece)
+// before the whole overlay unmounts — nothing should visibly cut off.
+const CONFETTI_LIFETIME_MS = 3400;
+// The overlay's own fade-out right before it unmounts, as a safety net on
+// top of each piece's individual fade — Modal has no built-in exit
+// animation with animationType="none", so without this the whole thing
+// would otherwise just vanish on one frame instead of dissolving smoothly.
+const CONFETTI_EXIT_FADE_MS = 300;
 
 type ConfettiPieceConfig = {
   startX: number;
@@ -161,12 +180,15 @@ export function RandomMealPuller() {
   const lastMealIdRef = useRef<string | null>(null);
   const appearTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const retractTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const confettiTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const confettiStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const confettiFadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const confettiClearTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const cordLength = useSharedValue(0);
   const dragStartLength = useSharedValue(0);
   const swayAngle = useSharedValue(0);
   const tabOpacity = useSharedValue(0);
+  const confettiOpacity = useSharedValue(1);
 
   function scheduleNextAppearance() {
     const delay = APPEAR_DELAY_MIN_MS + Math.random() * (APPEAR_DELAY_MAX_MS - APPEAR_DELAY_MIN_MS);
@@ -178,7 +200,9 @@ export function RandomMealPuller() {
     return () => {
       clearTimeout(appearTimeoutRef.current);
       clearTimeout(retractTimeoutRef.current);
-      clearTimeout(confettiTimeoutRef.current);
+      clearTimeout(confettiStartTimeoutRef.current);
+      clearTimeout(confettiFadeTimeoutRef.current);
+      clearTimeout(confettiClearTimeoutRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -224,8 +248,19 @@ export function RandomMealPuller() {
     const meal = pickRandomMeal(lastMealIdRef.current);
     lastMealIdRef.current = meal.id ?? null;
     setRevealedMeal(meal);
-    setConfettiPieces(buildConfettiPieces(screenWidth));
-    confettiTimeoutRef.current = setTimeout(() => setConfettiPieces(null), CONFETTI_LIFETIME_MS);
+
+    // Waits until just after the sheet's own open animation actually
+    // finishes before presenting confetti's Modal — see the comment above
+    // CONFETTI_START_DELAY_MS for why (presenting two Modals in the same
+    // commit silently fails to show the second one on iOS).
+    confettiStartTimeoutRef.current = setTimeout(() => {
+      confettiOpacity.value = 1;
+      setConfettiPieces(buildConfettiPieces(screenWidth));
+      confettiFadeTimeoutRef.current = setTimeout(() => {
+        confettiOpacity.value = withTiming(0, { duration: CONFETTI_EXIT_FADE_MS });
+      }, CONFETTI_LIFETIME_MS - CONFETTI_EXIT_FADE_MS);
+      confettiClearTimeoutRef.current = setTimeout(() => setConfettiPieces(null), CONFETTI_LIFETIME_MS);
+    }, CONFETTI_START_DELAY_MS);
   }
   function finishCommit() {
     setTabVisible(false);
@@ -277,6 +312,7 @@ export function RandomMealPuller() {
     transform: [{ translateX: TASSEL_OFFSET_X }, { rotate: `${swayAngle.value}deg` }],
     transformOrigin: ["50%", "0%", 0],
   }));
+  const confettiContainerStyle = useAnimatedStyle(() => ({ opacity: confettiOpacity.value }));
 
   return (
     <>
@@ -319,11 +355,11 @@ export function RandomMealPuller() {
           statusBarTranslucent
           onRequestClose={() => setConfettiPieces(null)}
         >
-          <View pointerEvents="none" className="absolute left-0 right-0 top-0 bottom-0">
+          <Animated.View pointerEvents="none" style={confettiContainerStyle} className="absolute left-0 right-0 top-0 bottom-0">
             {confettiPieces.map((piece, i) => (
               <ConfettiPiece key={i} config={piece} screenHeight={screenHeight} />
             ))}
-          </View>
+          </Animated.View>
         </Modal>
       )}
     </>
