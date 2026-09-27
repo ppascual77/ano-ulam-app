@@ -69,6 +69,9 @@ module.exports = {
           // deliberately "dirty"/aged off-white, not general-purpose.
           bg: "#F2EDE1",
         },
+        // IngredientDetailPanel's "USDA FoodData Central" attribution badge
+        // — a plain informational blue, not a general-purpose brand color.
+        usda: "#2563EB",
       },
       fontFamily: {
         // One family, whole app — Inter. Named by weight, not by role

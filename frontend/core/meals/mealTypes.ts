@@ -17,6 +17,12 @@ export type IngredientType = {
   bridgeLabel?: string | null;
   calculationError?: string | null;
   source?: string | null;
+  // Only meaningful when source === "USDA" — the matched USDA record's own
+  // description and FDC id, for the USDA FoodData Central attribution
+  // block in IngredientDetailPanel. Same admin-only-diagnostic population
+  // rule as bridgeLabel/calculationError/source above.
+  sourceRefId?: string | null;
+  sourceDescription?: string | null;
   // NOT admin-only — a plain explanation shown to any viewer when the
   // counted quantity differs from `qty` (e.g. bulk deep-frying oil where
   // only a fraction is actually absorbed). Set by an admin, read by
