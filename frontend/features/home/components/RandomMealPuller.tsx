@@ -26,7 +26,7 @@ const MAX_PULL = 140; // visual cap on how far the cord can stretch while draggi
 // Shifted off true-center so the tag doesn't sit dead-center over Header's
 // content — a small, deliberate offset rather than a full-width centered
 // element that visually dominates the top of the screen.
-const TASSEL_OFFSET_X = 10;
+const TASSEL_OFFSET_X = 30;
 const FADE_IN_DURATION_MS = 250;
 
 const REVEAL_DISTANCE = 90; // past this much extra pull, commit to a reveal
