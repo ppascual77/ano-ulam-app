@@ -32,6 +32,7 @@ export type ImportedMealDraft = {
   dietary_tags: string[];
   tags: string[];
   ingredients: { name: string; quantity_text: string }[];
+  reference_image_url: string | null;
 };
 
 // Best-effort extraction of a numeric amount + this schema's unit enum from
@@ -310,6 +311,26 @@ export async function uploadMealImage(localUri: string, mealId: string): Promise
 
   const { data } = supabase.storage.from("meal-images").getPublicUrl(path);
   return data.publicUrl;
+}
+
+// AI-generated meal photo, for when there's no real photo to upload (or the
+// admin wants an alternative). referenceImageUrl (this meal's
+// reference_image_url, the original recipe photo captured at import) is
+// used only to give the model a sense of real plating/composition — the
+// Edge Function has a vision model describe it in neutral text first and
+// generates the final image from THAT description, never from the image's
+// own pixels, so the result is inspired by it without copying it. Returns a
+// draft only; the caller shows a preview and uploads it via uploadMealImage
+// (through the same compression pipeline as a manually-picked photo) only
+// once the admin accepts it — nothing is written to Storage here.
+export async function generateMealImage(input: {
+  name: string;
+  description: string | null;
+  referenceImageUrl?: string | null;
+}): Promise<{ imageBase64: string; mimeType: string }> {
+  const data = await invokeEdgeFunction<{ imageBase64: string; mimeType: string }>("generate-meal-image", input);
+  if (!data.imageBase64) throw new Error("Image generation returned no data");
+  return data;
 }
 
 // ---------------------------------------------------------------------------

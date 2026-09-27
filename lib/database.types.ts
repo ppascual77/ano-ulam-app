@@ -4,6 +4,7 @@
 //   source .env && curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
 //     "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/types/typescript?included_schemas=public" \
 //     | python3 -c "import json,sys; print(json.load(sys.stdin)['types'])" > lib/database.types.ts
+
 export type Json =
   | string
   | number
@@ -211,6 +212,7 @@ export type Database = {
           procedure: string[]
           protein: number | null
           protein_type: string | null
+          reference_image_url: string | null
           restaurant: string | null
           serving_size: number
           source: string | null
@@ -241,6 +243,7 @@ export type Database = {
           procedure?: string[]
           protein?: number | null
           protein_type?: string | null
+          reference_image_url?: string | null
           restaurant?: string | null
           serving_size?: number
           source?: string | null
@@ -271,6 +274,7 @@ export type Database = {
           procedure?: string[]
           protein?: number | null
           protein_type?: string | null
+          reference_image_url?: string | null
           restaurant?: string | null
           serving_size?: number
           source?: string | null

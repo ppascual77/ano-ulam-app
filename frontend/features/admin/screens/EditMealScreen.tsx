@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { View, Pressable } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
-import { Image } from "expo-image";
-import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, Camera, ImageOff } from "lucide-react-native";
+import { ArrowLeft } from "lucide-react-native";
 import { AppText, Button, ErrorState, LoadingState, Screen } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import type { MealWithIngredients, QuantityUnit } from "@/api/meals";
@@ -14,11 +12,10 @@ import {
   useRecomputeMealTotals,
   useReplaceMealIngredients,
   useUpdateMeal,
-  useUploadMealImage,
 } from "../hooks/useMeals";
 import { MealFormFields, type MealFormState } from "../components/MealFormFields";
+import { MealImageEditor } from "../components/MealImageEditor";
 
-const IMAGE_HEIGHT = 200;
 const UNIT_VALUES: QuantityUnit[] = ["g", "kg", "ml", "L", "piece"];
 
 function mealToFormState(meal: MealWithIngredients): MealFormState {
@@ -66,11 +63,9 @@ export default function EditMealScreen() {
   const updateMeal = useUpdateMeal();
   const replaceMealIngredients = useReplaceMealIngredients();
   const recomputeMealTotals = useRecomputeMealTotals();
-  const uploadMealImage = useUploadMealImage();
 
   const [form, setForm] = useState<MealFormState | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [imageError, setImageError] = useState<string | null>(null);
 
   useEffect(() => {
     if (meal) {
@@ -83,30 +78,6 @@ export default function EditMealScreen() {
   }, [meal?.id]);
 
   const updateForm = (patch: Partial<MealFormState>) => setForm((prev) => (prev ? { ...prev, ...patch } : prev));
-
-  const handlePickImage = async () => {
-    if (!meal) return;
-    setImageError(null);
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setImageError("Photo library access is needed to change the image.");
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.8,
-      allowsEditing: true,
-      aspect: [4, 3],
-    });
-    if (result.canceled || !result.assets[0]) return;
-
-    try {
-      const uploaded = await uploadMealImage.mutateAsync({ localUri: result.assets[0].uri, mealId: meal.id });
-      setImageUrl(uploaded);
-    } catch (err) {
-      setImageError(err instanceof Error ? err.message : "Upload failed");
-    }
-  };
 
   const trimmedIngredients = (form?.ingredients ?? []).filter((i) => i.name.trim() !== "");
   const allResolved = trimmedIngredients.length > 0 && trimmedIngredients.every((i) => i.ingredientId);
@@ -173,32 +144,14 @@ export default function EditMealScreen() {
         <ErrorState />
       ) : (
         <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 40 }}>
-          <View className="relative mb-6 rounded-2xl overflow-hidden">
-            {imageUrl ? (
-              <Image source={{ uri: imageUrl }} style={{ width: "100%", height: IMAGE_HEIGHT }} contentFit="cover" />
-            ) : (
-              <View style={{ height: IMAGE_HEIGHT }} className="items-center justify-center bg-ink-emphasis/5">
-                <ImageOff color={colors.ink.subtle} size={28} />
-              </View>
-            )}
-            <Pressable
-              onPress={handlePickImage}
-              disabled={uploadMealImage.isPending}
-              className={`absolute top-3 right-3 rounded-full p-2.5 ${uploadMealImage.isPending ? "bg-ink-emphasis/70" : "bg-ink-emphasis/50"}`}
-            >
-              <Camera color={colors.white} size={16} />
-            </Pressable>
-          </View>
-          {uploadMealImage.isPending && (
-            <AppText variant="caption" className="text-ink-subtle -mt-4 mb-4">
-              Uploading image...
-            </AppText>
-          )}
-          {imageError && (
-            <AppText variant="caption" className="text-like -mt-4 mb-4">
-              {imageError}
-            </AppText>
-          )}
+          <MealImageEditor
+            imageUrl={imageUrl}
+            mealId={meal.id}
+            mealName={form.name}
+            mealDescription={form.description || null}
+            referenceImageUrl={meal.reference_image_url}
+            onImageChange={setImageUrl}
+          />
 
           <MealFormFields value={form} onChange={updateForm} allIngredients={allIngredients} />
 

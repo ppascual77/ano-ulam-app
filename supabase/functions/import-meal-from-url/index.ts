@@ -34,8 +34,28 @@ const FETCH_TIMEOUT_MS = 10_000;
 const MAX_RAW_TEXT_CHARS = 6000;
 
 type RecipeExtraction =
-  | { tier: "json-ld"; name?: string; description?: string; ingredients: string[]; instructions: string[]; yield?: string }
+  | { tier: "json-ld"; name?: string; description?: string; ingredients: string[]; instructions: string[]; yield?: string; image: string | null }
   | { tier: "raw-text"; text: string };
+
+// schema.org's Recipe `image` can be a bare URL string, an array of URL
+// strings, an ImageObject ({ url }), or an array of ImageObjects — this
+// normalizes any of those shapes down to a single best-guess URL (the
+// first one found), or null if the recipe simply didn't declare one.
+function extractImageUrl(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = extractImageUrl(item);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (value && typeof value === "object") {
+    const url = (value as Record<string, unknown>).url;
+    if (typeof url === "string") return url;
+  }
+  return null;
+}
 
 function isDisallowedUrl(url: URL): boolean {
   if (url.protocol !== "http:" && url.protocol !== "https:") return true;
@@ -127,6 +147,7 @@ function extractJsonLdRecipe(html: string): RecipeExtraction | null {
         ingredients,
         instructions,
         yield: typeof recipe.recipeYield === "string" ? recipe.recipeYield : undefined,
+        image: extractImageUrl(recipe.image),
       };
     } catch {
       continue;
@@ -162,6 +183,11 @@ type MealDraft = {
   dietary_tags: string[];
   tags: string[];
   ingredients: { name: string; quantity_text: string }[];
+  // The source page's own recipe photo, taken straight from JSON-LD (never
+  // LLM-generated — set programmatically below, not part of the prompt's
+  // output shape). Reference-only for AI meal-photo generation later; never
+  // displayed to consumers as this meal's actual photo.
+  reference_image_url: string | null;
 };
 
 const SYSTEM_PROMPT = `You rewrite scraped recipe content into a structured JSON meal record for a Filipino home-cooking app called AnoUlam.
@@ -273,6 +299,9 @@ Deno.serve(async (req: Request) => {
     const html = await fetchHtml(url);
     const extraction = extractJsonLdRecipe(html) ?? extractRawText(html);
     const meal = await rewriteWithOpenAI(extraction);
+    // Taken straight from the page's own structured data, not the LLM — it
+    // has no way to know the real photo URL and shouldn't be asked to guess.
+    meal.reference_image_url = extraction.tier === "json-ld" ? extraction.image : null;
 
     return new Response(JSON.stringify({ meal, extraction_tier: extraction.tier }), {
       headers: { "Content-Type": "application/json" },

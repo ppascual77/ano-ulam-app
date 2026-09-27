@@ -113,6 +113,7 @@ export default function SeedMealScreen() {
       dietary_tags: form.dietaryTags,
       tags: form.tags,
       source_type: "ai_estimated",
+      reference_image_url: draft.reference_image_url,
     });
 
     for (let i = 0; i < trimmedIngredients.length; i++) {
