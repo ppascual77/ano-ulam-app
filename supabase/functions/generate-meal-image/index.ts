@@ -21,10 +21,14 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const CHAT_URL = "https://api.openai.com/v1/chat/completions";
 const IMAGE_URL = "https://api.openai.com/v1/images/generations";
 
-// Verbatim from the admin — this is deliberately not paraphrased or
-// "cleaned up" here, since it's a creative brief they iterated on
-// themselves, not a spec with a single correct phrasing.
-const BASE_PROMPT = `Generate image based from description of the dish. No sides, make the table setup for pinoy approriate with meal. Add smoke. No drinks. No rice. Light background. Dish only. Make image as realistic as possible. Add table decorations like veggies or condiments or utensils, garnishes. Make variations with shot angles and background. Single shot darker background. Smaller serving with garnish small serving. One photo Zoom it in. Make it appetizing just 3/4 of the meal is shown because zoomed in.`;
+// Revised after the first version's results looked too uniformly "AI" —
+// mandatory garnish/utensil/smoke on every single dish, regardless of
+// whether that's how it's actually eaten, produced the same staged props
+// over and over. This makes props conditional on what actually belongs with
+// the dish, and leans into candid/imperfect framing instead of "as
+// realistic/appetizing as possible" instructions that push the model toward
+// glossy studio-food-photography rendering.
+const BASE_PROMPT = `Photograph this Filipino home-cooked dish like a candid phone photo taken right after cooking, not a staged studio shot. Dish only — no rice, no drinks, no side dishes. Natural, slightly imperfect plating; avoid symmetrical arrangement or magazine-style styling. Only include a garnish, condiment, or utensil if it's genuinely something a Filipino household would have right there in that moment — skip it entirely if it doesn't belong, don't force a prop into every shot. Soft natural light (a warm kitchen-table cast is fine), light background. Close-up framing, food filling most of the frame, roughly 3/4 visible since it's zoomed in. A single wisp of steam only if the dish is actually served hot. Let the angle and background vary naturally between generations rather than repeating the same setup.`;
 
 async function describeReferenceStyle(referenceImageUrl: string): Promise<string | null> {
   try {
