@@ -64,6 +64,12 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
   // resolved/blocked (with a reason) rather than a single boolean means the
   // panel can say WHY it's disabled instead of a blanket "link everything"
   // message that's wrong whenever every row already shows "Linked ✓".
+  //
+  // A THIRD bucket exists implicitly: an ingredient with no quantity set at
+  // all (e.g. "to taste") is neither resolved nor blocked — it's silently
+  // excluded from both, same as recomputeMealTotals already treats it.
+  // Requiring a quantity just to unlock Verify would force a fake number
+  // onto something that's deliberately unquantified.
   const { resolvedInputs, blocked } = useMemo(() => {
     const resolved: {
       displayText: string;
@@ -80,9 +86,17 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
         blockedItems.push({ name: item.name, reason: "still syncing after linking — try again in a moment" });
         continue;
       }
+      if (item.quantityAmount.trim() === "") {
+        // No quantity set at all (e.g. "to taste") — recomputeMealTotals
+        // already treats this as "doesn't count," not an error, so Verify
+        // shouldn't require it either. Just skip it silently: it doesn't
+        // block the rest of the meal from being verified, and there's
+        // nothing computed to audit for it anyway.
+        continue;
+      }
       const amount = Number(item.quantityAmount);
-      if (item.quantityAmount.trim() === "" || Number.isNaN(amount)) {
-        blockedItems.push({ name: item.name, reason: "needs a quantity set" });
+      if (Number.isNaN(amount)) {
+        blockedItems.push({ name: item.name, reason: "quantity isn't a valid number" });
         continue;
       }
       const conversion = convertQuantityToBasis(amount, item.quantityUnit, ingredient);
@@ -240,6 +254,11 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
             </AppText>
           ))}
         </View>
+      )}
+      {!canVerify && blocked.length === 0 && (
+        <AppText variant="caption" className="text-like">
+          Nothing to verify yet — every ingredient is set to "to taste" or has no quantity.
+        </AppText>
       )}
 
       <Button
