@@ -1,10 +1,9 @@
 import { useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { View, Pressable, ActivityIndicator } from "react-native";
 import { CheckCircle2, AlertTriangle, Sparkles } from "lucide-react-native";
 import { AppText, Button, NoticeBanner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { updateIngredient, type IngredientRow } from "@/api/ingredients";
+import { type IngredientRow } from "@/api/ingredients";
 import {
   computeItemTotals,
   convertQuantityToBasis,
@@ -16,6 +15,7 @@ import {
   type MealVerifyResult,
   type ProposedTotals,
 } from "@/api/meals";
+import { useUpdateIngredient } from "../hooks/useIngredients";
 import type { PendingMealIngredient } from "./SeedMealIngredientsEditor";
 
 // Runs AFTER the admin has manually linked/bridged every ingredient below
@@ -57,7 +57,7 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
   const [result, setResult] = useState<MealVerifyResult | null>(null);
   const [issueStates, setIssueStates] = useState<Record<number, IssueState>>({});
   const [issueErrors, setIssueErrors] = useState<Record<number, string>>({});
-  const queryClient = useQueryClient();
+  const updateIngredientMutation = useUpdateIngredient();
 
   // Every item here is already linked (ingredientId set) by the time this
   // panel renders — SeedMealScreen only mounts it once allResolved is true.
@@ -228,8 +228,12 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
         ...parseMealVerifyFixValue(issue.field, issue.suggestedValue),
         ...(pairedIssue ? parseMealVerifyFixValue(pairedIssue.field, pairedIssue.suggestedValue) : {}),
       };
-      await updateIngredient(ingredient.id, patch);
-      await queryClient.invalidateQueries({ queryKey: ["admin", "meals"] });
+      // Goes through the mutation hook (not the raw updateIngredient call)
+      // specifically so its onSuccess cascade runs — recomputeMealsUsingIngredient
+      // updates every OTHER meal already built on this ingredient too, not
+      // just invalidating this screen's own query cache. A raw call here
+      // would silently leave those other meals' stored totals stale.
+      await updateIngredientMutation.mutateAsync({ id: ingredient.id, patch });
       setIssueStates((prev) => {
         const next = { ...prev };
         for (const i of indexes) next[i] = "applied";

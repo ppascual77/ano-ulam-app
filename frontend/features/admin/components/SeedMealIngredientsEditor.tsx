@@ -25,6 +25,7 @@ import {
   type ProposedTotals,
   type QuantityUnit,
 } from "@/api/meals";
+import { useUpdateIngredient } from "../hooks/useIngredients";
 import { IngredientEditSheet } from "./IngredientEditSheet";
 import { ConfirmIngredientSheet } from "./ConfirmIngredientSheet";
 
@@ -252,6 +253,7 @@ function IngredientRowCard({
   const [bridgeFixing, setBridgeFixing] = useState(false);
   const [bridgeError, setBridgeError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const updateIngredientMutation = useUpdateIngredient();
 
   const candidates = useMemo(
     () => (item.name.trim() ? matchIngredientCandidates(item.name, allIngredients) : []),
@@ -363,18 +365,18 @@ function IngredientRowCard({
   // freshly-created USDA ingredients, just triggered reactively here once
   // a conversion has actually failed for a real, already-linked ingredient
   // — only fills whichever bridge field is still null, never touches an
-  // already-set one. Persists to the ingredients table directly (this
-  // ingredient may be reused by other meals too) and invalidates the
-  // matching-ingredients query so `allIngredients` — and this row's own
-  // contribution — reflect the new bridge immediately.
+  // already-set one. Goes through the mutation hook (not a raw
+  // updateIngredient call) specifically because this ingredient may
+  // already be used by OTHER, already-saved meals — its onSuccess cascade
+  // (recomputeMealsUsingIngredient) recomputes their stored totals too, not
+  // just invalidating this screen's own query cache.
   const handleFixBridge = async () => {
     if (!linkedIngredient) return;
     setBridgeFixing(true);
     setBridgeError(null);
     try {
       const gaps = await withOneRetry(() => estimateIngredientGaps(linkedIngredient, requiredBridge));
-      await updateIngredient(linkedIngredient.id, gaps);
-      await queryClient.invalidateQueries({ queryKey: ["admin", "meals"] });
+      await updateIngredientMutation.mutateAsync({ id: linkedIngredient.id, patch: gaps });
     } catch (err) {
       setBridgeError(err instanceof Error ? err.message : String(err));
     } finally {
