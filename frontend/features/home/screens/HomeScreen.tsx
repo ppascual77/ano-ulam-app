@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ScrollView, View } from "react-native";
 import { ChipSelect, Screen } from "@/frontend/components/ui";
 import { Header } from "@/frontend/features/home/components/Header";
+import { RandomMealPuller } from "@/frontend/features/home/components/RandomMealPuller";
 import { BudgetSection } from "@/frontend/core/budget/components/BudgetSection";
 import { PantrySection } from "@/frontend/core/pantry/components/PantrySection";
 
@@ -32,6 +33,7 @@ export default function HomeScreen() {
         </View>
         {mode[0] === "budget" ? <BudgetSection /> : <PantrySection />}
       </ScrollView>
+      <RandomMealPuller />
     </Screen>
   );
 }
