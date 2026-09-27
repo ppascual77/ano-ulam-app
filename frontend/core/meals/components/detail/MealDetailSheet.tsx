@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { BottomSheet } from "@/frontend/components/ui";
 import { MealDetailContent } from "./MealDetailContent";
 import type { MealType } from "../../mealTypes";
@@ -19,9 +19,12 @@ type MealDetailSheetProps = {
   onEdit?: () => void;
   onArchive?: () => void;
   onDelete?: () => void;
+  /** Passed straight through to BottomSheet's own overlay slot — see there
+   *  for why (React Native doesn't reliably stack two native Modals). */
+  overlay?: ReactNode;
 };
 
-export function MealDetailSheet({ meal, onClose, onClosed, onEdit, onArchive, onDelete }: MealDetailSheetProps) {
+export function MealDetailSheet({ meal, onClose, onClosed, onEdit, onArchive, onDelete, overlay }: MealDetailSheetProps) {
   // Keep the last meal rendered while the sheet animates closed, so the
   // content doesn't flash empty before it's off-screen.
   const [renderedMeal, setRenderedMeal] = useState(meal);
@@ -63,7 +66,7 @@ export function MealDetailSheet({ meal, onClose, onClosed, onEdit, onArchive, on
   };
 
   return (
-    <BottomSheet visible={!!meal} onClose={onClose} onClosed={onClosed} handleClassName="bg-white/70">
+    <BottomSheet visible={!!meal} onClose={onClose} onClosed={onClosed} handleClassName="bg-white/70" overlay={overlay}>
       {renderedMeal && (
         <MealDetailContent
           key={renderedMeal.id}

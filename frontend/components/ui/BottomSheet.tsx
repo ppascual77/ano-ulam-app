@@ -32,6 +32,15 @@ type BottomSheetProps = {
    *  closes: two RN `Modal`s presented at once, even briefly, can leave an
    *  orphaned full-screen overlay that blocks all touches underneath. */
   onClosed?: () => void;
+  /** Extra layer rendered above everything (backdrop, panel, handle) —
+   *  inside THIS sheet's own Modal, not a second one. React Native doesn't
+   *  reliably support two native Modals stacking at once (a second
+   *  present() call can silently no-op while the first is still showing),
+   *  so anything that needs to visually sit on top of an open sheet — a
+   *  celebratory confetti burst, say — has to live in here instead.
+   *  pointerEvents="box-none" by default, so it's invisible to touch unless
+   *  the content passed in opts back into it itself. */
+  overlay?: ReactNode;
 };
 
 // Generic slide-up sheet — drag the handle down (or tap the backdrop) to
@@ -43,6 +52,7 @@ export function BottomSheet({
   heightPercent = 0.8,
   handleClassName = "bg-ink-emphasis/20",
   onClosed,
+  overlay,
 }: BottomSheetProps) {
   const { height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -125,6 +135,12 @@ export function BottomSheet({
             </GestureDetector>
           </View>
         </Animated.View>
+
+        {overlay && (
+          <View pointerEvents="box-none" className="absolute left-0 right-0 top-0 bottom-0">
+            {overlay}
+          </View>
+        )}
       </View>
     </Modal>
   );

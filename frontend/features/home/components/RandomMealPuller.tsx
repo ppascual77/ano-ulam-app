@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Modal, Text, View, useWindowDimensions } from "react-native";
+import { Text, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   interpolate,
@@ -74,20 +74,16 @@ const DRAG_SWAY_SENSITIVITY = -0.4; // negative: dragging right should lean the 
 
 // Confetti burst when a pull actually commits to a reveal — celebrates the
 // "surprise me" moment, not shown on a spring-back or an ignored retract.
-// Renders in its own transparent Modal, mounted after MealDetailSheet in the
-// JSX below so it presents on top of the sheet's own Modal instead of
-// behind it. pointerEvents="none" throughout means it can't ever block a
-// touch even if stacking order were ever off, which is the actual risk
-// "two Modals at once" usually carries elsewhere in this app.
+// Passed into MealDetailSheet's `overlay` slot (rendered inside ITS OWN
+// Modal, above the sheet panel) rather than opened as a second Modal here —
+// React Native doesn't reliably support two native Modals presented at
+// once (a second present() call can silently no-op while the first is
+// still showing), which is exactly why an earlier attempt at a standalone
+// confetti Modal never actually appeared.
 //
-// It does NOT open in the same tick as the meal sheet, though — presenting
-// two native Modals in the same React commit races iOS's UIKit presentation
-// queue (the second present() call can silently no-op while the first is
-// still animating in), which is exactly why it wasn't showing at all.
-// CONFETTI_START_DELAY_MS waits until just after BottomSheet's own 340ms
-// open animation has actually finished before presenting confetti's Modal —
-// which also happens to match the ask better anyway: confetti falling
-// AFTER the meal is shown, not simultaneously with it appearing.
+// Still starts a beat after the meal is set, not in the exact same tick —
+// purely for pacing now (matches "falling after the meal is shown"), not
+// to dodge a Modal race, since there's no longer a second Modal to race.
 const CONFETTI_START_DELAY_MS = 400;
 const CONFETTI_COLORS = [colors.primary, colors.accent, colors.like, colors.macro.protein, colors.macro.carbs, colors.macro.fats];
 const CONFETTI_COUNT = 26;
@@ -342,26 +338,16 @@ export function RandomMealPuller() {
           setRevealedMeal(null);
           scheduleNextAppearance();
         }}
+        overlay={
+          confettiPieces ? (
+            <Animated.View pointerEvents="none" style={confettiContainerStyle} className="absolute left-0 right-0 top-0 bottom-0">
+              {confettiPieces.map((piece, i) => (
+                <ConfettiPiece key={i} config={piece} screenHeight={screenHeight} />
+              ))}
+            </Animated.View>
+          ) : undefined
+        }
       />
-
-      {/* Mounted after MealDetailSheet above so its Modal presents on top of
-          the sheet's own — confetti is meant to be seen falling over the
-          revealed meal, not hidden behind it. */}
-      {confettiPieces && (
-        <Modal
-          transparent
-          visible
-          animationType="none"
-          statusBarTranslucent
-          onRequestClose={() => setConfettiPieces(null)}
-        >
-          <Animated.View pointerEvents="none" style={confettiContainerStyle} className="absolute left-0 right-0 top-0 bottom-0">
-            {confettiPieces.map((piece, i) => (
-              <ConfettiPiece key={i} config={piece} screenHeight={screenHeight} />
-            ))}
-          </Animated.View>
-        </Modal>
-      )}
     </>
   );
 }
