@@ -573,6 +573,103 @@ export async function recomputeMealTotals(mealId: string) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// AI Verify — runs AFTER the admin has manually linked/bridged every
+// ingredient in Seed Meal (matching/bridging itself is never touched here —
+// stays fully manual, admin-triggered, exactly as SeedMealIngredientsEditor
+// already works). Audits the RESULT: total macros/price, each ingredient's
+// computed contribution, and whether its bridge/price-unit/state actually
+// hold up for this specific recipe — the same kind of review this project's
+// own ingredient batches have gotten by hand this session (catching e.g. a
+// canned/drained ingredient linked to its raw/dry variant, or an oil's
+// price unit not matching its basis unit), run automatically instead.
+// Returns proposed field-level fixes only; nothing is written to the
+// ingredients table until the admin accepts an individual issue in
+// MealVerifyPanel — same "grounding never silently applies" principle as
+// this project's other AI features.
+// ---------------------------------------------------------------------------
+
+export type MealVerifyField =
+  | "calories" | "protein" | "carbohydrates" | "fat" | "sugar" | "fiber" | "sodium"
+  | "estimated_price" | "estimated_price_unit" | "grams_per_ml" | "grams_per_piece"
+  | "piece_label" | "state";
+
+export type MealVerifyIssue = {
+  ingredientName: string;
+  field: MealVerifyField;
+  issue: string;
+  currentValue: string;
+  suggestedValue: string;
+  reasoning: string;
+};
+
+export type MealVerifyResult = {
+  summary: string;
+  overallAssessment: "plausible" | "concerning";
+  issues: MealVerifyIssue[];
+};
+
+export type MealVerifyIngredientInput = {
+  displayText: string;
+  quantityAmount: number | null;
+  quantityUnit: string | null;
+  ingredient: IngredientRow;
+  computed: ProposedTotals;
+};
+
+export async function verifyMealIngredients(
+  meal: { name: string; description: string | null; servingSize: number; category: string | null },
+  items: MealVerifyIngredientInput[],
+  totals: ProposedTotals,
+): Promise<MealVerifyResult> {
+  const data = await invokeEdgeFunction<{ verification: MealVerifyResult }>("verify-meal-ingredients", {
+    meal,
+    ingredients: items.map((item) => ({
+      name: item.ingredient.canonical_name,
+      displayText: item.displayText,
+      quantityAmount: item.quantityAmount,
+      quantityUnit: item.quantityUnit,
+      role: item.ingredient.role,
+      category: item.ingredient.category,
+      state: item.ingredient.state,
+      basisAmount: item.ingredient.basis_amount,
+      basisUnit: item.ingredient.basis_unit,
+      calories: item.ingredient.calories,
+      protein: item.ingredient.protein,
+      carbohydrates: item.ingredient.carbohydrates,
+      fat: item.ingredient.fat,
+      sugar: item.ingredient.sugar,
+      fiber: item.ingredient.fiber,
+      sodium: item.ingredient.sodium,
+      estimatedPrice: item.ingredient.estimated_price,
+      estimatedPriceUnit: item.ingredient.estimated_price_unit,
+      gramsPerMl: item.ingredient.grams_per_ml,
+      gramsPerPiece: item.ingredient.grams_per_piece,
+      pieceLabel: item.ingredient.piece_label,
+      computed: item.computed,
+    })),
+    totals,
+  });
+  if (!data.verification) throw new Error("Verify returned no data");
+  return data.verification;
+}
+
+const MEAL_VERIFY_NUMERIC_FIELDS = new Set<MealVerifyField>([
+  "calories", "protein", "carbohydrates", "fat", "sugar", "fiber", "sodium",
+  "estimated_price", "grams_per_ml", "grams_per_piece",
+]);
+
+// The LLM always returns suggestedValue as a string (simplest, unambiguous
+// JSON-mode shape) — parses it back into the right type for the field it
+// names before it can be used as an updateIngredient patch.
+export function parseMealVerifyFixValue(field: MealVerifyField, value: string): Partial<IngredientRow> {
+  if (MEAL_VERIFY_NUMERIC_FIELDS.has(field)) {
+    const num = Number(value);
+    return { [field]: Number.isNaN(num) ? null : num };
+  }
+  return { [field]: value };
+}
+
 // Cascades an ingredient's data change to every meal that references it —
 // called from useUpdateIngredient's onSuccess (the single chokepoint both
 // IngredientEditSheet and the batch UsdaGroundingPanel go through), so a

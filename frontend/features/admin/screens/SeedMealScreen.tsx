@@ -14,6 +14,7 @@ import {
   useRecomputeMealTotals,
 } from "../hooks/useMeals";
 import { MealFormFields, type MealFormState } from "../components/MealFormFields";
+import { MealVerifyPanel } from "../components/MealVerifyPanel";
 import type { PendingMealIngredient } from "../components/SeedMealIngredientsEditor";
 
 function draftIngredientsToPending(draft: ImportedMealDraft): PendingMealIngredient[] {
@@ -63,6 +64,12 @@ export default function SeedMealScreen() {
   const [url, setUrl] = useState("");
   const [draft, setDraft] = useState<ImportedMealDraft | null>(null);
   const [form, setForm] = useState<MealFormState | null>(null);
+  // Gates Confirm Seed behind having run AI Verify at least once — the
+  // admin decides when to (re-)trigger it and can still save regardless of
+  // its verdict (verify is informational, manual review is what actually
+  // gates correctness), but skipping it entirely isn't allowed per the
+  // Seed -> Verify -> Manual validate -> Save flow.
+  const [hasVerified, setHasVerified] = useState(false);
 
   const importMeal = useImportMealFromUrl();
   const { data: allIngredients, isLoading: ingredientsLoading, isError: ingredientsError } = useIngredientsForMatching();
@@ -85,7 +92,7 @@ export default function SeedMealScreen() {
 
   const trimmedIngredients = (form?.ingredients ?? []).filter((i) => i.name.trim() !== "");
   const allResolved = trimmedIngredients.length > 0 && trimmedIngredients.every((i) => i.ingredientId);
-  const canSave = !!draft && !!form && form.name.trim() !== "" && allResolved && !createMeal.isPending;
+  const canSave = !!draft && !!form && form.name.trim() !== "" && allResolved && hasVerified && !createMeal.isPending;
 
   const handleSave = async () => {
     if (!draft || !form) return;
@@ -174,6 +181,18 @@ export default function SeedMealScreen() {
         <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 40 }}>
           <MealFormFields value={form} onChange={updateForm} allIngredients={allIngredients} />
 
+          {allResolved && (
+            <MealVerifyPanel
+              mealName={form.name}
+              mealDescription={form.description}
+              servingSize={Number(form.servingSize) || 1}
+              category={draft.category}
+              items={trimmedIngredients}
+              allIngredients={allIngredients}
+              onVerified={() => setHasVerified(true)}
+            />
+          )}
+
           <Button
             label={
               createMeal.isPending || addMealIngredient.isPending || recomputeMealTotals.isPending
@@ -186,6 +205,11 @@ export default function SeedMealScreen() {
           {!allResolved && trimmedIngredients.length > 0 && (
             <AppText variant="caption" className="text-like text-center mt-2">
               Every ingredient needs to be linked to a real ingredient record before saving.
+            </AppText>
+          )}
+          {allResolved && !hasVerified && (
+            <AppText variant="caption" className="text-like text-center mt-2">
+              Run Verify with AI above before saving.
             </AppText>
           )}
         </ScrollView>
