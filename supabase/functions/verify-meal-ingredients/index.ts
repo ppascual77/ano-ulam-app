@@ -10,6 +10,11 @@
 // Returns proposed field-level fixes on the ALREADY-LINKED ingredient only —
 // never a suggestion to re-link to a different ingredient or create a new
 // one (out of scope; a human catches that in the final manual review).
+// A USDA-sourced ingredient's nutrition is real, already-verified reference
+// data — never a proposed fix target; only its price/bridge fields are in
+// scope for those (see the SOURCE rule in SYSTEM_PROMPT). The client
+// (api/meals.ts's isMealVerifyFieldAllowedForSource) enforces this too, in
+// case a response ever ignores the instruction.
 // Writes nothing itself — same "grounding never silently applies" principle
 // as this project's other AI features. The admin accepts or skips each
 // issue individually in MealVerifyPanel; only an accepted fix is written,
@@ -27,6 +32,11 @@ type VerifyIngredientInput = {
   role: string | null;
   category: string | null;
   state: string | null;
+  // "USDA" means the nutrition fields (calories through sodium) plus state
+  // came from a real USDA match, not an estimate — see the CHECK FOR
+  // instructions below: those fields are off-limits for this source, only
+  // price/bridge fields are checked.
+  source: string | null;
   basisAmount: number;
   basisUnit: string;
   calories: number | null;
@@ -77,17 +87,21 @@ type VerifyResult = {
 
 const SYSTEM_PROMPT = `You are auditing an already-assembled Filipino home-cooking recipe (AnoUlam meal-seeding admin tool). Every ingredient below was ALREADY manually matched to a real ingredient record and quantity-bridged by a human admin — you are NOT matching, linking, re-linking, or creating any ingredient. Your only job is to sanity-check the RESULT and flag concrete data problems on the ALREADY-LINKED ingredient rows given to you.
 
-For each ingredient you're given: its name, the recipe's own stated quantity ("displayText", e.g. "14 oz can, drained"), the resolved quantity/unit actually used for calculation, its full per-basisAmount nutrition + price + grams_per_ml/grams_per_piece bridge fields, and its COMPUTED contribution to this recipe at this quantity ("computed": calories/protein/carbohydrates/fat/price).
+For each ingredient you're given: its name, the recipe's own stated quantity ("displayText", e.g. "14 oz can, drained"), the resolved quantity/unit actually used for calculation, its source ("USDA" or "manual"/null), its full per-basisAmount nutrition + price + grams_per_ml/grams_per_piece bridge fields, and its COMPUTED contribution to this recipe at this quantity ("computed": calories/protein/carbohydrates/fat/price).
+
+SOURCE GOVERNS WHICH FIELDS YOU MAY TOUCH — read this before anything else:
+- source is exactly "USDA": its nutrition (calories, protein, carbohydrates, fat, sugar, fiber, sodium) and state came from a real, already-verified USDA match. These are NEVER wrong in a way you get to correct — do not flag them, do not run checks 1 or 4 on this ingredient, no matter how implausible a number looks. You may ONLY flag this ingredient's estimated_price, estimated_price_unit, grams_per_piece, grams_per_ml, or piece_label (checks 2, 3, and the price/bridge angle of 5). If a USDA ingredient's computed contribution looks wrong, the cause must be the price/bridge/quantity side, not its macros — say so in "issue" but only propose a fix on a price/bridge field.
+- source is "manual", null, or anything else: run the full CHECK FOR list below, any field is fair game.
 
 CHECK FOR:
-1. State/description mismatch: does the linked ingredient's state/macros genuinely match what displayText says (e.g. displayText says "canned, drained" or "cooked" but the linked row's macros look like a raw/dry variant — raw dry legumes run roughly 3x the calories of their canned/drained form per equal weight; raw meat/fish differs substantially from cooked/fried). If you suspect this, flag the affected macro field(s) with your best real-world estimate for what the CORRECT state should show — not a copy of the current wrong value.
-2. Implausible bridge values: does grams_per_piece (weight of ONE piece/pieceLabel) or grams_per_ml (weight of 1ml) look like a realistic real-world figure for this specific food? E.g. a garlic clove should be roughly 3-6g, not 200g; olive oil should be roughly 0.91-0.92 g/ml, not 1.5.
-3. Price-unit domain mismatch: estimatedPriceUnit must be a weight unit ("g"/"kg") when basisUnit is "g", or a volume unit ("ml"/"L") when basisUnit is "ml" — a mismatch silently breaks price calculation for every meal using this ingredient.
-4. Atwater sanity: calories should be close to protein*4 + carbohydrates*4 + fat*9 per basisAmount, UNLESS this is one of the known Atwater-exception ingredients (vinegar, cocoa/cacao, coffee, wine, vanilla extract, gulaman/agar-agar).
-5. Disproportionate computed contribution: does a "pantry"-role ingredient's computed calorie/price contribution look absurdly large relative to its role (e.g. a garnish/seasoning outweighing the main protein) — this usually signals a unit/bridge/quantity error, not a genuinely large amount.
-6. Overall plausibility: given the recipe's name/description/category and serving size, does the TOTAL computed calories and price PER SERVING look realistic for a Filipino home-cooked dish of this kind (assume Filipino home-market portions and pricing, not Western/restaurant-scale assumptions).
+1. State/description mismatch (manual-source ingredients only): does the linked ingredient's state/macros genuinely match what displayText says (e.g. displayText says "canned, drained" or "cooked" but the linked row's macros look like a raw/dry variant — raw dry legumes run roughly 3x the calories of their canned/drained form per equal weight; raw meat/fish differs substantially from cooked/fried). If you suspect this, flag the affected macro field(s) with your best real-world estimate for what the CORRECT state should show — not a copy of the current wrong value.
+2. Implausible bridge values (any source): does grams_per_piece (weight of ONE piece/pieceLabel) or grams_per_ml (weight of 1ml) look like a realistic real-world figure for this specific food? E.g. a garlic clove should be roughly 3-6g, not 200g; olive oil should be roughly 0.91-0.92 g/ml, not 1.5.
+3. Price-unit domain mismatch (any source): estimatedPriceUnit must be a weight unit ("g"/"kg") when basisUnit is "g", or a volume unit ("ml"/"L") when basisUnit is "ml" — a mismatch silently breaks price calculation for every meal using this ingredient.
+4. Atwater sanity (manual-source ingredients only): calories should be close to protein*4 + carbohydrates*4 + fat*9 per basisAmount, UNLESS this is one of the known Atwater-exception ingredients (vinegar, cocoa/cacao, coffee, wine, vanilla extract, gulaman/agar-agar).
+5. Disproportionate computed contribution (any source, but the fix must respect the SOURCE rule above): does a "pantry"-role ingredient's computed calorie/price contribution look absurdly large relative to its role (e.g. a garnish/seasoning outweighing the main protein) — this usually signals a unit/bridge/quantity error, not a genuinely large amount.
+6. Overall plausibility: given the recipe's name/description/category and serving size, does the TOTAL computed calories and price PER SERVING look realistic for a Filipino home-cooked dish of this kind (assume Filipino home-market portions and pricing, not Western/restaurant-scale assumptions). This is informational for the summary — it doesn't by itself justify a per-ingredient fix on a USDA ingredient's macros.
 
-Only flag REAL, concrete issues you have genuine reason to suspect from the data given — do not invent nitpicks, do not flag ordinary estimation variance. If everything looks fine, return an empty "issues" array and overallAssessment "plausible". Never propose anything outside these exact fields: calories, protein, carbohydrates, fat, sugar, fiber, sodium, estimated_price, estimated_price_unit, grams_per_ml, grams_per_piece, piece_label, state — always a corrected VALUE for a field already on the ingredient given, never a suggestion to use a different ingredient entirely.
+Only flag REAL, concrete issues you have genuine reason to suspect from the data given — do not invent nitpicks, do not flag ordinary estimation variance. If everything looks fine, return an empty "issues" array and overallAssessment "plausible". Never propose anything outside these exact fields: calories, protein, carbohydrates, fat, sugar, fiber, sodium, estimated_price, estimated_price_unit, grams_per_ml, grams_per_piece, piece_label, state — always a corrected VALUE for a field already on the ingredient given, never a suggestion to use a different ingredient entirely. And never one of the nutrition/state fields for a "USDA"-source ingredient, per the SOURCE rule above.
 
 OUTPUT SHAPE — return ONLY a JSON object (no markdown fences) matching exactly:
 {

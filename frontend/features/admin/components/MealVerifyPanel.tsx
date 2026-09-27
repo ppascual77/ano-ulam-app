@@ -9,6 +9,7 @@ import {
   computeItemTotals,
   convertQuantityToBasis,
   countsTowardMealTotals,
+  isMealVerifyFieldAllowedForSource,
   parseMealVerifyFixValue,
   verifyMealIngredients,
   type MealVerifyIssue,
@@ -106,7 +107,15 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
         resolvedInputs,
         totals,
       );
-      setResult(verification);
+      // Defense in depth against the SOURCE rule in the verify prompt —
+      // a USDA-sourced ingredient's nutrition/state is never a valid fix
+      // target, so drop any issue like that here rather than show a
+      // suggestion that could never actually be applied.
+      const allowedIssues = verification.issues.filter((issue) => {
+        const ingredient = allIngredients.find((i) => i.canonical_name === issue.ingredientName);
+        return isMealVerifyFieldAllowedForSource(issue.field, ingredient?.source ?? null);
+      });
+      setResult({ ...verification, issues: allowedIssues });
       setIssueStates({});
       setIssueErrors({});
       onVerified();
@@ -121,6 +130,11 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
     const ingredient = allIngredients.find((i) => i.canonical_name === issue.ingredientName);
     if (!ingredient) {
       setIssueErrors((prev) => ({ ...prev, [index]: "Couldn't find this ingredient anymore — try re-verifying." }));
+      return;
+    }
+    if (!isMealVerifyFieldAllowedForSource(issue.field, ingredient.source)) {
+      setIssueErrors((prev) => ({ ...prev, [index]: "Can't overwrite verified USDA nutrition data." }));
+      setIssueStates((prev) => ({ ...prev, [index]: "error" }));
       return;
     }
     setIssueStates((prev) => ({ ...prev, [index]: "applying" }));
@@ -192,11 +206,25 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
 
           {result.issues.map((issue, index) => {
             const state = issueStates[index] ?? "pending";
+            // Shown on every issue so it's obvious at a glance which
+            // validation mode applied — USDA ingredients only ever get
+            // price/bridge suggestions here (see isMealVerifyFieldAllowedForSource),
+            // never a nutrition fix, so this is a visible confirmation of
+            // that rule, not just an internal guard.
+            const ingredientSource = allIngredients.find((i) => i.canonical_name === issue.ingredientName)?.source ?? null;
+            const isUsda = ingredientSource === "USDA";
             return (
               <View key={index} className="gap-1.5 rounded-2xl border border-notice-border bg-notice-bg p-3">
-                <AppText variant="bodyBold" className="text-notice-text">
-                  {issue.ingredientName} · {issue.field}
-                </AppText>
+                <View className="flex-row items-center flex-wrap gap-1.5">
+                  <AppText variant="bodyBold" className="text-notice-text">
+                    {issue.ingredientName} · {issue.field}
+                  </AppText>
+                  <View className={`rounded-full px-2 py-0.5 ${isUsda ? "bg-primary/15" : "bg-ink-emphasis/10"}`}>
+                    <AppText variant="caption" className={isUsda ? "text-primary" : "text-ink-subtle"}>
+                      {isUsda ? "USDA" : "Manual"}
+                    </AppText>
+                  </View>
+                </View>
                 <AppText variant="caption" className="text-notice-text">
                   {issue.issue}
                 </AppText>

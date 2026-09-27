@@ -653,6 +653,7 @@ export async function verifyMealIngredients(
       role: item.ingredient.role,
       category: item.ingredient.category,
       state: item.ingredient.state,
+      source: item.ingredient.source,
       basisAmount: item.ingredient.basis_amount,
       basisUnit: item.ingredient.basis_unit,
       calories: item.ingredient.calories,
@@ -679,6 +680,20 @@ const MEAL_VERIFY_NUMERIC_FIELDS = new Set<MealVerifyField>([
   "calories", "protein", "carbohydrates", "fat", "sugar", "fiber", "sodium",
   "estimated_price", "grams_per_ml", "grams_per_piece",
 ]);
+
+// Nutrition (+ state, which only ever matters in service of a nutrition
+// correction) is real, already-verified USDA reference data once an
+// ingredient's source is "USDA" — never a fix target, no matter what the
+// verify prompt returns. Mirrors the SOURCE rule in
+// verify-meal-ingredients's SYSTEM_PROMPT; enforced here too as the actual
+// hard rule, in case a response ever ignores the instruction.
+const MEAL_VERIFY_USDA_LOCKED_FIELDS = new Set<MealVerifyField>([
+  "calories", "protein", "carbohydrates", "fat", "sugar", "fiber", "sodium", "state",
+]);
+
+export function isMealVerifyFieldAllowedForSource(field: MealVerifyField, ingredientSource: string | null): boolean {
+  return !(ingredientSource === "USDA" && MEAL_VERIFY_USDA_LOCKED_FIELDS.has(field));
+}
 
 // The LLM always returns suggestedValue as a string (simplest, unambiguous
 // JSON-mode shape) — parses it back into the right type for the field it
