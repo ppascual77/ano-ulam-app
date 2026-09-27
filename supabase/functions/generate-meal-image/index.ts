@@ -28,7 +28,15 @@ const IMAGE_URL = "https://api.openai.com/v1/images/generations";
 // the dish, and leans into candid/imperfect framing instead of "as
 // realistic/appetizing as possible" instructions that push the model toward
 // glossy studio-food-photography rendering.
-const BASE_PROMPT = `Photograph this Filipino home-cooked dish like a candid phone photo taken right after cooking, not a staged studio shot. Strict: dish only — absolutely no rice, no drinks, no side dishes, no dipping sauce on the side, regardless of anything else referenced below. Natural, slightly imperfect plating; avoid symmetrical arrangement or magazine-style styling. Only include a garnish, condiment, or utensil if it's genuinely something a Filipino household would have right there in that moment — skip it entirely if it doesn't belong, don't force a prop into every shot. Neutral, soft daylight — keep the color temperature natural and balanced, not warm or orange-tinted. Light-colored background. Close-up framing, food filling most of the frame, roughly 3/4 visible since it's zoomed in. A single wisp of steam only if the dish is actually served hot. Let the angle and background vary naturally between generations rather than repeating the same setup.`;
+//
+// Rice is a deliberate carve-out from "dish only": a blanket "no rice" is
+// wrong for anything where rice IS the dish, not a side — silog breakfasts
+// (bangusilog, tapsilog, ...), sinangag, fried rice, etc. Only included
+// when the dish's own name/description says so, or the reference photo
+// actually has rice on the plate (describeReferenceStyle is allowed to
+// state that one fact, unlike every other specific food it's told to never
+// name).
+const BASE_PROMPT = `Photograph this Filipino home-cooked dish like a candid phone photo taken right after cooking, not a staged studio shot. Strict: no drinks, no separate side dishes, no dipping sauce on the side. Rice is the one exception to "dish only" — include a portion of rice alongside it ONLY if the dish's own name/description below is a rice-paired dish (e.g. a "-silog" breakfast plate, anything named/described as served with or over rice, fried rice, sinangag, etc.) or the reference style note below says rice is present in the reference photo; otherwise, no rice. Natural, slightly imperfect plating; avoid symmetrical arrangement or magazine-style styling. Only include a garnish, condiment, or utensil if it's genuinely something a Filipino household would have right there in that moment — skip it entirely if it doesn't belong, don't force a prop into every shot. Neutral, soft daylight — keep the color temperature natural and balanced, not warm or orange-tinted. Light-colored background. Close-up framing, food filling most of the frame, roughly 3/4 visible since it's zoomed in. A single wisp of steam only if the dish is actually served hot. Let the angle and background vary naturally between generations rather than repeating the same setup.`;
 
 async function describeReferenceStyle(referenceImageUrl: string): Promise<string | null> {
   try {
@@ -45,7 +53,7 @@ async function describeReferenceStyle(referenceImageUrl: string): Promise<string
           {
             role: "system",
             content:
-              "You describe ONLY the abstract photographic STYLE of a food photo — never its actual food content. This description will guide generating a brand-new photo that must show ONLY the main dish itself (no rice, no side dishes, no drinks, even if this reference photo has them) — so naming any specific food, ingredient, side dish, or garnish (e.g. \"rice\", \"egg\", \"tomato\", \"dipping sauce\") would wrongly carry that content into a photo it must not appear in. In 2-3 short sentences, describe purely: plate/surface color and shape, background color and material, lighting direction and warmth (warm/cool, soft/hard), camera angle and framing tightness, and whether any garnish or prop is present WITHOUT naming what it is (e.g. \"a small garnish sits in one corner\", not \"a sprig of parsley\"). Never mention or describe any watermark, logo, on-image text, brand, or website. Never say anything that would let someone identify or recreate the exact source photo.",
+              "You describe ONLY the abstract photographic STYLE of a food photo — never its actual food content. This description will guide generating a brand-new photo that must show ONLY the main dish itself (no side dishes, no drinks, no dipping sauce, even if this reference photo has them) — so naming any specific food, ingredient, side dish, or garnish (e.g. \"egg\", \"tomato\", \"dipping sauce\") would wrongly carry that content into a photo it must not appear in. In 2-3 short sentences, describe purely: plate/surface color and shape, background color and material, lighting direction and warmth (warm/cool, soft/hard), camera angle and framing tightness, and whether any garnish or prop is present WITHOUT naming what it is (e.g. \"a small garnish sits in one corner\", not \"a sprig of parsley\"). One exception: explicitly state whether rice is visible on the plate (\"Rice is included on the plate.\" or \"No rice is visible.\") — rice is a defining component of many Filipino dishes, not a side dish to hide. Never mention or describe any watermark, logo, on-image text, brand, or website. Never say anything that would let someone identify or recreate the exact source photo.",
           },
           {
             role: "user",
@@ -133,7 +141,7 @@ Deno.serve(async (req: Request) => {
       "",
       `Dish: ${name.trim()}${description ? ` — ${description.trim()}` : ""}`,
       styleDescription
-        ? `Photographic style inspiration only (do not copy or reproduce any specific photo, brand, watermark, or text, and do not add any food/side dish this style note doesn't mention — the "Strict: dish only" rule above still applies): ${styleDescription}`
+        ? `Photographic style inspiration only (do not copy or reproduce any specific photo, brand, watermark, or text, and do not add any side dish/drink/dipping sauce — the rice exception above still follows whatever this note says about rice): ${styleDescription}`
         : "",
     ]
       .filter(Boolean)
