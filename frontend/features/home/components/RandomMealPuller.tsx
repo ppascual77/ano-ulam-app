@@ -21,12 +21,12 @@ const APPEAR_DELAY_MIN_MS = 8000;
 const APPEAR_DELAY_MAX_MS = 20000;
 const IGNORE_TIMEOUT_MS = 6000; // how long it peeks, undragged, before retracting
 
-const REST_LENGTH = 44; // resting cord+tab length once slid in
+const REST_LENGTH = 64; // resting cord+tab length once slid in
 const MAX_PULL = 140; // visual cap on how far the cord can stretch while dragging
 // Shifted off true-center so the tag doesn't sit dead-center over Header's
 // content — a small, deliberate offset rather than a full-width centered
 // element that visually dominates the top of the screen.
-const TASSEL_OFFSET_X = 30;
+const TASSEL_OFFSET_X = 50;
 const FADE_IN_DURATION_MS = 250;
 
 const REVEAL_DISTANCE = 90; // past this much extra pull, commit to a reveal
