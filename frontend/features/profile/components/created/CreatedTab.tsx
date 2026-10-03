@@ -16,7 +16,7 @@ import { PostSkeleton } from "@/frontend/core/posts/components/PostSkeleton";
 import { WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
 import { MOCK_ME_ID, type FoodPost } from "@/frontend/core/posts/mock/posts";
 import { useDeleteRecipe, useMyRecipes } from "../../hooks/useProfile";
-import { useMyPosts } from "../../hooks/useMyPosts";
+import { useUserPosts } from "../../hooks/useUserPosts";
 import { useLastDefined } from "../../hooks/useLastDefined";
 import { MealGrid } from "../MealGrid";
 import { MealGridSkeleton } from "../MealGridSkeleton";
@@ -82,7 +82,7 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, postsRef
   const recipesQuery = useMyRecipes(posterId);
   const recipes = recipesQuery.data ?? [];
   const deleteRecipe = useDeleteRecipe(posterId);
-  const posts = useMyPosts(MOCK_ME_ID, postsRefreshKey);
+  const posts = useUserPosts(MOCK_ME_ID, { refreshKey: postsRefreshKey });
   const [lightbox, setLightbox] = useState<{ uri: string } | null>(null);
 
   useEffect(() => {

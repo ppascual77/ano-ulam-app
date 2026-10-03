@@ -1,4 +1,4 @@
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { AlertTriangle, Clock3, FileText } from "lucide-react-native";
 import { Avatar } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -22,11 +22,12 @@ export function CatalogStatusStrip({ status }: { status: CatalogStatus }) {
   );
 }
 
-// "Created by" chip on a community recipe's photo. Meals don't carry the
-// poster's name yet, so it's the same generic label PosterRow uses.
-export function PosterChip({ name = "Community cook" }: { name?: string }) {
+// "Created by" chip on a community recipe's photo; tap for the poster's
+// profile. Meals don't carry the poster's name yet, so it's the same
+// generic label PosterRow uses.
+export function PosterChip({ name = "Community cook", onPress }: { name?: string; onPress?: () => void }) {
   return (
-    <View className="flex-row items-center gap-1.5 rounded-full bg-black/40 py-0.5 pl-0.5 pr-2">
+    <Pressable onPress={onPress} hitSlop={4} className="flex-row items-center gap-1.5 rounded-full bg-black/40 py-0.5 pl-0.5 pr-2">
       <Avatar name={name} size={20} />
       <View>
         <Text className="font-inter-regular text-sub text-white/60">Created by</Text>
@@ -34,7 +35,7 @@ export function PosterChip({ name = "Community cook" }: { name?: string }) {
           {name}
         </Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 

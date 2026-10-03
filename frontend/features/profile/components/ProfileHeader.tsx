@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { Pencil } from "lucide-react-native";
 import { Avatar } from "@/frontend/components/ui";
@@ -11,11 +11,17 @@ type ProfileHeaderProps = {
   bio: string | null;
   /** Owner only: tap the bio to edit it inline. Omit for read-only. */
   onSaveBio?: (bio: string) => Promise<void>;
+  /** Replaces the generated avatar (the official profile's logo). */
+  avatar?: ReactNode;
+  /** After the name (the official verified badge). */
+  badge?: ReactNode;
+  /** Under the bio (the official profile's mail link). */
+  children?: ReactNode;
 };
 
 // Avatar, name and bio. The owner edits the bio in place: saves on return
 // or blur, blocked while over the 50-character limit.
-export function ProfileHeader({ name, avatarUrl, bio, onSaveBio }: ProfileHeaderProps) {
+export function ProfileHeader({ name, avatarUrl, bio, onSaveBio, avatar, badge, children }: ProfileHeaderProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
@@ -43,11 +49,14 @@ export function ProfileHeader({ name, avatarUrl, bio, onSaveBio }: ProfileHeader
 
   return (
     <View className="flex-row items-center gap-4 px-5 pt-5">
-      <Avatar name={name} imageUri={avatarUrl ?? undefined} size={64} />
+      {avatar ?? <Avatar name={name} imageUri={avatarUrl ?? undefined} size={64} />}
       <View className="flex-1">
-        <Text numberOfLines={1} className="font-inter-bold text-subheading text-web-ink">
-          {name}
-        </Text>
+        <View className="flex-row items-center gap-1.5">
+          <Text numberOfLines={1} className="shrink font-inter-bold text-subheading text-web-ink">
+            {name}
+          </Text>
+          {badge}
+        </View>
 
         {editing ? (
           <View className="mt-1">
@@ -86,6 +95,7 @@ export function ProfileHeader({ name, avatarUrl, bio, onSaveBio }: ProfileHeader
             {onSaveBio && <Pencil color={colors.webInk.faint} size={12} />}
           </Pressable>
         )}
+        {children}
       </View>
     </View>
   );

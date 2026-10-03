@@ -16,11 +16,13 @@ type FoodPostCardProps = {
   /** Own posts only: the "..." menu shows when these are passed. */
   onEdit?: () => void;
   onDelete?: () => void;
+  /** Tapping the author (opens their profile). */
+  onPressAuthor?: () => void;
 };
 
 // One community post: author, caption, then whichever attachment it has
 // (link preview, GIF, sticker, photo), then like + share.
-export function FoodPostCard({ post, currentUserId, onLike, onShare, onOpenPhoto, onEdit, onDelete }: FoodPostCardProps) {
+export function FoodPostCard({ post, currentUserId, onLike, onShare, onOpenPhoto, onEdit, onDelete, onPressAuthor }: FoodPostCardProps) {
   const liked = !!currentUserId && post.liked_by.includes(currentUserId);
   const likeCount = post.liked_by.length;
   // Hearts burst when a like lands (not on unlike, not on first render).
@@ -39,6 +41,7 @@ export function FoodPostCard({ post, currentUserId, onLike, onShare, onOpenPhoto
         name={post.display_name ?? "User"}
         avatarUrl={post.avatar_url}
         official={post.is_official}
+        onPress={onPressAuthor}
         trailing={
           menuItems.length > 0 && (
             <Dropdown

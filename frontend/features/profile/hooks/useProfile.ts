@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { deleteMeal } from "@/api/meals";
-import { listMyRecipes } from "@/api/recipes";
+import { listApprovedRecipesByPoster, listMyRecipes } from "@/api/recipes";
 import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { getProfileExtras, updateBio, type ProfileExtras } from "../mock/api";
+import { getUserProfile } from "../mock/users";
 
 const profileKeys = {
   extras: ["profile", "extras"] as const,
@@ -60,5 +61,28 @@ export function useDeleteRecipe(posterId: string | null) {
     onError: (_error, _id, context) => {
       if (context) queryClient.setQueryData(profileKeys.myRecipes(posterId), context.before);
     },
+  });
+}
+
+// Someone else's profile (mock, see mock/users.ts). Errors with
+// "unauthorized" for guests.
+export function useUserProfile(userId: string, isGuest: boolean) {
+  return useQuery({
+    queryKey: ["profile", "user", userId, isGuest],
+    queryFn: () => getUserProfile(userId, isGuest),
+    retry: false,
+  });
+}
+
+// Mock users have ids like "u2", which the uuid poster_id column rejects:
+// only real ids are looked up.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Real: another user's approved recipes.
+export function useApprovedRecipes(userId: string) {
+  return useQuery({
+    queryKey: ["recipes", "by-poster", userId],
+    queryFn: async () =>
+      UUID.test(userId) ? (await listApprovedRecipesByPoster(userId)).map((row) => mealRowToMealType(row)) : [],
   });
 }

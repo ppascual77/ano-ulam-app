@@ -1,4 +1,4 @@
-import { Image, Text, View } from "react-native";
+import { Image, Pressable, Text, View } from "react-native";
 import { BadgeCheck } from "lucide-react-native";
 import { Avatar } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -9,29 +9,30 @@ type PosterRowProps = {
   /** Display name for a community poster. Meals don't carry this yet (no
    *  profiles table), so community posters fall back to a generic label. */
   posterName?: string;
+  /** Opens the poster's profile (the official one for AnoUlam meals). */
+  onPress?: () => void;
 };
 
-// "Who made this" under the reel's meal details. Not tappable yet: there
-// are no profile screens in the app to open.
-export function PosterRow({ posterId, posterName }: PosterRowProps) {
+// "Who made this" under the reel's meal details. Tap to open the profile.
+export function PosterRow({ posterId, posterName, onPress }: PosterRowProps) {
   if (!posterId) {
     return (
-      <View className="flex-row items-center gap-2">
+      <Pressable onPress={onPress} hitSlop={6} className="flex-row items-center gap-2 self-start">
         <Image source={require("@/assets/icon.png")} className="h-6 w-6 rounded-full" />
         <Text className="font-inter-semibold text-body text-white">AnoUlam</Text>
         <BadgeCheck color={colors.white} fill={colors.verified} size={16} />
-      </View>
+      </Pressable>
     );
   }
 
   const name = posterName ?? "Community cook";
   return (
-    <View className="flex-row items-center gap-2">
+    <Pressable onPress={onPress} hitSlop={6} className="flex-row items-center gap-2 self-start">
       <Avatar name={name} size={24} />
       <View>
         <Text className="font-inter-regular text-sub text-white/60">Created by</Text>
         <Text className="font-inter-semibold text-body text-white">{name}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }

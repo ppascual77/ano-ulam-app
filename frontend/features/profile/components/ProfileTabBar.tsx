@@ -1,27 +1,41 @@
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
-import { Bookmark, ChefHat, LayoutGrid, Plus, ShoppingCart, type LucideIcon } from "lucide-react-native";
+import { Bookmark, ChefHat, ImageIcon, LayoutGrid, Plus, ShoppingCart, type LucideIcon } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 
-export type ProfileTab = "saved" | "recipes" | "grocery" | "pantry";
+export type ProfileTab = "saved" | "recipes" | "grocery" | "pantry" | "posts";
+export type ProfileTabDef = { id: ProfileTab; label: string; Icon: LucideIcon };
 
-const TABS: { id: ProfileTab; label: string; Icon: LucideIcon }[] = [
-  { id: "saved", label: "Saved", Icon: Bookmark },
-  { id: "recipes", label: "Created", Icon: LayoutGrid },
+const SAVED: ProfileTabDef = { id: "saved", label: "Saved", Icon: Bookmark };
+const CREATED: ProfileTabDef = { id: "recipes", label: "Created", Icon: LayoutGrid };
+
+// Own profile: all four. Someone else's: Saved + Created. Official:
+// Recipes + Posts.
+export const OWN_TABS: ProfileTabDef[] = [
+  SAVED,
+  CREATED,
   { id: "grocery", label: "Grocery", Icon: ShoppingCart },
   { id: "pantry", label: "Pantry", Icon: ChefHat },
+];
+export const VISITOR_TABS: ProfileTabDef[] = [SAVED, CREATED];
+export const OFFICIAL_TABS: ProfileTabDef[] = [
+  { id: "recipes", label: "Recipes", Icon: LayoutGrid },
+  { id: "posts", label: "Posts", Icon: ImageIcon },
 ];
 
 const MINI_HEADER_HEIGHT = 32;
 const TIMING = { duration: 300, easing: Easing.out(Easing.cubic) };
 
 type ProfileTabBarProps = {
+  tabs: ProfileTabDef[];
   active: ProfileTab;
   onChange: (tab: ProfileTab) => void;
   /** True once the bar is pinned to the top: shows the mini header. */
   stuck: boolean;
-  name: string;
+  /** Shown after "AnoUlam" in the mini header (omitted on the official
+   *  profile, where it would repeat). */
+  name?: string;
   /** Owner only: the mini header's "+" (opens Create). */
   onCreate?: () => void;
 };
@@ -29,7 +43,7 @@ type ProfileTabBarProps = {
 // Sticky tab bar (the ScrollView's stickyHeaderIndices pins it). While
 // pinned, a mini "AnoUlam · name" header slides open above the tabs. The
 // green indicator slides to the active tab, measured with onLayout.
-export function ProfileTabBar({ active, onChange, stuck, name, onCreate }: ProfileTabBarProps) {
+export function ProfileTabBar({ tabs, active, onChange, stuck, name, onCreate }: ProfileTabBarProps) {
   const [layouts, setLayouts] = useState<Partial<Record<ProfileTab, { x: number; width: number }>>>({});
   const indicatorX = useSharedValue(0);
   const indicatorWidth = useSharedValue(0);
@@ -63,9 +77,11 @@ export function ProfileTabBar({ active, onChange, stuck, name, onCreate }: Profi
         <View className="flex-row items-center justify-between px-5 pt-2">
           <View className="shrink flex-row items-center gap-1.5">
             <Text className="font-inter-bold text-body text-brand-green">AnoUlam</Text>
-            <Text numberOfLines={1} className="shrink font-inter-regular text-body text-web-ink-muted">
-              {name}
-            </Text>
+            {!!name && (
+              <Text numberOfLines={1} className="shrink font-inter-regular text-body text-web-ink-muted">
+                {name}
+              </Text>
+            )}
           </View>
           {onCreate && (
             <Pressable onPress={onCreate} hitSlop={8} accessibilityLabel="Create">
@@ -76,7 +92,7 @@ export function ProfileTabBar({ active, onChange, stuck, name, onCreate }: Profi
       </Animated.View>
 
       <View className="flex-row border-b border-web-divider">
-        {TABS.map(({ id, label, Icon }) => {
+        {tabs.map(({ id, label, Icon }) => {
           const isActive = id === active;
           const color = isActive ? colors.brandGreen.DEFAULT : colors.webInk.muted;
           return (

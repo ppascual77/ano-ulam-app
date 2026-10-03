@@ -26,6 +26,7 @@ import { CommunityFeed } from "../components/CommunityFeed";
 import { CreateButton } from "../components/CreateButton";
 import { CreateSheet, type CreateChoice } from "@/frontend/core/posts/components/CreateSheet";
 import { CreatePostSheet } from "@/frontend/core/posts/components/CreatePostSheet";
+import { openProfile } from "@/frontend/core/users/openProfile";
 import { MOCK_ME_ID, createPost, updatePost, type FoodPost, type PostInput } from "@/frontend/core/posts/mock/posts";
 
 // Gradient stops over the reel photo: top keeps the tabs legible, bottom
@@ -361,11 +362,15 @@ export default function DiscoverScreen() {
 
           {feed.status === "ready" && activeMeal && (
             <>
-              {/* Nothing in the details block is tappable, so touches pass
-                  through to the pager: swiping over the name/price/description
-                  still moves to the next meal. */}
-              <View pointerEvents="none" className="absolute left-5" style={{ bottom: DETAILS_BOTTOM, right: 76 }}>
-                <MealDetailsOverlay key={activeKey} meal={activeMeal} />
+              {/* Only the poster row in the details block is tappable, so
+                  touches elsewhere pass through to the pager: swiping over the
+                  name/price/description still moves to the next meal. */}
+              <View pointerEvents="box-none" className="absolute left-5" style={{ bottom: DETAILS_BOTTOM, right: 76 }}>
+                <MealDetailsOverlay
+                  key={activeKey}
+                  meal={activeMeal}
+                  onPressPoster={() => openProfile(activeMeal.poster_id, session?.user.id ?? null)}
+                />
               </View>
 
               <View className="absolute right-4" style={{ bottom: RAIL_BOTTOM }}>
