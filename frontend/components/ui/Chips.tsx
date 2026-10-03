@@ -1,21 +1,29 @@
 import { ReactNode } from "react";
 import { Text, View } from "react-native";
 
+// "solid" is the large pill (icon + uppercase label on a filled background,
+// e.g. a meal card's time/restaurant/verified badges). "soft" is a tinted
+// pill with normal-case, larger text, for values meant to be read rather
+// than glanced at (e.g. a ₱/kg price in an ingredient's price sources).
+const variantClasses = {
+  solid: { bg: "bg-primary", text: "font-inter-semibold text-sub uppercase tracking-wide text-white" },
+  soft: { bg: "bg-primary/10", text: "font-inter-semibold text-small text-primary" },
+} as const;
+
 type ChipsProps = {
   label: string;
   icon?: ReactNode;
-  /** Defaults to bg-primary. Pass e.g. "bg-accent" for a different fill. */
+  variant?: keyof typeof variantClasses;
+  /** Overrides the variant's fill, e.g. "bg-accent". */
   bgClassName?: string;
 };
 
-// Only the "large" pill (icon + uppercase label, e.g. a meal card's time/
-// restaurant/verified badges) is built out — that's the only variant any
-// screen actually uses today. Add more variants here if a real need shows up.
-export function Chips({ label, icon, bgClassName = "bg-primary" }: ChipsProps) {
+export function Chips({ label, icon, variant = "solid", bgClassName }: ChipsProps) {
+  const classes = variantClasses[variant];
   return (
-    <View className={`flex-row items-center gap-1 rounded-full px-2 py-1 ${bgClassName}`}>
+    <View className={`flex-row items-center gap-1 rounded-full px-2 py-1 ${bgClassName ?? classes.bg}`}>
       {icon}
-      <Text className="font-inter-semibold text-sub uppercase tracking-wide text-white">{label}</Text>
+      <Text className={classes.text}>{label}</Text>
     </View>
   );
 }

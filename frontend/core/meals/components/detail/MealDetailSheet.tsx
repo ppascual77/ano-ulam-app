@@ -1,7 +1,15 @@
 import { ReactNode, useEffect, useState } from "react";
 import { BottomSheet } from "@/frontend/components/ui";
 import { MealDetailContent } from "./MealDetailContent";
-import type { MealType } from "../../mealTypes";
+import { IngredientDetailSheet } from "./IngredientDetailSheet";
+import type { IngredientType, MealType } from "../../mealTypes";
+
+// Explicit (it's also BottomSheet's default) because the ingredient sheet's
+// max height is derived from it.
+const MEAL_SHEET_HEIGHT_PERCENT = 0.8;
+// The ingredient sheet tops out at 75% of the meal sheet, so it reads as a
+// smaller sheet on top rather than a second full-height one.
+const INGREDIENT_SHEET_HEIGHT_PERCENT = MEAL_SHEET_HEIGHT_PERCENT * 0.75;
 
 type MealDetailSheetProps = {
   /** null closes the sheet. */
@@ -36,6 +44,9 @@ export function MealDetailSheet({ meal, onClose, onClosed, onEdit, onArchive, on
   // (BottomSheet's own slide-up already covers that), "forward" for picking
   // a related meal, "back" for the back button.
   const [direction, setDirection] = useState<"none" | "forward" | "back">("none");
+  // The ingredient whose detail sheet is open on top of this one, already
+  // scaled to the servings shown when it was tapped. null = closed.
+  const [selectedIngredient, setSelectedIngredient] = useState<IngredientType | null>(null);
 
   useEffect(() => {
     if (meal) {
@@ -44,12 +55,15 @@ export function MealDetailSheet({ meal, onClose, onClosed, onEdit, onArchive, on
       setHistory([]);
       setDirection("none");
     }
+    // A new meal, or this sheet closing, also closes any open ingredient.
+    setSelectedIngredient(null);
   }, [meal]);
 
   // Tapping a related meal swaps the sheet's content without closing it.
   const handleSelectMeal = (next: MealType) => {
     if (renderedMeal) setHistory((prev) => [...prev, renderedMeal]);
     setDirection("forward");
+    setSelectedIngredient(null);
     setRenderedMeal(next);
     setIsSaved(false);
   };
@@ -66,7 +80,26 @@ export function MealDetailSheet({ meal, onClose, onClosed, onEdit, onArchive, on
   };
 
   return (
-    <BottomSheet visible={!!meal} onClose={onClose} onClosed={onClosed} handleClassName="bg-white/70" overlay={overlay}>
+    <BottomSheet
+      visible={!!meal}
+      onClose={onClose}
+      heightPercent={MEAL_SHEET_HEIGHT_PERCENT}
+      onClosed={onClosed}
+      handleClassName="bg-white/70"
+      // The ingredient sheet goes in this sheet's own overlay, not a second
+      // native Modal (see BottomSheet's `overlay`). A caller's overlay (e.g.
+      // a confetti burst) still renders above it.
+      overlay={
+        <>
+          <IngredientDetailSheet
+            ingredient={selectedIngredient}
+            onClose={() => setSelectedIngredient(null)}
+            maxHeightPercent={INGREDIENT_SHEET_HEIGHT_PERCENT}
+          />
+          {overlay}
+        </>
+      }
+    >
       {renderedMeal && (
         <MealDetailContent
           key={renderedMeal.id}
@@ -79,6 +112,7 @@ export function MealDetailSheet({ meal, onClose, onClosed, onEdit, onArchive, on
           onEdit={onEdit}
           onArchive={onArchive}
           onDelete={onDelete}
+          onSelectIngredient={setSelectedIngredient}
         />
       )}
     </BottomSheet>

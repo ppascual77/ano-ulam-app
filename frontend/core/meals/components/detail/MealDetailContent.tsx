@@ -1,16 +1,7 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
-import Animated, {
-  FadeIn,
-  FadeOut,
-  LinearTransition,
-  SlideInLeft,
-  SlideInRight,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
+import Animated, { SlideInLeft, SlideInRight } from "react-native-reanimated";
 import {
   Archive,
   Bookmark,
@@ -27,18 +18,18 @@ import {
   Users,
   Leaf,
   Info,
-  ChevronDown,
+  ChevronRight,
   ArrowLeft,
   Trash2,
 } from "lucide-react-native";
-import { AppText, Button, Chips, NoticeBanner, Toggle } from "@/frontend/components/ui";
+import { AppText, Button, Card, Chips, NoticeBanner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealInfoPill } from "../MealInfoPill";
 import { MacroSection } from "./MacroSection";
-import { IngredientDetailPanel } from "./IngredientDetailPanel";
 import { RelatedMeals } from "./RelatedMeals";
+import { hasNutrition } from "./IngredientDetailSections";
 import { resolveMealImage } from "../../resolveMealImage";
-import { multiplyQty } from "../../utils/multiplyQty";
+import { formatCount, multiplyQty } from "../../utils/multiplyQty";
 import { DIETARY_ICONS, capitalize } from "../../utils/dietary";
 import type { IngredientType, MealType } from "../../mealTypes";
 
@@ -49,13 +40,15 @@ import type { IngredientType, MealType } from "../../mealTypes";
 // hitSlop extends the tappable area without changing how the button looks.
 const ICON_HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
-// Whether IngredientDetailPanel actually has something to show — either
-// real computed macros, or (admin-only) a reason those couldn't be
-// computed / the bridge that was used. A pantry item counts only if it's
-// cooking oil, since most pantry items (salt, pepper) never show detail.
+// Whether IngredientDetailSheet actually has something to show. A main
+// ingredient always does (its price source section, even when that just
+// says "Estimated price"). A pantry item has no price section, so it counts
+// only if it's cooking oil with nutrition data, since most pantry items
+// (salt, pepper) have nothing to show.
 function hasIngredientDetail(item: IngredientType) {
-  if (item.type === "pantry" && !/oil/i.test(item.name)) return false;
-  return item.calories != null || !!item.calculationError || !!item.note;
+  if (item.type === "main") return true;
+  if (!/oil/i.test(item.name)) return false;
+  return hasNutrition(item);
 }
 
 function orderIngredients(ingredients: IngredientType[]) {
@@ -65,56 +58,56 @@ function orderIngredients(ingredients: IngredientType[]) {
   return [...main, ...oils, ...rest];
 }
 
+// The ingredient as it should read at the current servings: quantity,
+// price and macros all multiplied by `scale`. Built once here so the card
+// and the detail sheet it opens can't disagree (the old inline panel once
+// showed unscaled macros next to a scaled price).
+function scaleIngredient(ingredient: IngredientType, scale: number): IngredientType {
+  return {
+    ...ingredient,
+    // A generated count re-pluralizes ("1 clove" -> "2 cloves"); free-text
+    // quantities only get their leading number scaled.
+    qty: ingredient.count
+      ? formatCount(ingredient.count.amount * scale, ingredient.count.label)
+      : multiplyQty(ingredient.qty, scale),
+    price: ingredient.price != null ? ingredient.price * scale : ingredient.price,
+    calories: ingredient.calories != null ? ingredient.calories * scale : undefined,
+    protein: ingredient.protein != null ? ingredient.protein * scale : undefined,
+    carbs: ingredient.carbs != null ? ingredient.carbs * scale : undefined,
+    fats: ingredient.fats != null ? ingredient.fats * scale : undefined,
+  };
+}
+
 type IngredientRowProps = {
+  /** Already scaled (see scaleIngredient). */
   ingredient: IngredientType;
-  scale: number;
-  showDetails: boolean;
-  isLast: boolean;
+  /** Omitted when there's nothing to show in the detail sheet. */
+  onPress?: () => void;
 };
 
-function IngredientRow({ ingredient, scale, showDetails, isLast }: IngredientRowProps) {
+function IngredientRow({ ingredient, onPress }: IngredientRowProps) {
   const isMain = ingredient.type === "main";
-  const hasDetail = hasIngredientDetail(ingredient);
-  const interactive = showDetails && hasDetail;
-
-  const [expanded, setExpanded] = useState(false);
-
-  // Follow "Show details": turning it on expands immediately, turning it
-  // off collapses immediately. A row can still be tapped individually
-  // afterward without waiting for the next toggle flip.
-  useEffect(() => {
-    setExpanded(showDetails);
-  }, [showDetails]);
-
-  const rotation = useSharedValue(0);
-  useEffect(() => {
-    rotation.value = withTiming(expanded ? 180 : 0, { duration: 200 });
-  }, [expanded, rotation]);
-  const chevronStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.value}deg` }],
-  }));
-
-  const rowClassName = `px-4 py-4 ${!isLast ? "border-b border-ink-emphasis/10" : ""}`;
 
   const content = (
-    <>
-      <View className="flex-row items-center justify-between">
-        <View className="flex-1 flex-row flex-wrap items-center gap-1.5 pr-2">
-          <AppText variant="caption">{capitalize(ingredient.name)}</AppText>
-          <View className={`rounded-full px-2 py-2 ${isMain ? "bg-primary/10" : "bg-ink-emphasis/5"}`}>
-            <Text className={`font-inter-semibold text-sub ${isMain ? "text-primary" : "text-ink-subtle"}`}>
-              {isMain ? "Main" : "Pantry"}
-            </Text>
-          </View>
+    <View className="flex-row items-center justify-between">
+      <View className="flex-1 flex-row flex-wrap items-center gap-1.5 pr-2">
+        <AppText variant="caption">{capitalize(ingredient.name)}</AppText>
+        <View className={`rounded-full px-2 py-2 ${isMain ? "bg-primary/10" : "bg-ink-emphasis/5"}`}>
+          <Text className={`font-inter-semibold text-sub ${isMain ? "text-primary" : "text-ink-subtle"}`}>
+            {isMain ? "Main" : "Pantry"}
+          </Text>
         </View>
+      </View>
 
-        <View className="flex-row items-center gap-2">
-          <AppText variant="caption">{multiplyQty(ingredient.qty, scale)}</AppText>
-          {showDetails &&
-            isMain &&
+      <View className="flex-row items-center gap-2">
+        {/* Quantity stacked above price, right-aligned, so the two don't
+            compete for width on one line. */}
+        <View className="items-end">
+          <AppText variant="caption">{ingredient.qty}</AppText>
+          {isMain &&
             (ingredient.price != null && ingredient.price > 0 ? (
               <AppText variant="caption" className="font-inter-semibold text-primary">
-                ~₱{(ingredient.price * scale).toFixed(2)}
+                ~₱{ingredient.price.toFixed(2)}
               </AppText>
             ) : (
               <View className="flex-row items-center gap-0.5">
@@ -122,38 +115,17 @@ function IngredientRow({ ingredient, scale, showDetails, isLast }: IngredientRow
                 <Text className="text-sub text-ink-subtle">N/A</Text>
               </View>
             ))}
-          {showDetails && hasDetail && (
-            <Animated.View style={chevronStyle}>
-              <ChevronDown color={colors.ink.subtle} size={14} />
-            </Animated.View>
-          )}
         </View>
+        {onPress && <ChevronRight color={colors.ink.subtle} size={14} />}
       </View>
-
-      {hasDetail && expanded && (
-        <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)}>
-          <IngredientDetailPanel
-            item={{
-              ...ingredient,
-              // The row's own price above already applies `* scale` — this
-              // was passing the raw, unscaled ingredient straight through,
-              // so the expanded panel kept showing macros for the
-              // original serving size no matter what servings was set to.
-              calories: ingredient.calories != null ? ingredient.calories * scale : undefined,
-              protein: ingredient.protein != null ? ingredient.protein * scale : undefined,
-              carbs: ingredient.carbs != null ? ingredient.carbs * scale : undefined,
-              fats: ingredient.fats != null ? ingredient.fats * scale : undefined,
-            }}
-          />
-        </Animated.View>
-      )}
-    </>
+    </View>
   );
 
+  // Each ingredient is its own card rather than a row in one bordered
+  // table, so the list reads as separate items. Tapping opens
+  // IngredientDetailSheet (via MealDetailSheet) instead of expanding here.
   return (
-    <Animated.View layout={LinearTransition.duration(200)} className={rowClassName}>
-      {interactive ? <Pressable onPress={() => setExpanded((prev) => !prev)}>{content}</Pressable> : content}
-    </Animated.View>
+    <Card variant="outlined">{onPress ? <Pressable onPress={onPress}>{content}</Pressable> : content}</Card>
   );
 }
 
@@ -192,6 +164,9 @@ type MealDetailContentProps = {
   onEdit?: () => void;
   onArchive?: () => void;
   onDelete?: () => void;
+  /** Tapping an ingredient card. Receives the ingredient already scaled to
+   *  the current servings. MealDetailSheet opens IngredientDetailSheet. */
+  onSelectIngredient?: (ingredient: IngredientType) => void;
 };
 
 // The scrollable body rendered inside a BottomSheet (see MealDetailSheet).
@@ -208,11 +183,11 @@ export function MealDetailContent({
   onEdit,
   onArchive,
   onDelete,
+  onSelectIngredient,
 }: MealDetailContentProps) {
   const [isLiked, setIsLiked] = useState(meal.liked_by_me ?? false);
   const [likeCount, setLikeCount] = useState(meal.like_count ?? 0);
   const [servings, setServings] = useState(meal.serving_size ?? 1);
-  const [showDetails, setShowDetails] = useState(false);
 
   const toggleLike = () => {
     setIsLiked((prev) => !prev);
@@ -460,7 +435,6 @@ export function MealDetailContent({
             <View className="mt-5">
               <View className="flex-row items-center justify-between">
                 <AppText variant="title">Ingredients</AppText>
-                <Toggle checked={showDetails} onChange={setShowDetails} label="Show details" />
               </View>
 
               <View className="my-3">
@@ -472,17 +446,22 @@ export function MealDetailContent({
                 </NoticeBanner>
               </View>
 
-              <Animated.View layout={LinearTransition.duration(200)} className="mt-2 rounded-2xl border border-ink-emphasis/10">
-                {orderIngredients(meal.ingredients).map((ingredient, i, ordered) => (
-                  <IngredientRow
-                    key={i}
-                    ingredient={ingredient}
-                    scale={scale}
-                    showDetails={showDetails}
-                    isLast={i === ordered.length - 1}
-                  />
-                ))}
-              </Animated.View>
+              <View className="mt-2 gap-2">
+                {orderIngredients(meal.ingredients).map((ingredient, i) => {
+                  const scaled = scaleIngredient(ingredient, scale);
+                  return (
+                    <IngredientRow
+                      key={i}
+                      ingredient={scaled}
+                      onPress={
+                        onSelectIngredient && hasIngredientDetail(ingredient)
+                          ? () => onSelectIngredient(scaled)
+                          : undefined
+                      }
+                    />
+                  );
+                })}
+              </View>
             </View>
           )}
 
