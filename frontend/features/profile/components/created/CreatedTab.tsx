@@ -3,7 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { ChefHat, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react-native";
-import { ConfirmSheet, Dropdown, Spinner } from "@/frontend/components/ui";
+import { ConfirmSheet, Dropdown } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { getMeal } from "@/api/meals";
 import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
@@ -12,12 +12,14 @@ import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { FoodPostCard } from "@/frontend/core/posts/components/FoodPostCard";
 import { ImageLightbox } from "@/frontend/core/posts/components/ImageLightbox";
+import { PostSkeleton } from "@/frontend/core/posts/components/PostSkeleton";
 import { WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
 import { MOCK_ME_ID, type FoodPost } from "@/frontend/core/posts/mock/posts";
 import { useDeleteRecipe, useMyRecipes } from "../../hooks/useProfile";
 import { useMyPosts } from "../../hooks/useMyPosts";
 import { useLastDefined } from "../../hooks/useLastDefined";
 import { MealGrid } from "../MealGrid";
+import { MealGridSkeleton } from "../MealGridSkeleton";
 import { EmptyState } from "../EmptyState";
 import { RecipeStatusBadge } from "../CardOverlays";
 
@@ -127,14 +129,6 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, postsRef
 
   const isEmpty = !recipesQuery.isLoading && !posts.loading && recipes.length === 0 && posts.posts.length === 0;
 
-  if (recipesQuery.isLoading && posts.loading) {
-    return (
-      <View className="items-center py-16">
-        <Spinner size={24} color={colors.brandGreen.DEFAULT} trackColor={colors.webDivider} />
-      </View>
-    );
-  }
-
   return (
     <View className="gap-8 pb-6">
       {isEmpty && (
@@ -145,6 +139,13 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, postsRef
           body="Post a photo of what you ate, or share a recipe with the community."
           action={{ label: "Create", Icon: Plus, onPress: onCreate }}
         />
+      )}
+
+      {recipesQuery.isLoading && (
+        <View className="gap-5">
+          <SectionHeader title="My Recipes" canCreate={canCreate} />
+          <MealGridSkeleton />
+        </View>
       )}
 
       {recipes.length > 0 && (
@@ -184,12 +185,13 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, postsRef
           <SectionHeader
             title="Food Posts"
             // The "+" moves here when there are no recipes to sit beside.
-            onCreate={recipes.length === 0 ? onCreate : undefined}
+            onCreate={recipes.length === 0 && !recipesQuery.isLoading ? onCreate : undefined}
             canCreate={canCreate}
           />
           {posts.loading ? (
-            <View className="items-center py-6">
-              <Spinner size={20} color={colors.brandGreen.DEFAULT} trackColor={colors.webDivider} />
+            <View>
+              <PostSkeleton />
+              <PostSkeleton />
             </View>
           ) : (
             <View className="gap-6">
@@ -205,11 +207,7 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, postsRef
                   onDelete={() => void posts.remove(post)}
                 />
               ))}
-              {posts.loadingMore && (
-                <View className="items-center py-2">
-                  <Spinner size={20} color={colors.brandGreen.DEFAULT} trackColor={colors.webDivider} />
-                </View>
-              )}
+              {posts.loadingMore && <PostSkeleton />}
             </View>
           )}
         </View>

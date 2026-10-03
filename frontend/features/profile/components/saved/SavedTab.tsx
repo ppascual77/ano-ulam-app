@@ -2,13 +2,14 @@ import { useRef, useState } from "react";
 import { Text, View } from "react-native";
 import { router } from "expo-router";
 import { Bookmark, Utensils } from "lucide-react-native";
-import { ConfirmSheet, Spinner } from "@/frontend/components/ui";
+import { ConfirmSheet } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useSavedMealActions, useSavedMeals } from "@/frontend/core/saved/hooks/useSavedMeals";
 import type { SavedMeal } from "@/frontend/core/saved/types";
 import { MealGrid } from "../MealGrid";
+import { MealGridSkeleton } from "../MealGridSkeleton";
 import { EmptyState } from "../EmptyState";
 import { CatalogStatusStrip, PosterChip } from "../CardOverlays";
 import { UpdatedMealPrompt } from "./UpdatedMealPrompt";
@@ -56,9 +57,7 @@ export function SavedTab({ onToast }: SavedTabProps) {
   return (
     <View>
       {isLoading ? (
-        <View className="items-center py-16">
-          <Spinner size={24} color={colors.brandGreen.DEFAULT} trackColor={colors.webDivider} />
-        </View>
+        <MealGridSkeleton />
       ) : saved.length === 0 ? (
         <EmptyState
           Icon={Bookmark}
