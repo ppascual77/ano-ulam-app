@@ -13,6 +13,7 @@ import { AppText, Button, Chips } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealInfoPill } from "../MealInfoPill";
 import { MacroBreakdown } from "./MacroBreakdown";
+import { BookmarkConfetti } from "./BookmarkConfetti";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 
@@ -41,6 +42,7 @@ export function MealCard({
 }: MealCardProps) {
   const isGrid = layout === "grid";
   const [isSaved, setIsSaved] = useState(false);
+  const [saveBurstId, setSaveBurstId] = useState(0);
   const [isLiked, setIsLiked] = useState(meal.liked_by_me ?? false);
   const [likeCount, setLikeCount] = useState(meal.like_count ?? 0);
 
@@ -48,6 +50,12 @@ export function MealCard({
   const toggleLike = () => {
     setIsLiked((prev) => !prev);
     setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
+  };
+
+  // Confetti only on save, not on unsave.
+  const toggleSave = () => {
+    if (!isSaved) setSaveBurstId((prev) => prev + 1);
+    setIsSaved((prev) => !prev);
   };
 
   return (
@@ -127,20 +135,23 @@ export function MealCard({
               </Pressable>
             )}
 
-            <Pressable
-              onPress={() => setIsSaved((prev) => !prev)}
-              className={`h-9 w-9 items-center justify-center rounded-full border ${
-                isSaved
-                  ? "border-primary bg-primary"
-                  : "border-white/20 bg-white/15"
-              }`}
-            >
-              <Bookmark
-                color={colors.white}
-                size={16}
-                fill={isSaved ? colors.white : "none"}
-              />
-            </Pressable>
+            <View>
+              <BookmarkConfetti burstId={saveBurstId} />
+              <Pressable
+                onPress={toggleSave}
+                className={`h-9 w-9 items-center justify-center rounded-full border ${
+                  isSaved
+                    ? "border-primary bg-primary"
+                    : "border-white/20 bg-white/15"
+                }`}
+              >
+                <Bookmark
+                  color={colors.white}
+                  size={16}
+                  fill={isSaved ? colors.white : "none"}
+                />
+              </Pressable>
+            </View>
           </View>
         </View>
       </View>
