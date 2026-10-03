@@ -123,7 +123,63 @@ export function classifyUsdaConfidence(score: number): "HIGH" | "LOW" {
   return score >= USDA_HIGH_SCORE_THRESHOLD ? "HIGH" : "LOW";
 }
 
-export type AiIngredientEstimate = Partial<IngredientRow> & { canonical_name: string };
+// Same idea as markUsdaGroundingAttempted, for the supermarket price pass —
+// see migration 20261003000000_ingredients_price_grounding.sql.
+export async function markPriceGroundingAttempted(ids: string[]) {
+  if (ids.length === 0) return;
+  const { error } = await supabase
+    .from("ingredients")
+    .update({ price_last_attempted_at: new Date().toISOString() })
+    .in("id", ids);
+  if (error) throw error;
+}
+
+export type PriceGroundingCandidate = {
+  pricePerUnit: number;
+  unit: "kg" | "L";
+  store: string;
+  productTitle: string;
+  packPrice: number;
+  packSize: number;
+  packUnit: "g" | "kg" | "ml" | "L" | "piece";
+  url: string;
+};
+
+export type PriceGroundingResult =
+  | { id: string; confidence: "NONE"; reason: string }
+  | { id: string; confidence: "ERROR"; error: string }
+  | { id: string; confidence: "HIGH" | "LOW"; candidate: PriceGroundingCandidate; reasons: string[] };
+
+// Mirrors ground-ingredient-prices's own MAX_PER_CALL — callers chunk to this.
+export const PRICE_GROUNDING_MAX_PER_CALL = 10;
+
+export async function groundIngredientPrices(ingredients: IngredientRow[]) {
+  const data = await invokeEdgeFunction<{ results: PriceGroundingResult[] }>("ground-ingredient-prices", {
+    ingredients: ingredients.map((i) => ({
+      id: i.id,
+      canonicalName: i.canonical_name,
+      displayName: i.display_name,
+      basisUnit: i.basis_unit,
+      state: i.state,
+      gramsPerMl: i.grams_per_ml,
+      gramsPerPiece: i.grams_per_piece,
+    })),
+  });
+  return data.results ?? [];
+}
+
+export function applyPriceMatch(candidate: PriceGroundingCandidate): Partial<IngredientRow> {
+  return {
+    estimated_price: candidate.pricePerUnit,
+    estimated_price_unit: candidate.unit,
+    price_source: "supermarket",
+    price_source_url: candidate.url,
+    price_source_label: `${candidate.store} · ${candidate.productTitle} · ₱${candidate.packPrice} / ${candidate.packSize}${candidate.packUnit === "piece" ? " pc" : candidate.packUnit}`,
+    price_last_updated_at: new Date().toISOString(),
+  };
+}
+
+export type AiIngredientEstimate =Partial<IngredientRow> & { canonical_name: string };
 
 // AI-curated fallback for the meal seeder — when a recipe ingredient has no
 // ingredients-table match AND no confident USDA candidate. Returns a DRAFT

@@ -2,7 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   archiveIngredient,
   getIngredients,
+  groundIngredientPrices,
   groundIngredientsUsda,
+  markPriceGroundingAttempted,
   markUsdaGroundingAttempted,
   updateIngredient,
   type IngredientFilters,
@@ -49,6 +51,22 @@ export function useGroundIngredientsUsda() {
   return useMutation({
     mutationFn: (ingredients: { id: string; canonicalName: string }[]) =>
       groundIngredientsUsda(ingredients),
+  });
+}
+
+export function useGroundIngredientPrices() {
+  return useMutation({
+    mutationFn: (ingredients: IngredientRow[]) => groundIngredientPrices(ingredients),
+  });
+}
+
+export function useMarkPriceGroundingAttempted() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => markPriceGroundingAttempted(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "ingredients"] });
+    },
   });
 }
 

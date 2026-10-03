@@ -10,6 +10,7 @@ import { IngredientListItem } from "../components/IngredientListItem";
 import { IngredientEditSheet } from "../components/IngredientEditSheet";
 import { FilterPill } from "../components/FilterPill";
 import { UsdaGroundingPanel } from "../components/UsdaGroundingPanel";
+import { PriceGroundingPanel } from "../components/PriceGroundingPanel";
 import type { IngredientRow } from "@/api/ingredients";
 
 const ROLE_OPTIONS = [
@@ -22,7 +23,7 @@ const SOURCE_OPTIONS = [
   { id: "manual", label: "Manual" },
 ];
 
-type Tab = "all" | "usda" | "fnri";
+type Tab = "all" | "usda" | "fnri" | "prices";
 
 export default function ManageIngredientsScreen() {
   const [tab, setTab] = useState<Tab>("all");
@@ -78,6 +79,7 @@ export default function ManageIngredientsScreen() {
             { id: "all", label: "All Ingredients" },
             { id: "usda", label: "Ground from USDA" },
             { id: "fnri", label: "Ground from FNRI" },
+            { id: "prices", label: "Ground Prices" },
           ] as const
         ).map((t) => (
           <Pressable key={t.id} onPress={() => setTab(t.id)} className="pb-3">
@@ -93,6 +95,8 @@ export default function ManageIngredientsScreen() {
 
       {tab === "usda" ? (
         <UsdaGroundingPanel />
+      ) : tab === "prices" ? (
+        <PriceGroundingPanel />
       ) : tab === "fnri" ? (
         <View className="flex-1 items-center justify-center px-10">
           <AppText variant="body" className="text-ink-subtle text-center">
