@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { Bookmark, Heart, Link } from "lucide-react-native";
+import { Confetti, useBurstOnActivate } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 
 // 44px circle used for every rail button: translucent "glass" by default,
@@ -48,28 +49,39 @@ type ActionRailProps = {
 
 // Right-side vertical rail on the Recipes reel. Each button sits in a
 // fixed-height column so the rail doesn't shift when the like count appears.
+// Like/save burst confetti when they land; the screen keys this by meal so
+// swiping onto an already-liked meal doesn't count as a new like.
 export function ActionRail({ liked, likeCount, saved, busy, onLike, onSave, onShare }: ActionRailProps) {
+  const likeBurstId = useBurstOnActivate(liked);
+  const saveBurstId = useBurstOnActivate(saved);
+
   return (
     <View className="items-center gap-5">
       <View className="h-16 items-center gap-1">
-        <RailButton onPress={onLike} active={liked} activeClassName="border-like bg-like" busy={busy} label="Like">
-          <Heart color={colors.white} fill={liked ? colors.white : "none"} size={20} />
-        </RailButton>
+        <View>
+          <Confetti burstId={likeBurstId} icon={Heart} color={colors.like} />
+          <RailButton onPress={onLike} active={liked} activeClassName="border-like bg-like" busy={busy} label="Like">
+            <Heart color={colors.white} fill={liked ? colors.white : "none"} size={20} />
+          </RailButton>
+        </View>
         {/* Space kept even at 0 so the rail doesn't jump. */}
         <Text className={`font-inter-semibold text-small text-white ${likeCount > 0 ? "" : "opacity-0"}`}>
           {likeCount}
         </Text>
       </View>
       <View className="h-16 items-center">
-        <RailButton
-          onPress={onSave}
-          active={saved}
-          activeClassName="border-brand-green bg-brand-green"
-          busy={busy}
-          label="Save"
-        >
-          <Bookmark color={colors.white} fill={saved ? colors.white : "none"} size={20} />
-        </RailButton>
+        <View>
+          <Confetti burstId={saveBurstId} icon={Bookmark} color={colors.brandGreen.DEFAULT} />
+          <RailButton
+            onPress={onSave}
+            active={saved}
+            activeClassName="border-brand-green bg-brand-green"
+            busy={busy}
+            label="Save"
+          >
+            <Bookmark color={colors.white} fill={saved ? colors.white : "none"} size={20} />
+          </RailButton>
+        </View>
       </View>
       <View className="h-16 items-center">
         <RailButton onPress={onShare} label="Share">

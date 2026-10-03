@@ -9,11 +9,10 @@ import {
   ShieldCheck,
   Store,
 } from "lucide-react-native";
-import { AppText, Button, Chips } from "@/frontend/components/ui";
+import { AppText, Button, Chips, Confetti, useBurstOnActivate } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealInfoPill } from "../MealInfoPill";
 import { MacroBreakdown } from "./MacroBreakdown";
-import { BookmarkConfetti } from "./BookmarkConfetti";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 
@@ -42,9 +41,11 @@ export function MealCard({
 }: MealCardProps) {
   const isGrid = layout === "grid";
   const [isSaved, setIsSaved] = useState(false);
-  const [saveBurstId, setSaveBurstId] = useState(0);
   const [isLiked, setIsLiked] = useState(meal.liked_by_me ?? false);
   const [likeCount, setLikeCount] = useState(meal.like_count ?? 0);
+  // Confetti when a like/save lands (not on unlike/unsave, not on mount).
+  const likeBurstId = useBurstOnActivate(isLiked);
+  const saveBurstId = useBurstOnActivate(isSaved);
 
   // No backend yet — bookmark/like are local-only UI state, not persisted.
   const toggleLike = () => {
@@ -52,11 +53,7 @@ export function MealCard({
     setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
   };
 
-  // Confetti only on save, not on unsave.
-  const toggleSave = () => {
-    if (!isSaved) setSaveBurstId((prev) => prev + 1);
-    setIsSaved((prev) => !prev);
-  };
+  const toggleSave = () => setIsSaved((prev) => !prev);
 
   return (
     <Pressable
@@ -112,18 +109,21 @@ export function MealCard({
           <View className="mr-1 items-center gap-1.5">
             {meal.id && (
               <Pressable onPress={toggleLike} className="items-center gap-0.5">
-                <View
-                  className={`h-9 w-9 items-center justify-center rounded-full border ${
-                    isLiked
-                      ? "border-like bg-like"
-                      : "border-white/20 bg-white/15"
-                  }`}
-                >
-                  <Heart
-                    color={colors.white}
-                    size={16}
-                    fill={isLiked ? colors.white : "none"}
-                  />
+                <View>
+                  <Confetti burstId={likeBurstId} icon={Heart} color={colors.like} />
+                  <View
+                    className={`h-9 w-9 items-center justify-center rounded-full border ${
+                      isLiked
+                        ? "border-like bg-like"
+                        : "border-white/20 bg-white/15"
+                    }`}
+                  >
+                    <Heart
+                      color={colors.white}
+                      size={16}
+                      fill={isLiked ? colors.white : "none"}
+                    />
+                  </View>
                 </View>
                 <Text
                   className={`text-[10px] font-semibold leading-none text-white ${
@@ -136,7 +136,7 @@ export function MealCard({
             )}
 
             <View>
-              <BookmarkConfetti burstId={saveBurstId} />
+              <Confetti burstId={saveBurstId} icon={Bookmark} color={colors.primary} />
               <Pressable
                 onPress={toggleSave}
                 className={`h-9 w-9 items-center justify-center rounded-full border ${

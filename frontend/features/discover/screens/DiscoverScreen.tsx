@@ -282,6 +282,9 @@ export default function DiscoverScreen() {
 
               <View className="absolute right-4" style={{ bottom: RAIL_BOTTOM }}>
                 <ActionRail
+                  // Remount per meal, so the confetti only fires for a like
+                  // or save made on this meal, not when swiping onto one.
+                  key={activeKey}
                   liked={likeEntry?.liked ?? false}
                   likeCount={likeEntry?.count ?? 0}
                   saved={!!(activeKey && feed.saves[activeKey])}
