@@ -65,20 +65,25 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
     // Only when the meal changes.
   }, [meal]);
 
-  // The whole card turns (one rotating element); the faces are static.
-  // Which face shows is decided from the angle alone. backfaceVisibility
-  // can't be used: React Native flattens each view before the parent's 3D
-  // turn, so the back's own 180° pre-turn would always count as facing away
-  // and it would never show. The pre-turn still mirrors the back so the
-  // logo reads the right way round when the card turns it toward you.
-  const cardStyle = useAnimatedStyle(() => ({
-    opacity: fade.value,
-    transform: [
-      { perspective: PERSPECTIVE },
-      { scale: interpolate(progress.value, [0, 1], [START_SCALE, 1]) },
-      { rotateY: `${interpolate(progress.value, [0, 1], [START_DEG, END_DEG])}deg` },
-    ],
-  }));
+  // The card never really turns past edge-on: the angle is folded into
+  // -90..90 and the face swaps at each edge-on moment (when the card is a
+  // thin line, so the swap is invisible). It reads as a continuous spin, but
+  // iOS never draws a view from behind, which is what kept hiding or
+  // mirroring the back face (backface culling of React Native's flattened
+  // views).
+  const cardStyle = useAnimatedStyle(() => {
+    const deg = interpolate(progress.value, [0, 1], [START_DEG, END_DEG]);
+    const folded = ((((deg + 90) % 180) + 180) % 180) - 90;
+    return {
+      opacity: fade.value,
+      transform: [
+        { perspective: PERSPECTIVE },
+        { scale: interpolate(progress.value, [0, 1], [START_SCALE, 1]) },
+        { rotateY: `${folded}deg` },
+      ],
+    };
+  });
+  // Front while the real angle faces the viewer, back otherwise.
   const frontStyle = useAnimatedStyle(() => {
     const deg = interpolate(progress.value, [0, 1], [START_DEG, END_DEG]);
     return { opacity: Math.cos((deg * Math.PI) / 180) > 0 ? 1 : 0 };
@@ -107,9 +112,9 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
           the screen goes under the dim backdrop (a gray half that flips sides). */}
       <View collapsable={false} pointerEvents="box-none" className="flex-1 items-center justify-center">
         <Animated.View style={[{ width: cardWidth, height: cardHeight }, cardStyle]}>
-          {/* Back: green with the white logo, pre-turned to face away. */}
+          {/* Back: green with the white logo. */}
           <Animated.View
-            style={[face, { transform: [{ rotateY: "180deg" }] }, backStyle]}
+            style={[face, backStyle]}
             className="absolute items-center justify-center rounded-3xl bg-primary"
           >
             <Image
