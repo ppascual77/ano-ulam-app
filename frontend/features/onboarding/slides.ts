@@ -102,6 +102,18 @@ export const onboardingSlides: OnboardingSlideData[] = [
   {
     id: "3",
     type: "content",
+    caption: "How meal prices work",
+    hero: [
+      { text: "Priced by", color: "primary", breakAfter: true },
+      { text: "what you use" },
+    ],
+    description:
+      "Meal costs only count the amount of each ingredient the recipe uses. If a meal uses 2 tbsp from a ₱120 liter of cooking oil, it counts as about ₱4. You'll still buy the full bottle at the store, but it lasts for many meals.",
+    // TODO: illustration (placeholder renders until an image is set)
+  },
+  {
+    id: "4",
+    type: "content",
     caption: "From cravings to grocery",
     hero: [
       { text: "Plan ", color: "primary" },
@@ -112,7 +124,7 @@ export const onboardingSlides: OnboardingSlideData[] = [
     image: require("@/assets/onboarding/slide-3.gif"),
   },
   {
-    id: "4",
+    id: "5",
     type: "preferences",
     title: "What matters to you?",
     image: require("@/assets/onboarding/preferences.gif"),
@@ -131,7 +143,7 @@ export const onboardingSlides: OnboardingSlideData[] = [
     ],
   },
   {
-    id: "5",
+    id: "6",
     type: "preferenceGroups",
     title: "Preferences",
     subtitle: "Tell us a bit about how you eat. This is optional, and you can change it anytime.",
@@ -169,7 +181,7 @@ export const onboardingSlides: OnboardingSlideData[] = [
     ],
   },
   {
-    id: "6",
+    id: "7",
     type: "accountPitch",
     hero: [
       { text: "Make " },
