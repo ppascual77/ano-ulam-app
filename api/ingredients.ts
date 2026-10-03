@@ -7,6 +7,7 @@ export type IngredientFilters = {
   role?: string;
   foodGroup?: string;
   source?: string;
+  priceSource?: string;
   showArchived?: boolean;
   search?: string;
 };
@@ -25,6 +26,9 @@ export async function getIngredients(filters: IngredientFilters = {}) {
   }
   if (filters.source) {
     query = query.eq("source", filters.source);
+  }
+  if (filters.priceSource) {
+    query = query.eq("price_source", filters.priceSource);
   }
   if (filters.search) {
     query = query.ilike("canonical_name", `%${filters.search}%`);
