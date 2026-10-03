@@ -97,7 +97,10 @@ export async function invokeEdgeFunction<T>(name: string, body: Record<string, u
     if (context && typeof context.json === "function") {
       try {
         const parsed = await context.clone().json();
+        // Our functions return { error }; Supabase's own gateway errors (e.g.
+        // a function that isn't deployed) return { code, message } instead.
         if (parsed?.error) detail = parsed.error;
+        else if (parsed?.message) detail = `${context.status} ${parsed.message}`;
       } catch {
         // body wasn't JSON (or already consumed) — fall back below
       }

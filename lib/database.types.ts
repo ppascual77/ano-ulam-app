@@ -44,8 +44,11 @@ export type Database = {
           last_verified_at: string | null
           match_type: string | null
           piece_label: string | null
+          price_last_attempted_at: string | null
           price_last_updated_at: string | null
           price_source: string
+          price_source_label: string | null
+          price_source_url: string | null
           protein: number | null
           role: string | null
           sodium: number | null
@@ -80,8 +83,11 @@ export type Database = {
           last_verified_at?: string | null
           match_type?: string | null
           piece_label?: string | null
+          price_last_attempted_at?: string | null
           price_last_updated_at?: string | null
           price_source?: string
+          price_source_label?: string | null
+          price_source_url?: string | null
           protein?: number | null
           role?: string | null
           sodium?: number | null
@@ -116,8 +122,11 @@ export type Database = {
           last_verified_at?: string | null
           match_type?: string | null
           piece_label?: string | null
+          price_last_attempted_at?: string | null
           price_last_updated_at?: string | null
           price_source?: string
+          price_source_label?: string | null
+          price_source_url?: string | null
           protein?: number | null
           role?: string | null
           sodium?: number | null
