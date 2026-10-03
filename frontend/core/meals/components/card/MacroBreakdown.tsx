@@ -5,13 +5,14 @@ type MacroStatProps = {
   value: string | number;
   label: string;
   valueClassName: string;
+  labelClassName: string;
 };
 
-function MacroStat({ value, label, valueClassName }: MacroStatProps) {
+function MacroStat({ value, label, valueClassName, labelClassName }: MacroStatProps) {
   return (
     <View className="flex-1 items-center justify-center">
-      <Text className={`font-inter-regular text-body ${valueClassName}`}>{value}</Text>
-      <Text className="font-inter-regular text-body text-ink-subtle">{label}</Text>
+      <Text className={valueClassName}>{value}</Text>
+      <Text className={labelClassName}>{label}</Text>
     </View>
   );
 }
@@ -27,10 +28,17 @@ type MacroBreakdownProps = {
 export function MacroBreakdown({ macros, isSectioned = true, variant = "light", showCalories = true }: MacroBreakdownProps) {
   const isDark = variant === "dark";
 
-  const valueClassName = isDark ? "text-white font-inter-semibold" : "text-ink font-inter-regular";
-  const proteinClassName = isDark ? valueClassName : "text-macro-protein font-inter-regular";
-  const carbsClassName = isDark ? valueClassName : "text-macro-carbs font-inter-regular";
-  const fatsClassName = isDark ? valueClassName : "text-macro-fats font-inter-regular";
+  // Dark is for text over a photo (Discover's reel): smaller, tracked-out
+  // white values over 60%-white labels.
+  const valueClassName = isDark
+    ? "font-inter-semibold text-small tracking-wide text-white"
+    : "font-inter-regular text-body text-ink";
+  const labelClassName = isDark
+    ? "font-inter-regular text-sub tracking-wide text-white/60"
+    : "font-inter-regular text-body text-ink-subtle";
+  const proteinClassName = isDark ? valueClassName : "font-inter-regular text-body text-macro-protein";
+  const carbsClassName = isDark ? valueClassName : "font-inter-regular text-body text-macro-carbs";
+  const fatsClassName = isDark ? valueClassName : "font-inter-regular text-body text-macro-fats";
 
   return (
     <View
@@ -38,13 +46,13 @@ export function MacroBreakdown({ macros, isSectioned = true, variant = "light", 
         isSectioned && !isDark ? "border border-ink-emphasis/10" : ""
       }`}
     >
-      {showCalories && <MacroStat value={macros.calories} label="kcal" valueClassName={valueClassName} />}
+      {showCalories && <MacroStat value={macros.calories} label="kcal" valueClassName={valueClassName} labelClassName={labelClassName} />}
       {isDark && <View className="w-px self-stretch bg-white/20" />}
-      <MacroStat value={`${macros.protein}g`} label="Protein" valueClassName={proteinClassName} />
+      <MacroStat value={`${macros.protein}g`} label="Protein" valueClassName={proteinClassName} labelClassName={labelClassName} />
       {isDark && <View className="w-px self-stretch bg-white/20" />}
-      <MacroStat value={`${macros.carbs}g`} label="Carbs" valueClassName={carbsClassName} />
+      <MacroStat value={`${macros.carbs}g`} label="Carbs" valueClassName={carbsClassName} labelClassName={labelClassName} />
       {isDark && <View className="w-px self-stretch bg-white/20" />}
-      <MacroStat value={`${macros.fats}g`} label="Fats" valueClassName={fatsClassName} />
+      <MacroStat value={`${macros.fats}g`} label="Fats" valueClassName={fatsClassName} labelClassName={labelClassName} />
     </View>
   );
 }

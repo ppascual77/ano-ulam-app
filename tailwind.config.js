@@ -13,6 +13,14 @@ module.exports = {
         // Real brand values (2026-08-19), not placeholders.
         primary: "#286046", // main CTA green
         accent: "#E36B17", // orange accent
+        // Web app (ano-ulam-reference) values, added 2026-10-03 for the
+        // Discover port so it matches the web exactly. Discover-scoped for
+        // now — elsewhere, reach for primary/accent/ink instead.
+        "brand-green": { DEFAULT: "#006D4D", dark: "#18402F" },
+        "brand-orange": "#F88927",
+        verified: "#1D9BF0", // verified-poster badge
+        "web-ink": { DEFAULT: "#1F2937", soft: "#374151", muted: "#9CA3AF" },
+        "web-divider": "#F3F4F6",
         ink: {
           subtle: "#666666", // subtle text
           DEFAULT: "#444444", // normal text
