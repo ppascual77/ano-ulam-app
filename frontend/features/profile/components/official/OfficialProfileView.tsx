@@ -14,7 +14,7 @@ import { ProfileScaffold } from "../ProfileScaffold";
 import { OFFICIAL_TABS, type ProfileTab } from "../ProfileTabBar";
 import { MealGrid } from "../MealGrid";
 import { MealGridSkeleton } from "../MealGridSkeleton";
-import { useMealDetail } from "../../hooks/useMealDetail";
+import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
 
 const OFFICIAL_EMAIL = "anoulamapp@gmail.com";
 const SHOWN_RECIPES = 8;

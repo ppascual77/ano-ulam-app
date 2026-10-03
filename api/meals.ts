@@ -184,6 +184,44 @@ export async function getMeals(filters: MealFilters = {}) {
   return data;
 }
 
+export type BrowseQuery = {
+  q?: string;
+  dietaryTags: string[];
+  tags: string[];
+  restaurants: string[];
+  priceRange: [number, number] | null;
+};
+
+// Older seeded meals use camelCase tags ("highProtein") while newer ones
+// and the filter values are snake_case ("high_protein"): match both.
+const toCamel = (tag: string) => tag.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+
+// The web filter sends "Mcdonald's" (sic) and matches exactly, so a
+// "McDonald's" row would never match. Send both spellings.
+function restaurantVariants(restaurants: string[]) {
+  return [...new Set(restaurants.flatMap((r) => (/^mcdonald's$/i.test(r) ? ["Mcdonald's", "McDonald's"] : [r])))];
+}
+
+// Browse search (the web's browseMealsByFilter, same rules as its server):
+// approved catalog only; `q` is a case-insensitive substring of the name OR
+// the restaurant; OR within a filter group, AND across groups; price is the
+// base price. Unordered: the caller shuffles or sorts.
+export async function browseMeals(query: BrowseQuery) {
+  let request = supabase.from("meals").select("*").eq("status", "approved").is("archived_at", null);
+
+  // Characters PostgREST's or() syntax treats as separators/wildcards.
+  const q = query.q?.trim().replace(/[,()*%\\]/g, " ").trim();
+  if (q) request = request.or(`name.ilike.%${q}%,restaurant.ilike.%${q}%`);
+  if (query.tags.length > 0) request = request.overlaps("tags", [...new Set(query.tags.flatMap((t) => [t, toCamel(t)]))]);
+  if (query.dietaryTags.length > 0) request = request.overlaps("dietary_tags", query.dietaryTags);
+  if (query.restaurants.length > 0) request = request.in("restaurant", restaurantVariants(query.restaurants));
+  if (query.priceRange) request = request.gte("price", query.priceRange[0]).lte("price", query.priceRange[1]);
+
+  const { data, error } = await request;
+  if (error) throw error;
+  return data;
+}
+
 export async function getMeal(id: string): Promise<MealWithIngredients> {
   const { data, error } = await supabase
     .from("meals")

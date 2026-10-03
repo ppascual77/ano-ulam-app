@@ -1,10 +1,13 @@
-import { TextInput, TextInputProps, View } from "react-native";
-import { Search } from "lucide-react-native";
+import { Pressable, TextInput, TextInputProps, View } from "react-native";
+import { CircleX, Search } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 
 type SearchBarProps = Omit<TextInputProps, "placeholder"> & {
   placeholder?: string;
   className?: string;
+  /** Shows a clear (x) button while there's text; it should empty the
+   *  value (same as deleting all the text). */
+  onClear?: () => void;
 };
 
 // Fixed h-14 matches Button's "circle" shape (w-14 h-14), so a SearchBar
@@ -13,6 +16,7 @@ type SearchBarProps = Omit<TextInputProps, "placeholder"> & {
 export function SearchBar({
   placeholder = "Search meals, ingredients, restaurants...",
   className = "",
+  onClear,
   ...props
 }: SearchBarProps) {
   return (
@@ -27,6 +31,11 @@ export function SearchBar({
         style={{ padding: 0 }}
         {...props}
       />
+      {onClear && !!props.value && (
+        <Pressable onPress={onClear} hitSlop={8} accessibilityLabel="Clear search">
+          <CircleX color={colors.ink.placeholder} size={16} />
+        </Pressable>
+      )}
     </View>
   );
 }
