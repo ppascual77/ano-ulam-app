@@ -151,12 +151,16 @@ export type PriceGroundingCandidate = {
   url: string;
 };
 
-export type PriceGroundingResult =
+// Actual OpenAI spend for one lookup, as reported by ground-ingredient-prices.
+export type PriceGroundingUsage = { searchCalls: number; inputTokens: number; outputTokens: number; costUsd: number };
+
+export type PriceGroundingResult = (
   | { id: string; confidence: "NONE"; reason: string }
   | { id: string; confidence: "ERROR"; error: string }
   // Up to 3 candidates, one per store, best first. `confidence` is the
   // best candidate's.
-  | { id: string; confidence: "HIGH" | "LOW"; candidates: PriceGroundingCandidate[] };
+  | { id: string; confidence: "HIGH" | "LOW"; candidates: PriceGroundingCandidate[] }
+) & { usage?: PriceGroundingUsage };
 
 // Mirrors ground-ingredient-prices's own MAX_PER_CALL — callers chunk to this.
 export const PRICE_GROUNDING_MAX_PER_CALL = 5;

@@ -45,13 +45,14 @@ const MAX_PLAUSIBLE_PRICE = 50000;
 // Official online stores of common PH supermarkets (domains confirmed
 // 2026-10-03). web_search is restricted to these, so a price can't come
 // from a marketplace seller, a delivery app's marked-up listing, a recipe
-// blog, or an old news article. Landers and S&R are membership warehouse
+// blog, or an old news article. Puregold was removed 2026-10-03: every
+// product page web_search returned for it 404'd (stale index), so it only
+// burned search budget and then got dropped by isDeadLink. Landers and S&R are membership warehouse
 // clubs, so the prompt still steers away from their bulk packs.
 // Pandamart/GrabMart (marked-up) and Shopee/Lazada (inconsistent sellers)
 // are left out on purpose.
 const ALLOWED_STORES: { name: string; domain: string }[] = [
   { name: "SM Markets (SM Supermarket / Hypermarket / Savemore)", domain: "smmarkets.ph" },
-  { name: "Puregold", domain: "puregold.com.ph" },
   { name: "GoRobinsons (Robinsons Supermarket / Shopwise / The Marketplace)", domain: "gorobinsons.ph" },
   { name: "WalterMart", domain: "waltermartdelivery.com.ph" },
   { name: "MetroMart", domain: "metromart.com" },
@@ -81,6 +82,7 @@ type PackUnit = "g" | "kg" | "ml" | "L" | "piece";
 // come from the SAME web-searching request, so this doesn't multiply cost
 // the way 3 separate lookups would.
 const MAX_SOURCES = 3;
+const MAX_SEARCHES_PER_LOOKUP = 2;
 
 type Listing = {
   store?: string;
@@ -108,12 +110,23 @@ type Candidate = {
   url: string;
 };
 
-type PriceResult =
+// What one lookup actually cost, from OpenAI's own response, so the admin
+// sees real spend instead of an estimate. costUsd uses gpt-5-mini list
+// prices (OpenAI pricing page, Oct 2026): $10 / 1k web_search calls,
+// $0.25 / 1M input tokens (search content is billed as input), $2 / 1M
+// output tokens (includes reasoning). Update these if MODEL changes.
+type Usage = { searchCalls: number; inputTokens: number; outputTokens: number; costUsd: number };
+const COST_PER_SEARCH_CALL = 10 / 1000;
+const COST_PER_INPUT_TOKEN = 0.25 / 1_000_000;
+const COST_PER_OUTPUT_TOKEN = 2 / 1_000_000;
+
+type PriceResult = (
   | { id: string; confidence: "NONE"; reason: string }
   | { id: string; confidence: "ERROR"; error: string }
   // `confidence` is the best candidate's, so the row-level tier still reads
   // the same as before; each candidate carries its own tier and reasons.
-  | { id: string; confidence: "HIGH" | "LOW"; candidates: Candidate[] };
+  | { id: string; confidence: "HIGH" | "LOW"; candidates: Candidate[] }
+) & { usage?: Usage };
 
 const INSTRUCTIONS = `You look up current retail prices of grocery ingredients in Philippine supermarkets. Always search the web.
 
@@ -156,11 +169,13 @@ function hostOf(raw: string): string | null {
 // Pulls the model's final text plus every URL web_search actually surfaced:
 // inline url_citation annotations and (via `include`) the full consulted
 // source list.
-function readResponse(data: any): { text: string; urls: string[] } {
+function readResponse(data: any): { text: string; urls: string[]; usage: Usage } {
   let text = "";
   const urls: string[] = [];
+  let searchCalls = 0;
   for (const item of data.output ?? []) {
     if (item.type === "web_search_call") {
+      searchCalls++;
       for (const source of item.action?.sources ?? []) {
         if (typeof source?.url === "string") urls.push(source.url);
       }
@@ -175,7 +190,11 @@ function readResponse(data: any): { text: string; urls: string[] } {
       }
     }
   }
-  return { text, urls };
+  const inputTokens = data.usage?.input_tokens ?? 0;
+  const outputTokens = data.usage?.output_tokens ?? 0;
+  const costUsd =
+    searchCalls * COST_PER_SEARCH_CALL + inputTokens * COST_PER_INPUT_TOKEN + outputTokens * COST_PER_OUTPUT_TOKEN;
+  return { text, urls, usage: { searchCalls, inputTokens, outputTokens, costUsd } };
 }
 
 function parseModelResponse(text: string): ModelResponse {
@@ -288,11 +307,15 @@ function sendOpenAIRequest(item: PriceInput, withDomainFilter: boolean) {
       // Reasoning models reject `temperature`; web_search doesn't work
       // with "minimal" effort, so "low" is the cheapest that does.
       reasoning: { effort: "low" },
+      // gpt-5 models tend to fire off many searches per request, each
+      // billed separately; this was the main cost driver (~8¢/ingredient).
+      // With allowed_domains, one search usually surfaces several stores.
+      max_tool_calls: MAX_SEARCHES_PER_LOOKUP,
     }),
   });
 }
 
-async function lookupListings(item: PriceInput): Promise<{ response: ModelResponse; urls: string[] }> {
+async function lookupListings(item: PriceInput): Promise<{ response: ModelResponse; urls: string[]; usage: Usage }> {
   let res = await requestOpenAI(item, domainFilterSupported);
 
   if (!res.ok && res.status === 400 && domainFilterSupported) {
@@ -308,9 +331,10 @@ async function lookupListings(item: PriceInput): Promise<{ response: ModelRespon
     throw new Error(`OpenAI request failed: ${res.status} ${body}`);
   }
 
-  const { text, urls } = readResponse(await res.json());
+  const { text, urls, usage } = readResponse(await res.json());
+  console.log(`[ground-ingredient-prices] ${item.canonicalName}: ${JSON.stringify(usage)}`);
   if (!text) throw new Error("OpenAI returned no text");
-  return { response: parseModelResponse(text), urls };
+  return { response: parseModelResponse(text), urls, usage };
 }
 
 // Checks one listing the same way a single result used to be checked:
@@ -376,7 +400,7 @@ function checkListing(
 }
 
 // Search indexes keep old snapshots: Puregold's product pages, for one,
-// all 404 now even though web_search still returns them (with a price that
+// all 404'd even though web_search still returned them (with a price that
 // may be stale). A source whose page is definitely gone is dropped. Only a
 // 404/410 counts: a timeout, TLS error, or 403 bot-block says nothing about
 // the page (gorobinsons.ph fails TLS from some clients but works in a
@@ -399,7 +423,7 @@ async function isDeadLink(url: string): Promise<boolean> {
 
 async function priceOne(item: PriceInput): Promise<PriceResult> {
   try {
-    const { response, urls } = await lookupListings(item);
+    const { response, urls, usage } = await lookupListings(item);
     const seenPages = new Set(urls.map(normalizeUrl).filter((u): u is string => !!u));
     const seenHosts = new Set(urls.map(hostOf).filter((h): h is string => !!h));
 
@@ -421,7 +445,7 @@ async function priceOne(item: PriceInput): Promise<PriceResult> {
     }
 
     // Link check runs on every passing source (in parallel) before the cap,
-    // so a dead Puregold page frees its slot for the next store.
+    // so a dead page frees its slot for the next store.
     const dead = await Promise.all(candidates.map((c) => isDeadLink(c.url)));
     const live: Candidate[] = [];
     candidates.forEach((c, i) => {
@@ -436,11 +460,12 @@ async function priceOne(item: PriceInput): Promise<PriceResult> {
         id: item.id,
         confidence: "NONE",
         reason: dropped[0] ?? response.note ?? "No supermarket listing found",
+        usage,
       };
     }
     // HIGH first, so the best source leads the list in the UI.
     candidates.sort((a, b) => (a.confidence === b.confidence ? 0 : a.confidence === "HIGH" ? -1 : 1));
-    return { id: item.id, confidence: candidates[0].confidence, candidates };
+    return { id: item.id, confidence: candidates[0].confidence, candidates, usage };
   } catch (err) {
     return { id: item.id, confidence: "ERROR", error: err instanceof Error ? err.message : String(err) };
   }
