@@ -150,7 +150,8 @@ export function PriceGroundingPanel() {
     <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 40 }}>
       <AppText variant="body" className="text-ink-subtle mb-2">
         {neverChecked.length} ingredient{neverChecked.length === 1 ? "" : "s"} never price-checked. Each check
-        searches PH supermarket listings (SM, Puregold, Robinsons, Landers, etc.) and is a paid web search, about
+        searches only these supermarkets' online stores: SM Markets, Puregold, GoRobinsons, WalterMart, MetroMart,
+        Landers, and S&R. It is a paid web search, about
         2–3¢ USD per ingredient. Nothing is saved until you confirm.
       </AppText>
 
