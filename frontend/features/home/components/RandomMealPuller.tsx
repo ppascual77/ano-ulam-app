@@ -43,13 +43,15 @@ const FADE_IN_DURATION_MS = 250;
 
 const REVEAL_DISTANCE = 90; // past this much extra pull, commit to a reveal
 
-// "Tug" hint: a beat after the tag drops in, it dips and springs back once,
+// "Tug" hint: a beat after the tag drops in, it dips and springs back twice,
 // as if tugged by an invisible hand, to show it's meant to be pulled (a tap
 // works too). Skipped if the user grabs it first.
 const TUG_HINT_DELAY_MS = 1100;
 const TUG_HINT_DEPTH = 22;
 const TUG_HINT_DOWN_MS = 160;
 const TUG_HINT_SPRING = { damping: 7, stiffness: 160, mass: 0.6 };
+// Pause between the first tug settling and the second.
+const TUG_HINT_GAP_MS = 1000;
 const REVEAL_VELOCITY = 800; // same magnitude as BottomSheet's DISMISS_VELOCITY
 
 const SPRING_BACK_DURATION_MS = 220; // mirrors BottomSheet's spring-back
@@ -272,8 +274,11 @@ export function RandomMealPuller() {
     swayAngle.value = withSpring(0, SWAY_SPRING);
     retractTimeoutRef.current = setTimeout(retract, IGNORE_TIMEOUT_MS);
     tugHintTimeoutRef.current = setTimeout(() => {
+      // Two tugs: dip, spring back, wait, dip again.
       cordLength.value = withSequence(
         withTiming(REST_LENGTH + TUG_HINT_DEPTH, { duration: TUG_HINT_DOWN_MS }),
+        withSpring(REST_LENGTH, TUG_HINT_SPRING),
+        withDelay(TUG_HINT_GAP_MS, withTiming(REST_LENGTH + TUG_HINT_DEPTH, { duration: TUG_HINT_DOWN_MS })),
         withSpring(REST_LENGTH, TUG_HINT_SPRING),
       );
     }, TUG_HINT_DELAY_MS);
