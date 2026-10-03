@@ -7,8 +7,9 @@ import { scheduleOnRN } from "react-native-worklets";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 
-// Zoom and spin share one timeline. A gentle in-out curve keeps the spin
-// readable: the card turns visibly while it grows, then settles face up.
+// Zoom and spin share one timeline: quick at first, then slowing down
+// before it settles face up (a gentle ease-out, not the steep cubic one
+// that spun out while the card was still tiny).
 const REVEAL_MS = 1600;
 const EXIT_MS = 220;
 // Starts face down (180°) and lands face up: END_DEG must be a multiple
@@ -19,7 +20,7 @@ const START_SCALE = 0.15;
 // Strong perspective so the turn reads as 3D, not a squash.
 const PERSPECTIVE = 800;
 // Card height as a share of the screen; width follows a card-like ratio.
-const HEIGHT_SHARE = 0.6;
+const HEIGHT_SHARE = 0.48;
 const ASPECT = 0.68;
 // Dark fade up from the bottom, so the white name and price read on any photo.
 const TEXT_SCRIM = ["rgba(0,0,0,0)", "rgba(0,0,0,0.45)", "rgba(0,0,0,0.85)"] as const;
@@ -42,7 +43,7 @@ type MealRevealCardProps = {
 export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overlay }: MealRevealCardProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const cardHeight = screenHeight * HEIGHT_SHARE;
-  const cardWidth = Math.min(screenWidth * 0.85, cardHeight * ASPECT);
+  const cardWidth = Math.min(screenWidth * 0.68, cardHeight * ASPECT);
 
   // Keep the last meal rendered while fading out.
   const [shown, setShown] = useState<MealType | null>(meal);
@@ -54,7 +55,7 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
       setShown(meal);
       progress.value = 0;
       fade.value = withTiming(1, { duration: 250 });
-      progress.value = withTiming(1, { duration: REVEAL_MS, easing: Easing.inOut(Easing.quad) }, (finished) => {
+      progress.value = withTiming(1, { duration: REVEAL_MS, easing: Easing.out(Easing.quad) }, (finished) => {
         if (finished && onLanded) scheduleOnRN(onLanded);
       });
     } else if (shown) {
