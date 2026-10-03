@@ -2,7 +2,15 @@ import { ReactNode, useEffect, useState } from "react";
 import { Modal, Pressable, Text, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  interpolate,
+  useAnimatedReaction,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 import { scheduleOnRN } from "react-native-worklets";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
@@ -96,6 +104,19 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
     const deg = interpolate(progress.value, [0, 1], [START_DEG, END_DEG]);
     return { opacity: Math.cos((deg * Math.PI) / 180) > 0 ? 0 : 1 };
   });
+  // A light haptic each time the front turns toward the viewer mid-spin
+  // (3 times over 2.5 turns). The spin slows down, so the ticks spread out
+  // like a wheel coming to rest.
+  const tick = () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  };
+  useAnimatedReaction(
+    () => Math.cos((interpolate(progress.value, [0, 1], [START_DEG, END_DEG]) * Math.PI) / 180) > 0,
+    (faceUp, wasFaceUp) => {
+      if (faceUp && wasFaceUp === false) scheduleOnRN(tick);
+    },
+  );
+
   const backdropStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
 
   if (!shown) return null;
