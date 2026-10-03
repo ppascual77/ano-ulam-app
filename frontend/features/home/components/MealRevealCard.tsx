@@ -11,9 +11,10 @@ import type { MealType } from "@/frontend/core/meals/mealTypes";
 // readable: the card turns visibly while it grows, then settles face up.
 const REVEAL_MS = 1600;
 const EXIT_MS = 220;
-// Starts face down (180°), 2 full turns, lands face up (900° = 180 + 720).
+// Starts face down (180°) and lands face up: END_DEG must be a multiple
+// of 360 (front facing). 1080 = 2.5 turns.
 const START_DEG = 180;
-const END_DEG = 900;
+const END_DEG = 1080;
 const START_SCALE = 0.15;
 // Strong perspective so the turn reads as 3D, not a squash.
 const PERSPECTIVE = 800;
