@@ -126,7 +126,7 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
                 minus the gap, but never sharper than 8. */}
             <View
               pointerEvents="none"
-              className="absolute border-2 border-white/80"
+              className="absolute border-2 border-white/70"
               style={{ top: BACK_FRAME_INSET, left: BACK_FRAME_INSET, right: BACK_FRAME_INSET, bottom: BACK_FRAME_INSET, borderRadius: Math.max(8, 24 - BACK_FRAME_INSET) }}
             />
             <Image
