@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Heart, MoreHorizontal, Pencil, Share2, Trash2 } from "lucide-react-native";
-import { Dropdown } from "@/frontend/components/ui";
+import { Confetti, Dropdown, useBurstOnActivate } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import type { FoodPost } from "../mock/posts";
 import { LinkPreviewCard } from "./LinkPreviewCard";
@@ -23,6 +23,8 @@ type FoodPostCardProps = {
 export function FoodPostCard({ post, currentUserId, onLike, onShare, onOpenPhoto, onEdit, onDelete }: FoodPostCardProps) {
   const liked = !!currentUserId && post.liked_by.includes(currentUserId);
   const likeCount = post.liked_by.length;
+  // Hearts burst when a like lands (not on unlike, not on first render).
+  const likeBurstId = useBurstOnActivate(liked);
 
   const menuItems = [
     ...(onEdit ? [{ label: "Edit", icon: <Pencil color={colors.webInk.soft} size={12} />, onPress: onEdit }] : []),
@@ -80,11 +82,16 @@ export function FoodPostCard({ post, currentUserId, onLike, onShare, onOpenPhoto
 
       <View className="mt-2.5 flex-row items-center gap-4 px-4">
         <Pressable onPress={onLike} hitSlop={8} className="flex-row items-center gap-1.5">
-          <Heart
-            color={liked ? colors.like : colors.webInk.muted}
-            fill={liked ? colors.like : "none"}
-            size={16}
-          />
+          <View>
+            {/* "up": this heart sits at the post's left edge, so the default
+                up-left fan would send most pieces off-screen. */}
+            <Confetti burstId={likeBurstId} icon={Heart} color={colors.like} direction="up" />
+            <Heart
+              color={liked ? colors.like : colors.webInk.muted}
+              fill={liked ? colors.like : "none"}
+              size={16}
+            />
+          </View>
           {likeCount > 0 && (
             <Text className={`font-inter-regular text-small ${liked ? "text-like" : "text-web-ink-muted"}`}>
               {likeCount}
