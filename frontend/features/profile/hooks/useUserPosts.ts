@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { deletePost, listUserPosts, togglePostLike, type FoodPost } from "@/frontend/core/posts/mock/posts";
+import { MOCK_ME_ID, deletePost, listUserPosts, togglePostLike, type FoodPost } from "@/frontend/core/posts/mock/posts";
 
 const PAGE_SIZE = 10;
 
-// One user's food posts (Profile > Created), 10 per page. `refreshKey`:
-// bump to reload from the top (after creating or editing a post).
-export function useMyPosts(userId: string, refreshKey = 0) {
+// One user's food posts (a profile's Created tab), 10 per page.
+// `refreshKey`: bump to reload from the top (after creating or editing a
+// post). Likes are made as `viewerId` (the signed-in user), not the author.
+export function useUserPosts(userId: string, { refreshKey = 0, viewerId = MOCK_ME_ID }: { refreshKey?: number; viewerId?: string } = {}) {
   const [posts, setPosts] = useState<FoodPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -47,9 +48,9 @@ export function useMyPosts(userId: string, refreshKey = 0) {
     const before = post.liked_by;
     const setLikedBy = (likedBy: string[]) =>
       setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, liked_by: likedBy } : p)));
-    setLikedBy(before.includes(userId) ? before.filter((id) => id !== userId) : [...before, userId]);
+    setLikedBy(before.includes(viewerId) ? before.filter((id) => id !== viewerId) : [...before, viewerId]);
     try {
-      setLikedBy(await togglePostLike(post.id, userId));
+      setLikedBy(await togglePostLike(post.id, viewerId));
     } catch {
       setLikedBy(before);
     }

@@ -78,6 +78,20 @@ export async function listMyRecipes(posterId: string | null): Promise<MealRow[]>
   return data;
 }
 
+// Another user's published recipes (their profile's Created tab): approved
+// only, newest first.
+export async function listApprovedRecipesByPoster(posterId: string): Promise<MealRow[]> {
+  const { data, error } = await supabase
+    .from("meals")
+    .select("*")
+    .eq("poster_id", posterId)
+    .eq("status", "approved")
+    .is("archived_at", null)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
 // Creates the pending meal, uploads its cover photo, adds the linked
 // ingredients, keeps the unmatched ones for review, then computes price
 // and macros. `posterId` is null only for dev-build test submissions made

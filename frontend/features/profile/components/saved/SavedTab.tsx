@@ -12,6 +12,8 @@ import { MealGrid } from "../MealGrid";
 import { MealGridSkeleton } from "../MealGridSkeleton";
 import { EmptyState } from "../EmptyState";
 import { CatalogStatusStrip, PosterChip } from "../CardOverlays";
+import { openProfile } from "@/frontend/core/users/openProfile";
+import { useMe } from "../../hooks/useProfile";
 import { UpdatedMealPrompt } from "./UpdatedMealPrompt";
 import { useLastDefined } from "../../hooks/useLastDefined";
 
@@ -26,6 +28,7 @@ type SavedTabProps = {
 export function SavedTab({ onToast }: SavedTabProps) {
   const { data: saved = [], isLoading } = useSavedMeals();
   const actions = useSavedMealActions();
+  const me = useMe();
 
   const [detail, setDetail] = useState<SavedMeal | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<SavedMeal | null>(null);
@@ -78,7 +81,7 @@ export function SavedTab({ onToast }: SavedTabProps) {
               isFastFood={entry.category === "fast_food"}
               onPress={() => openCard(entry)}
               onBookmarkPress={() => setConfirmRemove(entry)}
-              topLeft={entry.poster_id ? <PosterChip /> : undefined}
+              topLeft={entry.poster_id ? <PosterChip onPress={() => openProfile(entry.poster_id, me.id)} /> : undefined}
               imageFooter={<CatalogStatusStrip status={entry.catalog_status} />}
             />
           )}

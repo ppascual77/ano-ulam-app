@@ -9,12 +9,15 @@ import { PosterRow } from "./PosterRow";
 
 // Bottom-left text block over the active reel meal. The screen remounts it
 // (keyed by meal) on every index change, so it fades in on top of the
-// already-snapped photo: the core "reel" feel.
-export function MealDetailsOverlay({ meal }: { meal: MealType }) {
+// already-snapped photo: the core "reel" feel. Only the poster row takes
+// touches (opens the poster's profile); everything else passes them through
+// to the pager, so swiping over the text still changes meals.
+export function MealDetailsOverlay({ meal, onPressPoster }: { meal: MealType; onPressPoster: () => void }) {
   const isFastFood = meal.category === "fast_food" && !!meal.restaurant;
 
   return (
-    <Animated.View entering={FadeIn.duration(250)} className="gap-2">
+    <Animated.View entering={FadeIn.duration(250)} pointerEvents="box-none" className="gap-2">
+      <View pointerEvents="none" className="gap-2">
       <Text className="font-inter-bold text-heading leading-7 text-white">{meal.name}</Text>
 
       {isFastFood && (
@@ -53,7 +56,9 @@ export function MealDetailsOverlay({ meal }: { meal: MealType }) {
         macros={{ calories: meal.calories, protein: meal.protein, carbs: meal.carbs, fats: meal.fats }}
       />
 
-      <PosterRow posterId={meal.poster_id} />
+      </View>
+
+      <PosterRow posterId={meal.poster_id} onPress={onPressPoster} />
     </Animated.View>
   );
 }

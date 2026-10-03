@@ -9,29 +9,35 @@ import { colors } from "@/frontend/constants/theme";
 // and an AnoUlam post read the same.
 
 // Avatar + name (+ verified badge) row, with an optional trailing slot (the
-// own-post "..." menu). Not tappable yet: there are no profile screens.
+// own-post "..." menu). Tapping the author opens their profile when the
+// caller passes onPress.
 export function PostAuthor({
   name,
   avatarUrl,
   official = false,
   trailing,
+  onPress,
 }: {
   name: string;
   avatarUrl?: string | null;
   official?: boolean;
   trailing?: ReactNode;
+  /** Tapping the avatar or name (opens the author's profile). */
+  onPress?: () => void;
 }) {
   return (
     <View className="flex-row items-center gap-2.5 px-4 pt-4">
-      {official ? (
-        <RNImage source={require("@/assets/icon.png")} className="h-8 w-8 rounded-full border border-web-divider" />
-      ) : (
-        <Avatar name={name} imageUri={avatarUrl ?? undefined} size={32} />
-      )}
-      <View className="flex-1 flex-row items-center gap-1">
-        <Text className="font-inter-semibold text-body text-web-ink">{name}</Text>
-        {official && <BadgeCheck color={colors.white} fill={colors.verified} size={14} />}
-      </View>
+      <Pressable onPress={onPress} disabled={!onPress} className="flex-1 flex-row items-center gap-2.5">
+        {official ? (
+          <RNImage source={require("@/assets/icon.png")} className="h-8 w-8 rounded-full border border-web-divider" />
+        ) : (
+          <Avatar name={name} imageUri={avatarUrl ?? undefined} size={32} />
+        )}
+        <View className="flex-1 flex-row items-center gap-1">
+          <Text className="font-inter-semibold text-body text-web-ink">{name}</Text>
+          {official && <BadgeCheck color={colors.white} fill={colors.verified} size={14} />}
+        </View>
+      </Pressable>
       {trailing}
     </View>
   );

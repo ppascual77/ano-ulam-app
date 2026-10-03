@@ -36,14 +36,16 @@ type OfficialPostCardProps = {
   post: OfficialPost;
   onShare: () => void;
   onOpenPhoto: (image: number) => void;
+  /** Tapping "AnoUlam" (opens the official profile). */
+  onPressAuthor?: () => void;
 };
 
 // Same layout as FoodPostCard, authored by AnoUlam, with a guide link.
 // Share only, no like.
-export function OfficialPostCard({ post, onShare, onOpenPhoto }: OfficialPostCardProps) {
+export function OfficialPostCard({ post, onShare, onOpenPhoto, onPressAuthor }: OfficialPostCardProps) {
   return (
     <View className="border-b border-web-divider pb-3">
-      <PostAuthor name="AnoUlam" official />
+      <PostAuthor name="AnoUlam" official onPress={onPressAuthor} />
       <PostCaption text={post.caption} />
       <Pressable
         onPress={() => Linking.openURL(`${WEB_APP_URL}${post.guideRoute}`)}

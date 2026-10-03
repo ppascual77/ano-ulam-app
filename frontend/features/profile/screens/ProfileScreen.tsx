@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, LogOut, Settings, UserCog } from "lucide-react-native";
@@ -13,7 +13,9 @@ import { createPost, updatePost, type FoodPost, type PostInput } from "@/fronten
 import { useMe, useMyRecipes, useProfileExtras, useUpdateBio } from "../hooks/useProfile";
 import { ProfileHeader } from "../components/ProfileHeader";
 import { CommunityFeedLink } from "../components/CommunityFeedLink";
-import { ProfileTabBar, type ProfileTab } from "../components/ProfileTabBar";
+import { OWN_TABS, type ProfileTab } from "../components/ProfileTabBar";
+import { ProfileScaffold } from "../components/ProfileScaffold";
+import { OfficialProfileView } from "../components/official/OfficialProfileView";
 import { ProfileFooter } from "../components/ProfileFooter";
 import { GuestProfileView } from "../components/GuestProfileView";
 import { SavedTab } from "../components/saved/SavedTab";
@@ -24,28 +26,32 @@ import { PantryTab } from "../components/pantry/PantryTab";
 
 // TEMP (dev only): show the signed-in profile without a session, since
 // Google sign-in can't complete in Expo Go on a device. The DEV chip in
-// the top bar flips to the guest view. Remove once sign-in is reliable.
+// the top bar cycles signed in -> official account -> guest (a mock auth
+// switch, like the spec's). Remove once sign-in is reliable.
 const DEV_FORCE_SIGNED_IN = __DEV__;
+type DevAccount = "user" | "official" | "guest";
+const NEXT_DEV_ACCOUNT: Record<DevAccount, DevAccount> = { user: "official", official: "guest", guest: "user" };
+const DEV_ACCOUNT_LABEL: Record<DevAccount, string> = { user: "signed in", official: "official", guest: "guest" };
 
-// How close to the bottom (px) the Created tab starts loading more posts.
-const LOAD_MORE_DISTANCE = 400;
 const LOG_OUT_DELAY_MS = 2000;
 
 const TAB_PARAMS: ProfileTab[] = ["saved", "recipes", "grocery", "pantry"];
 
 // Own profile: header, Community Feed link, then sticky Saved / Created /
 // Grocery / Pantry tabs. Deep link: /profile?tab=recipes|grocery|pantry.
+// The official AnoUlam account gets the official profile instead (no
+// users.is_official yet: only reachable through the DEV switch).
 export default function ProfileScreen() {
   const params = useLocalSearchParams<{ tab?: string }>();
   const queryClient = useQueryClient();
-  const { height: windowHeight } = useWindowDimensions();
   const { isSignedIn } = useAuth();
   const signIn = useSignInWithGoogle();
   const signOut = useSignOut();
   const me = useMe();
 
-  const [devGuest, setDevGuest] = useState(false);
-  const isGuest = devGuest || (!isSignedIn && !DEV_FORCE_SIGNED_IN);
+  const [devAccount, setDevAccount] = useState<DevAccount>("user");
+  const isGuest = devAccount === "guest" || (!isSignedIn && !DEV_FORCE_SIGNED_IN);
+  const isOfficial = !isGuest && devAccount === "official";
 
   const [tab, setTab] = useState<ProfileTab>(
     TAB_PARAMS.includes(params.tab as ProfileTab) ? (params.tab as ProfileTab) : "saved",
@@ -60,22 +66,8 @@ export default function ProfileScreen() {
   const [toast, setToast] = useState<ToastState | null>(null);
   const showToast = (message: string, tone: ToastState["tone"] = "error") => setToast({ id: Date.now(), message, tone });
 
-  // ---- sticky tab bar + infinite posts -----------------------------------
-
-  const [tabBarY, setTabBarY] = useState(0);
-  const [stuck, setStuck] = useState(false);
+  // Bumped near the bottom of the Created tab: load more posts.
   const [loadMoreSignal, setLoadMoreSignal] = useState(0);
-  const nearEnd = useRef(false);
-
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    const nextStuck = tabBarY > 0 && contentOffset.y >= tabBarY;
-    if (nextStuck !== stuck) setStuck(nextStuck);
-    // Signal once per arrival near the bottom, not on every scroll event.
-    const isNearEnd = contentSize.height - (contentOffset.y + layoutMeasurement.height) < LOAD_MORE_DISTANCE;
-    if (isNearEnd && !nearEnd.current && tab === "recipes") setLoadMoreSignal((n) => n + 1);
-    nearEnd.current = isNearEnd;
-  };
 
   // Back from Add a Recipe (or anywhere): the recipe list may have changed.
   useFocusEffect(
@@ -162,8 +154,8 @@ export default function ProfileScreen() {
         </Pressable>
         <View className="flex-row items-center gap-3">
           {__DEV__ && (
-            <Pressable onPress={() => setDevGuest((prev) => !prev)} className="rounded-full bg-web-ink/80 px-2 py-1">
-              <Text className="font-inter-semibold text-sub text-white">DEV {devGuest ? "guest" : "signed in"}</Text>
+            <Pressable onPress={() => setDevAccount((prev) => NEXT_DEV_ACCOUNT[prev])} className="rounded-full bg-web-ink/80 px-2 py-1">
+              <Text className="font-inter-semibold text-sub text-white">DEV {DEV_ACCOUNT_LABEL[devAccount]}</Text>
             </Pressable>
           )}
           {!isGuest && (
@@ -195,66 +187,53 @@ export default function ProfileScreen() {
           />
           <ProfileFooter />
         </ScrollView>
+      ) : isOfficial ? (
+        <OfficialProfileView onToast={showToast} />
       ) : (
-        <ScrollView
-          stickyHeaderIndices={[1]}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          showsVerticalScrollIndicator={false}
-        >
-          <View className="pb-4">
-            <ProfileHeader
-              name={me.name}
-              avatarUrl={me.avatarUrl}
-              bio={extras.data?.bio ?? null}
-              onSaveBio={async (bio) => {
-                try {
-                  await updateBio.mutateAsync(bio);
-                } catch {
-                  showToast("Couldn't save your bio. Please try again.");
-                }
-              }}
-            />
-            <CommunityFeedLink
-              onPress={() =>
-                router.navigate({ pathname: "/discover", params: { tab: "community", at: String(Date.now()) } })
-              }
-            />
-          </View>
-
-          <View onLayout={(e) => setTabBarY(e.nativeEvent.layout.y)}>
-            <ProfileTabBar
-              active={tab}
-              onChange={changeTab}
-              stuck={stuck}
-              name={me.name}
-              onCreate={() => openCreate(true)}
-            />
-          </View>
-
-          {/* At least a screen tall, so switching to a short tab doesn't
-              yank the scroll position. */}
-          <View className="px-5 pt-4" style={{ minHeight: windowHeight * 0.6 }}>
-            {tab === "saved" && <SavedTab onToast={showToast} />}
-            {tab === "recipes" && (
-              <CreatedTab
-                posterId={me.id}
-                canCreate={!atRecipeLimit}
-                onCreate={() => openCreate(false)}
-                onEditPost={(post) => setComposer({ open: true, editPost: post })}
-                postsRefreshKey={postsRefreshKey}
-                loadMoreSignal={loadMoreSignal}
-                onToast={showToast}
+        <ProfileScaffold
+          header={
+            <>
+              <ProfileHeader
+                name={me.name}
+                avatarUrl={me.avatarUrl}
+                bio={extras.data?.bio ?? null}
+                onSaveBio={async (bio) => {
+                  try {
+                    await updateBio.mutateAsync(bio);
+                  } catch {
+                    showToast("Couldn't save your bio. Please try again.");
+                  }
+                }}
               />
-            )}
-            {tab === "grocery" && <GroceryTab userId={me.id} />}
-            {tab === "pantry" && <PantryTab />}
-          </View>
-
-          <ProfileFooter />
-        </ScrollView>
+              <CommunityFeedLink
+                onPress={() =>
+                  router.navigate({ pathname: "/discover", params: { tab: "community", at: String(Date.now()) } })
+                }
+              />
+            </>
+          }
+          tabs={OWN_TABS}
+          activeTab={tab}
+          onTabChange={changeTab}
+          miniName={me.name}
+          onCreate={() => openCreate(true)}
+          onNearEnd={() => tab === "recipes" && setLoadMoreSignal((n) => n + 1)}
+        >
+          {tab === "saved" && <SavedTab onToast={showToast} />}
+          {tab === "recipes" && (
+            <CreatedTab
+              posterId={me.id}
+              canCreate={!atRecipeLimit}
+              onCreate={() => openCreate(false)}
+              onEditPost={(post) => setComposer({ open: true, editPost: post })}
+              postsRefreshKey={postsRefreshKey}
+              loadMoreSignal={loadMoreSignal}
+              onToast={showToast}
+            />
+          )}
+          {tab === "grocery" && <GroceryTab userId={me.id} />}
+          {tab === "pantry" && <PantryTab />}
+        </ProfileScaffold>
       )}
 
       <CreateSheet

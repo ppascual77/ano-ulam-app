@@ -8,6 +8,7 @@ import { FoodPostCard } from "@/frontend/core/posts/components/FoodPostCard";
 import { OFFICIAL_POSTS, OfficialPostCard, WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
 import { ImageLightbox } from "@/frontend/core/posts/components/ImageLightbox";
 import { PostSkeleton } from "@/frontend/core/posts/components/PostSkeleton";
+import { openProfile } from "@/frontend/core/users/openProfile";
 
 type CommunityFeedProps = {
   isGuest: boolean;
@@ -96,6 +97,7 @@ export function CommunityFeed({
               onOpenPhoto={(uri) => setLightbox({ uri })}
               onEdit={isOwn ? () => onEditPost(post) : undefined}
               onDelete={isOwn ? () => setConfirmPost(post) : undefined}
+              onPressAuthor={() => openProfile(post.is_official ? null : post.user_id, currentUserId)}
             />
           );
         }}
@@ -118,6 +120,7 @@ export function CommunityFeed({
                   post={post}
                   onShare={() => share(post.guideRoute)}
                   onOpenPhoto={(image) => setLightbox(image)}
+                  onPressAuthor={() => openProfile(null, currentUserId)}
                 />
               ))}
             </View>

@@ -42,6 +42,10 @@ type MealCardProps = {
   onSaveError?: (message: string) => void;
   /** Hide the like/bookmark stack (e.g. a recipe still under review). */
   hideActions?: boolean;
+  /** Hide just one of the two (official profile: bookmark only; someone
+   *  else's saved list: like only). */
+  hideLike?: boolean;
+  hideBookmark?: boolean;
   /** Overlays on the photo: a badge top-left (recipe status), a control
    *  top-right (owner menu), and a strip along the bottom edge (saved
    *  meal's catalog status). */
@@ -65,6 +69,8 @@ export function MealCard({
   onBookmarkPress,
   onSaveError,
   hideActions = false,
+  hideLike = false,
+  hideBookmark = false,
   topLeft,
   topRight,
   imageFooter,
@@ -151,7 +157,7 @@ export function MealCard({
           <MealInfoPill meal={meal} iconOnly={isGrid} />
 
           {!hideActions && <View className="mr-1 items-center gap-1.5">
-            {meal.id && (
+            {meal.id && !hideLike && (
               <Pressable onPress={toggleLike} className="items-center gap-0.5">
                 <View>
                   <Confetti burstId={likeBurstId} icon={Heart} color={colors.like} />
@@ -179,7 +185,7 @@ export function MealCard({
               </Pressable>
             )}
 
-            <View>
+            {!hideBookmark && <View>
               <Confetti burstId={saveBurstId} icon={Bookmark} color={colors.primary} />
               <Pressable
                 onPress={toggleSave}
@@ -195,7 +201,7 @@ export function MealCard({
                   fill={isSaved ? colors.white : "none"}
                 />
               </Pressable>
-            </View>
+            </View>}
           </View>}
         </View>
       </View>

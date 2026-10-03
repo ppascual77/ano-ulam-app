@@ -8,21 +8,23 @@ type EmptyStateProps = {
   title: string;
   body: string;
   action?: { label: string; Icon: LucideIcon; onPress: () => void };
+  /** The sparkle badge on the icon (owner states). Off for visitor states. */
+  badge?: boolean;
 };
 
-// Centered empty tab: icon tile with a sparkle badge in the icon's color,
-// title, body and one call to action.
-export function EmptyState({ Icon, iconColor, title, body, action }: EmptyStateProps) {
+// Centered empty tab: icon tile (with a sparkle badge in the icon's color
+// for owner states), title, body and an optional call to action.
+export function EmptyState({ Icon, iconColor, title, body, action, badge = true }: EmptyStateProps) {
   return (
     <View className="items-center gap-5 px-6 py-16">
       <View className="h-20 w-20 items-center justify-center">
         <Icon color={iconColor} size={32} strokeWidth={1.5} />
-        <View
+        {badge && <View
           className="absolute -right-1 -top-1 h-6 w-6 items-center justify-center rounded-full"
           style={{ backgroundColor: iconColor }}
         >
           <Sparkles color={colors.white} size={12} />
-        </View>
+        </View>}
       </View>
       <View className="items-center">
         <Text className="font-inter-bold text-subheading text-web-ink">{title}</Text>
