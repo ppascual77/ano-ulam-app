@@ -1,4 +1,5 @@
 import { Image, Linking, Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
 
 const SOCIALS = [
@@ -16,8 +17,11 @@ const LINKS = [
 
 // Socials, legal links and copyright at the bottom of Profile.
 export function ProfileFooter() {
+  // Profile screens skip the bottom safe area (content scrolls under the
+  // home indicator), so the footer adds it below its own padding.
+  const insets = useSafeAreaInsets();
   return (
-    <View className="mt-5 items-center gap-2 bg-web-divider/50 px-4 pb-10 pt-6">
+    <View className="mt-5 items-center gap-2 bg-web-divider/50 px-4 pt-6" style={{ paddingBottom: insets.bottom + 40 }}>
       <View className="flex-row gap-5 opacity-50">
         {SOCIALS.map(({ label, icon, url }) => (
           <Pressable key={label} accessibilityLabel={label} onPress={() => Linking.openURL(url)} hitSlop={8}>

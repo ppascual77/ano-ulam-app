@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Linking, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
 import Constants from "expo-constants";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Bell, ChevronRight, Eye, Info, LogOut, SlidersHorizontal, Trash2, UserRound } from "lucide-react-native";
 import { ChipSelect, ConfirmSheet, Screen, Spinner, Toast, type ToastState } from "@/frontend/components/ui";
@@ -35,6 +36,7 @@ const SCROLL_TO_SECTION_DELAY_MS = 300;
 export default function SettingsScreen() {
   const params = useLocalSearchParams<{ section?: string }>();
   const { height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { isSignedIn } = useAuth();
   const signOut = useSignOut();
   const deleteAccount = useDeleteAccount();
@@ -110,7 +112,8 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
-        <View className="mt-2 gap-4 px-5 pb-10">
+        {/* Bottom padding clears the home indicator (top-only safe area). */}
+        <View className="mt-2 gap-4 px-5" style={{ paddingBottom: insets.bottom + 40 }}>
           <SettingsSection Icon={Eye} title="Privacy">
             <SettingsToggle
               label="Show saved meals on your profile"
