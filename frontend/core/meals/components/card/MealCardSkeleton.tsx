@@ -19,9 +19,12 @@ type MealCardSkeletonProps = {
    *  site that also customizes MealCard's width, so skeleton and real card
    *  line up exactly. */
   width?: number;
+  /** "grid" matches MealCard's grid layout: 3 macro cells (calories sit on
+   *  the photo there instead). */
+  layout?: "carousel" | "grid";
 };
 
-export function MealCardSkeleton({ width = CARD_WIDTH }: MealCardSkeletonProps) {
+export function MealCardSkeleton({ width = CARD_WIDTH, layout = "carousel" }: MealCardSkeletonProps) {
   // One shared opacity driving the whole card, not each bone independently
   // — same "single pulsing container" behavior as a CSS animate-pulse class.
   const pulse = useSharedValue(0.6);
@@ -47,7 +50,7 @@ export function MealCardSkeleton({ width = CARD_WIDTH }: MealCardSkeletonProps) 
           <Bone className="mt-1.5 h-3 w-1/3" />
 
           <View className="mt-3 flex-row justify-between gap-2 rounded-md border border-ink-emphasis/10 p-2">
-            {Array.from({ length: 4 }).map((_, i) => (
+            {Array.from({ length: layout === "grid" ? 3 : 4 }).map((_, i) => (
               <View key={i} className="flex-1 items-center gap-1">
                 <Bone className="h-3.5 w-7" />
                 <Bone className="h-3 w-9" />

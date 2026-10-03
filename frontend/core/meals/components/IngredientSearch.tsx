@@ -69,16 +69,20 @@ type IngredientSearchProps = {
   onAddFreeText?: (name: string) => void;
   placeholder?: string;
   initialQuery?: string;
+  /** Ingredients already picked (e.g. in the pantry): listed but not
+   *  pickable, tagged "Added". */
+  disabledIds?: Set<string>;
 };
 
 // Search box over the canonical ingredients table, matching as you type
 // (see searchIngredients). Used by Add a Recipe's ingredient step and by
-// Review Recipes when linking a flagged ingredient.
+// Review Recipes when linking a flagged ingredient, and by the PantrySheet.
 export function IngredientSearch({
   onPick,
   onAddFreeText,
   placeholder = "Search ingredients (e.g. chicken, garlic)",
   initialQuery = "",
+  disabledIds,
 }: IngredientSearchProps) {
   const [query, setQuery] = useState(initialQuery);
   const { data: allIngredients, isLoading } = useQuery({
@@ -114,19 +118,27 @@ export function IngredientSearch({
 
       {query.trim().length > 0 && (
         <View className="mt-2 overflow-hidden rounded-xl border border-ink-emphasis/10">
-          {results.map((ingredient) => (
-            <Pressable
-              key={ingredient.id}
-              onPress={() => pick(ingredient)}
-              className="flex-row items-center gap-2 border-b border-ink-emphasis/5 px-3 py-3 active:bg-ink-emphasis/5"
-            >
-              <Plus color={colors.primary} size={14} />
-              <AppText variant="body" className="flex-1" numberOfLines={1}>
-                {ingredient.canonical_name}
-              </AppText>
-              <IngredientRoleTag ingredient={ingredient} />
-            </Pressable>
-          ))}
+          {results.map((ingredient) => {
+            const added = disabledIds?.has(ingredient.id) ?? false;
+            return (
+              <Pressable
+                key={ingredient.id}
+                onPress={() => pick(ingredient)}
+                disabled={added}
+                className={`flex-row items-center gap-2 border-b border-ink-emphasis/5 px-3 py-3 active:bg-ink-emphasis/5 ${added ? "opacity-40" : ""}`}
+              >
+                <Plus color={colors.primary} size={14} />
+                <AppText variant="body" className="flex-1" numberOfLines={1}>
+                  {ingredient.canonical_name}
+                </AppText>
+                {added ? (
+                  <AppText variant="caption">Added</AppText>
+                ) : (
+                  <IngredientRoleTag ingredient={ingredient} />
+                )}
+              </Pressable>
+            );
+          })}
           {results.length === 0 && !onAddFreeText && (
             <AppText variant="caption" className="px-3 py-3">
               No matches.

@@ -43,7 +43,7 @@ export function ProfileHeader({ name, avatarUrl, bio, onSaveBio }: ProfileHeader
 
   return (
     <View className="flex-row items-center gap-4 px-5 pt-5">
-      <Avatar name={name} imageUri={avatarUrl ?? undefined} size={80} />
+      <Avatar name={name} imageUri={avatarUrl ?? undefined} size={64} />
       <View className="flex-1">
         <Text numberOfLines={1} className="font-inter-bold text-subheading text-web-ink">
           {name}

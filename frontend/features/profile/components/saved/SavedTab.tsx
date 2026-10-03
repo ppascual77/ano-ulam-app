@@ -2,29 +2,28 @@ import { useRef, useState } from "react";
 import { Text, View } from "react-native";
 import { router } from "expo-router";
 import { Bookmark, Utensils } from "lucide-react-native";
-import { ConfirmSheet, Spinner } from "@/frontend/components/ui";
+import { ConfirmSheet } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useSavedMealActions, useSavedMeals } from "@/frontend/core/saved/hooks/useSavedMeals";
 import type { SavedMeal } from "@/frontend/core/saved/types";
-import type { SavedMealPlan } from "../../mock/api";
 import { MealGrid } from "../MealGrid";
+import { MealGridSkeleton } from "../MealGridSkeleton";
 import { EmptyState } from "../EmptyState";
 import { CatalogStatusStrip, PosterChip } from "../CardOverlays";
-import { MealPlanBanner } from "./MealPlanBanner";
 import { UpdatedMealPrompt } from "./UpdatedMealPrompt";
 import { useLastDefined } from "../../hooks/useLastDefined";
 
 type SavedTabProps = {
-  plan: SavedMealPlan | null;
   onToast: (message: string, tone: "success" | "error") => void;
 };
 
-// Owner's saved meals: optional meal-plan banner, then a 2-column grid.
+// Owner's saved meals in a 2-column grid. (The meal-plan banner,
+// MealPlanBanner, is hidden for now.)
 // Unsaving asks first ("Remove this meal?"); a meal the creator has since
 // edited asks to sync before opening.
-export function SavedTab({ plan, onToast }: SavedTabProps) {
+export function SavedTab({ onToast }: SavedTabProps) {
   const { data: saved = [], isLoading } = useSavedMeals();
   const actions = useSavedMealActions();
 
@@ -57,12 +56,8 @@ export function SavedTab({ plan, onToast }: SavedTabProps) {
 
   return (
     <View>
-      {plan && <MealPlanBanner plan={plan} onPress={() => router.navigate("/meal-planner")} />}
-
       {isLoading ? (
-        <View className="items-center py-16">
-          <Spinner size={24} color={colors.brandGreen.DEFAULT} trackColor={colors.webDivider} />
-        </View>
+        <MealGridSkeleton />
       ) : saved.length === 0 ? (
         <EmptyState
           Icon={Bookmark}

@@ -2,8 +2,8 @@ import { useCallback, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, LogOut, UserCog } from "lucide-react-native";
-import { Avatar, Dropdown, Screen, Spinner, Toast, type ToastState } from "@/frontend/components/ui";
+import { ArrowLeft, LogOut, Settings, UserCog } from "lucide-react-native";
+import { Dropdown, Screen, Spinner, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { RECIPE_LIMIT } from "@/api/recipes";
 import { useAuth, useSignInWithGoogle, useSignOut } from "@/frontend/features/auth/hooks/useAuth";
@@ -19,6 +19,8 @@ import { GuestProfileView } from "../components/GuestProfileView";
 import { SavedTab } from "../components/saved/SavedTab";
 import { CreatedTab } from "../components/created/CreatedTab";
 import { RecipeLimitSheet } from "../components/created/RecipeLimitSheet";
+import { GroceryTab } from "../components/grocery/GroceryTab";
+import { PantryTab } from "../components/pantry/PantryTab";
 
 // TEMP (dev only): show the signed-in profile without a session, since
 // Google sign-in can't complete in Expo Go on a device. The DEV chip in
@@ -32,8 +34,7 @@ const LOG_OUT_DELAY_MS = 2000;
 const TAB_PARAMS: ProfileTab[] = ["saved", "recipes", "grocery", "pantry"];
 
 // Own profile: header, Community Feed link, then sticky Saved / Created /
-// Grocery / Pantry tabs. Phase 1 builds Saved and Created; Grocery and
-// Pantry are placeholders. Deep link: /profile?tab=recipes|grocery|pantry.
+// Grocery / Pantry tabs. Deep link: /profile?tab=recipes|grocery|pantry.
 export default function ProfileScreen() {
   const params = useLocalSearchParams<{ tab?: string }>();
   const queryClient = useQueryClient();
@@ -167,7 +168,11 @@ export default function ProfileScreen() {
           )}
           {!isGuest && (
             <Dropdown
-              trigger={<Avatar name={me.name} imageUri={me.avatarUrl ?? undefined} size={32} />}
+              trigger={
+                <View accessibilityLabel="Account menu" className="h-9 w-9 items-center justify-center">
+                  <Settings color={colors.webInk.DEFAULT} size={20} />
+                </View>
+              }
               items={[
                 {
                   label: "Profile Settings",
@@ -232,7 +237,7 @@ export default function ProfileScreen() {
           {/* At least a screen tall, so switching to a short tab doesn't
               yank the scroll position. */}
           <View className="px-5 pt-4" style={{ minHeight: windowHeight * 0.6 }}>
-            {tab === "saved" && <SavedTab plan={extras.data?.savedMealPlan ?? null} onToast={showToast} />}
+            {tab === "saved" && <SavedTab onToast={showToast} />}
             {tab === "recipes" && (
               <CreatedTab
                 posterId={me.id}
@@ -244,11 +249,8 @@ export default function ProfileScreen() {
                 onToast={showToast}
               />
             )}
-            {(tab === "grocery" || tab === "pantry") && (
-              <View className="items-center py-16">
-                <Text className="font-inter-semibold text-body text-web-ink-muted">Coming next</Text>
-              </View>
-            )}
+            {tab === "grocery" && <GroceryTab userId={me.id} />}
+            {tab === "pantry" && <PantryTab />}
           </View>
 
           <ProfileFooter />
