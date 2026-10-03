@@ -23,7 +23,7 @@ const PERSPECTIVE = 800;
 const HEIGHT_SHARE = 0.48;
 const ASPECT = 0.68;
 // Gap between the card edge and the white frame on the back.
-const BACK_FRAME_INSET = 5;
+const BACK_FRAME_INSET = 20;
 // Dark fade up from the bottom, so the white name and price read on any photo.
 const TEXT_SCRIM = ["rgba(0,0,0,0)", "rgba(0,0,0,0.45)", "rgba(0,0,0,0.85)"] as const;
 
@@ -121,12 +121,13 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
             style={[face, backStyle]}
             className="absolute items-center justify-center rounded-3xl bg-primary"
           >
-            {/* Inset white outline, like a playing card's frame: 5px in from
-                the edge, corners following the card's (24 - 5). */}
+            {/* Inset white outline, like a playing card's frame, in from the
+                edge by BACK_FRAME_INSET. Corners follow the card's radius
+                minus the gap, but never sharper than 8. */}
             <View
               pointerEvents="none"
               className="absolute border-2 border-white"
-              style={{ top: BACK_FRAME_INSET, left: BACK_FRAME_INSET, right: BACK_FRAME_INSET, bottom: BACK_FRAME_INSET, borderRadius: 24 - BACK_FRAME_INSET }}
+              style={{ top: BACK_FRAME_INSET, left: BACK_FRAME_INSET, right: BACK_FRAME_INSET, bottom: BACK_FRAME_INSET, borderRadius: Math.max(8, 24 - BACK_FRAME_INSET) }}
             />
             <Image
               source={require("@/assets/icons/logo_white.png")}
