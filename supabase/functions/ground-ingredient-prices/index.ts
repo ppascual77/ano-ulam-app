@@ -24,10 +24,18 @@ const OPENAI_URL = "https://api.openai.com/v1/responses";
 // A reasoning model: gpt-4.1-mini supports web_search but rejected the
 // `filters` (allowed_domains) parameter with a 400.
 const MODEL = "gpt-5-mini";
-// Each lookup is one web-searching request (~10-20s). Capped per call so a
-// chunk finishes well inside the edge function's wall-clock limit.
-const MAX_PER_CALL = 10;
-const CONCURRENCY = 5;
+// Each lookup is one web-searching request (~10-30s with a reasoning
+// model). Kept small so a call (plus rate-limit retries) finishes well
+// inside the edge function's wall-clock limit. CONCURRENCY was 5, which
+// with the client running chunks in parallel hit gpt-5-mini's per-minute
+// rate limit; the client now runs chunks one at a time.
+const MAX_PER_CALL = 5;
+const CONCURRENCY = 3;
+// 429 retries: OpenAI's message usually says "try again in 1.2s"; when it
+// doesn't, back off 2s → 4s → 8s. Each wait capped so retries can't eat
+// the whole wall-clock budget.
+const MAX_RATE_LIMIT_RETRIES = 3;
+const MAX_RETRY_WAIT_MS = 20000;
 // Outside this ₱/kg-or-L range a result is almost certainly a misread
 // listing or a unit mixup, not a real price.
 const MIN_PLAUSIBLE_PRICE = 5;
@@ -223,7 +231,26 @@ function normalizeToPriceUnit(
 // instead of the whole run erroring.
 let domainFilterSupported = true;
 
-function requestOpenAI(item: PriceInput, withDomainFilter: boolean) {
+function retryDelayMs(body: string, attempt: number): number {
+  const match = body.match(/try again in (\d+(?:\.\d+)?)\s*(ms|s)\b/i);
+  const hinted = match ? Number(match[1]) * (match[2].toLowerCase() === "s" ? 1000 : 1) : null;
+  // Small buffer + jitter so parallel lookups don't all retry in lockstep.
+  const base = hinted != null ? hinted + 250 : 2000 * 2 ** attempt;
+  return Math.min(base + Math.random() * 500, MAX_RETRY_WAIT_MS);
+}
+
+async function requestOpenAI(item: PriceInput, withDomainFilter: boolean): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await sendOpenAIRequest(item, withDomainFilter);
+    if (res.status !== 429 || attempt >= MAX_RATE_LIMIT_RETRIES) return res;
+    const body = await res.clone().text();
+    // Out of credits is also a 429, but waiting won't fix it.
+    if (/insufficient_quota/i.test(body)) return res;
+    await new Promise((resolve) => setTimeout(resolve, retryDelayMs(body, attempt)));
+  }
+}
+
+function sendOpenAIRequest(item: PriceInput, withDomainFilter: boolean) {
   return fetch(OPENAI_URL, {
     method: "POST",
     headers: {
