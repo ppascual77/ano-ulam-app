@@ -6,6 +6,8 @@ export type DropdownItem = {
   label: string;
   icon?: ReactNode;
   onPress: () => void;
+  /** Red label for a destructive action (e.g. Delete). */
+  destructive?: boolean;
 };
 
 type DropdownProps = {
@@ -80,7 +82,9 @@ export function Dropdown({ trigger, items, headerLabel, headerIcon, matchTrigger
                   className="flex-row items-center gap-3 px-4 py-3 active:bg-ink-emphasis/5"
                 >
                   {item.icon}
-                  <AppText variant="body">{item.label}</AppText>
+                  <AppText variant="body" className={item.destructive ? "text-like" : ""}>
+                    {item.label}
+                  </AppText>
                 </Pressable>
               ))}
             </ScrollView>
