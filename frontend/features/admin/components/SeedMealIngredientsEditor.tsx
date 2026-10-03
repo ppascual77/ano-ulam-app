@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { View, Text, Pressable, ActivityIndicator } from "react-native";
-import { Trash2, Check, ChevronDown, Info } from "lucide-react-native";
-import { AppText, Button, Dropdown, NoticeBanner, TextField } from "@/frontend/components/ui";
+import { Trash2, Check, Info } from "lucide-react-native";
+import { AppText, Button, Dropdown, NoticeBanner, TextField, SelectField } from "@/frontend/components/ui";
 import type { DropdownItem } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import {
@@ -92,32 +92,6 @@ export function resolvePendingIngredient(
           displayText: item.displayText.trim() || `${item.quantityAmount} ${item.quantityUnit}`,
         }
       : item,
-  );
-}
-
-// Mirrors TextField's floating-label layout (small label above the value,
-// both inside the same bordered box) so a select reads as the same kind of
-// field, not a different control — just statically in the "filled" state
-// since a select always has a current value, no empty/focus transition to
-// animate between.
-function SelectField({ label, valueLabel, loading }: { label: string; valueLabel: string; loading?: boolean }) {
-  return (
-    <View
-      className="flex-row items-center justify-between px-4"
-      style={{ borderRadius: 16, borderWidth: 1, height: 55, borderColor: "rgba(43, 52, 55, 0.1)" }}
-    >
-      <View className="flex-1 justify-center" style={{ height: 44 }}>
-        <Text className="font-inter-medium text-caption text-ink-subtle">{label}</Text>
-        <Text
-          numberOfLines={1}
-          ellipsizeMode="tail"
-          className="font-inter-semibold text-subheading text-ink-emphasis"
-        >
-          {valueLabel}
-        </Text>
-      </View>
-      {loading ? <ActivityIndicator size="small" color={colors.primary} /> : <ChevronDown color={colors.ink.subtle} size={16} />}
-    </View>
   );
 }
 

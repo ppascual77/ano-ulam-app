@@ -3,7 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, Text, View, type ViewToken } fr
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { setStatusBarStyle } from "expo-status-bar";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronUp } from "lucide-react-native";
@@ -178,8 +178,7 @@ export default function DiscoverScreen() {
     const choice = createChoice.current;
     createChoice.current = null;
     if (choice === "post") setComposer({ open: true, editPost: null });
-    // The recipe submission flow is a separate feature, not built yet.
-    if (choice === "recipe") showToast("Recipe submission is coming soon.", "success");
+    if (choice === "recipe") router.push("/add-recipe");
   };
 
   const submitPost = async (input: PostInput) => {

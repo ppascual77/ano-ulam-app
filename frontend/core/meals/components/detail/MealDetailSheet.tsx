@@ -33,6 +33,8 @@ type MealDetailSheetProps = {
   /** Controlled like for the meal opened (see MealDetailContent's `like`).
    *  Applies to `meal` only, not related meals browsed to from inside. */
   like?: { liked: boolean; count: number; onToggle: () => void };
+  /** Admin review actions (see MealDetailContent's `review`). */
+  review?: { onApprove: () => void; onReject: () => void; busy?: boolean };
 };
 
 export function MealDetailSheet({
@@ -44,6 +46,7 @@ export function MealDetailSheet({
   onDelete,
   overlay,
   like,
+  review,
 }: MealDetailSheetProps) {
   // Keep the last meal rendered while the sheet animates closed, so the
   // content doesn't flash empty before it's off-screen.
@@ -126,6 +129,7 @@ export function MealDetailSheet({
           onDelete={onDelete}
           onSelectIngredient={setSelectedIngredient}
           like={meal && renderedMeal?.id === meal.id ? like : undefined}
+          review={review}
         />
       )}
     </BottomSheet>

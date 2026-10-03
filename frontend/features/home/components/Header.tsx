@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { Lock, Users, Utensils, Carrot, Sprout, User } from "lucide-react-native";
+import { Lock, Users, Utensils, Carrot, Sprout, User, ClipboardCheck } from "lucide-react-native";
 import { AppText, Avatar, Dropdown } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 
@@ -66,6 +66,11 @@ export function Header({ name, avatarUrl }: HeaderProps) {
               label: "Seed Meal",
               icon: <Sprout color={colors.ink.subtle} size={18} />,
               onPress: () => router.push("/seed-meal"),
+            },
+            {
+              label: "Review Recipes",
+              icon: <ClipboardCheck color={colors.ink.subtle} size={18} />,
+              onPress: () => router.push("/review-recipes"),
             },
             {
               label: "Visit Profile",

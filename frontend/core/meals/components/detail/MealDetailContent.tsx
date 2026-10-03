@@ -160,7 +160,23 @@ type MealDetailContentProps = {
    *  instead of the sheet's own local state, so a caller that tracks likes
    *  (Discover's reel) stays in sync both ways. Omitted everywhere else. */
   like?: { liked: boolean; count: number; onToggle: () => void };
+  /** Embedded preview (Add a Recipe's Preview step): no own ScrollView
+   *  (it sits inside the form's), no Save footer, no related meals. The
+   *  rest (servings, tappable ingredients) works as normal. */
+  preview?: boolean;
+  /** Admin review of a user-submitted recipe (Review Recipes): the footer
+   *  shows Reject / Approve instead of Save, and consumer-only parts are
+   *  hidden, same as the other admin actions. */
+  review?: { onApprove: () => void; onReject: () => void; busy?: boolean };
 };
+
+function ScrollBody({ children }: { children: ReactNode }) {
+  return <ScrollView showsVerticalScrollIndicator={false}>{children}</ScrollView>;
+}
+
+function PlainBody({ children }: { children: ReactNode }) {
+  return <View>{children}</View>;
+}
 
 // The scrollable body rendered inside a BottomSheet (see MealDetailSheet).
 // No backend yet — like/save are local UI state; servings scaling is pure
@@ -178,7 +194,13 @@ export function MealDetailContent({
   onDelete,
   onSelectIngredient,
   like,
+  preview = false,
+  review,
 }: MealDetailContentProps) {
+  // Any admin context (manage or review): no consumer-only Save / related
+  // meals / Published chip.
+  const isAdmin = !!(onEdit || onArchive || onDelete || review);
+  const Body = preview ? PlainBody : ScrollBody;
   const [isLiked, setIsLiked] = useState(meal.liked_by_me ?? false);
   const [likeCount, setLikeCount] = useState(meal.like_count ?? 0);
   const [servings, setServings] = useState(meal.serving_size ?? 1);
@@ -208,9 +230,9 @@ export function MealDetailContent({
       entering={
         direction === "forward" ? SlideInLeft.duration(250) : direction === "back" ? SlideInRight.duration(250) : undefined
       }
-      className="flex-1"
+      className={preview ? "" : "flex-1"}
     >
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <Body>
         <View className="relative">
           <Image
             source={resolveMealImage(meal)}
@@ -235,7 +257,7 @@ export function MealDetailContent({
               below, overlapping it whenever a meal was already published
               (the normal case for anything reaching Manage Meals), which is
               what made Edit intermittently untappable. */}
-          {meal.status === "approved" && !onEdit && !onArchive && !onDelete && (
+          {meal.status === "approved" && !isAdmin && (
             <View className="absolute right-4 top-4">
               <Chips
                 label="Published"
@@ -483,53 +505,65 @@ export function MealDetailContent({
               meaningless in admin context, and tapping one would swap the
               sheet to fake data while Edit/Archive/Delete stay bound to the
               real meal being managed, a confusing mismatch. */}
-          {!onEdit && !onArchive && !onDelete && (
+          {!isAdmin && !preview && (
             <View className="mb-6">
               <RelatedMeals meal={meal} onSelectMeal={onSelectMeal} />
             </View>
           )}
         </View>
-      </ScrollView>
+      </Body>
 
-      <View className="border-t border-ink-emphasis/10 px-5 py-4 gap-2">
-        {onArchive && (
-          <Button
-            label="Archive meal"
-            variant="outline"
-            icon={<Archive color={colors.primary} size={16} />}
-            onPress={onArchive}
-          />
-        )}
-        {onDelete && (
-          <Pressable
-            onPress={onDelete}
-            className="flex-row items-center justify-center gap-2 rounded-xl border border-like py-3.5"
-          >
-            <Trash2 color={colors.like} size={16} />
-            <AppText variant="title" className="text-like">
-              Delete meal
-            </AppText>
-          </Pressable>
-        )}
-        {/* Consumer-only action — admin context has Edit/Archive/Delete
-            instead, and there's no consumer "saved list" concept of this
-            meal from the admin's own account. */}
-        {!onEdit && !onArchive && !onDelete && (
-          <Button
-            label={isSaved ? "Unsave" : "Save Meal"}
-            variant={isSaved ? "primary" : "outline"}
-            icon={
-              <Bookmark
-                color={isSaved ? colors.white : colors.primary}
-                size={16}
-                fill={isSaved ? colors.white : "none"}
-              />
-            }
-            iconPosition="right"
-            onPress={onSave}
-          />
-        )}
-      </View>
+      {!preview && (
+        <View className="border-t border-ink-emphasis/10 px-5 py-4 gap-2">
+          {onArchive && (
+            <Button
+              label="Archive meal"
+              variant="outline"
+              icon={<Archive color={colors.primary} size={16} />}
+              onPress={onArchive}
+            />
+          )}
+          {onDelete && (
+            <Pressable
+              onPress={onDelete}
+              className="flex-row items-center justify-center gap-2 rounded-xl border border-like py-3.5"
+            >
+              <Trash2 color={colors.like} size={16} />
+              <AppText variant="title" className="text-like">
+                Delete meal
+              </AppText>
+            </Pressable>
+          )}
+          {/* Consumer-only action — admin context has Edit/Archive/Delete
+              instead, and there's no consumer "saved list" concept of this
+              meal from the admin's own account. */}
+          {review && (
+            <View className="flex-row gap-3">
+              <View className="flex-1">
+                <Button label="Reject" variant="outline" onPress={review.onReject} disabled={review.busy} />
+              </View>
+              <View className="flex-1">
+                <Button label={review.busy ? "Approving..." : "Approve"} onPress={review.onApprove} disabled={review.busy} />
+              </View>
+            </View>
+          )}
+          {!isAdmin && (
+            <Button
+              label={isSaved ? "Unsave" : "Save Meal"}
+              variant={isSaved ? "primary" : "outline"}
+              icon={
+                <Bookmark
+                  color={isSaved ? colors.white : colors.primary}
+                  size={16}
+                  fill={isSaved ? colors.white : "none"}
+                />
+              }
+              iconPosition="right"
+              onPress={onSave}
+            />
+          )}
+        </View>
+      )}
     </Animated.View>
   );
 }

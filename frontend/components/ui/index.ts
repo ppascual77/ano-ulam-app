@@ -21,3 +21,5 @@ export type { DropdownItem } from "./Dropdown";
 export { Toast } from "./Toast";
 export type { ToastState } from "./Toast";
 export { Confetti, useBurstOnActivate } from "./Confetti";
+export { SelectField } from "./SelectField";
+export { useFieldErrorAnimation } from "./TextField";
