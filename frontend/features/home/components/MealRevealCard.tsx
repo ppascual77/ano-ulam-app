@@ -121,7 +121,7 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
           >
             <Image
               source={require("@/assets/icons/logo_white.png")}
-              style={{ width: cardWidth * 0.4, height: cardWidth * 0.4 * (374 / 255) }}
+              style={{ width: cardWidth * 0.32, height: cardWidth * 0.32 * (374 / 255) }}
               contentFit="contain"
             />
           </Animated.View>
