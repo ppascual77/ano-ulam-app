@@ -177,3 +177,64 @@ export async function togglePostLike(postId: string, userId: string): Promise<st
     : [...post.liked_by, userId];
   return [...post.liked_by];
 }
+
+export type PostInput = {
+  caption: string;
+  image_uri?: string | null;
+  link_url?: string | null;
+  gif_url?: string | null;
+  sticker_url?: string | null;
+};
+
+// No link-preview fetching in the mock: the preview just shows the link's
+// hostname as its title.
+function linkFields(url: string | null | undefined) {
+  if (!url) return { link_url: null, link_title: null, link_description: null, link_image: null };
+  let title = url;
+  try {
+    title = new URL(url.startsWith("http") ? url : `https://${url}`).hostname.replace(/^www\./, "");
+  } catch {
+    // keep the raw url as the title
+  }
+  return { link_url: url, link_title: title, link_description: null, link_image: null };
+}
+
+// New post by the signed-in user, newest first in the feed. The photo stays
+// a local file uri (no upload in the mock).
+export async function createPost(
+  input: PostInput,
+  author: { display_name: string; avatar_url: string | null },
+): Promise<FoodPost> {
+  await delay(600);
+  const post: FoodPost = {
+    id: `p-${Date.now()}`,
+    user_id: MOCK_ME_ID,
+    display_name: author.display_name,
+    avatar_url: author.avatar_url,
+    caption: input.caption.trim() || null,
+    image_url: input.image_uri ?? null,
+    liked_by: [],
+    created_at: new Date().toISOString(),
+    ...linkFields(input.link_url),
+    gif_url: input.gif_url ?? null,
+    sticker_url: input.sticker_url ?? null,
+  };
+  posts = [post, ...posts];
+  return post;
+}
+
+export async function updatePost(id: string, input: PostInput): Promise<FoodPost> {
+  await delay(600);
+  const existing = posts.find((p) => p.id === id);
+  if (!existing) throw new Error("Post not found");
+  const updated: FoodPost = {
+    ...existing,
+    caption: input.caption.trim() || null,
+    image_url: input.image_uri ?? null,
+    ...linkFields(input.link_url),
+    gif_url: input.gif_url ?? null,
+    sticker_url: input.sticker_url ?? null,
+  };
+  posts = posts.map((p) => (p.id === id ? updated : p));
+  return updated;
+}

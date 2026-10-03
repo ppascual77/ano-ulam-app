@@ -6,7 +6,17 @@ const PAGE_SIZE = 5;
 // Community tab state: posts paged in by 5 (load more near the end),
 // optimistic like and delete. Only runs while `enabled` (signed in and on
 // the Community tab) — guests see the join prompt instead of the feed.
-export function useCommunityFeed({ enabled, userId }: { enabled: boolean; userId: string | null }) {
+// `refreshKey`: bump to reload from the top (e.g. after creating or editing
+// a post, so it shows up first).
+export function useCommunityFeed({
+  enabled,
+  userId,
+  refreshKey = 0,
+}: {
+  enabled: boolean;
+  userId: string | null;
+  refreshKey?: number;
+}) {
   const [posts, setPosts] = useState<FoodPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -27,7 +37,7 @@ export function useCommunityFeed({ enabled, userId }: { enabled: boolean; userId
 
   useEffect(() => {
     if (enabled) void refresh();
-  }, [enabled, refresh]);
+  }, [enabled, refresh, refreshKey]);
 
   const loadMore = useCallback(async () => {
     if (fetching.current || !hasMore || loading) return;

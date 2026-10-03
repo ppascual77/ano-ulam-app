@@ -37,6 +37,8 @@ type LoginGateSheetProps = {
    *  from inside MealDetailSheet): pass it through that sheet's `overlay`,
    *  since two native Modals don't stack reliably. */
   presentation?: "modal" | "inline";
+  /** Fires once the close animation finishes (see BottomSheet's onClosed). */
+  onClosed?: () => void;
 };
 
 // Shown when a guest tries a logged-in action. Uses the app's real Google
@@ -47,11 +49,19 @@ export function LoginGateSheet({
   onContinueWithGoogle,
   isSigningIn,
   presentation = "modal",
+  onClosed,
 }: LoginGateSheetProps) {
   const copy = COPY[reason ?? "save"];
 
   return (
-    <BottomSheet visible={!!reason} onClose={onClose} heightPercent={0.7} presentation={presentation} fitContent>
+    <BottomSheet
+      visible={!!reason}
+      onClose={onClose}
+      onClosed={onClosed}
+      heightPercent={0.7}
+      presentation={presentation}
+      fitContent
+    >
       <View className="px-10 pb-10 pt-12">
         <Text className="font-inter-bold text-heading text-web-ink">
           {copy.title}
