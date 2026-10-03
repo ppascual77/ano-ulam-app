@@ -39,7 +39,8 @@ type MealRevealCardProps = {
 
 // "Surprise me" reveal: a small face-down card (green back, white logo)
 // zooms in while flipping and lands face up showing the picked meal: its
-// photo with the name and price over a dark fade. Tap it for details.
+// photo with the name, price and a "See the recipe" button over a dark
+// fade. Tap anywhere on it for details.
 export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overlay }: MealRevealCardProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const cardHeight = screenHeight * HEIGHT_SHARE;
@@ -142,6 +143,10 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
                   ₱{shown.price}
                   {shown.buffer_price ? ` – ₱${shown.buffer_price}` : ""}
                 </Text>
+                {/* Looks like a button; the whole card is the tap target. */}
+                <View className="mt-2 self-start rounded-full border border-white px-4 py-1.5">
+                  <Text className="font-inter-semibold text-small text-white">See the recipe</Text>
+                </View>
               </View>
             </Pressable>
           </Animated.View>
