@@ -59,10 +59,30 @@ Supabase project config don't get tangled with UI code.
   `supabase.from(...)`, importing the client from `@/lib/supabase` and types from
   `@/lib/database.types` — no React or TanStack Query here. Consumed by the `hooks/` in
   `frontend/core/<domain>/` or `frontend/features/<name>/`. Created per-domain as backend work
-  reaches it, not pre-scaffolded.
+  reaches it, not pre-scaffolded. Despite the name, this runs **on the device**: it's the
+  counterpart of the web app's `ano-ulam-reference/frontend/src/api/*Service.ts`, not of the
+  web's `api/` server.
 - `supabase/` — Supabase CLI project config: `migrations/*.sql` (versioned schema changes,
   CLI-managed, not dashboard-only), `seed.sql` (dev seed data), `functions/` (Edge Functions,
-  e.g. price-watch's data ingestion job).
+  see below).
+- `supabase/functions/`: the actual **server side**: small HTTP endpoints Supabase hosts
+  (Deno), the counterpart of the web app's `ai/` service and the parts of its Hono `api/` that
+  needed secrets. Use one **only** when the code needs a secret key (OpenAI, USDA) or long-running
+  work; everything else is a plain `api/<domain>.ts` function hitting `supabase.from(...)`
+  directly. Screens/hooks never call an edge function themselves: they go through an `api/*.ts`
+  function that calls `invokeEdgeFunction` from `lib/supabase.ts`. Edge functions deploy
+  separately from the app (`supabase functions deploy <name>`, or the dashboard's editor) and
+  need a redeploy whenever their code changes. Migrations are a separate step (SQL).
+
+  | Web app (`ano-ulam-reference`)        | This repo                 | Runs where |
+  | ------------------------------------- | ------------------------- | ---------- |
+  | `frontend/src/api/*Service.ts`        | `api/*.ts`                | Device     |
+  | `api/` Hono server (DB access)        | none, app queries Supabase directly | n/a |
+  | `ai/` service (holds OpenAI key)      | `supabase/functions/*`    | Server     |
+
+  With no server in front of the database, **RLS is the security boundary**. The current
+  `TEMP: anyone can update ingredients` policies are fine for the solo-admin phase but must be
+  tightened before public release.
 - `lib/` — infrastructure shared by both `api/` and `frontend/`: `supabase.ts` (the
   `createClient<Database>(...)` instance), `database.types.ts` (generated wholesale by
   `supabase gen types typescript`, regenerated on every schema change), `queryClient.ts` (shared
