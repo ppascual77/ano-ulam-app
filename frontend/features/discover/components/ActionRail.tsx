@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Bookmark, Heart, Link } from "lucide-react-native";
-import { Confetti, useBurstOnActivate } from "@/frontend/components/ui";
+import { Confetti, Spinner, useBurstOnActivate } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 
 // 44px circle used for every rail button: translucent "glass" by default,
@@ -31,7 +31,8 @@ function RailButton({
         active ? activeClassName : "border-white/20 bg-white/15"
       } ${busy ? "opacity-60" : ""}`}
     >
-      {busy ? <ActivityIndicator size="small" color={colors.white} /> : children}
+      {/* Web app's small button spinner (w-4 h-4, border-white/40). */}
+      {busy ? <Spinner size={16} trackColor="rgba(255,255,255,0.4)" /> : children}
     </Pressable>
   );
 }

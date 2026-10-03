@@ -28,7 +28,7 @@ function TabButton({ href, label, icon: Icon }: Tab) {
 
   return (
     <Pressable
-      onPress={() => router.push(href)}
+      onPress={() => router.navigate(href)}
       className="flex-1 items-center justify-center gap-1"
     >
       <Icon color={color} size={24} strokeWidth={2} />
@@ -44,7 +44,7 @@ function TabButton({ href, label, icon: Icon }: Tab) {
 function DiscoverTabButton() {
   return (
     <Pressable
-      onPress={() => router.push("/discover")}
+      onPress={() => router.navigate("/discover")}
       className="flex-1 items-center justify-center gap-1"
     >
       <View className="-mt-8 h-16 w-16 items-center justify-center rounded-full bg-primary shadow-sm">
