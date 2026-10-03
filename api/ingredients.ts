@@ -188,13 +188,10 @@ export function averagePrice(candidates: PriceGroundingCandidate[]): number {
   return Math.round((sum / candidates.length) * 100) / 100;
 }
 
-function formatPack(c: PriceGroundingCandidate) {
-  return `₱${c.packPrice} / ${c.packSize}${c.packUnit === "piece" ? " pc" : c.packUnit}`;
-}
-
-// Writes the average of the admin-selected sources. Every source is kept
-// in price_sources (see migration 20261003010000_ingredients_price_sources.sql);
-// price_source_url/label stay as the first source's link plus a summary.
+// Writes the average of the admin-selected sources. Every source, with its
+// link, is kept in price_sources (see migration
+// 20261003010000_ingredients_price_sources.sql), the only place price links
+// live; customer-facing source display should read from there.
 export function applyPriceMatch(candidates: PriceGroundingCandidate[]): Partial<IngredientRow> {
   if (candidates.length === 0) throw new Error("applyPriceMatch needs at least one source");
   const first = candidates[0];
@@ -202,11 +199,6 @@ export function applyPriceMatch(candidates: PriceGroundingCandidate[]): Partial<
     estimated_price: averagePrice(candidates),
     estimated_price_unit: first.unit,
     price_source: "supermarket",
-    price_source_url: first.url,
-    price_source_label:
-      candidates.length === 1
-        ? `${first.store} · ${first.productTitle} · ${formatPack(first)}`
-        : `Average of ${candidates.length}: ${candidates.map((c) => `${c.store} ₱${Math.round(c.pricePerUnit)}/${c.unit}`).join(" · ")}`,
     price_sources: candidates.map(({ store, productTitle, packPrice, packSize, packUnit, url, pricePerUnit, unit }) => ({
       store,
       productTitle,

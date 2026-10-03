@@ -47,9 +47,7 @@ export type Database = {
           price_last_attempted_at: string | null
           price_last_updated_at: string | null
           price_source: string
-          price_source_label: string | null
           price_sources: Json | null
-          price_source_url: string | null
           protein: number | null
           role: string | null
           sodium: number | null
@@ -87,9 +85,7 @@ export type Database = {
           price_last_attempted_at?: string | null
           price_last_updated_at?: string | null
           price_source?: string
-          price_source_label?: string | null
           price_sources?: Json | null
-          price_source_url?: string | null
           protein?: number | null
           role?: string | null
           sodium?: number | null
@@ -127,9 +123,7 @@ export type Database = {
           price_last_attempted_at?: string | null
           price_last_updated_at?: string | null
           price_source?: string
-          price_source_label?: string | null
           price_sources?: Json | null
-          price_source_url?: string | null
           protein?: number | null
           role?: string | null
           sodium?: number | null
