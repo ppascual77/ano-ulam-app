@@ -12,7 +12,7 @@ import { WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
 import { MOCK_ME_ID } from "@/frontend/core/posts/mock/posts";
 import { useApprovedRecipes } from "../../hooks/useProfile";
 import { useUserPosts } from "../../hooks/useUserPosts";
-import { useMealDetail } from "../../hooks/useMealDetail";
+import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
 import { MealGrid } from "../MealGrid";
 import { MealGridSkeleton } from "../MealGridSkeleton";
 import { EmptyState } from "../EmptyState";

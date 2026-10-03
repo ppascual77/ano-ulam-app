@@ -21,7 +21,7 @@ import { ActionRail } from "../components/ActionRail";
 import { MealDetailsOverlay } from "../components/MealDetailsOverlay";
 import { ViewRecipeButton } from "../components/ViewRecipeButton";
 import { GuestEndCard } from "../components/GuestEndCard";
-import { LoginGateSheet, type LoginGateReason } from "../components/LoginGateSheet";
+import { LoginGateSheet, type LoginGateReason } from "@/frontend/features/auth/components/LoginGateSheet";
 import { CommunityFeed } from "../components/CommunityFeed";
 import { CreateButton } from "../components/CreateButton";
 import { CreateSheet, type CreateChoice } from "@/frontend/core/posts/components/CreateSheet";

@@ -40,6 +40,11 @@ type MealCardProps = {
   onBookmarkPress?: () => void;
   /** Toast hook for a failed save (e.g. the 15-meal limit). */
   onSaveError?: (message: string) => void;
+  /** After a save/unsave succeeds (e.g. a "{name} saved" toast). */
+  onSaveChange?: (saved: boolean) => void;
+  /** Controlled like state, so a caller that tracks likes (Browse, kept in
+   *  sync with Meal Details) owns it. Omitted = the card's own local like. */
+  like?: { liked: boolean; count: number; onToggle: () => void };
   /** Hide the like/bookmark stack (e.g. a recipe still under review). */
   hideActions?: boolean;
   /** Hide just one of the two (official profile: bookmark only; someone
@@ -68,6 +73,8 @@ export function MealCard({
   onViewDetails,
   onBookmarkPress,
   onSaveError,
+  onSaveChange,
+  like,
   hideActions = false,
   hideLike = false,
   hideBookmark = false,
@@ -82,19 +89,24 @@ export function MealCard({
   const [isLiked, setIsLiked] = useState(meal.liked_by_me ?? false);
   const [likeCount, setLikeCount] = useState(meal.like_count ?? 0);
   // Confetti when a like/save lands (not on unlike/unsave, not on mount).
-  const likeBurstId = useBurstOnActivate(isLiked);
+  const liked = like ? like.liked : isLiked;
+  const shownLikeCount = like ? like.count : likeCount;
+  const likeBurstId = useBurstOnActivate(liked);
   const saveBurstId = useBurstOnActivate(isSaved);
 
   // No like backend yet: likes are local-only UI state, not persisted.
   const toggleLike = () => {
+    if (like) return like.onToggle();
     setIsLiked((prev) => !prev);
     setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
   };
 
   const toggleSave = async () => {
     if (onBookmarkPress) return onBookmarkPress();
+    const wasSaved = isSaved;
     const error = await saved.toggle(meal);
     if (error) onSaveError?.(error);
+    else onSaveChange?.(!wasSaved);
   };
 
   return (
@@ -163,7 +175,7 @@ export function MealCard({
                   <Confetti burstId={likeBurstId} icon={Heart} color={colors.like} />
                   <View
                     className={`h-9 w-9 items-center justify-center rounded-full border ${
-                      isLiked
+                      liked
                         ? "border-like bg-like"
                         : "border-white/20 bg-white/15"
                     }`}
@@ -171,16 +183,16 @@ export function MealCard({
                     <Heart
                       color={colors.white}
                       size={16}
-                      fill={isLiked ? colors.white : "none"}
+                      fill={liked ? colors.white : "none"}
                     />
                   </View>
                 </View>
                 <Text
                   className={`text-[10px] font-semibold leading-none text-white ${
-                    likeCount > 0 ? "opacity-100" : "opacity-0"
+                    shownLikeCount > 0 ? "opacity-100" : "opacity-0"
                   }`}
                 >
-                  {likeCount}
+                  {shownLikeCount}
                 </Text>
               </Pressable>
             )}
