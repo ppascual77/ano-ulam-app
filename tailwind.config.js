@@ -25,6 +25,9 @@ module.exports = {
           subtle: "#666666", // subtle text
           DEFAULT: "#444444", // normal text
           emphasis: "#2B3437", // text needing emphasis
+          // Input placeholders: clearly lighter than typed text (ink.emphasis)
+          // so an empty field never reads as filled. Added 2026-10-03.
+          placeholder: "#9CA3AF",
         },
         avatar: {
           // Generated-avatar fallback palette only (see components/ui/Avatar.tsx).

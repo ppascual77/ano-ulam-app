@@ -22,7 +22,7 @@ export function SearchBar({
       <Search color={colors.ink.subtle} size={18} />
       <TextInput
         placeholder={placeholder}
-        placeholderTextColor={colors.ink.subtle}
+        placeholderTextColor={colors.ink.placeholder}
         className="flex-1 font-inter-regular text-body text-ink-emphasis"
         style={{ padding: 0 }}
         {...props}

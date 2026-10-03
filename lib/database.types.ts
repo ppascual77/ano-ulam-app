@@ -213,18 +213,22 @@ export type Database = {
           image_url: string | null
           ingredients_synced_at: string | null
           name: string
+          poster_id: string | null
           prep_time: number | null
           price: number | null
           procedure: string[]
           protein: number | null
           protein_type: string | null
           reference_image_url: string | null
+          rejection_reason: string | null
           restaurant: string | null
           serving_size: number
           source: string | null
           source_type: string | null
+          status: string
           tags: string[]
           total_time: number | null
+          unlinked_ingredients: Json
           updated_at: string
         }
         Insert: {
@@ -244,18 +248,22 @@ export type Database = {
           image_url?: string | null
           ingredients_synced_at?: string | null
           name: string
+          poster_id?: string | null
           prep_time?: number | null
           price?: number | null
           procedure?: string[]
           protein?: number | null
           protein_type?: string | null
           reference_image_url?: string | null
+          rejection_reason?: string | null
           restaurant?: string | null
           serving_size?: number
           source?: string | null
           source_type?: string | null
+          status?: string
           tags?: string[]
           total_time?: number | null
+          unlinked_ingredients?: Json
           updated_at?: string
         }
         Update: {
@@ -275,21 +283,33 @@ export type Database = {
           image_url?: string | null
           ingredients_synced_at?: string | null
           name?: string
+          poster_id?: string | null
           prep_time?: number | null
           price?: number | null
           procedure?: string[]
           protein?: number | null
           protein_type?: string | null
           reference_image_url?: string | null
+          rejection_reason?: string | null
           restaurant?: string | null
           serving_size?: number
           source?: string | null
           source_type?: string | null
+          status?: string
           tags?: string[]
           total_time?: number | null
+          unlinked_ingredients?: Json
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "meals_poster_id_fkey"
+            columns: ["poster_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       users: {
         Row: {

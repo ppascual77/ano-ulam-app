@@ -21,13 +21,20 @@ type DropdownProps = {
    *  dropdown) so the menu aligns with its container instead of sizing to
    *  its (possibly much wider) label text and running off-screen. */
   matchTriggerWidth?: boolean;
+  /** Which trigger edge the menu lines up with. "right" (default) suits a
+   *  trigger near the right edge (e.g. an avatar menu); "left" suits one
+   *  near the left, where a right-aligned menu would run off-screen. */
+  align?: "left" | "right";
 };
+
+// Menus without matchTriggerWidth are at least this wide (min-w-[200px]).
+const MENU_MIN_WIDTH = 200;
 
 const SCREEN_MARGIN = 16;
 
 // Generic anchored menu — measures the trigger's on-screen position so the
 // menu opens right below/aligned to it, rather than a full-screen sheet.
-export function Dropdown({ trigger, items, headerLabel, headerIcon, matchTriggerWidth }: DropdownProps) {
+export function Dropdown({ trigger, items, headerLabel, headerIcon, matchTriggerWidth, align = "right" }: DropdownProps) {
   const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState({ top: 0, right: 0, left: 0, width: 0, maxHeight: 400 });
   const triggerRef = useRef<View>(null);
@@ -64,7 +71,10 @@ export function Dropdown({ trigger, items, headerLabel, headerIcon, matchTrigger
               { position: "absolute", top: position.top, maxHeight: position.maxHeight },
               matchTriggerWidth
                 ? { left: position.left, width: position.width }
-                : { right: position.right },
+                : align === "left"
+                  ? // Clamped so a left-aligned menu still fits on screen.
+                    { left: Math.min(position.left, screenWidth - SCREEN_MARGIN - MENU_MIN_WIDTH) }
+                  : { right: position.right },
             ]}
             className={`rounded-2xl border border-ink-emphasis/10 bg-white py-2 ${matchTriggerWidth ? "" : "min-w-[200px]"}`}
           >

@@ -22,3 +22,5 @@ export { Toast } from "./Toast";
 export type { ToastState } from "./Toast";
 export { Confetti, useBurstOnActivate } from "./Confetti";
 export { Spinner } from "./Spinner";
+export { SelectField } from "./SelectField";
+export { useFieldErrorAnimation } from "./TextField";

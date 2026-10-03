@@ -28,6 +28,11 @@ type MealCardProps = {
   /** "grid" is the See All screen: calories move to a top-left overlay
    *  instead of sitting in the macro breakdown row. Defaults to "carousel". */
   layout?: "carousel" | "grid";
+  /** Two-line description under the name (off by default to keep carousel
+   *  cards compact). */
+  showDescription?: boolean;
+  /** Adds a tinted "View Details" button at the bottom of the card. */
+  onViewDetails?: () => void;
 };
 
 // Reused across Home's Recommendations, Discover, and (eventually) saved
@@ -38,6 +43,8 @@ export function MealCard({
   isFastFood = false,
   width = CARD_WIDTH,
   layout = "carousel",
+  showDescription = false,
+  onViewDetails,
 }: MealCardProps) {
   const isGrid = layout === "grid";
   const [isSaved, setIsSaved] = useState(false);
@@ -165,6 +172,11 @@ export function MealCard({
           >
             {meal.name}
           </AppText>
+          {showDescription && !!meal.description && (
+            <AppText variant="caption" numberOfLines={2} className="mt-1">
+              {meal.description}
+            </AppText>
+          )}
         </View>
 
         <View className="mt-2">
@@ -191,6 +203,18 @@ export function MealCard({
               showCalories={!isGrid}
             />
           </View>
+
+          {onViewDetails && (
+            <View className="mb-4">
+              <Button
+                label="View Details"
+                variant="tinted"
+                icon={<ChevronRight color={colors.primary} size={16} />}
+                iconPosition="right"
+                onPress={onViewDetails}
+              />
+            </View>
+          )}
         </View>
       </View>
     </Pressable>

@@ -162,8 +162,12 @@ export type MealFilters = {
   search?: string;
 };
 
+// The catalog: approved meals only. User-submitted recipes that are still
+// pending (or were rejected) live in the same table but stay out of every
+// consumer screen and Manage Meals; the admin sees those in Review Recipes
+// (api/recipes.ts). See migration 20261003030000_meals_moderation.sql.
 export async function getMeals(filters: MealFilters = {}) {
-  let query = supabase.from("meals").select("*").order("name");
+  let query = supabase.from("meals").select("*").eq("status", "approved").order("name");
 
   if (!filters.showArchived) {
     query = query.is("archived_at", null);

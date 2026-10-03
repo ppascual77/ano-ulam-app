@@ -9,6 +9,8 @@ export const colors = {
     subtle: "#666666",
     normal: "#444444",
     emphasis: "#2B3437",
+    // Input placeholders (placeholderTextColor), lighter than typed text.
+    placeholder: "#9CA3AF",
   },
   white: "#FFFFFF",
   black: "#000000",
