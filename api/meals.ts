@@ -695,15 +695,69 @@ export function isMealVerifyFieldAllowedForSource(field: MealVerifyField, ingred
   return !(ingredientSource === "USDA" && MEAL_VERIFY_USDA_LOCKED_FIELDS.has(field));
 }
 
+// Nutrition can legitimately be 0 (e.g. fat in a vegetable); a price or a
+// bridge of 0 would zero out every meal built on the ingredient.
+const MEAL_VERIFY_POSITIVE_FIELDS = new Set<MealVerifyField>([
+  "estimated_price", "grams_per_ml", "grams_per_piece",
+]);
+
+// Mirrors the ingredients table's CHECK constraints (ingredients_price_unit_check,
+// ingredients_role_check) and IngredientEditSheet's STATE_OPTIONS. Spelled-out
+// variants the LLM tends to return ("kilogram", "liter") map to the stored unit.
+const PRICE_UNIT_ALIASES: Record<string, string> = {
+  g: "g", gram: "g", grams: "g",
+  kg: "kg", kilo: "kg", kilos: "kg", kilogram: "kg", kilograms: "kg",
+  ml: "ml", milliliter: "ml", milliliters: "ml", millilitre: "ml", millilitres: "ml",
+  l: "L", liter: "L", liters: "L", litre: "L", litres: "L",
+};
+const MEAL_VERIFY_ROLES = new Set(["main", "pantry"]);
+const MEAL_VERIFY_STATES = new Set(["raw", "cooked", "fried", "dried"]);
+
+export type MealVerifyFixParse =
+  | { ok: true; patch: Partial<IngredientRow> }
+  | { ok: false; reason: string };
+
 // The LLM always returns suggestedValue as a string (simplest, unambiguous
 // JSON-mode shape) — parses it back into the right type for the field it
-// names before it can be used as an updateIngredient patch.
-export function parseMealVerifyFixValue(field: MealVerifyField, value: string): Partial<IngredientRow> {
+// names before it can be used as an updateIngredient patch. Rejects anything
+// it can't map cleanly instead of guessing: a NaN used to be written as null
+// (silently wiping the field while the card said "Applied"), and an
+// off-list unit/role failed the DB's CHECK constraint.
+export function parseMealVerifyFixValue(field: MealVerifyField, value: string): MealVerifyFixParse {
+  const raw = value.trim();
+
   if (MEAL_VERIFY_NUMERIC_FIELDS.has(field)) {
-    const num = Number(value);
-    return { [field]: Number.isNaN(num) ? null : num };
+    // Tolerates a currency prefix / unit suffix ("₱250", "0.92 g/ml") but
+    // not a range or a second number ("0.91-0.92", "250 per 1 kg"), which
+    // would mean picking one for the admin.
+    const numbers = raw.replace(/,/g, "").match(/\d+(\.\d+)?/g);
+    if (!numbers || numbers.length !== 1) {
+      return { ok: false, reason: `Couldn't read "${value}" as a single number for ${field}. Edit it in Manage Ingredients instead.` };
+    }
+    const num = Number(numbers[0]);
+    if (MEAL_VERIFY_POSITIVE_FIELDS.has(field) && num === 0) {
+      return { ok: false, reason: `${field} can't be 0.` };
+    }
+    return { ok: true, patch: { [field]: num } };
   }
-  return { [field]: value };
+
+  const normalized = raw.toLowerCase().replace(/^(per|\/)\s*/, "");
+  switch (field) {
+    case "estimated_price_unit": {
+      const unit = PRICE_UNIT_ALIASES[normalized];
+      if (!unit) return { ok: false, reason: `"${value}" isn't a valid price unit. Prices can only be per g, kg, ml, or L.` };
+      return { ok: true, patch: { estimated_price_unit: unit } };
+    }
+    case "role":
+      if (!MEAL_VERIFY_ROLES.has(normalized)) return { ok: false, reason: `"${value}" isn't a valid role (main or pantry).` };
+      return { ok: true, patch: { role: normalized } };
+    case "state":
+      if (!MEAL_VERIFY_STATES.has(normalized)) return { ok: false, reason: `"${value}" isn't a valid state (raw, cooked, fried, or dried).` };
+      return { ok: true, patch: { state: normalized } };
+    default:
+      if (raw === "") return { ok: false, reason: `Suggested ${field} is empty.` };
+      return { ok: true, patch: { [field]: raw } };
+  }
 }
 
 // Cascades an ingredient's data change to every meal that references it —

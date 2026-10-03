@@ -25,6 +25,7 @@ import {
   type ProposedTotals,
   type QuantityUnit,
 } from "@/api/meals";
+import { errorMessage } from "@/lib/errorMessage";
 import { useConfirmedIngredientUpdate } from "../hooks/useConfirmedIngredientUpdate";
 import { IngredientEditSheet } from "./IngredientEditSheet";
 import { ConfirmIngredientSheet } from "./ConfirmIngredientSheet";
@@ -380,7 +381,7 @@ function IngredientRowCard({
         { id: linkedIngredient.id, patch: gaps, name: linkedIngredient.canonical_name },
       ]);
     } catch (err) {
-      setBridgeError(err instanceof Error ? err.message : String(err));
+      setBridgeError(errorMessage(err));
     } finally {
       setBridgeFixing(false);
     }
@@ -400,7 +401,7 @@ function IngredientRowCard({
         setUsdaSearch({ loading: false, candidates: result.candidates, error: null });
       }
     } catch (err) {
-      setUsdaSearch({ loading: false, candidates: null, error: err instanceof Error ? err.message : String(err) });
+      setUsdaSearch({ loading: false, candidates: null, error: errorMessage(err) });
     }
   };
 
@@ -446,7 +447,7 @@ function IngredientRowCard({
       // Surfaced, not swallowed — an insert can fail (RLS, a constraint)
       // without onResolve ever running, which otherwise looks identical to
       // "nothing happened" with no indication whether it reached the DB.
-      setCreateError(err instanceof Error ? err.message : String(err));
+      setCreateError(errorMessage(err));
     } finally {
       setCreating(false);
     }
@@ -465,7 +466,7 @@ function IngredientRowCard({
       setAiDraft(draft);
       setEditSheetVisible(true);
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : String(err));
+      setAiError(errorMessage(err));
     } finally {
       setAiEstimating(false);
     }
@@ -487,7 +488,7 @@ function IngredientRowCard({
     } catch (err) {
       // Keep the sheet open with the error visible rather than closing on
       // failure — same silent-failure risk as handleAddAndUse above.
-      setCreateError(err instanceof Error ? err.message : String(err));
+      setCreateError(errorMessage(err));
     } finally {
       setConfirmSaving(false);
     }
