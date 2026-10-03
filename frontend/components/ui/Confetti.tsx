@@ -26,13 +26,22 @@ type Particle = {
   delay: number;
 };
 
-function makeParticles(): Particle[] {
+// Fan of angles (degrees; 0 = right, -90 = straight up) per direction.
+// "upLeft": slightly down-left through up to up-right, for buttons near the
+// right edge (a card's like/save, Discover's action rail) where bursting
+// further right would get clipped or run off-screen. "up": symmetric around
+// straight up, for buttons with room on both sides (or near the left edge).
+const FANS = {
+  upLeft: { from: -200, span: 150 },
+  up: { from: -160, span: 140 },
+} as const;
+
+export type ConfettiDirection = keyof typeof FANS;
+
+function makeParticles(direction: ConfettiDirection): Particle[] {
+  const fan = FANS[direction];
   return Array.from({ length: PARTICLE_COUNT }, (_, i) => {
-    // Fan from slightly down-left, through straight up, to up-right. Every
-    // current trigger (a card's like/save, Discover's action rail) sits
-    // near the right edge, so bursting further right would just get
-    // clipped or run off-screen.
-    const baseDeg = -200 + (i / (PARTICLE_COUNT - 1)) * 150;
+    const baseDeg = fan.from + (i / (PARTICLE_COUNT - 1)) * fan.span;
     const angle = ((baseDeg + (Math.random() - 0.5) * 15) * Math.PI) / 180;
     const distance = DISTANCE_MIN_PX + Math.random() * DISTANCE_RANGE_PX;
     return {
@@ -81,14 +90,16 @@ type ConfettiProps = {
   /** The piece shape, e.g. Heart for a like, Bookmark for a save. */
   icon: LucideIcon;
   color: string;
+  /** Which way pieces fan out. Defaults to "upLeft". */
+  direction?: ConfettiDirection;
 };
 
 // Burst of icon-shaped confetti from the center of its parent. Render it as
 // the first child of the button's wrapper so pieces start hidden behind the
 // button and fly out from under it.
-export function Confetti({ burstId, icon, color }: ConfettiProps) {
+export function Confetti({ burstId, icon, color, direction = "upLeft" }: ConfettiProps) {
   // New random spread per burst, so repeat taps don't look identical.
-  const particles = useMemo(makeParticles, [burstId]);
+  const particles = useMemo(() => makeParticles(direction), [burstId, direction]);
 
   if (burstId === 0) return null;
 
