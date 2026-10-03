@@ -74,6 +74,9 @@ export function PriceGroundingPanel() {
   const [selected, setSelected] = useState<Map<string, Set<number>>>(new Map());
   const [running, setRunning] = useState<{ done: number; total: number } | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
+  // Real OpenAI spend this session, summed from each lookup's reported usage.
+  // Kept separately from `results` so it still counts rows already applied.
+  const [spend, setSpend] = useState({ lookups: 0, searchCalls: 0, costUsd: 0 });
   const [applyError, setApplyError] = useState<string | null>(null);
   const ground = useGroundIngredientPrices();
   const markAttempted = useMarkPriceGroundingAttempted();
@@ -105,6 +108,19 @@ export function PriceGroundingPanel() {
         const ids = new Set(data.map((r) => r.id));
         // Replace an earlier ERROR row for the same ingredient with its retry.
         setResults((prev) => [...prev.filter((r) => !ids.has(r.id)), ...data]);
+        setSpend((prev) =>
+          data.reduce(
+            (acc, r) =>
+              r.usage
+                ? {
+                    lookups: acc.lookups + 1,
+                    searchCalls: acc.searchCalls + r.usage.searchCalls,
+                    costUsd: acc.costUsd + r.usage.costUsd,
+                  }
+                : acc,
+            prev,
+          ),
+        );
         // Pre-check every HIGH source; LOW ones are opt-in.
         setSelected((prev) => {
           const next = new Map(prev);
@@ -183,9 +199,8 @@ export function PriceGroundingPanel() {
     <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 40 }}>
       <AppText variant="body" className="text-ink-subtle mb-2">
         {neverChecked.length} ingredient{neverChecked.length === 1 ? "" : "s"} never price-checked. Each check
-        searches only these supermarkets' online stores: SM Markets, Puregold, GoRobinsons, WalterMart, MetroMart,
-        Landers, and S&R. It is a paid web search, about
-        2–4¢ USD per ingredient. Nothing is saved until you confirm.
+        searches only these supermarkets' online stores: SM Markets, GoRobinsons, WalterMart, MetroMart, Landers,
+        and S&R. It is a paid web search; the real cost of each run shows below. Nothing is saved until you confirm.
       </AppText>
 
       {alreadyCheckedCount > 0 && (
@@ -207,6 +222,14 @@ export function PriceGroundingPanel() {
         disabled={!!running || pool.length === 0}
         onPress={handleRun}
       />
+
+      {spend.lookups > 0 && (
+        <AppText variant="caption" className="text-ink-subtle mt-2">
+          This session: {spend.lookups} lookup{spend.lookups === 1 ? "" : "s"} · {spend.searchCalls} web search
+          {spend.searchCalls === 1 ? "" : "es"} · ~${spend.costUsd.toFixed(2)} (~$
+          {(spend.costUsd / spend.lookups).toFixed(3)} per ingredient)
+        </AppText>
+      )}
 
       {runError && (
         <AppText variant="body" className="text-like mt-3">
