@@ -32,6 +32,8 @@ export const PROFILE_TOUR_STEPS: { target: ProfileTab; title: string; body: stri
 
 const PAD = 4;
 const DIM = "rgba(15,23,42,0.6)";
+// Cut-out corner radius (matches the ring's rounded-xl).
+const RADIUS = 12;
 const MOVE = { duration: 300 };
 
 type Rect = { x: number; y: number; width: number; height: number };
@@ -78,11 +80,16 @@ export function ProfileTour({ visible, measure, onFinish }: ProfileTourProps) {
     };
   }, [visible, step, measure, x, y, w, h]);
 
-  // Four dim panels around the cut-out.
-  const topStyle = useAnimatedStyle(() => ({ top: 0, left: 0, right: 0, height: y.value }));
-  const bottomStyle = useAnimatedStyle(() => ({ top: y.value + h.value, left: 0, right: 0, bottom: 0 }));
-  const leftStyle = useAnimatedStyle(() => ({ top: y.value, height: h.value, left: 0, width: x.value }));
-  const rightStyle = useAnimatedStyle(() => ({ top: y.value, height: h.value, left: x.value + w.value, right: 0 }));
+  // The dim layer is one view with a border thick enough to cover the
+  // whole screen; its hollow middle is the cut-out. The outer radius minus
+  // the border width leaves the hole with RADIUS corners.
+  const dimBorder = Math.max(screenWidth, screenHeight);
+  const dimStyle = useAnimatedStyle(() => ({
+    top: y.value - dimBorder,
+    left: x.value - dimBorder,
+    width: w.value + dimBorder * 2,
+    height: h.value + dimBorder * 2,
+  }));
   const ringStyle = useAnimatedStyle(() => ({ top: y.value, left: x.value, width: w.value, height: h.value }));
 
   const current = PROFILE_TOUR_STEPS[step];
@@ -93,10 +100,14 @@ export function ProfileTour({ visible, measure, onFinish }: ProfileTourProps) {
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onFinish}>
       {rect && (
         <View className="flex-1">
-          {[topStyle, bottomStyle, leftStyle, rightStyle].map((style, i) => (
-            <Animated.View key={i} style={[{ position: "absolute", backgroundColor: DIM }, style]} />
-          ))}
-          <Animated.View pointerEvents="none" style={[{ position: "absolute" }, ringStyle]} className="rounded-xl border-2 border-white" />
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              { position: "absolute", borderWidth: dimBorder, borderColor: DIM, borderRadius: dimBorder + RADIUS },
+              dimStyle,
+            ]}
+          />
+          <Animated.View pointerEvents="none" style={[{ position: "absolute", borderRadius: RADIUS }, ringStyle]} className="border-2 border-white" />
 
           <View
             className="absolute gap-3 rounded-2xl bg-white p-4 shadow-lg"
