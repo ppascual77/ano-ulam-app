@@ -2,8 +2,8 @@ import { useCallback, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, LogOut, UserCog } from "lucide-react-native";
-import { Avatar, Dropdown, Screen, Spinner, Toast, type ToastState } from "@/frontend/components/ui";
+import { ArrowLeft, LogOut, Settings, UserCog } from "lucide-react-native";
+import { Dropdown, Screen, Spinner, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { RECIPE_LIMIT } from "@/api/recipes";
 import { useAuth, useSignInWithGoogle, useSignOut } from "@/frontend/features/auth/hooks/useAuth";
@@ -168,7 +168,11 @@ export default function ProfileScreen() {
           )}
           {!isGuest && (
             <Dropdown
-              trigger={<Avatar name={me.name} imageUri={me.avatarUrl ?? undefined} size={32} />}
+              trigger={
+                <View accessibilityLabel="Account menu" className="h-9 w-9 items-center justify-center">
+                  <Settings color={colors.webInk.DEFAULT} size={20} />
+                </View>
+              }
               items={[
                 {
                   label: "Profile Settings",
