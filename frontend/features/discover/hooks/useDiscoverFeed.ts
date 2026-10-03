@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRealMeals } from "@/frontend/core/meals/hooks/useRealMeals";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
-import { SAVED_MEALS_LIMIT, saveMeal, seedMealLike, toggleMealLike, unsaveMeal } from "../mock/api";
+import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
+import { seedMealLike, toggleMealLike } from "../mock/api";
 
 const BATCH_SIZE = 5;
 // Start loading the next batch this many meals before the end, so the
@@ -30,15 +31,15 @@ export type FeedStatus = "loading" | "ready" | "error";
 // All Recipes-tab state for DiscoverScreen. Meals are the real seeded
 // catalog (useRealMeals), shuffled and dealt out in batches: logged-in
 // users get the next batch as they near the end, guests get one batch and
-// then the end-card. Like/save go through the mock api (no backend yet).
+// then the end-card. Likes go through the mock api (no backend yet); saves
+// go through the shared saved-meals list (core/saved), same as everywhere.
 export function useDiscoverFeed({ isGuest }: { isGuest: boolean }) {
   const { data: allMeals, isLoading, isError, refetch } = useRealMeals();
 
   const [meals, setMeals] = useState<MealType[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [likes, setLikes] = useState<Record<string, LikeEntry>>({});
-  // meal key -> saved id (present = saved)
-  const [saves, setSaves] = useState<Record<string, string>>({});
+  const saved = useSavedMealActions();
   const [inFlight, setInFlight] = useState<Record<string, true>>({});
 
   const pool = useRef<MealType[]>([]);
@@ -128,26 +129,9 @@ export function useDiscoverFeed({ isGuest }: { isGuest: boolean }) {
   const toggleSave = async (meal: MealType): Promise<string | null> => {
     const key = mealKey(meal);
     if (inFlight[key]) return null;
-    const savedId = saves[key];
-    if (!savedId && Object.keys(saves).length >= SAVED_MEALS_LIMIT) {
-      return `You've reached the limit of ${SAVED_MEALS_LIMIT} saved meals. Remove one to add more.`;
-    }
     setBusy(key, true);
     try {
-      if (savedId) {
-        await unsaveMeal(savedId);
-        setSaves((prev) => {
-          const next = { ...prev };
-          delete next[key];
-          return next;
-        });
-      } else {
-        const result = await saveMeal(meal);
-        setSaves((prev) => ({ ...prev, [key]: result.savedId }));
-      }
-      return null;
-    } catch {
-      return "Couldn't update your saved meals. Please try again.";
+      return await saved.toggle(meal);
     } finally {
       setBusy(key, false);
     }
@@ -166,7 +150,7 @@ export function useDiscoverFeed({ isGuest }: { isGuest: boolean }) {
     activeIndex,
     setActiveIndex,
     likes,
-    saves,
+    isSaved: (meal: MealType) => !!saved.savedFor(meal),
     inFlight,
     toggleLike,
     toggleSave,

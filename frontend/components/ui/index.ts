@@ -12,6 +12,7 @@ export { Stepper } from "./Stepper";
 export { Chips } from "./Chips";
 export { Carousel } from "./Carousel";
 export { BottomSheet } from "./BottomSheet";
+export { ConfirmSheet } from "./ConfirmSheet";
 export { Toggle } from "./Toggle";
 export { NoticeBanner } from "./NoticeBanner";
 export { LoadingState } from "./LoadingState";

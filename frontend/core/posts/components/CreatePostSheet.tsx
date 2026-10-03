@@ -7,7 +7,7 @@ import * as ImagePicker from "expo-image-picker";
 import { ImageIcon, Link2, X } from "lucide-react-native";
 import { Avatar, BottomSheet } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import type { FoodPost, PostInput } from "../mock/posts";
+import type { FoodPost, PostInput } from "@/frontend/core/posts/mock/posts";
 import type { KlipyKind } from "@/api/klipy";
 import { LinkPreviewCard } from "./LinkPreviewCard";
 import { KlipyPicker } from "./KlipyPicker";

@@ -3,7 +3,7 @@ import { FlatList, Pressable, Text, View, type ViewToken } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { setStatusBarStyle } from "expo-status-bar";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronUp } from "lucide-react-native";
@@ -24,9 +24,9 @@ import { GuestEndCard } from "../components/GuestEndCard";
 import { LoginGateSheet, type LoginGateReason } from "../components/LoginGateSheet";
 import { CommunityFeed } from "../components/CommunityFeed";
 import { CreateButton } from "../components/CreateButton";
-import { CreateSheet, type CreateChoice } from "../components/CreateSheet";
-import { CreatePostSheet } from "../components/CreatePostSheet";
-import { MOCK_ME_ID, createPost, updatePost, type FoodPost, type PostInput } from "../mock/posts";
+import { CreateSheet, type CreateChoice } from "@/frontend/core/posts/components/CreateSheet";
+import { CreatePostSheet } from "@/frontend/core/posts/components/CreatePostSheet";
+import { MOCK_ME_ID, createPost, updatePost, type FoodPost, type PostInput } from "@/frontend/core/posts/mock/posts";
 
 // Gradient stops over the reel photo: top keeps the tabs legible, bottom
 // keeps the meal details legible. Black at varying alpha (gradients need
@@ -260,6 +260,16 @@ export default function DiscoverScreen() {
     }
   };
 
+  // Deep link from Profile (Community Feed row, or a post made there):
+  // /discover?tab=community&at=<time>. `at` changes per visit, so the same
+  // link works again after the user has switched back to Recipes.
+  const params = useLocalSearchParams<{ tab?: string; at?: string }>();
+  useEffect(() => {
+    if (params.tab === "community" || params.tab === "recipes") changeTab(params.tab);
+    if (params.tab === "community") setCommunityRefreshKey((key) => key + 1);
+    // Only on a new visit.
+  }, [params.at]);
+
   const likeEntry = activeKey ? feed.likes[activeKey] : undefined;
 
   const closeGate = () => {
@@ -365,7 +375,7 @@ export default function DiscoverScreen() {
                   key={activeKey}
                   liked={likeEntry?.liked ?? false}
                   likeCount={likeEntry?.count ?? 0}
-                  saved={!!(activeKey && feed.saves[activeKey])}
+                  saved={feed.isSaved(activeMeal)}
                   busy={!!(activeKey && feed.inFlight[activeKey])}
                   onLike={() => handleAction({ type: "like", meal: activeMeal })}
                   onSave={() => handleAction({ type: "save", meal: activeMeal })}

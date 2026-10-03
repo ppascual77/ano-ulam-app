@@ -28,7 +28,7 @@ import { MealInfoPill } from "../MealInfoPill";
 import { MacroSection } from "./MacroSection";
 import { RelatedMeals } from "./RelatedMeals";
 import { resolveMealImage } from "../../resolveMealImage";
-import { formatCount, multiplyQty } from "../../utils/multiplyQty";
+import { scaleIngredient } from "../../utils/scaleMeal";
 import { DIETARY_ICONS, capitalize } from "../../utils/dietary";
 import type { IngredientType, MealType } from "../../mealTypes";
 
@@ -44,26 +44,6 @@ function orderIngredients(ingredients: IngredientType[]) {
   const oils = ingredients.filter((it) => it.type === "pantry" && /oil/i.test(it.name));
   const rest = ingredients.filter((it) => it.type === "pantry" && !/oil/i.test(it.name));
   return [...main, ...oils, ...rest];
-}
-
-// The ingredient as it should read at the current servings: quantity,
-// price and macros all multiplied by `scale`. Built once here so the card
-// and the detail sheet it opens can't disagree (the old inline panel once
-// showed unscaled macros next to a scaled price).
-function scaleIngredient(ingredient: IngredientType, scale: number): IngredientType {
-  return {
-    ...ingredient,
-    // A generated count re-pluralizes ("1 clove" -> "2 cloves"); free-text
-    // quantities only get their leading number scaled.
-    qty: ingredient.count
-      ? formatCount(ingredient.count.amount * scale, ingredient.count.label)
-      : multiplyQty(ingredient.qty, scale),
-    price: ingredient.price != null ? ingredient.price * scale : ingredient.price,
-    calories: ingredient.calories != null ? ingredient.calories * scale : undefined,
-    protein: ingredient.protein != null ? ingredient.protein * scale : undefined,
-    carbs: ingredient.carbs != null ? ingredient.carbs * scale : undefined,
-    fats: ingredient.fats != null ? ingredient.fats * scale : undefined,
-  };
 }
 
 type IngredientRowProps = {
@@ -138,8 +118,22 @@ function StatCard({ icon, value, label }: StatCardProps) {
 
 type MealDetailContentProps = {
   meal: MealType;
-  isSaved?: boolean;
-  onSave?: () => void;
+  /** Consumer save state for the footer. `savedServings` is the servings
+   *  the meal was saved at: changing the stepper away from it turns Unsave
+   *  into "Update Meal". */
+  saved?: {
+    isSaved: boolean;
+    savedServings?: number;
+    onSave: (servings: number) => void;
+    onUnsave: () => void;
+    onUpdate: (servings: number) => void;
+  };
+  /** The viewer's own recipe (Profile > Created): a pending/draft recipe
+   *  gets "Edit Recipe", a rejected one "Delete Recipe", instead of Save. */
+  recipeOwner?: { onEditRecipe: () => void; onDeleteRecipe: () => void };
+  /** Servings the stepper starts at (e.g. a saved meal's). Defaults to the
+   *  meal's own serving_size. */
+  initialServings?: number;
   onSelectMeal?: (meal: MealType) => void;
   /** Present only when this meal was reached via "related meals" — lets the
    *  user return to whatever they originally opened. */
@@ -170,6 +164,62 @@ type MealDetailContentProps = {
   review?: { onApprove: () => void; onReject: () => void; busy?: boolean };
 };
 
+type ConsumerFooterProps = Pick<MealDetailContentProps, "meal" | "saved" | "recipeOwner"> & { servings: number };
+
+// Which one button the footer shows, in priority order: own recipe still in
+// review / rejected, then saved (Unsave, or Update Meal once the servings
+// changed), then Save.
+function ConsumerFooter({ meal, servings, saved, recipeOwner }: ConsumerFooterProps) {
+  if (recipeOwner && (meal.status === "pending" || meal.status === "draft")) {
+    return (
+      <Button
+        label="Edit Recipe"
+        icon={<Pencil color={colors.white} size={15} />}
+        iconPosition="right"
+        onPress={recipeOwner.onEditRecipe}
+      />
+    );
+  }
+  if (recipeOwner && meal.status === "rejected") {
+    return (
+      <Pressable
+        onPress={recipeOwner.onDeleteRecipe}
+        className="flex-row items-center justify-center gap-2 rounded-xl border border-like py-3.5"
+      >
+        <Trash2 color={colors.like} size={15} />
+        <AppText variant="title" className="text-like">
+          Delete Recipe
+        </AppText>
+      </Pressable>
+    );
+  }
+  if (!saved) return null;
+
+  const servingsChanged = saved.isSaved && saved.savedServings != null && servings !== saved.savedServings;
+  if (servingsChanged) {
+    return (
+      <Button
+        label="Update Meal"
+        variant="tinted"
+        icon={<Bookmark color={colors.primary} size={16} fill={colors.primary} />}
+        iconPosition="right"
+        onPress={() => saved.onUpdate(servings)}
+      />
+    );
+  }
+  return (
+    <Button
+      label={saved.isSaved ? "Unsave" : "Save Meal"}
+      variant={saved.isSaved ? "primary" : "outline"}
+      icon={
+        <Bookmark color={saved.isSaved ? colors.white : colors.primary} size={16} fill={saved.isSaved ? colors.white : "none"} />
+      }
+      iconPosition="right"
+      onPress={() => (saved.isSaved ? saved.onUnsave() : saved.onSave(servings))}
+    />
+  );
+}
+
 function ScrollBody({ children }: { children: ReactNode }) {
   return <ScrollView showsVerticalScrollIndicator={false}>{children}</ScrollView>;
 }
@@ -184,8 +234,9 @@ function PlainBody({ children }: { children: ReactNode }) {
 // data this app doesn't have).
 export function MealDetailContent({
   meal,
-  isSaved = false,
-  onSave,
+  saved,
+  recipeOwner,
+  initialServings,
   onSelectMeal,
   onBack,
   direction = "none",
@@ -203,7 +254,7 @@ export function MealDetailContent({
   const Body = preview ? PlainBody : ScrollBody;
   const [isLiked, setIsLiked] = useState(meal.liked_by_me ?? false);
   const [likeCount, setLikeCount] = useState(meal.like_count ?? 0);
-  const [servings, setServings] = useState(meal.serving_size ?? 1);
+  const [servings, setServings] = useState(initialServings ?? meal.serving_size ?? 1);
 
   const toggleLocalLike = () => {
     setIsLiked((prev) => !prev);
@@ -257,7 +308,9 @@ export function MealDetailContent({
               below, overlapping it whenever a meal was already published
               (the normal case for anything reaching Manage Meals), which is
               what made Edit intermittently untappable. */}
-          {meal.status === "approved" && !isAdmin && (
+          {/* Only on the viewer's own recipe: every catalog meal is
+              approved, so on anything else the chip says nothing. */}
+          {meal.status === "approved" && recipeOwner && !isAdmin && (
             <View className="absolute right-4 top-4">
               <Chips
                 label="Published"
@@ -534,9 +587,6 @@ export function MealDetailContent({
               </AppText>
             </Pressable>
           )}
-          {/* Consumer-only action — admin context has Edit/Archive/Delete
-              instead, and there's no consumer "saved list" concept of this
-              meal from the admin's own account. */}
           {review && (
             <View className="flex-row gap-3">
               <View className="flex-1">
@@ -547,21 +597,9 @@ export function MealDetailContent({
               </View>
             </View>
           )}
-          {!isAdmin && (
-            <Button
-              label={isSaved ? "Unsave" : "Save Meal"}
-              variant={isSaved ? "primary" : "outline"}
-              icon={
-                <Bookmark
-                  color={isSaved ? colors.white : colors.primary}
-                  size={16}
-                  fill={isSaved ? colors.white : "none"}
-                />
-              }
-              iconPosition="right"
-              onPress={onSave}
-            />
-          )}
+          {/* Consumer-only actions: admin context has Edit/Archive/Delete
+              instead. */}
+          {!isAdmin && <ConsumerFooter meal={meal} servings={servings} saved={saved} recipeOwner={recipeOwner} />}
         </View>
       )}
     </Animated.View>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { deletePost, getCommunityPosts, togglePostLike, type FoodPost } from "../mock/posts";
+import { deletePost, getCommunityPosts, togglePostLike, type FoodPost } from "@/frontend/core/posts/mock/posts";
 
 const PAGE_SIZE = 5;
 

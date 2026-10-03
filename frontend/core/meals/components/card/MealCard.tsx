@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import {
@@ -15,6 +15,7 @@ import { MealInfoPill } from "../MealInfoPill";
 import { MacroBreakdown } from "./MacroBreakdown";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
+import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
 
 const CARD_WIDTH = 250;
 const IMAGE_HEIGHT = 150;
@@ -33,6 +34,22 @@ type MealCardProps = {
   showDescription?: boolean;
   /** Adds a tinted "View Details" button at the bottom of the card. */
   onViewDetails?: () => void;
+  /** Replaces the default save/unsave toggle (e.g. Profile asks "Remove
+   *  this meal?" before unsaving). Saved state still comes from the shared
+   *  saved list. */
+  onBookmarkPress?: () => void;
+  /** Toast hook for a failed save (e.g. the 15-meal limit). */
+  onSaveError?: (message: string) => void;
+  /** Hide the like/bookmark stack (e.g. a recipe still under review). */
+  hideActions?: boolean;
+  /** Overlays on the photo: a badge top-left (recipe status), a control
+   *  top-right (owner menu), and a strip along the bottom edge (saved
+   *  meal's catalog status). */
+  topLeft?: ReactNode;
+  topRight?: ReactNode;
+  imageFooter?: ReactNode;
+  /** Faded card (a rejected recipe). */
+  dimmed?: boolean;
 };
 
 // Reused across Home's Recommendations, Discover, and (eventually) saved
@@ -45,28 +62,40 @@ export function MealCard({
   layout = "carousel",
   showDescription = false,
   onViewDetails,
+  onBookmarkPress,
+  onSaveError,
+  hideActions = false,
+  topLeft,
+  topRight,
+  imageFooter,
+  dimmed = false,
 }: MealCardProps) {
   const isGrid = layout === "grid";
-  const [isSaved, setIsSaved] = useState(false);
+  const saved = useSavedMealActions();
+  const isSaved = !!saved.savedFor(meal);
   const [isLiked, setIsLiked] = useState(meal.liked_by_me ?? false);
   const [likeCount, setLikeCount] = useState(meal.like_count ?? 0);
   // Confetti when a like/save lands (not on unlike/unsave, not on mount).
   const likeBurstId = useBurstOnActivate(isLiked);
   const saveBurstId = useBurstOnActivate(isSaved);
 
-  // No backend yet — bookmark/like are local-only UI state, not persisted.
+  // No like backend yet: likes are local-only UI state, not persisted.
   const toggleLike = () => {
     setIsLiked((prev) => !prev);
     setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
   };
 
-  const toggleSave = () => setIsSaved((prev) => !prev);
+  const toggleSave = async () => {
+    if (onBookmarkPress) return onBookmarkPress();
+    const error = await saved.toggle(meal);
+    if (error) onSaveError?.(error);
+  };
 
   return (
     <Pressable
       onPress={onPress}
       style={{ width }}
-      className="overflow-hidden rounded-2xl border border-ink-emphasis/10 bg-white shadow-sm"
+      className={`overflow-hidden rounded-2xl border border-ink-emphasis/10 bg-white shadow-sm ${dimmed ? "opacity-75" : ""}`}
     >
       <View className="relative">
         <Image
@@ -75,7 +104,7 @@ export function MealCard({
           contentFit="cover"
         />
 
-        {isGrid && (
+        {isGrid && !topLeft && (
           <>
             {/* Scrim so the plain white calorie text (no chip background) stays readable over any photo. */}
             <View className="absolute left-0 right-0 top-0 h-10 bg-black/10" />
@@ -85,7 +114,7 @@ export function MealCard({
           </>
         )}
 
-        {!isFastFood ? (
+        {topRight ? null : !isFastFood ? (
           <View className="absolute right-2 top-2">
             <Chips
               label={`${meal.total_time} min`}
@@ -110,10 +139,18 @@ export function MealCard({
           </View>
         )}
 
-        <View className="absolute bottom-1 left-1 right-1 flex-row items-end justify-between">
+        {imageFooter && <View className="absolute bottom-0 left-0 right-0">{imageFooter}</View>}
+        {topLeft && <View className="absolute left-2 top-2">{topLeft}</View>}
+        {topRight && <View className="absolute right-2 top-2">{topRight}</View>}
+
+        <View
+          className="absolute left-1 right-1 flex-row items-end justify-between"
+          // Sits above the footer strip when there is one.
+          style={{ bottom: imageFooter ? 26 : 4 }}
+        >
           <MealInfoPill meal={meal} iconOnly={isGrid} />
 
-          <View className="mr-1 items-center gap-1.5">
+          {!hideActions && <View className="mr-1 items-center gap-1.5">
             {meal.id && (
               <Pressable onPress={toggleLike} className="items-center gap-0.5">
                 <View>
@@ -159,7 +196,7 @@ export function MealCard({
                 />
               </Pressable>
             </View>
-          </View>
+          </View>}
         </View>
       </View>
 
