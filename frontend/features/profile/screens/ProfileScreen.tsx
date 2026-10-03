@@ -23,6 +23,9 @@ import { CreatedTab } from "../components/created/CreatedTab";
 import { RecipeLimitSheet } from "../components/created/RecipeLimitSheet";
 import { GroceryTab } from "../components/grocery/GroceryTab";
 import { PantryTab } from "../components/pantry/PantryTab";
+import { NutritionOverviewFab } from "../components/saved/NutritionOverviewFab";
+import { NutritionSummarySheet } from "../components/saved/NutritionSummarySheet";
+import { useSavedMeals } from "@/frontend/core/saved/hooks/useSavedMeals";
 
 // TEMP (dev only): show the signed-in profile without a session, since
 // Google sign-in can't complete in Expo Go on a device. The DEV chip in
@@ -60,6 +63,9 @@ export default function ProfileScreen() {
   // Same rule as Add a Recipe's limit check: rejected recipes don't count.
   const recipeCount = (recipes.data ?? []).filter((meal) => meal.status !== "rejected").length;
   const atRecipeLimit = recipeCount >= RECIPE_LIMIT;
+
+  const { data: saved = [] } = useSavedMeals();
+  const [nutritionOpen, setNutritionOpen] = useState(false);
 
   const [toast, setToast] = useState<ToastState | null>(null);
   const showToast = (message: string, tone: ToastState["tone"] = "error") => setToast({ id: Date.now(), message, tone });
@@ -230,6 +236,11 @@ export default function ProfileScreen() {
         onSubmit={submitPost}
       />
       <RecipeLimitSheet visible={limitOpen} onClose={() => setLimitOpen(false)} />
+
+      {!isGuest && !isOfficial && tab === "saved" && saved.length > 0 && (
+        <NutritionOverviewFab onPress={() => setNutritionOpen(true)} />
+      )}
+      <NutritionSummarySheet visible={nutritionOpen} onClose={() => setNutritionOpen(false)} saved={saved} />
 
       <Toast toast={toast} onHide={() => setToast(null)} />
     </Screen>
