@@ -27,7 +27,6 @@ import { colors } from "@/frontend/constants/theme";
 import { MealInfoPill } from "../MealInfoPill";
 import { MacroSection } from "./MacroSection";
 import { RelatedMeals } from "./RelatedMeals";
-import { hasNutrition } from "./IngredientDetailSections";
 import { resolveMealImage } from "../../resolveMealImage";
 import { formatCount, multiplyQty } from "../../utils/multiplyQty";
 import { DIETARY_ICONS, capitalize } from "../../utils/dietary";
@@ -39,17 +38,6 @@ import type { IngredientType, MealType } from "../../mealTypes";
 // exactly what a target that size feels like rather than an actual bug.
 // hitSlop extends the tappable area without changing how the button looks.
 const ICON_HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
-
-// Whether IngredientDetailSheet actually has something to show. A main
-// ingredient always does (its price source section, even when that just
-// says "Estimated price"). A pantry item has no price section, so it counts
-// only if it's cooking oil with nutrition data, since most pantry items
-// (salt, pepper) have nothing to show.
-function hasIngredientDetail(item: IngredientType) {
-  if (item.type === "main") return true;
-  if (!/oil/i.test(item.name)) return false;
-  return hasNutrition(item);
-}
 
 function orderIngredients(ingredients: IngredientType[]) {
   const main = ingredients.filter((it) => it.type === "main");
@@ -104,17 +92,18 @@ function IngredientRow({ ingredient, onPress }: IngredientRowProps) {
             compete for width on one line. */}
         <View className="items-end">
           <AppText variant="caption">{ingredient.qty}</AppText>
-          {isMain &&
-            (ingredient.price != null && ingredient.price > 0 ? (
-              <AppText variant="caption" className="font-inter-semibold text-primary">
-                ~₱{ingredient.price.toFixed(2)}
-              </AppText>
-            ) : (
-              <View className="flex-row items-center gap-0.5">
-                <Info color={colors.ink.subtle} size={9} />
-                <Text className="text-sub text-ink-subtle">N/A</Text>
-              </View>
-            ))}
+          {/* Every ingredient counts toward the meal's price now, pantry
+              included, so every card shows its share. */}
+          {ingredient.price != null && ingredient.price > 0 ? (
+            <AppText variant="caption" className="font-inter-semibold text-primary">
+              ~₱{ingredient.price.toFixed(2)}
+            </AppText>
+          ) : (
+            <View className="flex-row items-center gap-0.5">
+              <Info color={colors.ink.subtle} size={9} />
+              <Text className="text-sub text-ink-subtle">N/A</Text>
+            </View>
+          )}
         </View>
         {onPress && <ChevronRight color={colors.ink.subtle} size={14} />}
       </View>
@@ -453,11 +442,9 @@ export function MealDetailContent({
                     <IngredientRow
                       key={i}
                       ingredient={scaled}
-                      onPress={
-                        onSelectIngredient && hasIngredientDetail(ingredient)
-                          ? () => onSelectIngredient(scaled)
-                          : undefined
-                      }
+                      // Every ingredient has a sheet to show (at minimum its
+                      // price source), so every card is tappable.
+                      onPress={onSelectIngredient ? () => onSelectIngredient(scaled) : undefined}
                     />
                   );
                 })}

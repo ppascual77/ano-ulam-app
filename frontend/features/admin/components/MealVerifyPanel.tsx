@@ -7,7 +7,6 @@ import { type IngredientRow } from "@/api/ingredients";
 import {
   computeItemTotals,
   convertQuantityToBasis,
-  countsTowardMealTotals,
   isMealVerifyFieldAllowedForSource,
   parseMealVerifyFixValue,
   verifyMealIngredients,
@@ -150,7 +149,6 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
 
   const totals: ProposedTotals = resolvedInputs.reduce(
     (acc, item) => {
-      if (!countsTowardMealTotals(item.ingredient)) return acc;
       return {
         calories: (acc.calories ?? 0) + (item.computed.calories ?? 0),
         protein: (acc.protein ?? 0) + (item.computed.protein ?? 0),

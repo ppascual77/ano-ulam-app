@@ -544,20 +544,14 @@ export function computeItemTotals(
 
 // ---------------------------------------------------------------------------
 // Recompute a meal's cached totals from its current meal_ingredients — sums
-// role === 'main' ingredients plus oils (category 'Oils'), matching the
-// reference behavior this was modeled on for everything else. Oils are an
-// explicit exception to the "pantry seasonings don't count" rule: they're
-// used in small volumes but calorie-DENSE enough (~9 cal/g) that a
-// tablespoon of cooking oil is a real, non-negligible share of a dish's
-// calories — excluding them the way a pinch of salt or pepper is excluded
-// silently undercounts. Other pantry items (vinegar, sugar, salt, spices)
-// stay excluded. Call explicitly after binding/editing ingredients; nothing
-// recomputes automatically.
+// EVERY ingredient with a usable quantity, main and pantry alike (since
+// 2026-10-03). Pantry items used to be excluded except oils, which
+// undercounted calories (sugar, coconut milk, sauces) and understated the
+// real per-meal cost. `role` is now only a display label (Main / Pantry),
+// not a counting rule. Unquantified items ("to taste") still contribute
+// nothing, since there's no amount to compute from. Call explicitly after
+// binding/editing ingredients; nothing recomputes automatically.
 // ---------------------------------------------------------------------------
-
-export function countsTowardMealTotals(ingredient: IngredientRow): boolean {
-  return ingredient.role === "main" || ingredient.category === "Oils";
-}
 
 export async function recomputeMealTotals(mealId: string) {
   const meal = await getMeal(mealId);
@@ -568,7 +562,6 @@ export async function recomputeMealTotals(mealId: string) {
   let price = 0;
 
   for (const mi of meal.meal_ingredients) {
-    if (!countsTowardMealTotals(mi.ingredient)) continue;
     if (mi.quantity_amount == null || mi.quantity_unit == null) continue;
     const totals = computeItemTotals(
       mi.ingredient,

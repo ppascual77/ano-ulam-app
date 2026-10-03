@@ -20,7 +20,6 @@ import {
 import {
   computeItemTotals,
   convertQuantityToBasis,
-  countsTowardMealTotals,
   matchIngredientCandidates,
   type ProposedTotals,
   type QuantityUnit,
@@ -128,7 +127,7 @@ type ItemContribution =
   | { status: "unlinked" }
   | { status: "no_quantity" }
   | { status: "error"; reason: string }
-  | { status: "ok"; totals: ProposedTotals; counted: boolean };
+  | { status: "ok"; totals: ProposedTotals };
 
 // The same conversion/scaling pipeline recomputeMealTotals uses server-side,
 // run here client-side so the admin sees a live "this is what will actually
@@ -157,7 +156,7 @@ function computeItemContribution(item: PendingMealIngredient, allIngredients: In
     item.priceQuantityUnit || null,
   );
 
-  return { status: "ok", totals, counted: countsTowardMealTotals(ingredient) };
+  return { status: "ok", totals };
 }
 
 function contributionLabel(totals: ProposedTotals): string {
@@ -531,9 +530,8 @@ function IngredientRowCard({
         >
           {contribution.status === "ok" && (
             <>
-              <AppText variant="bodyBold" className={contribution.counted ? "text-primary" : "text-ink-subtle"}>
+              <AppText variant="bodyBold" className="text-primary">
                 {contributionLabel(contribution.totals)}
-                {!contribution.counted && "  ·  pantry — not counted in meal total"}
               </AppText>
               {item.priceQuantityAmount.trim() !== "" && (
                 <View className="mt-1 flex-row items-center gap-2">
@@ -797,7 +795,7 @@ export function SeedMealIngredientsEditor({ items, allIngredients, onChange }: P
   const total = items.reduce(
     (acc, item) => {
       const c = computeItemContribution(item, allIngredients);
-      if (c.status === "ok" && c.counted) {
+      if (c.status === "ok") {
         acc.price += c.totals.price ?? 0;
         acc.calories += c.totals.calories ?? 0;
         acc.protein += c.totals.protein ?? 0;
