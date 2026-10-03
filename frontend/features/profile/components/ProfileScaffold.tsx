@@ -1,7 +1,7 @@
 import { ReactNode, useRef, useState } from "react";
 import { ScrollView, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { ProfileTabBar, type ProfileTab, type ProfileTabDef } from "./ProfileTabBar";
-import { ProfileFooter } from "./ProfileFooter";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // How close to the bottom (px) counts as "near the end" (load more posts).
 const LOAD_MORE_DISTANCE = 400;
@@ -26,9 +26,10 @@ type ProfileScaffoldProps = {
 
 // Shared body of every profile (own, someone else's, official): one scroll
 // view with the header, a tab bar that sticks to the top once reached
-// (with its mini header), the tab content, and the footer.
+// (with its mini header), and the tab content.
 export function ProfileScaffold({ header, tabs, activeTab, onTabChange, miniName, onCreate, onNearEnd, onTabRef, children }: ProfileScaffoldProps) {
   const { height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [tabBarY, setTabBarY] = useState(0);
   const [stuck, setStuck] = useState(false);
   const nearEnd = useRef(false);
@@ -60,11 +61,10 @@ export function ProfileScaffold({ header, tabs, activeTab, onTabChange, miniName
 
       {/* At least most of a screen tall, so switching to a short tab
           doesn't yank the scroll position. */}
-      <View className="px-5 pt-4" style={{ minHeight: windowHeight * 0.6 }}>
+      {/* Bottom padding clears the home indicator (top-only safe area). */}
+      <View className="px-5 pt-4" style={{ minHeight: windowHeight * 0.6, paddingBottom: insets.bottom + 40 }}>
         {children}
       </View>
-
-      <ProfileFooter />
     </ScrollView>
   );
 }

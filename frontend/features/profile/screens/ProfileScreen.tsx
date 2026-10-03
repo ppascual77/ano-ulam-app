@@ -24,7 +24,6 @@ import { CommunityFeedLink } from "../components/CommunityFeedLink";
 import { OWN_TABS, type ProfileTab } from "../components/ProfileTabBar";
 import { ProfileScaffold } from "../components/ProfileScaffold";
 import { OfficialProfileView } from "../components/official/OfficialProfileView";
-import { ProfileFooter } from "../components/ProfileFooter";
 import { GuestProfileView } from "../components/GuestProfileView";
 import { SavedTab } from "../components/saved/SavedTab";
 import { CreatedTab } from "../components/created/CreatedTab";
@@ -210,7 +209,6 @@ export default function ProfileScreen() {
             onCreateAccount={() => router.push("/signup")}
             signingIn={signIn.isPending}
           />
-          <ProfileFooter />
         </ScrollView>
       ) : isOfficial ? (
         <OfficialProfileView onToast={showToast} />
