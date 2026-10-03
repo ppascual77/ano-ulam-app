@@ -33,8 +33,8 @@ export function PublishStep({ draft, onViewDetails }: PublishStepProps) {
 
       <NoticeBanner icon={<ShieldAlert color={colors.notice.icon} size={16} />}>
         <AppText variant="caption" className="text-notice-text">
-          Your recipe will be published publicly. Admins may remove recipes that are deemed invalid, non-meal related,
-          or inappropriate. Help keep the AnoUlam catalog clean and useful for everyone.
+          Our team reviews every recipe before it goes live. Recipes that are invalid, not meal-related, or
+          inappropriate won't be published. Help keep the AnoUlam catalog clean and useful for everyone.
         </AppText>
       </NoticeBanner>
     </View>
