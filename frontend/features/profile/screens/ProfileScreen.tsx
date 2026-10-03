@@ -1,28 +1,38 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, LogOut, Settings, UserCog } from "lucide-react-native";
-import { Dropdown, Screen, Spinner, Toast, type ToastState } from "@/frontend/components/ui";
+import { ArrowLeft, Settings, Sparkles } from "lucide-react-native";
+import { Screen, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { RECIPE_LIMIT } from "@/api/recipes";
-import { useAuth, useSignInWithGoogle, useSignOut } from "@/frontend/features/auth/hooks/useAuth";
+import { useAuth, useSignInWithGoogle } from "@/frontend/features/auth/hooks/useAuth";
 import { CreateSheet, type CreateChoice } from "@/frontend/core/posts/components/CreateSheet";
 import { CreatePostSheet } from "@/frontend/core/posts/components/CreatePostSheet";
 import { createPost, updatePost, type FoodPost, type PostInput } from "@/frontend/core/posts/mock/posts";
-import { useMe, useMyRecipes, useProfileExtras, useUpdateBio } from "../hooks/useProfile";
+import {
+  useAccountSettings,
+  useAccountSettingsActions,
+  useMe,
+  useMyRecipes,
+  useProfileExtras,
+  useUpdateBio,
+} from "../hooks/useProfile";
+import { PROFILE_TOUR_ID, ProfileTour } from "../components/tour/ProfileTour";
 import { ProfileHeader } from "../components/ProfileHeader";
 import { CommunityFeedLink } from "../components/CommunityFeedLink";
 import { OWN_TABS, type ProfileTab } from "../components/ProfileTabBar";
 import { ProfileScaffold } from "../components/ProfileScaffold";
 import { OfficialProfileView } from "../components/official/OfficialProfileView";
-import { ProfileFooter } from "../components/ProfileFooter";
 import { GuestProfileView } from "../components/GuestProfileView";
 import { SavedTab } from "../components/saved/SavedTab";
 import { CreatedTab } from "../components/created/CreatedTab";
 import { RecipeLimitSheet } from "../components/created/RecipeLimitSheet";
 import { GroceryTab } from "../components/grocery/GroceryTab";
 import { PantryTab } from "../components/pantry/PantryTab";
+import { NutritionOverviewFab } from "../components/saved/NutritionOverviewFab";
+import { NutritionSummarySheet } from "../components/saved/NutritionSummarySheet";
+import { useSavedMeals } from "@/frontend/core/saved/hooks/useSavedMeals";
 
 // TEMP (dev only): show the signed-in profile without a session, since
 // Google sign-in can't complete in Expo Go on a device. The DEV chip in
@@ -33,7 +43,6 @@ type DevAccount = "user" | "official" | "guest";
 const NEXT_DEV_ACCOUNT: Record<DevAccount, DevAccount> = { user: "official", official: "guest", guest: "user" };
 const DEV_ACCOUNT_LABEL: Record<DevAccount, string> = { user: "signed in", official: "official", guest: "guest" };
 
-const LOG_OUT_DELAY_MS = 2000;
 
 const TAB_PARAMS: ProfileTab[] = ["saved", "recipes", "grocery", "pantry"];
 
@@ -46,7 +55,6 @@ export default function ProfileScreen() {
   const queryClient = useQueryClient();
   const { isSignedIn } = useAuth();
   const signIn = useSignInWithGoogle();
-  const signOut = useSignOut();
   const me = useMe();
 
   const [devAccount, setDevAccount] = useState<DevAccount>("user");
@@ -62,6 +70,43 @@ export default function ProfileScreen() {
   // Same rule as Add a Recipe's limit check: rejected recipes don't count.
   const recipeCount = (recipes.data ?? []).filter((meal) => meal.status !== "rejected").length;
   const atRecipeLimit = recipeCount >= RECIPE_LIMIT;
+
+  const { data: saved = [] } = useSavedMeals();
+
+  // ---- first-run tour ---------------------------------------------------------
+
+  const accountSettings = useAccountSettings();
+  const { completeTour } = useAccountSettingsActions();
+  const tabRefs = useRef<Partial<Record<ProfileTab, View | null>>>({});
+  const [tourOpen, setTourOpen] = useState(false);
+  const tourAutoStarted = useRef(false);
+
+  const measureTab = useCallback(
+    (target: ProfileTab) =>
+      new Promise<{ x: number; y: number; width: number; height: number } | null>((resolve) => {
+        const view = tabRefs.current[target];
+        if (!view) return resolve(null);
+        view.measureInWindow((x, y, width, height) => resolve({ x, y, width, height }));
+      }),
+    [],
+  );
+
+  // Once per account, after the completed-tours list is known.
+  const toursCompleted = accountSettings.data?.tours_completed;
+  useEffect(() => {
+    if (isGuest || isOfficial || !toursCompleted || tourAutoStarted.current) return;
+    if (toursCompleted.includes(PROFILE_TOUR_ID)) return;
+    tourAutoStarted.current = true;
+    // Let the tab bar lay out before measuring it.
+    const timer = setTimeout(() => setTourOpen(true), 600);
+    return () => clearTimeout(timer);
+  }, [isGuest, isOfficial, toursCompleted]);
+
+  const finishTour = () => {
+    setTourOpen(false);
+    completeTour(PROFILE_TOUR_ID);
+  };
+  const [nutritionOpen, setNutritionOpen] = useState(false);
 
   const [toast, setToast] = useState<ToastState | null>(null);
   const showToast = (message: string, tone: ToastState["tone"] = "error") => setToast({ id: Date.now(), message, tone });
@@ -124,20 +169,6 @@ export default function ProfileScreen() {
     }
   };
 
-  // ---- account menu --------------------------------------------------------
-
-  const [loggingOut, setLoggingOut] = useState(false);
-  const logOut = () => {
-    setLoggingOut(true);
-    setTimeout(async () => {
-      try {
-        if (isSignedIn) await signOut.mutateAsync();
-      } finally {
-        router.replace("/home");
-      }
-    }, LOG_OUT_DELAY_MS);
-  };
-
   const signInWithGoogle = async () => {
     try {
       await signIn.mutateAsync();
@@ -159,21 +190,14 @@ export default function ProfileScreen() {
             </Pressable>
           )}
           {!isGuest && (
-            <Dropdown
-              trigger={
-                <View accessibilityLabel="Account menu" className="h-9 w-9 items-center justify-center">
-                  <Settings color={colors.webInk.DEFAULT} size={20} />
-                </View>
-              }
-              items={[
-                {
-                  label: "Profile Settings",
-                  icon: <UserCog color={colors.webInk.muted} size={14} />,
-                  onPress: () => showToast("Settings are coming soon", "success"),
-                },
-                { label: "Log out", icon: <LogOut color={colors.like} size={14} />, onPress: logOut, destructive: true },
-              ]}
-            />
+            <Pressable
+              onPress={() => router.push("/profile/settings")}
+              hitSlop={8}
+              accessibilityLabel="Settings"
+              className="h-9 w-9 items-center justify-center"
+            >
+              <Settings color={colors.webInk.DEFAULT} size={20} />
+            </Pressable>
           )}
         </View>
       </View>
@@ -185,7 +209,6 @@ export default function ProfileScreen() {
             onCreateAccount={() => router.push("/signup")}
             signingIn={signIn.isPending}
           />
-          <ProfileFooter />
         </ScrollView>
       ) : isOfficial ? (
         <OfficialProfileView onToast={showToast} />
@@ -210,6 +233,10 @@ export default function ProfileScreen() {
                   router.navigate({ pathname: "/discover", params: { tab: "community", at: String(Date.now()) } })
                 }
               />
+              <Pressable onPress={() => setTourOpen(true)} hitSlop={6} className="flex-row items-center gap-1 self-end px-5 pt-3">
+                <Sparkles color={colors.webInk.muted} size={14} />
+                <Text className="font-inter-regular text-small text-web-ink-muted">Take a tour</Text>
+              </Pressable>
             </>
           }
           tabs={OWN_TABS}
@@ -218,6 +245,9 @@ export default function ProfileScreen() {
           miniName={me.name}
           onCreate={() => openCreate(true)}
           onNearEnd={() => tab === "recipes" && setLoadMoreSignal((n) => n + 1)}
+          onTabRef={(id, view) => {
+            tabRefs.current[id] = view;
+          }}
         >
           {tab === "saved" && <SavedTab onToast={showToast} />}
           {tab === "recipes" && (
@@ -254,12 +284,11 @@ export default function ProfileScreen() {
       />
       <RecipeLimitSheet visible={limitOpen} onClose={() => setLimitOpen(false)} />
 
-      {loggingOut && (
-        <View className="absolute inset-0 items-center justify-center gap-3 bg-white">
-          <Spinner size={28} color={colors.brandGreen.DEFAULT} trackColor={colors.webDivider} />
-          <Text className="font-inter-medium text-body text-web-ink-muted">Logging out...</Text>
-        </View>
+      {!isGuest && !isOfficial && tab === "saved" && saved.length > 0 && (
+        <NutritionOverviewFab onPress={() => setNutritionOpen(true)} />
       )}
+      <NutritionSummarySheet visible={nutritionOpen} onClose={() => setNutritionOpen(false)} saved={saved} />
+      <ProfileTour visible={tourOpen} measure={measureTab} onFinish={finishTour} />
 
       <Toast toast={toast} onHide={() => setToast(null)} />
     </Screen>

@@ -3,7 +3,16 @@ import { deleteMeal } from "@/api/meals";
 import { listApprovedRecipesByPoster, listMyRecipes } from "@/api/recipes";
 import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
-import { getProfileExtras, updateBio, type ProfileExtras } from "../mock/api";
+import {
+  getAccountSettings,
+  getProfileExtras,
+  markTourShown,
+  updateBio,
+  updateNewsletter,
+  updatePrivacy,
+  type AccountSettings,
+  type ProfileExtras,
+} from "../mock/api";
 import { getUserProfile } from "../mock/users";
 
 const profileKeys = {
@@ -85,4 +94,34 @@ export function useApprovedRecipes(userId: string) {
     queryFn: async () =>
       UUID.test(userId) ? (await listApprovedRecipesByPoster(userId)).map((row) => mealRowToMealType(row)) : [],
   });
+}
+
+const settingsKey = ["profile", "settings"] as const;
+
+export function useAccountSettings() {
+  return useQuery({ queryKey: settingsKey, queryFn: getAccountSettings });
+}
+
+// Optimistic setters for the mock settings; errors are ignored (spec).
+export function useAccountSettingsActions() {
+  const queryClient = useQueryClient();
+  const patch = (next: Partial<AccountSettings>) =>
+    queryClient.setQueryData<AccountSettings>(settingsKey, (prev) => (prev ? { ...prev, ...next } : prev));
+  return {
+    setShowSaved: (show: boolean) => {
+      patch({ show_saved_public: show });
+      void updatePrivacy(show).catch(() => {});
+    },
+    setNewsletter: (on: boolean) => {
+      patch({ newsletter_subscribed: on });
+      void updateNewsletter(on).catch(() => {});
+    },
+    completeTour: (tourId: string) => {
+      const current = queryClient.getQueryData<AccountSettings>(settingsKey);
+      if (current && !current.tours_completed.includes(tourId)) {
+        patch({ tours_completed: [...current.tours_completed, tourId] });
+      }
+      void markTourShown(tourId).catch(() => {});
+    },
+  };
 }

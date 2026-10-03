@@ -1,7 +1,7 @@
 import { ReactNode, useRef, useState } from "react";
 import { ScrollView, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { ProfileTabBar, type ProfileTab, type ProfileTabDef } from "./ProfileTabBar";
-import { ProfileFooter } from "./ProfileFooter";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // How close to the bottom (px) counts as "near the end" (load more posts).
 const LOAD_MORE_DISTANCE = 400;
@@ -18,15 +18,18 @@ type ProfileScaffoldProps = {
   onCreate?: () => void;
   /** Fires once each time the scroll gets near the bottom. */
   onNearEnd?: () => void;
+  /** See ProfileTabBar's onTabRef (the first-run tour). */
+  onTabRef?: (id: ProfileTab, view: View | null) => void;
   /** The active tab's content. */
   children: ReactNode;
 };
 
 // Shared body of every profile (own, someone else's, official): one scroll
 // view with the header, a tab bar that sticks to the top once reached
-// (with its mini header), the tab content, and the footer.
-export function ProfileScaffold({ header, tabs, activeTab, onTabChange, miniName, onCreate, onNearEnd, children }: ProfileScaffoldProps) {
+// (with its mini header), and the tab content.
+export function ProfileScaffold({ header, tabs, activeTab, onTabChange, miniName, onCreate, onNearEnd, onTabRef, children }: ProfileScaffoldProps) {
   const { height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [tabBarY, setTabBarY] = useState(0);
   const [stuck, setStuck] = useState(false);
   const nearEnd = useRef(false);
@@ -53,16 +56,15 @@ export function ProfileScaffold({ header, tabs, activeTab, onTabChange, miniName
       <View className="pb-4">{header}</View>
 
       <View onLayout={(e) => setTabBarY(e.nativeEvent.layout.y)}>
-        <ProfileTabBar tabs={tabs} active={activeTab} onChange={onTabChange} stuck={stuck} name={miniName} onCreate={onCreate} />
+        <ProfileTabBar tabs={tabs} active={activeTab} onChange={onTabChange} stuck={stuck} name={miniName} onCreate={onCreate} onTabRef={onTabRef} />
       </View>
 
       {/* At least most of a screen tall, so switching to a short tab
           doesn't yank the scroll position. */}
-      <View className="px-5 pt-4" style={{ minHeight: windowHeight * 0.6 }}>
+      {/* Bottom padding clears the home indicator (top-only safe area). */}
+      <View className="px-5 pt-4" style={{ minHeight: windowHeight * 0.6, paddingBottom: insets.bottom + 40 }}>
         {children}
       </View>
-
-      <ProfileFooter />
     </ScrollView>
   );
 }

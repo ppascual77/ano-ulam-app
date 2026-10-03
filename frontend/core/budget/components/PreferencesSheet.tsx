@@ -8,28 +8,8 @@ import {
   NoticeBanner,
 } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
+import { ALLERGEN_OPTIONS, DIETARY_FOCUS_OPTIONS } from "@/frontend/core/preferences/options";
 
-// Kept in sync by hand with frontend/features/onboarding/slides.ts's
-// "preferenceGroups" slide — same underlying preference, two entry points.
-const DIETARY_FOCUS_OPTIONS = [
-  { id: "vegan", label: "Vegan" },
-  { id: "vegetarian", label: "Vegetarian" },
-  { id: "keto", label: "Keto" },
-  { id: "pescatarian", label: "Pescatarian" },
-  { id: "none", label: "None" },
-  { id: "paleo", label: "Paleo" },
-];
-
-const ALLERGEN_OPTIONS = [
-  { id: "nuts", label: "Nuts" },
-  { id: "gluten", label: "Gluten" },
-  { id: "dairy", label: "Dairy" },
-  { id: "shellfish", label: "Shellfish" },
-  { id: "soy", label: "Soy" },
-  { id: "coconut", label: "Coconut" },
-  { id: "sesame", label: "Sesame" },
-  { id: "none", label: "None" },
-];
 
 type PreferencesSheetProps = {
   visible: boolean;

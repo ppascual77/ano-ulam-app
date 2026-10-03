@@ -2,7 +2,7 @@ import * as WebBrowser from "expo-web-browser";
 import { makeRedirectUri } from "expo-auth-session";
 import * as QueryParams from "expo-auth-session/build/QueryParams";
 
-import { supabase } from "@/lib/supabase";
+import { invokeEdgeFunction, supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
 
 export type UserProfile = Database["public"]["Tables"]["users"]["Row"];
@@ -70,6 +70,14 @@ export async function signInWithGoogle() {
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
+}
+
+// Permanently deletes the signed-in user's account and their recipes (see
+// supabase/functions/delete-account), then clears the now-dead session on
+// this device.
+export async function deleteAccount() {
+  await invokeEdgeFunction<{ deleted: boolean }>("delete-account", {});
+  await supabase.auth.signOut({ scope: "local" });
 }
 
 export async function getUserProfile(userId: string) {

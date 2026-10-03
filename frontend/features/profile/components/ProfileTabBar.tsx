@@ -38,12 +38,14 @@ type ProfileTabBarProps = {
   name?: string;
   /** Owner only: the mini header's "+" (opens Create). */
   onCreate?: () => void;
+  /** Hands out each tab button's view, for the first-run tour to measure. */
+  onTabRef?: (id: ProfileTab, view: View | null) => void;
 };
 
 // Sticky tab bar (the ScrollView's stickyHeaderIndices pins it). While
 // pinned, a mini "AnoUlam · name" header slides open above the tabs. The
 // green indicator slides to the active tab, measured with onLayout.
-export function ProfileTabBar({ tabs, active, onChange, stuck, name, onCreate }: ProfileTabBarProps) {
+export function ProfileTabBar({ tabs, active, onChange, stuck, name, onCreate, onTabRef }: ProfileTabBarProps) {
   const [layouts, setLayouts] = useState<Partial<Record<ProfileTab, { x: number; width: number }>>>({});
   const indicatorX = useSharedValue(0);
   const indicatorWidth = useSharedValue(0);
@@ -98,6 +100,7 @@ export function ProfileTabBar({ tabs, active, onChange, stuck, name, onCreate }:
           return (
             <Pressable
               key={id}
+              ref={(view) => onTabRef?.(id, view)}
               onPress={() => onChange(id)}
               onLayout={(e) => {
                 const { x, width } = e.nativeEvent.layout;
