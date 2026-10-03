@@ -8,23 +8,21 @@ import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useSavedMealActions, useSavedMeals } from "@/frontend/core/saved/hooks/useSavedMeals";
 import type { SavedMeal } from "@/frontend/core/saved/types";
-import type { SavedMealPlan } from "../../mock/api";
 import { MealGrid } from "../MealGrid";
 import { EmptyState } from "../EmptyState";
 import { CatalogStatusStrip, PosterChip } from "../CardOverlays";
-import { MealPlanBanner } from "./MealPlanBanner";
 import { UpdatedMealPrompt } from "./UpdatedMealPrompt";
 import { useLastDefined } from "../../hooks/useLastDefined";
 
 type SavedTabProps = {
-  plan: SavedMealPlan | null;
   onToast: (message: string, tone: "success" | "error") => void;
 };
 
-// Owner's saved meals: optional meal-plan banner, then a 2-column grid.
+// Owner's saved meals in a 2-column grid. (The meal-plan banner,
+// MealPlanBanner, is hidden for now.)
 // Unsaving asks first ("Remove this meal?"); a meal the creator has since
 // edited asks to sync before opening.
-export function SavedTab({ plan, onToast }: SavedTabProps) {
+export function SavedTab({ onToast }: SavedTabProps) {
   const { data: saved = [], isLoading } = useSavedMeals();
   const actions = useSavedMealActions();
 
@@ -57,8 +55,6 @@ export function SavedTab({ plan, onToast }: SavedTabProps) {
 
   return (
     <View>
-      {plan && <MealPlanBanner plan={plan} onPress={() => router.navigate("/meal-planner")} />}
-
       {isLoading ? (
         <View className="items-center py-16">
           <Spinner size={24} color={colors.brandGreen.DEFAULT} trackColor={colors.webDivider} />

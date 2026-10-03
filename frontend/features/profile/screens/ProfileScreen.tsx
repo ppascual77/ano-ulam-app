@@ -237,7 +237,7 @@ export default function ProfileScreen() {
           {/* At least a screen tall, so switching to a short tab doesn't
               yank the scroll position. */}
           <View className="px-5 pt-4" style={{ minHeight: windowHeight * 0.6 }}>
-            {tab === "saved" && <SavedTab plan={extras.data?.savedMealPlan ?? null} onToast={showToast} />}
+            {tab === "saved" && <SavedTab onToast={showToast} />}
             {tab === "recipes" && (
               <CreatedTab
                 posterId={me.id}
