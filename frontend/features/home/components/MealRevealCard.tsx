@@ -65,9 +65,12 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
     // Only when the meal changes.
   }, [meal]);
 
-  // The whole card turns (one rotating element); the faces are static, back
-  // pre-rotated 180°. Which face shows is decided from the angle, which also
-  // covers Android, where backfaceVisibility isn't always honored.
+  // The whole card turns (one rotating element); the faces are static.
+  // Which face shows is decided from the angle alone. backfaceVisibility
+  // can't be used: React Native flattens each view before the parent's 3D
+  // turn, so the back's own 180° pre-turn would always count as facing away
+  // and it would never show. The pre-turn still mirrors the back so the
+  // logo reads the right way round when the card turns it toward you.
   const cardStyle = useAnimatedStyle(() => ({
     opacity: fade.value,
     transform: [
@@ -87,7 +90,7 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
   const backdropStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
 
   if (!shown) return null;
-  const face = { width: cardWidth, height: cardHeight, backfaceVisibility: "hidden" as const };
+  const face = { width: cardWidth, height: cardHeight };
 
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onDismiss}>
