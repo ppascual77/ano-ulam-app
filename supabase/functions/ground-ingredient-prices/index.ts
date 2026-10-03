@@ -32,6 +32,28 @@ const CONCURRENCY = 5;
 const MIN_PLAUSIBLE_PRICE = 5;
 const MAX_PLAUSIBLE_PRICE = 50000;
 
+// Official online stores of common PH supermarkets (domains confirmed
+// 2026-10-03). web_search is restricted to these, so a price can't come
+// from a marketplace seller, a delivery app's marked-up listing, a recipe
+// blog, or an old news article. Landers and S&R are membership warehouse
+// clubs, so the prompt still steers away from their bulk packs.
+// Pandamart/GrabMart (marked-up) and Shopee/Lazada (inconsistent sellers)
+// are left out on purpose.
+const ALLOWED_STORES: { name: string; domain: string }[] = [
+  { name: "SM Markets (SM Supermarket / Hypermarket / Savemore)", domain: "smmarkets.ph" },
+  { name: "Puregold", domain: "puregold.com.ph" },
+  { name: "GoRobinsons (Robinsons Supermarket / Shopwise / The Marketplace)", domain: "gorobinsons.ph" },
+  { name: "WalterMart", domain: "waltermartdelivery.com.ph" },
+  { name: "MetroMart", domain: "metromart.com" },
+  { name: "Landers", domain: "landers.ph" },
+  { name: "S&R", domain: "snrshopping.com" },
+];
+
+// Subdomains count (e.g. supermarket.gorobinsons.ph), anything else doesn't.
+function isAllowedHost(host: string): boolean {
+  return ALLOWED_STORES.some(({ domain }) => host === domain || host.endsWith(`.${domain}`));
+}
+
 type PriceInput = {
   id: string;
   canonicalName: string;
@@ -74,7 +96,7 @@ type PriceResult =
 
 const INSTRUCTIONS = `You look up current retail prices of grocery ingredients in Philippine supermarkets. Always search the web.
 
-Find ONE online product listing with a visible price from a Philippine supermarket or grocery delivery site (e.g. SM Markets, Puregold, Robinsons / GoRobinsons, Landers, S&R, Waltermart, MetroMart, Pandamart, GrabMart). Pick the listing a Filipino home cook would normally buy for this ingredient: same cut/part, same state (raw vs cooked/dried/canned), plain and unflavored, a common or store brand, regular retail size (not bulk/wholesale). Prices are in PHP.
+Find ONE online product listing with a visible price from one of these Philippine supermarkets' online stores, and only these: ${ALLOWED_STORES.map((s) => `${s.name} (${s.domain})`).join(", ")}. Pick the listing a Filipino home cook would normally buy for this ingredient: same cut/part, same state (raw vs cooked/dried/canned), plain and unflavored, a common or store brand, regular retail size (not bulk/wholesale). Prices are in PHP.
 
 Return ONLY a JSON object, no markdown fences:
 {"found": true, "store": string, "productTitle": string (as listed), "packPrice": number (PHP for the whole pack as listed; the current price if a sale price is shown), "packSize": number, "packUnit": "g" | "kg" | "ml" | "L" | "piece", "url": string (the product page the price came from), "matchQuality": "exact" | "close", "note": string}
@@ -208,6 +230,7 @@ async function lookupListing(item: PriceInput): Promise<{ listing: Listing; urls
         {
           type: "web_search",
           search_context_size: "low",
+          filters: { allowed_domains: ALLOWED_STORES.map((s) => s.domain) },
           user_location: { type: "approximate", country: "PH", city: "Manila", timezone: "Asia/Manila" },
         },
       ],
@@ -250,6 +273,12 @@ async function priceOne(item: PriceInput): Promise<PriceResult> {
     const seenHosts = new Set(urls.map(hostOf).filter(Boolean));
     const pageVerified = normalizedUrl !== null && seenPages.has(normalizedUrl);
     const hostVerified = pageVerified || (hostOf(url) !== null && seenHosts.has(hostOf(url)));
+    // Backstop for the allowed_domains filter: never accept a source from
+    // outside the store list, even if the search somehow returned one.
+    const listingHost = hostOf(url);
+    if (!listingHost || !isAllowedHost(listingHost)) {
+      return { id: item.id, confidence: "NONE", reason: `Source ${listingHost ?? url} isn't one of the allowed supermarket sites` };
+    }
     if (!hostVerified) {
       return { id: item.id, confidence: "NONE", reason: "Price link didn't match any page the search actually returned" };
     }
