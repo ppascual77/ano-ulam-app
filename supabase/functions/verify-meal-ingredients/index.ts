@@ -109,6 +109,13 @@ CHECK FOR:
 
 Only flag REAL, concrete issues you have genuine reason to suspect from the data given — do not invent nitpicks, do not flag ordinary estimation variance. If everything looks fine, return an empty "issues" array and overallAssessment "plausible". Never propose anything outside these exact fields: calories, protein, carbohydrates, fat, sugar, fiber, sodium, estimated_price, estimated_price_unit, grams_per_ml, grams_per_piece, piece_label, state, role — always a corrected VALUE for a field already on the ingredient given, never a suggestion to use a different ingredient entirely. And never one of the nutrition/state fields for a "USDA"-source ingredient, per the SOURCE rule above.
 
+SUGGESTED VALUE FORMAT — "suggestedValue" is written straight into the database column, so it must be the bare value only, no currency symbols, units, ranges, or explanation (put those in "reasoning"):
+- calories, protein, carbohydrates, fat, sugar, fiber, sodium, estimated_price, grams_per_ml, grams_per_piece: a single plain number, e.g. "250" or "0.92" — never "₱250", "250/kg", "0.92 g/ml", or "0.91-0.92".
+- estimated_price_unit: exactly one of "g", "kg", "ml", "L".
+- role: exactly "main" or "pantry".
+- state: exactly one of "raw", "cooked", "fried", "dried".
+- piece_label: a short lowercase noun, e.g. "clove", "piece", "medium onion".
+
 OUTPUT SHAPE — return ONLY a JSON object (no markdown fences) matching exactly:
 {
   "summary": string,

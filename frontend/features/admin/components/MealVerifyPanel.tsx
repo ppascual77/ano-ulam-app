@@ -15,6 +15,7 @@ import {
   type MealVerifyResult,
   type ProposedTotals,
 } from "@/api/meals";
+import { errorMessage } from "@/lib/errorMessage";
 import { useConfirmedIngredientUpdate } from "../hooks/useConfirmedIngredientUpdate";
 import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
 import type { PendingMealIngredient } from "./SeedMealIngredientsEditor";
@@ -185,7 +186,7 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
       setIssueErrors({});
       onVerified();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -228,6 +229,29 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
     const pairedIssue = pairedIndex != null ? result?.issues[pairedIndex] : undefined;
     const indexes = pairedIndex != null ? [index, pairedIndex] : [index];
 
+    // Parse before anything is marked "applying" — a value that can't map
+    // cleanly to the column (off-list unit, unreadable number) is rejected
+    // here with a readable reason, never written. Both halves of a paired
+    // price fix must parse, or neither is applied.
+    const parsed = [issue, ...(pairedIssue ? [pairedIssue] : [])].map((i) =>
+      parseMealVerifyFixValue(i.field, i.suggestedValue),
+    );
+    const failed = parsed.find((p) => !p.ok);
+    if (failed && !failed.ok) {
+      setIssueStates((prev) => {
+        const next = { ...prev };
+        for (const i of indexes) next[i] = "error";
+        return next;
+      });
+      setIssueErrors((prev) => {
+        const next = { ...prev };
+        for (const i of indexes) next[i] = failed.reason;
+        return next;
+      });
+      return;
+    }
+    const patch = Object.assign({}, ...parsed.map((p) => (p.ok ? p.patch : {})));
+
     setPendingIndexes(indexes);
     setIssueStates((prev) => {
       const next = { ...prev };
@@ -235,10 +259,6 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
       return next;
     });
 
-    const patch = {
-      ...parseMealVerifyFixValue(issue.field, issue.suggestedValue),
-      ...(pairedIssue ? parseMealVerifyFixValue(pairedIssue.field, pairedIssue.suggestedValue) : {}),
-    };
     await confirmedUpdate.requestUpdate([{ id: ingredient.id, patch, name: ingredient.canonical_name }]);
   };
 
@@ -257,7 +277,10 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
         return next;
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = errorMessage(err);
+      // Close the sheet so the error is visible on the issue card instead
+      // of the sheet sitting open with nothing explaining why.
+      confirmedUpdate.cancel();
       setIssueStates((prev) => {
         const next = { ...prev };
         for (const i of indexes) next[i] = "error";
