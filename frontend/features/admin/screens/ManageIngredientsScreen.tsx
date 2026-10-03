@@ -23,7 +23,14 @@ const SOURCE_OPTIONS = [
   { id: "manual", label: "Manual" },
 ];
 
-type Tab = "all" | "usda" | "fnri" | "prices";
+// 'price_watch' is a valid DB value but nothing writes it yet (Price Watch
+// isn't built), so it's left out until it can actually match anything.
+const PRICE_SOURCE_OPTIONS = [
+  { id: "manual", label: "Manual / AI estimate" },
+  { id: "supermarket", label: "Supermarket" },
+];
+
+type Tab ="all" | "usda" | "fnri" | "prices";
 
 export default function ManageIngredientsScreen() {
   const [tab, setTab] = useState<Tab>("all");
@@ -31,10 +38,11 @@ export default function ManageIngredientsScreen() {
   const [role, setRole] = useState<string | undefined>();
   const [foodGroup, setFoodGroup] = useState<string | undefined>();
   const [source, setSource] = useState<string | undefined>();
+  const [priceSource, setPriceSource] = useState<string | undefined>();
   const [showArchived, setShowArchived] = useState(false);
   const [editing, setEditing] = useState<IngredientRow | null>(null);
 
-  const filters = { search: search || undefined, role, foodGroup, source, showArchived };
+  const filters = { search: search || undefined, role, foodGroup, source, priceSource, showArchived };
   const { data: ingredients, isLoading, isError } = useIngredients(filters);
   // Unfiltered fetch, just to derive the set of food groups actually in use
   // for the filter dropdown (independent of role/source/search narrowing).
@@ -114,6 +122,12 @@ export default function ManageIngredientsScreen() {
             <FilterPill label="roles" value={role} options={ROLE_OPTIONS} onChange={setRole} />
             <FilterPill label="food groups" value={foodGroup} options={foodGroupOptions} onChange={setFoodGroup} />
             <FilterPill label="sources" value={source} options={SOURCE_OPTIONS} onChange={setSource} />
+            <FilterPill
+              label="price sources"
+              value={priceSource}
+              options={PRICE_SOURCE_OPTIONS}
+              onChange={setPriceSource}
+            />
             <Pressable
               onPress={() => setShowArchived((v) => !v)}
               className="flex-row items-center gap-2 rounded-full border border-ink-emphasis/10 px-3 py-2"
