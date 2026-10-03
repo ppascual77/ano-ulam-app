@@ -24,9 +24,9 @@ import { GuestEndCard } from "../components/GuestEndCard";
 import { LoginGateSheet, type LoginGateReason } from "../components/LoginGateSheet";
 import { CommunityFeed } from "../components/CommunityFeed";
 import { CreateButton } from "../components/CreateButton";
-import { CreateSheet, type CreateChoice } from "../components/CreateSheet";
-import { CreatePostSheet } from "../components/CreatePostSheet";
-import { MOCK_ME_ID, createPost, updatePost, type FoodPost, type PostInput } from "../mock/posts";
+import { CreateSheet, type CreateChoice } from "@/frontend/core/posts/components/CreateSheet";
+import { CreatePostSheet } from "@/frontend/core/posts/components/CreatePostSheet";
+import { MOCK_ME_ID, createPost, updatePost, type FoodPost, type PostInput } from "@/frontend/core/posts/mock/posts";
 
 // Gradient stops over the reel photo: top keeps the tabs legible, bottom
 // keeps the meal details legible. Black at varying alpha (gradients need

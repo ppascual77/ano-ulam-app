@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { Heart, MoreHorizontal, Pencil, Share2, Trash2 } from "lucide-react-native";
 import { Confetti, Dropdown, useBurstOnActivate } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import type { FoodPost } from "../mock/posts";
+import type { FoodPost } from "@/frontend/core/posts/mock/posts";
 import { LinkPreviewCard } from "./LinkPreviewCard";
 import { PostAuthor, PostCaption, PostPhoto } from "./PostParts";
 

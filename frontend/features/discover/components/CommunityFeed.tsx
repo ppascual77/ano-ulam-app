@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import * as Clipboard from "expo-clipboard";
+import { ConfirmSheet } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useCommunityFeed } from "../hooks/useCommunityFeed";
-import type { FoodPost } from "../mock/posts";
-import { FoodPostCard } from "./FoodPostCard";
-import { OFFICIAL_POSTS, OfficialPostCard, WEB_APP_URL } from "./OfficialPostCard";
-import { ConfirmDeleteSheet } from "./ConfirmDeleteSheet";
-import { ImageLightbox } from "./ImageLightbox";
+import type { FoodPost } from "@/frontend/core/posts/mock/posts";
+import { FoodPostCard } from "@/frontend/core/posts/components/FoodPostCard";
+import { OFFICIAL_POSTS, OfficialPostCard, WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
+import { ImageLightbox } from "@/frontend/core/posts/components/ImageLightbox";
 
 // Pulsing placeholder in the shape of a post, while the first page loads.
 function PostSkeleton() {
@@ -148,8 +148,11 @@ export function CommunityFeed({
         }
       />
 
-      <ConfirmDeleteSheet
+      <ConfirmSheet
         visible={!!confirmPost}
+        title="Delete this post?"
+        body="This cannot be undone."
+        confirmLabel="Delete"
         onCancel={() => setConfirmPost(null)}
         onConfirm={() => {
           if (confirmPost) void feed.remove(confirmPost);
