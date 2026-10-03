@@ -1,8 +1,8 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Settings } from "lucide-react-native";
+import { ArrowLeft, Settings, Sparkles } from "lucide-react-native";
 import { Screen, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { RECIPE_LIMIT } from "@/api/recipes";
@@ -10,7 +10,15 @@ import { useAuth, useSignInWithGoogle } from "@/frontend/features/auth/hooks/use
 import { CreateSheet, type CreateChoice } from "@/frontend/core/posts/components/CreateSheet";
 import { CreatePostSheet } from "@/frontend/core/posts/components/CreatePostSheet";
 import { createPost, updatePost, type FoodPost, type PostInput } from "@/frontend/core/posts/mock/posts";
-import { useMe, useMyRecipes, useProfileExtras, useUpdateBio } from "../hooks/useProfile";
+import {
+  useAccountSettings,
+  useAccountSettingsActions,
+  useMe,
+  useMyRecipes,
+  useProfileExtras,
+  useUpdateBio,
+} from "../hooks/useProfile";
+import { PROFILE_TOUR_ID, ProfileTour } from "../components/tour/ProfileTour";
 import { ProfileHeader } from "../components/ProfileHeader";
 import { CommunityFeedLink } from "../components/CommunityFeedLink";
 import { OWN_TABS, type ProfileTab } from "../components/ProfileTabBar";
@@ -65,6 +73,40 @@ export default function ProfileScreen() {
   const atRecipeLimit = recipeCount >= RECIPE_LIMIT;
 
   const { data: saved = [] } = useSavedMeals();
+
+  // ---- first-run tour ---------------------------------------------------------
+
+  const accountSettings = useAccountSettings();
+  const { completeTour } = useAccountSettingsActions();
+  const tabRefs = useRef<Partial<Record<ProfileTab, View | null>>>({});
+  const [tourOpen, setTourOpen] = useState(false);
+  const tourAutoStarted = useRef(false);
+
+  const measureTab = useCallback(
+    (target: ProfileTab) =>
+      new Promise<{ x: number; y: number; width: number; height: number } | null>((resolve) => {
+        const view = tabRefs.current[target];
+        if (!view) return resolve(null);
+        view.measureInWindow((x, y, width, height) => resolve({ x, y, width, height }));
+      }),
+    [],
+  );
+
+  // Once per account, after the completed-tours list is known.
+  const toursCompleted = accountSettings.data?.tours_completed;
+  useEffect(() => {
+    if (isGuest || isOfficial || !toursCompleted || tourAutoStarted.current) return;
+    if (toursCompleted.includes(PROFILE_TOUR_ID)) return;
+    tourAutoStarted.current = true;
+    // Let the tab bar lay out before measuring it.
+    const timer = setTimeout(() => setTourOpen(true), 600);
+    return () => clearTimeout(timer);
+  }, [isGuest, isOfficial, toursCompleted]);
+
+  const finishTour = () => {
+    setTourOpen(false);
+    completeTour(PROFILE_TOUR_ID);
+  };
   const [nutritionOpen, setNutritionOpen] = useState(false);
 
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -193,6 +235,10 @@ export default function ProfileScreen() {
                   router.navigate({ pathname: "/discover", params: { tab: "community", at: String(Date.now()) } })
                 }
               />
+              <Pressable onPress={() => setTourOpen(true)} hitSlop={6} className="flex-row items-center gap-1 self-end px-5 pt-3">
+                <Sparkles color={colors.webInk.muted} size={14} />
+                <Text className="font-inter-regular text-small text-web-ink-muted">Take a tour</Text>
+              </Pressable>
             </>
           }
           tabs={OWN_TABS}
@@ -201,6 +247,9 @@ export default function ProfileScreen() {
           miniName={me.name}
           onCreate={() => openCreate(true)}
           onNearEnd={() => tab === "recipes" && setLoadMoreSignal((n) => n + 1)}
+          onTabRef={(id, view) => {
+            tabRefs.current[id] = view;
+          }}
         >
           {tab === "saved" && <SavedTab onToast={showToast} />}
           {tab === "recipes" && (
@@ -241,6 +290,7 @@ export default function ProfileScreen() {
         <NutritionOverviewFab onPress={() => setNutritionOpen(true)} />
       )}
       <NutritionSummarySheet visible={nutritionOpen} onClose={() => setNutritionOpen(false)} saved={saved} />
+      <ProfileTour visible={tourOpen} measure={measureTab} onFinish={finishTour} />
 
       <Toast toast={toast} onHide={() => setToast(null)} />
     </Screen>

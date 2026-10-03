@@ -18,6 +18,8 @@ type ProfileScaffoldProps = {
   onCreate?: () => void;
   /** Fires once each time the scroll gets near the bottom. */
   onNearEnd?: () => void;
+  /** See ProfileTabBar's onTabRef (the first-run tour). */
+  onTabRef?: (id: ProfileTab, view: View | null) => void;
   /** The active tab's content. */
   children: ReactNode;
 };
@@ -25,7 +27,7 @@ type ProfileScaffoldProps = {
 // Shared body of every profile (own, someone else's, official): one scroll
 // view with the header, a tab bar that sticks to the top once reached
 // (with its mini header), the tab content, and the footer.
-export function ProfileScaffold({ header, tabs, activeTab, onTabChange, miniName, onCreate, onNearEnd, children }: ProfileScaffoldProps) {
+export function ProfileScaffold({ header, tabs, activeTab, onTabChange, miniName, onCreate, onNearEnd, onTabRef, children }: ProfileScaffoldProps) {
   const { height: windowHeight } = useWindowDimensions();
   const [tabBarY, setTabBarY] = useState(0);
   const [stuck, setStuck] = useState(false);
@@ -53,7 +55,7 @@ export function ProfileScaffold({ header, tabs, activeTab, onTabChange, miniName
       <View className="pb-4">{header}</View>
 
       <View onLayout={(e) => setTabBarY(e.nativeEvent.layout.y)}>
-        <ProfileTabBar tabs={tabs} active={activeTab} onChange={onTabChange} stuck={stuck} name={miniName} onCreate={onCreate} />
+        <ProfileTabBar tabs={tabs} active={activeTab} onChange={onTabChange} stuck={stuck} name={miniName} onCreate={onCreate} onTabRef={onTabRef} />
       </View>
 
       {/* At least most of a screen tall, so switching to a short tab
