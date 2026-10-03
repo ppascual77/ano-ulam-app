@@ -56,6 +56,10 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
   const cardHeight = screenHeight * HEIGHT_SHARE;
   const cardWidth = Math.min(screenWidth * 0.68, cardHeight * ASPECT);
 
+  const thud = () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+  };
+
   // Keep the last meal rendered while fading out.
   const [shown, setShown] = useState<MealType | null>(meal);
   const progress = useSharedValue(0);
@@ -67,7 +71,11 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
       progress.value = 0;
       fade.value = withTiming(1, { duration: 250 });
       progress.value = withTiming(1, { duration: REVEAL_MS, easing: Easing.out(Easing.quad) }, (finished) => {
-        if (finished && onLanded) scheduleOnRN(onLanded);
+        if (!finished) return;
+        // A firmer haptic as the card settles (the reveal), after the light
+        // mid-spin ticks.
+        scheduleOnRN(thud);
+        if (onLanded) scheduleOnRN(onLanded);
       });
     } else if (shown) {
       fade.value = withTiming(0, { duration: EXIT_MS }, (finished) => {
