@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, Text, View, type ViewToken } from "react-native";
+import { FlatList, Pressable, Text, View, type ViewToken } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { setStatusBarStyle } from "expo-status-bar";
@@ -7,7 +7,7 @@ import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronUp } from "lucide-react-native";
-import { Toast, type ToastState } from "@/frontend/components/ui";
+import { Spinner, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { getMeal } from "@/api/meals";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
@@ -333,7 +333,7 @@ export default function DiscoverScreen() {
 
           {feed.status === "loading" && (
             <View className="absolute inset-0 items-center justify-center">
-              <ActivityIndicator size="large" color={colors.white} />
+              <Spinner />
             </View>
           )}
 
