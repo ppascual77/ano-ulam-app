@@ -17,10 +17,11 @@ import { useGroundIngredientPrices, useIngredients, useMarkPriceGroundingAttempt
 import { useConfirmedIngredientUpdate, type PendingIngredientChange } from "../hooks/useConfirmedIngredientUpdate";
 import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
 
-// One run = one paid web search per ingredient, so runs are capped rather
+// Each lookup is paid (one or more web searches), so runs are capped rather
 // than "check all ~500": the admin sees real cost and quality on a small
-// batch before committing to more.
-const RUN_SIZE = 25;
+// batch before committing to more. 5 while measuring token cost (a run of
+// 25 cost ~$2 before the search cap); raise once per-ingredient cost is known.
+const RUN_SIZE = 5;
 // A found price this far off the current one (either direction) is worth a
 // second look before accepting, e.g. a per-piece price read as per-kg.
 const BIG_CHANGE_RATIO = 3;
