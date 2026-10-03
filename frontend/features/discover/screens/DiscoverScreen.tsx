@@ -23,7 +23,10 @@ import { ViewRecipeButton } from "../components/ViewRecipeButton";
 import { GuestEndCard } from "../components/GuestEndCard";
 import { LoginGateSheet, type LoginGateReason } from "../components/LoginGateSheet";
 import { CommunityFeed } from "../components/CommunityFeed";
-import { MOCK_ME_ID } from "../mock/posts";
+import { CreateButton } from "../components/CreateButton";
+import { CreateSheet, type CreateChoice } from "../components/CreateSheet";
+import { CreatePostSheet } from "../components/CreatePostSheet";
+import { MOCK_ME_ID, createPost, updatePost, type FoodPost, type PostInput } from "../mock/posts";
 
 // Gradient stops over the reel photo: top keeps the tabs legible, bottom
 // keeps the meal details legible. Black at varying alpha (gradients need
@@ -43,6 +46,9 @@ const HINT_BOTTOM = 12;
 // above the Community list.
 const TABS_TOP_OFFSET = 12;
 const TABS_ROW_HEIGHT = 44;
+// Space kept clear on the right of the tabs row for the Create button, so
+// its expanded "Create +" pill doesn't cover the Community tab.
+const CREATE_BUTTON_SPACE = 72;
 
 // TEMP (dev only): show the Community feed as if signed in, so the mock
 // posts are visible without a working sign-in. Remove once real sign-in
@@ -53,14 +59,14 @@ type Page = { kind: "meal"; meal: MealType } | { kind: "end" };
 
 // A guest's like/save is remembered while they sign in, then replayed with
 // the then-current handlers (not a stale closure).
-type PendingAction = { type: "like" | "save"; meal: MealType };
+type PendingAction = { type: "like" | "save"; meal: MealType } | { type: "create" };
 
 // Discover: a full-screen, swipe-up reel of meals (Recipes tab), plus a
 // Community tab (Phase 2, placeholder for now). See the web app's
 // DiscoverPage.tsx (mobile branch) for the original.
 export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, session } = useAuth();
   const signIn = useSignInWithGoogle();
 
   // Dev-only: force the guest experience while signed in, to test the login
@@ -116,11 +122,79 @@ export default function DiscoverScreen() {
   // ---- like / save, with the guest login gate ------------------------------
 
   const runAction = async (action: PendingAction) => {
+    if (action.type === "create") {
+      // Replayed after the login gate closes (see openCreateAfterGate), so
+      // the Create sheet never opens while the gate's Modal is still up.
+      openCreateAfterGate.current = true;
+      return;
+    }
     if (action.type === "like") {
       await feed.toggleLike(action.meal);
     } else {
       const error = await feed.toggleSave(action.meal);
       if (error) showToast(error);
+    }
+  };
+
+  // ---- Create: button, chooser, composer ---------------------------------
+
+  // Posting goes to the (mock) Community feed, so "guest" here follows the
+  // Community tab's dev override too.
+  const communityGuest = isGuest && !DEV_FORCE_COMMUNITY_SIGNED_IN;
+  const [createExpanded, setCreateExpanded] = useState(false);
+  const [createSheetOpen, setCreateSheetOpen] = useState(false);
+  const [composer, setComposer] = useState<{ open: boolean; editPost: FoodPost | null }>({
+    open: false,
+    editPost: null,
+  });
+  const [communityRefreshKey, setCommunityRefreshKey] = useState(0);
+  const openCreateAfterGate = useRef(false);
+  // What was picked in the Create sheet; acted on once it finishes closing.
+  const createChoice = useRef<CreateChoice | null>(null);
+
+  const meta = session?.user.user_metadata ?? {};
+  const author = {
+    name: (meta.full_name as string | undefined) ?? (meta.name as string | undefined) ?? "You",
+    avatarUrl: (meta.avatar_url as string | undefined) ?? (meta.picture as string | undefined) ?? null,
+  };
+
+  // Two taps: the first expands the pill, the second collapses it and opens
+  // the Create sheet. Guests get the "create" login gate instead.
+  const pressCreate = () => {
+    if (communityGuest) {
+      pending.current = { type: "create" };
+      setGate("create");
+      return;
+    }
+    if (!createExpanded) {
+      setCreateExpanded(true);
+      return;
+    }
+    setCreateExpanded(false);
+    setCreateSheetOpen(true);
+  };
+
+  const afterCreateSheetClosed = () => {
+    const choice = createChoice.current;
+    createChoice.current = null;
+    if (choice === "post") setComposer({ open: true, editPost: null });
+    // The recipe submission flow is a separate feature, not built yet.
+    if (choice === "recipe") showToast("Recipe submission is coming soon.", "success");
+  };
+
+  const submitPost = async (input: PostInput) => {
+    try {
+      if (composer.editPost) {
+        await updatePost(composer.editPost.id, input);
+      } else {
+        await createPost(input, { display_name: author.name, avatar_url: author.avatarUrl });
+      }
+      setComposer({ open: false, editPost: null });
+      // Land on Community with the feed reloaded, new post on top.
+      setTab("community");
+      setCommunityRefreshKey((key) => key + 1);
+    } catch {
+      showToast("Couldn't save your post. Please try again.");
     }
   };
 
@@ -202,6 +276,11 @@ export default function DiscoverScreen() {
       onContinueWithGoogle={continueWithGoogle}
       isSigningIn={signIn.isPending}
       presentation={presentation}
+      onClosed={() => {
+        if (!openCreateAfterGate.current) return;
+        openCreateAfterGate.current = false;
+        setCreateSheetOpen(true);
+      }}
     />
   );
 
@@ -318,6 +397,8 @@ export default function DiscoverScreen() {
           topInset={insets.top + TABS_TOP_OFFSET + TABS_ROW_HEIGHT}
           onLogIn={continueWithGoogle}
           onToast={showToast}
+          onEditPost={(post) => setComposer({ open: true, editPost: post })}
+          refreshKey={communityRefreshKey}
         />
       )}
 
@@ -329,7 +410,11 @@ export default function DiscoverScreen() {
       <View
         pointerEvents="box-none"
         className={`absolute left-0 right-0 top-0 items-center ${tab === "community" ? "bg-white" : ""}`}
-        style={{ paddingTop: insets.top + TABS_TOP_OFFSET, height: insets.top + TABS_TOP_OFFSET + TABS_ROW_HEIGHT }}
+        style={{
+          paddingTop: insets.top + TABS_TOP_OFFSET,
+          paddingRight: CREATE_BUTTON_SPACE,
+          height: insets.top + TABS_TOP_OFFSET + TABS_ROW_HEIGHT,
+        }}
       >
         <FeedTabs
           active={tab}
@@ -339,11 +424,16 @@ export default function DiscoverScreen() {
         />
       </View>
 
+      <View className="absolute right-4" style={{ top: insets.top + TABS_TOP_OFFSET - 6 }}>
+        <CreateButton expanded={createExpanded} onPress={pressCreate} variant={tab === "recipes" ? "dark" : "light"} />
+      </View>
+
       {__DEV__ && isSignedIn && (
         <Pressable
           onPress={() => setForceGuest((prev) => !prev)}
           className={`absolute left-3 rounded-full px-2 py-1 ${tab === "recipes" ? "bg-white/20" : "bg-web-ink/80"}`}
-          style={{ top: insets.top + 16 }}
+          // Below the tabs row, clear of the (left-shifted) tab pills.
+          style={{ top: insets.top + TABS_TOP_OFFSET + TABS_ROW_HEIGHT + 4 }}
         >
           <Text className="font-inter-semibold text-sub text-white">DEV {forceGuest ? "guest" : "signed in"}</Text>
         </Pressable>
@@ -365,6 +455,24 @@ export default function DiscoverScreen() {
       />
 
       {!detailOpen && renderGate("modal")}
+
+      <CreateSheet
+        visible={createSheetOpen}
+        onClose={() => setCreateSheetOpen(false)}
+        onChoose={(choice) => {
+          createChoice.current = choice;
+          setCreateSheetOpen(false);
+        }}
+        onClosed={afterCreateSheetClosed}
+      />
+
+      <CreatePostSheet
+        visible={composer.open}
+        onClose={() => setComposer({ open: false, editPost: null })}
+        editPost={composer.editPost}
+        author={author}
+        onSubmit={submitPost}
+      />
 
       <Toast toast={toast} onHide={() => setToast(null)} />
     </View>

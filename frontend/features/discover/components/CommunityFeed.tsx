@@ -38,13 +38,25 @@ type CommunityFeedProps = {
   topInset: number;
   onLogIn: () => void;
   onToast: (message: string, tone?: "success" | "error") => void;
+  /** Opens the composer to edit one of your posts. */
+  onEditPost: (post: FoodPost) => void;
+  /** Bump to reload from the top (after a post is created or edited). */
+  refreshKey: number;
 };
 
 // Community tab body: a white, vertically scrolling feed of food posts,
 // paged by 5, with AnoUlam's official posts appended once the list ends.
 // Guests get a join prompt instead.
-export function CommunityFeed({ isGuest, currentUserId, topInset, onLogIn, onToast }: CommunityFeedProps) {
-  const feed = useCommunityFeed({ enabled: !isGuest, userId: currentUserId });
+export function CommunityFeed({
+  isGuest,
+  currentUserId,
+  topInset,
+  onLogIn,
+  onToast,
+  onEditPost,
+  refreshKey,
+}: CommunityFeedProps) {
+  const feed = useCommunityFeed({ enabled: !isGuest, userId: currentUserId, refreshKey });
   const [confirmPost, setConfirmPost] = useState<FoodPost | null>(null);
   const [lightbox, setLightbox] = useState<{ uri: string } | number | null>(null);
 
@@ -104,8 +116,7 @@ export function CommunityFeed({ isGuest, currentUserId, topInset, onLogIn, onToa
               onLike={() => feed.toggleLike(post)}
               onShare={() => share(`/community/post/${post.id}`)}
               onOpenPhoto={(uri) => setLightbox({ uri })}
-              // Editing needs the post composer (Phase 3).
-              onEdit={isOwn ? () => onToast("Editing posts is coming soon.", "success") : undefined}
+              onEdit={isOwn ? () => onEditPost(post) : undefined}
               onDelete={isOwn ? () => setConfirmPost(post) : undefined}
             />
           );
