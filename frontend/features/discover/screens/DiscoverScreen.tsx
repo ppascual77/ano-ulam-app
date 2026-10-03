@@ -22,6 +22,8 @@ import { MealDetailsOverlay } from "../components/MealDetailsOverlay";
 import { ViewRecipeButton } from "../components/ViewRecipeButton";
 import { GuestEndCard } from "../components/GuestEndCard";
 import { LoginGateSheet, type LoginGateReason } from "../components/LoginGateSheet";
+import { CommunityFeed } from "../components/CommunityFeed";
+import { MOCK_ME_ID } from "../mock/posts";
 
 // Gradient stops over the reel photo: top keeps the tabs legible, bottom
 // keeps the meal details legible. Black at varying alpha (gradients need
@@ -37,6 +39,15 @@ const RAIL_BOTTOM = 120;
 const DETAILS_BOTTOM = 92;
 const VIEW_RECIPE_BOTTOM = 36;
 const HINT_BOTTOM = 12;
+// Tabs row: offset below the status bar, and the height reserved for it
+// above the Community list.
+const TABS_TOP_OFFSET = 12;
+const TABS_ROW_HEIGHT = 44;
+
+// TEMP (dev only): show the Community feed as if signed in, so the mock
+// posts are visible without a working sign-in. Remove once real sign-in
+// is reliable; the reel's guest/login behavior is unaffected.
+const DEV_FORCE_COMMUNITY_SIGNED_IN = __DEV__;
 
 type Page = { kind: "meal"; meal: MealType } | { kind: "end" };
 
@@ -296,19 +307,27 @@ export default function DiscoverScreen() {
           )}
         </>
       ) : (
-        // Phase 2: the Community feed.
-        <View className="flex-1 items-center justify-center px-8">
-          <Text className="font-inter-bold text-subheading text-web-ink">Community is coming soon</Text>
-          <Text className="mt-1 text-center font-inter-regular text-body text-web-ink-muted">
-            Food posts from other AnoUlam cooks will show up here.
-          </Text>
-        </View>
+        <CommunityFeed
+          isGuest={isGuest && !DEV_FORCE_COMMUNITY_SIGNED_IN}
+          // Mock posts aren't keyed to real Supabase user ids yet: the
+          // signed-in user is the mock "me".
+          currentUserId={isGuest && !DEV_FORCE_COMMUNITY_SIGNED_IN ? null : MOCK_ME_ID}
+          topInset={insets.top + TABS_TOP_OFFSET + TABS_ROW_HEIGHT}
+          onLogIn={continueWithGoogle}
+          onToast={showToast}
+        />
       )}
 
       {/* Tabs row, fixed on top of both tabs. */}
       {/* box-none: the full-width row itself passes touches through (so the
           area beside the pills still swipes); the pills stay tappable. */}
-      <View pointerEvents="box-none" className="absolute left-0 right-0 items-center" style={{ top: insets.top + 12 }}>
+      {/* On Community the row gets a white background, so posts scrolling
+          up behind it stay hidden. */}
+      <View
+        pointerEvents="box-none"
+        className={`absolute left-0 right-0 top-0 items-center ${tab === "community" ? "bg-white" : ""}`}
+        style={{ paddingTop: insets.top + TABS_TOP_OFFSET, height: insets.top + TABS_TOP_OFFSET + TABS_ROW_HEIGHT }}
+      >
         <FeedTabs
           active={tab}
           onChange={changeTab}
@@ -320,7 +339,7 @@ export default function DiscoverScreen() {
       {__DEV__ && isSignedIn && (
         <Pressable
           onPress={() => setForceGuest((prev) => !prev)}
-          className="absolute left-3 rounded-full bg-white/20 px-2 py-1"
+          className={`absolute left-3 rounded-full px-2 py-1 ${tab === "recipes" ? "bg-white/20" : "bg-web-ink/80"}`}
           style={{ top: insets.top + 16 }}
         >
           <Text className="font-inter-semibold text-sub text-white">DEV {forceGuest ? "guest" : "signed in"}</Text>
