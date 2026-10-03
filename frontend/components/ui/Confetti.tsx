@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import Animated, {
   Easing,
@@ -7,14 +7,16 @@ import Animated, {
   withDelay,
   withTiming,
 } from "react-native-reanimated";
-import { Bookmark } from "lucide-react-native";
-import { colors } from "@/frontend/constants/theme";
+import type { LucideIcon } from "lucide-react-native";
 
-const PARTICLE_COUNT = 10;
-const DURATION_MS = 750;
+const PARTICLE_COUNT = 12;
+const DURATION_MS = 800;
 // Extra downward drift by the end of the burst, so pieces arc and fall
 // instead of flying out in straight lines.
-const GRAVITY_PX = 40;
+const GRAVITY_PX = 48;
+// How far pieces fly from the center: MIN + up to RANGE more.
+const DISTANCE_MIN_PX = 45;
+const DISTANCE_RANGE_PX = 40;
 
 type Particle = {
   dx: number;
@@ -26,12 +28,13 @@ type Particle = {
 
 function makeParticles(): Particle[] {
   return Array.from({ length: PARTICLE_COUNT }, (_, i) => {
-    // Fan from slightly down-left, through straight up, to up-right. The
-    // bookmark sits near the card's right edge, so bursting further right
-    // would just get clipped by the card's overflow-hidden.
+    // Fan from slightly down-left, through straight up, to up-right. Every
+    // current trigger (a card's like/save, Discover's action rail) sits
+    // near the right edge, so bursting further right would just get
+    // clipped or run off-screen.
     const baseDeg = -200 + (i / (PARTICLE_COUNT - 1)) * 150;
     const angle = ((baseDeg + (Math.random() - 0.5) * 15) * Math.PI) / 180;
-    const distance = 35 + Math.random() * 30;
+    const distance = DISTANCE_MIN_PX + Math.random() * DISTANCE_RANGE_PX;
     return {
       dx: Math.cos(angle) * distance,
       dy: Math.sin(angle) * distance,
@@ -42,7 +45,7 @@ function makeParticles(): Particle[] {
   });
 }
 
-function ConfettiPiece({ dx, dy, rotate, size, delay }: Particle) {
+function ConfettiPiece({ dx, dy, rotate, size, delay, icon: Icon, color }: Particle & { icon: LucideIcon; color: string }) {
   const progress = useSharedValue(0);
 
   useEffect(() => {
@@ -67,21 +70,24 @@ function ConfettiPiece({ dx, dy, rotate, size, delay }: Particle) {
 
   return (
     <Animated.View style={[{ position: "absolute", left: -size / 2, top: -size / 2 }, style]}>
-      <Bookmark color={colors.primary} fill={colors.primary} size={size} />
+      <Icon color={color} fill={color} size={size} />
     </Animated.View>
   );
 }
 
-type BookmarkConfettiProps = {
+type ConfettiProps = {
   /** Bump this to fire a new burst. 0 renders nothing. */
   burstId: number;
+  /** The piece shape, e.g. Heart for a like, Bookmark for a save. */
+  icon: LucideIcon;
+  color: string;
 };
 
-// Burst of bookmark-shaped confetti from the center of its parent. Render it
-// as the first child of the bookmark button's wrapper so pieces start hidden
-// behind the button and fly out from under it.
-export function BookmarkConfetti({ burstId }: BookmarkConfettiProps) {
-  // New random spread per burst, so repeat saves don't look identical.
+// Burst of icon-shaped confetti from the center of its parent. Render it as
+// the first child of the button's wrapper so pieces start hidden behind the
+// button and fly out from under it.
+export function Confetti({ burstId, icon, color }: ConfettiProps) {
+  // New random spread per burst, so repeat taps don't look identical.
   const particles = useMemo(makeParticles, [burstId]);
 
   if (burstId === 0) return null;
@@ -90,8 +96,21 @@ export function BookmarkConfetti({ burstId }: BookmarkConfettiProps) {
     <View style={{ pointerEvents: "none" }} className="absolute left-1/2 top-1/2">
       {particles.map((particle, i) => (
         // burstId in the key remounts every piece, restarting its animation.
-        <ConfettiPiece key={`${burstId}-${i}`} {...particle} />
+        <ConfettiPiece key={`${burstId}-${i}`} {...particle} icon={icon} color={color} />
       ))}
     </View>
   );
+}
+
+// Burst id that bumps whenever `active` goes false -> true (a like or save
+// landing), but not on mount. Remount the owner (e.g. key it by item) when
+// switching items, so moving to an already-liked item doesn't fire.
+export function useBurstOnActivate(active: boolean) {
+  const [burstId, setBurstId] = useState(0);
+  const previous = useRef(active);
+  useEffect(() => {
+    if (active && !previous.current) setBurstId((id) => id + 1);
+    previous.current = active;
+  }, [active]);
+  return burstId;
 }
