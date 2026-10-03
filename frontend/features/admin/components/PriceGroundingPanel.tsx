@@ -152,7 +152,7 @@ export function PriceGroundingPanel() {
         {neverChecked.length} ingredient{neverChecked.length === 1 ? "" : "s"} never price-checked. Each check
         searches only these supermarkets' online stores: SM Markets, Puregold, GoRobinsons, WalterMart, MetroMart,
         Landers, and S&R. It is a paid web search, about
-        2–3¢ USD per ingredient. Nothing is saved until you confirm.
+        2–4¢ USD per ingredient. Nothing is saved until you confirm.
       </AppText>
 
       {alreadyCheckedCount > 0 && (

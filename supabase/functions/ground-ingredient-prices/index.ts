@@ -14,15 +14,16 @@
 // (citations + consulted sources), so a made-up link can't slip through
 // as a HIGH match.
 //
-// Cost (OpenAI pricing, Oct 2026): $10 / 1k web_search calls + a fixed
-// ~8k-input-token block per call at the model's rate. Roughly 2-3¢ per
-// ingredient. The client runs small chunks (see PriceGroundingPanel), never
+// Cost (OpenAI pricing, Oct 2026): $10 / 1k web_search calls + search
+// content tokens at gpt-5-mini's rate ($0.25 / 1M input). Roughly 2-4¢
+// per ingredient; check the usage dashboard after the first run. The client runs small chunks (see PriceGroundingPanel), never
 // the whole table at once, so spend stays admin-controlled.
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const OPENAI_URL = "https://api.openai.com/v1/responses";
-// Listed as web_search-capable in OpenAI's tools-web-search guide.
-const MODEL = "gpt-4.1-mini";
+// A reasoning model: gpt-4.1-mini supports web_search but rejected the
+// `filters` (allowed_domains) parameter with a 400.
+const MODEL = "gpt-5-mini";
 // Each lookup is one web-searching request (~10-20s). Capped per call so a
 // chunk finishes well inside the edge function's wall-clock limit.
 const MAX_PER_CALL = 10;
@@ -215,8 +216,15 @@ function normalizeToPriceUnit(
   return { ok: true, pricePerUnit: Math.round((listing.packPrice / amount) * 100) / 100, unit: target, viaBridge };
 }
 
-async function lookupListing(item: PriceInput): Promise<{ listing: Listing; urls: string[] }> {
-  const res = await fetch(OPENAI_URL, {
+// Flipped off for the rest of this worker's life if OpenAI rejects the
+// domain filter for MODEL (gpt-4.1-mini did, with a 400). Without it the
+// prompt still names the stores and priceOne's isAllowedHost check still
+// rejects any other source, so results just come back NONE more often
+// instead of the whole run erroring.
+let domainFilterSupported = true;
+
+function requestOpenAI(item: PriceInput, withDomainFilter: boolean) {
+  return fetch(OPENAI_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${OPENAI_API_KEY}`,
@@ -230,15 +238,29 @@ async function lookupListing(item: PriceInput): Promise<{ listing: Listing; urls
         {
           type: "web_search",
           search_context_size: "low",
-          filters: { allowed_domains: ALLOWED_STORES.map((s) => s.domain) },
+          ...(withDomainFilter ? { filters: { allowed_domains: ALLOWED_STORES.map((s) => s.domain) } } : {}),
           user_location: { type: "approximate", country: "PH", city: "Manila", timezone: "Asia/Manila" },
         },
       ],
       tool_choice: "required",
       include: ["web_search_call.action.sources"],
-      temperature: 0.1,
+      // Reasoning models reject `temperature`; web_search doesn't work
+      // with "minimal" effort, so "low" is the cheapest that does.
+      reasoning: { effort: "low" },
     }),
   });
+}
+
+async function lookupListing(item: PriceInput): Promise<{ listing: Listing; urls: string[] }> {
+  let res = await requestOpenAI(item, domainFilterSupported);
+
+  if (!res.ok && res.status === 400 && domainFilterSupported) {
+    const body = await res.text();
+    if (!/filters/i.test(body)) throw new Error(`OpenAI request failed: ${res.status} ${body}`);
+    domainFilterSupported = false;
+    console.warn(`[ground-ingredient-prices] ${MODEL} rejected the domain filter, retrying without it: ${body}`);
+    res = await requestOpenAI(item, false);
+  }
 
   if (!res.ok) {
     const body = await res.text();
