@@ -82,8 +82,19 @@ const DRAG_SWAY_SENSITIVITY = -0.4; // negative: dragging right should lean the 
 // before the meal sheet opens.
 const DETAIL_AFTER_CARD_MS = 320;
 const CONFETTI_COLORS = [colors.primary, colors.accent, colors.like, colors.macro.protein, colors.macro.carbs, colors.macro.fats];
-const CONFETTI_COUNT = 26;
+const CONFETTI_COUNT = 44;
 const CONFETTI_SIZE_SCALE = 1.2; // 20% larger than the original base size
+// Size mix for variety: a few big pieces, mostly medium, some tiny specks.
+// [share of pieces, min size, max size] before CONFETTI_SIZE_SCALE.
+const CONFETTI_SIZES: [number, number, number][] = [
+  [0.25, 13, 18],
+  [0.5, 7, 11],
+  [0.25, 3, 6],
+];
+// Pieces start this far past each screen edge, and drift up to this far
+// sideways while falling, so the burst covers the whole width.
+const CONFETTI_EDGE_SPILL = 0.1;
+const CONFETTI_MAX_DRIFT = 220;
 // Longest any single piece could still be falling: max delay (400) + max
 // fallDuration (1800+900=2700) = 3100ms. Kept mounted comfortably past that
 // so every piece finishes its own per-piece fade-out (see ConfettiPiece)
@@ -104,20 +115,36 @@ type ConfettiPieceConfig = {
   fallDuration: number;
   rotations: number;
   drift: number;
+  /** Strip, square or round, for shape variety. */
+  borderRadius: number;
 };
 
+function pickConfettiSize() {
+  let roll = Math.random();
+  for (const [share, min, max] of CONFETTI_SIZES) {
+    if (roll < share) return (min + Math.random() * (max - min)) * CONFETTI_SIZE_SCALE;
+    roll -= share;
+  }
+  return 8 * CONFETTI_SIZE_SCALE;
+}
+
 function buildConfettiPieces(screenWidth: number): ConfettiPieceConfig[] {
+  const spill = screenWidth * CONFETTI_EDGE_SPILL;
   return Array.from({ length: CONFETTI_COUNT }, () => {
-    const size = (6 + Math.random() * 6) * CONFETTI_SIZE_SCALE;
+    const size = pickConfettiSize();
+    const shape = Math.random();
+    // Mostly strips, plus some squares and dots.
+    const height = shape < 0.6 ? size * 0.4 : size;
     return {
-      startX: Math.random() * screenWidth,
+      startX: -spill + Math.random() * (screenWidth + spill * 2),
       color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
       width: size,
-      height: size * 0.4,
+      height,
+      borderRadius: shape >= 0.85 ? size / 2 : 1,
       delay: Math.random() * 400,
       fallDuration: 1800 + Math.random() * 900,
       rotations: (180 + Math.random() * 540) * (Math.random() < 0.5 ? -1 : 1),
-      drift: (Math.random() - 0.5) * 100,
+      drift: (Math.random() - 0.5) * 2 * CONFETTI_MAX_DRIFT,
     };
   });
 }
@@ -152,7 +179,7 @@ function ConfettiPiece({ config, screenHeight }: { config: ConfettiPieceConfig; 
           width: config.width,
           height: config.height,
           backgroundColor: config.color,
-          borderRadius: 1,
+          borderRadius: config.borderRadius,
         },
       ]}
     />
