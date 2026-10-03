@@ -15,7 +15,7 @@ import { mockMeals } from "@/frontend/core/meals/mocks/meals";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { MealRevealCard } from "./MealRevealCard";
-import { LogoConfettiPiece, buildLogoPieces, type LogoPieceConfig } from "./LogoConfetti";
+import { POP_MAX_LIFETIME_MS, PopConfettiPiece, buildCornerPops, type PopPieceConfig } from "./CornerPopConfetti";
 
 // A small pull-tab that slides down from the top of Home at random
 // intervals — for people who can't decide what to eat, drag it down to
@@ -199,8 +199,9 @@ export function RandomMealPuller() {
   const [revealedMeal, setRevealedMeal] = useState<MealType | null>(null);
   const [detailMeal, setDetailMeal] = useState<MealType | null>(null);
   const [confettiPieces, setConfettiPieces] = useState<ConfettiPieceConfig[] | null>(null);
-  // Logos popping from the bottom-right, alongside the falling confetti.
-  const [logoPieces, setLogoPieces] = useState<LogoPieceConfig[] | null>(null);
+  // Logos (bottom-right) and hearts (bottom-left) popping up alongside the
+  // falling confetti.
+  const [popPieces, setPopPieces] = useState<PopPieceConfig[] | null>(null);
   const lastMealIdRef = useRef<string | null>(null);
   const appearTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const retractTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -276,27 +277,28 @@ export function RandomMealPuller() {
   function burstConfetti() {
     confettiOpacity.value = 1;
     setConfettiPieces(buildConfettiPieces(screenWidth));
-    setLogoPieces(buildLogoPieces(screenWidth, screenHeight));
+    setPopPieces(buildCornerPops(screenWidth, screenHeight));
     confettiFadeTimeoutRef.current = setTimeout(() => {
       confettiOpacity.value = withTiming(0, { duration: CONFETTI_EXIT_FADE_MS });
     }, CONFETTI_LIFETIME_MS - CONFETTI_EXIT_FADE_MS);
+    // Kept until both the falling confetti and the slowest pop are done.
     confettiClearTimeoutRef.current = setTimeout(() => {
       setConfettiPieces(null);
-      setLogoPieces(null);
-    }, CONFETTI_LIFETIME_MS);
+      setPopPieces(null);
+    }, Math.max(CONFETTI_LIFETIME_MS, POP_MAX_LIFETIME_MS + 200));
   }
   // The card fades out first, then the sheet opens (never two Modals up at
   // once; see the confetti note above).
   function openDetails(meal: MealType) {
     setRevealedMeal(null);
     setConfettiPieces(null);
-    setLogoPieces(null);
+    setPopPieces(null);
     detailTimeoutRef.current = setTimeout(() => setDetailMeal(meal), DETAIL_AFTER_CARD_MS);
   }
   function dismissReveal() {
     setRevealedMeal(null);
     setConfettiPieces(null);
-    setLogoPieces(null);
+    setPopPieces(null);
     scheduleNextAppearance();
   }
   function finishCommit() {
@@ -384,7 +386,7 @@ export function RandomMealPuller() {
               {confettiPieces.map((piece, i) => (
                 <ConfettiPiece key={i} config={piece} screenHeight={screenHeight} />
               ))}
-              {logoPieces?.map((piece, i) => <LogoConfettiPiece key={`logo-${i}`} config={piece} />)}
+              {popPieces?.map((piece, i) => <PopConfettiPiece key={`pop-${i}`} config={piece} />)}
             </Animated.View>
           ) : undefined
         }
