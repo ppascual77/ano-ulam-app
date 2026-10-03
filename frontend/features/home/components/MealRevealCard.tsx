@@ -90,6 +90,8 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
   const backdropStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
 
   if (!shown) return null;
+  // No drop shadow on the faces: edge-on mid-spin it smears into a gray
+  // flicker beside the card. The dimmed backdrop gives enough contrast.
   const face = { width: cardWidth, height: cardHeight };
 
   return (
@@ -103,7 +105,7 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
           {/* Back: green with the white logo, pre-turned to face away. */}
           <Animated.View
             style={[face, { transform: [{ rotateY: "180deg" }] }, backStyle]}
-            className="absolute items-center justify-center rounded-3xl bg-primary shadow-lg"
+            className="absolute items-center justify-center rounded-3xl bg-primary"
           >
             <Image
               source={require("@/assets/icons/logo_white.png")}
@@ -113,7 +115,7 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
           </Animated.View>
 
           {/* Front: the meal photo, name and price over a dark fade. */}
-          <Animated.View style={[face, frontStyle]} className="absolute overflow-hidden rounded-3xl bg-white shadow-lg">
+          <Animated.View style={[face, frontStyle]} className="absolute overflow-hidden rounded-3xl bg-white">
             <Pressable onPress={() => onViewDetails(shown)} className="flex-1" accessibilityLabel={`${shown.name}, view details`}>
               <Image source={resolveMealImage(shown)} style={{ width: "100%", height: "100%" }} contentFit="cover" />
               <LinearGradient
