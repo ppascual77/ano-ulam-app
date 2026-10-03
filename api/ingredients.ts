@@ -139,6 +139,8 @@ export async function markPriceGroundingAttempted(ids: string[]) {
 }
 
 export type PriceGroundingCandidate = {
+  confidence: "HIGH" | "LOW";
+  reasons: string[];
   pricePerUnit: number;
   unit: "kg" | "L";
   store: string;
@@ -152,7 +154,9 @@ export type PriceGroundingCandidate = {
 export type PriceGroundingResult =
   | { id: string; confidence: "NONE"; reason: string }
   | { id: string; confidence: "ERROR"; error: string }
-  | { id: string; confidence: "HIGH" | "LOW"; candidate: PriceGroundingCandidate; reasons: string[] };
+  // Up to 3 candidates, one per store, best first. `confidence` is the
+  // best candidate's.
+  | { id: string; confidence: "HIGH" | "LOW"; candidates: PriceGroundingCandidate[] };
 
 // Mirrors ground-ingredient-prices's own MAX_PER_CALL — callers chunk to this.
 export const PRICE_GROUNDING_MAX_PER_CALL = 5;
@@ -172,18 +176,48 @@ export async function groundIngredientPrices(ingredients: IngredientRow[]) {
   return data.results ?? [];
 }
 
-export function applyPriceMatch(candidate: PriceGroundingCandidate): Partial<IngredientRow> {
+// Mean of the per-kg (or per-L) prices. Every candidate for one ingredient
+// is normalized to the same unit by ground-ingredient-prices, so they're
+// directly averageable.
+export function averagePrice(candidates: PriceGroundingCandidate[]): number {
+  const sum = candidates.reduce((acc, c) => acc + c.pricePerUnit, 0);
+  return Math.round((sum / candidates.length) * 100) / 100;
+}
+
+function formatPack(c: PriceGroundingCandidate) {
+  return `₱${c.packPrice} / ${c.packSize}${c.packUnit === "piece" ? " pc" : c.packUnit}`;
+}
+
+// Writes the average of the admin-selected sources. Every source is kept
+// in price_sources (see migration 20261003010000_ingredients_price_sources.sql);
+// price_source_url/label stay as the first source's link plus a summary.
+export function applyPriceMatch(candidates: PriceGroundingCandidate[]): Partial<IngredientRow> {
+  if (candidates.length === 0) throw new Error("applyPriceMatch needs at least one source");
+  const first = candidates[0];
   return {
-    estimated_price: candidate.pricePerUnit,
-    estimated_price_unit: candidate.unit,
+    estimated_price: averagePrice(candidates),
+    estimated_price_unit: first.unit,
     price_source: "supermarket",
-    price_source_url: candidate.url,
-    price_source_label: `${candidate.store} · ${candidate.productTitle} · ₱${candidate.packPrice} / ${candidate.packSize}${candidate.packUnit === "piece" ? " pc" : candidate.packUnit}`,
+    price_source_url: first.url,
+    price_source_label:
+      candidates.length === 1
+        ? `${first.store} · ${first.productTitle} · ${formatPack(first)}`
+        : `Average of ${candidates.length}: ${candidates.map((c) => `${c.store} ₱${Math.round(c.pricePerUnit)}/${c.unit}`).join(" · ")}`,
+    price_sources: candidates.map(({ store, productTitle, packPrice, packSize, packUnit, url, pricePerUnit, unit }) => ({
+      store,
+      productTitle,
+      packPrice,
+      packSize,
+      packUnit,
+      url,
+      pricePerUnit,
+      unit,
+    })),
     price_last_updated_at: new Date().toISOString(),
   };
 }
 
-export type AiIngredientEstimate =Partial<IngredientRow> & { canonical_name: string };
+export type AiIngredientEstimate = Partial<IngredientRow> & { canonical_name: string };
 
 // AI-curated fallback for the meal seeder — when a recipe ingredient has no
 // ingredients-table match AND no confident USDA candidate. Returns a DRAFT
