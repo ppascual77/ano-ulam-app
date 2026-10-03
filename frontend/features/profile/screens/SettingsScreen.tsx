@@ -11,7 +11,6 @@ import { useUpdateUserProfile, useUserProfile } from "@/frontend/features/auth/h
 import { ALLERGEN_OPTIONS, DIETARY_FOCUS_OPTIONS } from "@/frontend/core/preferences/options";
 import { useAccountSettings, useAccountSettingsActions } from "../hooks/useProfile";
 import { SettingsLabel, SettingsSection, SettingsToggle } from "../components/settings/SettingsSection";
-import { ProfileFooter } from "../components/ProfileFooter";
 import { WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
 
 const LOG_OUT_DELAY_MS = 2000;
@@ -31,8 +30,8 @@ function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
 const SCROLL_TO_SECTION_DELAY_MS = 300;
 
 // /profile/settings, from the gear on your profile: privacy, newsletter,
-// dietary preferences, About (legal links, feedback, version), Delete
-// account, and Log out at the very end.
+// dietary preferences, Delete account, About (legal links, feedback,
+// version), and Log out at the very end.
 export default function SettingsScreen() {
   const params = useLocalSearchParams<{ section?: string }>();
   const { height: windowHeight } = useWindowDimensions();
@@ -111,7 +110,7 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
-        <View className="mt-2 gap-4 px-5">
+        <View className="mt-2 gap-4 px-5 pb-10">
           <SettingsSection Icon={Eye} title="Privacy">
             <SettingsToggle
               label="Show saved meals on your profile"
@@ -157,13 +156,6 @@ export default function SettingsScreen() {
             </View>
           </SettingsSection>
 
-          <SettingsSection Icon={Info} title="About">
-            <LinkRow label="Privacy Policy" onPress={() => void Linking.openURL(`${WEB_APP_URL}/privacy`)} />
-            <LinkRow label="Terms of Service" onPress={() => void Linking.openURL(`${WEB_APP_URL}/terms`)} />
-            <LinkRow label="Send feedback" onPress={sendFeedback} />
-            <Text className="font-inter-regular text-small text-web-ink-muted">Version {APP_VERSION}</Text>
-          </SettingsSection>
-
           <SettingsSection Icon={UserRound} title="Account">
             <Pressable
               onPress={() =>
@@ -181,6 +173,13 @@ export default function SettingsScreen() {
             </Text>
           </SettingsSection>
 
+          <SettingsSection Icon={Info} title="About">
+            <LinkRow label="Privacy Policy" onPress={() => void Linking.openURL(`${WEB_APP_URL}/privacy`)} />
+            <LinkRow label="Terms of Service" onPress={() => void Linking.openURL(`${WEB_APP_URL}/terms`)} />
+            <LinkRow label="Send feedback" onPress={sendFeedback} />
+            <Text className="font-inter-regular text-small text-web-ink-muted">Version {APP_VERSION}</Text>
+          </SettingsSection>
+
           <Pressable
             onPress={logOut}
             className="mt-2 flex-row items-center justify-center gap-2 rounded-2xl border border-like py-3.5 active:bg-like-soft"
@@ -189,8 +188,6 @@ export default function SettingsScreen() {
             <Text className="font-inter-semibold text-body text-like">Log out</Text>
           </Pressable>
         </View>
-
-        <ProfileFooter />
       </ScrollView>
 
       <ConfirmSheet
