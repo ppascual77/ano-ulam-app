@@ -11,6 +11,14 @@ export const colors = {
     emphasis: "#2B3437",
   },
   white: "#FFFFFF",
+  black: "#000000",
+  // Web app (ano-ulam-reference) values for the Discover port — keep in
+  // sync with tailwind.config.js's brand-green/brand-orange/verified/web-ink.
+  brandGreen: { DEFAULT: "#006D4D", dark: "#18402F" },
+  brandOrange: "#F88927",
+  verified: "#1D9BF0",
+  webInk: { DEFAULT: "#1F2937", soft: "#374151", muted: "#9CA3AF" },
+  webDivider: "#F3F4F6",
   avatar: {
     // Generated-avatar fallback palette only (see components/ui/Avatar.tsx).
     sage: "#89B6A1",

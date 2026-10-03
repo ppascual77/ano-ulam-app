@@ -30,9 +30,21 @@ type MealDetailSheetProps = {
   /** Passed straight through to BottomSheet's own overlay slot — see there
    *  for why (React Native doesn't reliably stack two native Modals). */
   overlay?: ReactNode;
+  /** Controlled like for the meal opened (see MealDetailContent's `like`).
+   *  Applies to `meal` only, not related meals browsed to from inside. */
+  like?: { liked: boolean; count: number; onToggle: () => void };
 };
 
-export function MealDetailSheet({ meal, onClose, onClosed, onEdit, onArchive, onDelete, overlay }: MealDetailSheetProps) {
+export function MealDetailSheet({
+  meal,
+  onClose,
+  onClosed,
+  onEdit,
+  onArchive,
+  onDelete,
+  overlay,
+  like,
+}: MealDetailSheetProps) {
   // Keep the last meal rendered while the sheet animates closed, so the
   // content doesn't flash empty before it's off-screen.
   const [renderedMeal, setRenderedMeal] = useState(meal);
@@ -113,6 +125,7 @@ export function MealDetailSheet({ meal, onClose, onClosed, onEdit, onArchive, on
           onArchive={onArchive}
           onDelete={onDelete}
           onSelectIngredient={setSelectedIngredient}
+          like={meal && renderedMeal?.id === meal.id ? like : undefined}
         />
       )}
     </BottomSheet>

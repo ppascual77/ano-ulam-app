@@ -156,6 +156,10 @@ type MealDetailContentProps = {
   /** Tapping an ingredient card. Receives the ingredient already scaled to
    *  the current servings. MealDetailSheet opens IngredientDetailSheet. */
   onSelectIngredient?: (ingredient: IngredientType) => void;
+  /** Controlled like state. When passed, the heart shows and toggles this
+   *  instead of the sheet's own local state, so a caller that tracks likes
+   *  (Discover's reel) stays in sync both ways. Omitted everywhere else. */
+  like?: { liked: boolean; count: number; onToggle: () => void };
 };
 
 // The scrollable body rendered inside a BottomSheet (see MealDetailSheet).
@@ -173,15 +177,19 @@ export function MealDetailContent({
   onArchive,
   onDelete,
   onSelectIngredient,
+  like,
 }: MealDetailContentProps) {
   const [isLiked, setIsLiked] = useState(meal.liked_by_me ?? false);
   const [likeCount, setLikeCount] = useState(meal.like_count ?? 0);
   const [servings, setServings] = useState(meal.serving_size ?? 1);
 
-  const toggleLike = () => {
+  const toggleLocalLike = () => {
     setIsLiked((prev) => !prev);
     setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
   };
+  const liked = like ? like.liked : isLiked;
+  const shownLikeCount = like ? like.count : likeCount;
+  const toggleLike = like ? like.onToggle : toggleLocalLike;
 
   const scale = servings / (meal.serving_size ?? 1);
   const displayCalories = Math.round(meal.calories * scale);
@@ -254,7 +262,7 @@ export function MealDetailContent({
             <Pressable onPress={toggleLike} hitSlop={ICON_HIT_SLOP} className="items-center gap-0.5">
               <View
                 className={`h-9 w-9 items-center justify-center rounded-full border ${
-                  isLiked
+                  liked
                     ? "border-like bg-like"
                     : "border-white/20 bg-white/15"
                 }`}
@@ -262,15 +270,15 @@ export function MealDetailContent({
                 <Heart
                   color={colors.white}
                   size={16}
-                  fill={isLiked ? colors.white : "none"}
+                  fill={liked ? colors.white : "none"}
                 />
               </View>
               <Text
                 className={`text-[10px] font-semibold leading-none text-white ${
-                  likeCount > 0 ? "opacity-100" : "opacity-0"
+                  shownLikeCount > 0 ? "opacity-100" : "opacity-0"
                 }`}
               >
-                {likeCount}
+                {shownLikeCount}
               </Text>
             </Pressable>
           </View>
