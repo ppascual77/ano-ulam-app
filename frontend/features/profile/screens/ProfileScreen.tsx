@@ -19,6 +19,8 @@ import { GuestProfileView } from "../components/GuestProfileView";
 import { SavedTab } from "../components/saved/SavedTab";
 import { CreatedTab } from "../components/created/CreatedTab";
 import { RecipeLimitSheet } from "../components/created/RecipeLimitSheet";
+import { GroceryTab } from "../components/grocery/GroceryTab";
+import { PantryTab } from "../components/pantry/PantryTab";
 
 // TEMP (dev only): show the signed-in profile without a session, since
 // Google sign-in can't complete in Expo Go on a device. The DEV chip in
@@ -32,8 +34,7 @@ const LOG_OUT_DELAY_MS = 2000;
 const TAB_PARAMS: ProfileTab[] = ["saved", "recipes", "grocery", "pantry"];
 
 // Own profile: header, Community Feed link, then sticky Saved / Created /
-// Grocery / Pantry tabs. Phase 1 builds Saved and Created; Grocery and
-// Pantry are placeholders. Deep link: /profile?tab=recipes|grocery|pantry.
+// Grocery / Pantry tabs. Deep link: /profile?tab=recipes|grocery|pantry.
 export default function ProfileScreen() {
   const params = useLocalSearchParams<{ tab?: string }>();
   const queryClient = useQueryClient();
@@ -244,11 +245,8 @@ export default function ProfileScreen() {
                 onToast={showToast}
               />
             )}
-            {(tab === "grocery" || tab === "pantry") && (
-              <View className="items-center py-16">
-                <Text className="font-inter-semibold text-body text-web-ink-muted">Coming next</Text>
-              </View>
-            )}
+            {tab === "grocery" && <GroceryTab userId={me.id} />}
+            {tab === "pantry" && <PantryTab />}
           </View>
 
           <ProfileFooter />
