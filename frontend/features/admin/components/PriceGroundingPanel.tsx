@@ -6,8 +6,10 @@ import { AppText, Button, LoadingState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import {
   applyPriceMatch,
+  averagePrice,
   PRICE_GROUNDING_MAX_PER_CALL,
   type IngredientRow,
+  type PriceGroundingCandidate,
   type PriceGroundingResult,
 } from "@/api/ingredients";
 import { errorMessage } from "@/lib/errorMessage";
@@ -46,6 +48,16 @@ function chunk<T>(items: T[], size: number): T[][] {
   return out;
 }
 
+function Checkbox({ checked }: { checked: boolean }) {
+  return (
+    <View
+      className={`w-6 h-6 mt-0.5 rounded-md items-center justify-center ${checked ? "bg-primary" : "border border-primary/20"}`}
+    >
+      {checked && <Check color={colors.white} size={14} />}
+    </View>
+  );
+}
+
 export function PriceGroundingPanel() {
   const { data: ingredients, isLoading } = useIngredients({ showArchived: false });
   const neverChecked = useMemo(
@@ -57,7 +69,9 @@ export function PriceGroundingPanel() {
   const alreadyCheckedCount = (ingredients?.length ?? 0) - neverChecked.length;
 
   const [results, setResults] = useState<PriceGroundingResult[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Ingredient id → indexes of its checked candidates (sources). The price
+  // written is the average of whichever sources are checked.
+  const [selected, setSelected] = useState<Map<string, Set<number>>>(new Map());
   const [running, setRunning] = useState<{ done: number; total: number } | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
@@ -91,9 +105,14 @@ export function PriceGroundingPanel() {
         const ids = new Set(data.map((r) => r.id));
         // Replace an earlier ERROR row for the same ingredient with its retry.
         setResults((prev) => [...prev.filter((r) => !ids.has(r.id)), ...data]);
+        // Pre-check every HIGH source; LOW ones are opt-in.
         setSelected((prev) => {
-          const next = new Set(prev);
-          for (const r of data) if (r.confidence === "HIGH") next.add(r.id);
+          const next = new Map(prev);
+          for (const r of data) {
+            if (r.confidence !== "HIGH" && r.confidence !== "LOW") continue;
+            const high = (r.candidates ?? []).flatMap((c, i) => (c.confidence === "HIGH" ? [i] : []));
+            if (high.length > 0) next.set(r.id, new Set(high));
+          }
           return next;
         });
         // NONE counts as checked (same as USDA grounding: don't resurface it
@@ -109,21 +128,31 @@ export function PriceGroundingPanel() {
     setRunning(null);
   };
 
-  const toggle = (id: string) => {
+  const toggle = (id: string, index: number) => {
     setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      const next = new Map(prev);
+      const indexes = new Set(next.get(id));
+      if (indexes.has(index)) indexes.delete(index);
+      else indexes.add(index);
+      if (indexes.size === 0) next.delete(id);
+      else next.set(id, indexes);
       return next;
     });
+  };
+
+  const checkedCandidates = (r: PriceGroundingResult): PriceGroundingCandidate[] => {
+    if (r.confidence !== "HIGH" && r.confidence !== "LOW") return [];
+    const indexes = selected.get(r.id);
+    return indexes ? (r.candidates ?? []).filter((_, i) => indexes.has(i)) : [];
   };
 
   const handleRequestConfirm = async () => {
     setApplyError(null);
     const changes: PendingIngredientChange[] = [];
     for (const r of results) {
-      if (!selected.has(r.id) || (r.confidence !== "HIGH" && r.confidence !== "LOW")) continue;
-      changes.push({ id: r.id, patch: applyPriceMatch(r.candidate), name: byId.get(r.id)?.canonical_name ?? r.id });
+      const picked = checkedCandidates(r);
+      if (picked.length === 0) continue;
+      changes.push({ id: r.id, patch: applyPriceMatch(picked), name: byId.get(r.id)?.canonical_name ?? r.id });
     }
     await confirmedUpdate.requestUpdate(changes);
   };
@@ -134,7 +163,7 @@ export function PriceGroundingPanel() {
       await confirmedUpdate.confirm();
       // Drop only what was written; unselected LOW/NONE rows stay for review.
       setResults((prev) => prev.filter((r) => !applied.has(r.id)));
-      setSelected(new Set());
+      setSelected(new Map());
     } catch (err) {
       confirmedUpdate.cancel();
       setApplyError(errorMessage(err));
@@ -161,11 +190,7 @@ export function PriceGroundingPanel() {
 
       {alreadyCheckedCount > 0 && (
         <Pressable onPress={() => setIncludeAlreadyChecked((prev) => !prev)} className="flex-row items-center gap-3 mb-4">
-          <View
-            className={`w-6 h-6 rounded-md items-center justify-center ${includeAlreadyChecked ? "bg-primary" : "border border-primary/20"}`}
-          >
-            {includeAlreadyChecked && <Check color={colors.white} size={14} />}
-          </View>
+          <Checkbox checked={includeAlreadyChecked} />
           <AppText variant="caption" className="text-ink-subtle flex-1">
             Also include {alreadyCheckedCount} already-checked ingredient{alreadyCheckedCount === 1 ? "" : "s"} (to
             refresh old prices)
@@ -197,7 +222,7 @@ export function PriceGroundingPanel() {
           </AppText>
 
           <Button
-            label={confirmedUpdate.isSaving ? "Applying..." : `Confirm ${selected.size} selected`}
+            label={confirmedUpdate.isSaving ? "Applying..." : `Confirm ${selected.size} ingredient${selected.size === 1 ? "" : "s"}`}
             disabled={confirmedUpdate.isSaving || selected.size === 0}
             onPress={handleRequestConfirm}
           />
@@ -209,72 +234,79 @@ export function PriceGroundingPanel() {
 
           {results.map((r) => {
             const ingredient = byId.get(r.id);
-            const canSelect = r.confidence === "HIGH" || r.confidence === "LOW";
-            const isSelected = selected.has(r.id);
+            // `?? []`: an older deployed function returns `candidate` (singular);
+            // show nothing for that row rather than crash.
+            const candidates = r.confidence === "HIGH" || r.confidence === "LOW" ? r.candidates ?? [] : [];
+            const picked = checkedCandidates(r);
             const current = currentPricePerUnit(ingredient);
-            const found = canSelect ? r.candidate : null;
-            const ratio = found && current ? found.pricePerUnit / current : null;
+            // Preview what would be written: the average of the checked
+            // sources, or the best source while nothing is checked.
+            const preview = picked.length > 0 ? averagePrice(picked) : candidates[0]?.pricePerUnit ?? null;
+            const unit = candidates[0]?.unit;
+            const ratio = preview != null && current ? preview / current : null;
             const isBigChange = ratio != null && (ratio > BIG_CHANGE_RATIO || ratio < 1 / BIG_CHANGE_RATIO);
 
             return (
-              <View key={r.id} className="border-b border-ink-emphasis/10 py-3">
-                <Pressable onPress={() => canSelect && toggle(r.id)} className="flex-row items-start gap-3">
-                  {canSelect && (
-                    <View
-                      className={`w-6 h-6 mt-0.5 rounded-md items-center justify-center ${isSelected ? "bg-primary" : "border border-primary/20"}`}
-                    >
-                      {isSelected && <Check color={colors.white} size={14} />}
+              <View key={r.id} className="border-b border-ink-emphasis/10 py-3 gap-1">
+                <View className="flex-row items-center flex-wrap gap-2">
+                  <AppText variant="bodyBold">{ingredient?.canonical_name ?? r.id}</AppText>
+                  <AppText variant="caption" className={CONFIDENCE_TONE[r.confidence]}>
+                    {r.confidence}
+                  </AppText>
+                  {isBigChange && (
+                    <View className="rounded-full px-2 py-0.5 border border-notice-border bg-notice-bg">
+                      <AppText variant="caption" className="text-notice-text">
+                        Big change, double-check
+                      </AppText>
                     </View>
                   )}
-                  <View className="flex-1 gap-0.5">
-                    <View className="flex-row items-center flex-wrap gap-2">
-                      <AppText variant="bodyBold">{ingredient?.canonical_name ?? r.id}</AppText>
-                      <AppText variant="caption" className={CONFIDENCE_TONE[r.confidence]}>
-                        {r.confidence}
-                      </AppText>
-                      {isBigChange && (
-                        <View className="rounded-full px-2 py-0.5 border border-notice-border bg-notice-bg">
-                          <AppText variant="caption" className="text-notice-text">
-                            Big change, double-check
-                          </AppText>
-                        </View>
-                      )}
-                    </View>
+                </View>
 
-                    {found && (
-                      <>
-                        <AppText variant="body">
-                          {current != null ? `₱${Math.round(current)}/${found.unit}` : "No price"} → ₱
-                          {Math.round(found.pricePerUnit)}/{found.unit}
-                          {ratio != null && ` (${ratio >= 1 ? "+" : ""}${Math.round((ratio - 1) * 100)}%)`}
+                {preview != null && unit && (
+                  <AppText variant="body">
+                    {current != null ? `₱${Math.round(current)}/${unit}` : "No price"} → ₱{Math.round(preview)}/{unit}
+                    {ratio != null && ` (${ratio >= 1 ? "+" : ""}${Math.round((ratio - 1) * 100)}%)`}
+                    {picked.length > 1 && ` · average of ${picked.length}`}
+                    {picked.length === 0 && " · nothing selected"}
+                  </AppText>
+                )}
+
+                {candidates.map((c, i) => (
+                  <Pressable key={c.url} onPress={() => toggle(r.id, i)} className="flex-row items-start gap-3 mt-1">
+                    <Checkbox checked={!!selected.get(r.id)?.has(i)} />
+                    <View className="flex-1 gap-0.5">
+                      <AppText variant="body">
+                        {c.store} · ₱{Math.round(c.pricePerUnit)}/{c.unit}{" "}
+                        <AppText variant="caption" className={CONFIDENCE_TONE[c.confidence]}>
+                          {c.confidence}
                         </AppText>
-                        <Pressable onPress={() => Linking.openURL(found.url)} className="flex-row items-center gap-1">
-                          <AppText variant="caption" className="text-ink-subtle flex-shrink">
-                            {found.store} · {found.productTitle} · ₱{found.packPrice} / {found.packSize}
-                            {found.packUnit === "piece" ? " pc" : found.packUnit}
-                          </AppText>
-                          <ExternalLink color={colors.ink.subtle} size={12} />
-                        </Pressable>
-                      </>
-                    )}
-                    {canSelect &&
-                      r.reasons.map((reason, i) => (
-                        <AppText key={i} variant="caption" className="text-accent">
+                      </AppText>
+                      <Pressable onPress={() => Linking.openURL(c.url)} className="flex-row items-center gap-1">
+                        <AppText variant="caption" className="text-ink-subtle flex-shrink">
+                          {c.productTitle} · ₱{c.packPrice} / {c.packSize}
+                          {c.packUnit === "piece" ? " pc" : c.packUnit}
+                        </AppText>
+                        <ExternalLink color={colors.ink.subtle} size={12} />
+                      </Pressable>
+                      {c.reasons.map((reason, j) => (
+                        <AppText key={j} variant="caption" className="text-accent">
                           {reason}
                         </AppText>
                       ))}
-                    {r.confidence === "NONE" && (
-                      <AppText variant="caption" className="text-ink-subtle">
-                        {r.reason}
-                      </AppText>
-                    )}
-                    {r.confidence === "ERROR" && (
-                      <AppText variant="caption" className="text-like">
-                        {r.error}
-                      </AppText>
-                    )}
-                  </View>
-                </Pressable>
+                    </View>
+                  </Pressable>
+                ))}
+
+                {r.confidence === "NONE" && (
+                  <AppText variant="caption" className="text-ink-subtle">
+                    {r.reason}
+                  </AppText>
+                )}
+                {r.confidence === "ERROR" && (
+                  <AppText variant="caption" className="text-like">
+                    {r.error}
+                  </AppText>
+                )}
               </View>
             );
           })}

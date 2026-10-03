@@ -1,13 +1,14 @@
 // Supermarket price lookup proxy — no DB access, same contract as
 // ground-ingredients-usda: the client sends the ingredients it wants
-// priced, this returns a candidate per ingredient with its source listing,
+// priced, this returns up to MAX_SOURCES candidates per ingredient (one per
+// store) with their source listings,
 // and applying one is a separate, admin-confirmed client-side write (see
 // docs/ingredient-data-architecture.md section 21: grounding never
 // silently overwrites live data).
 //
 // No PH supermarket has a public price API, so the lookup is an LLM with
-// OpenAI's web_search tool, asked for ONE real product listing (store,
-// title, pack price, pack size, URL). The LLM is trusted only to READ a
+// OpenAI's web_search tool, asked for real product listings (store, title,
+// pack price, pack size, URL), one per store. The LLM is trusted only to READ a
 // listing, never to do the math: converting "₱145 / 500g pack" into the
 // ingredient's ₱/kg or ₱/L happens in normalizeToPriceUnit below, and the
 // URL it reports must actually appear among the pages web_search returned
@@ -75,8 +76,13 @@ type PriceInput = {
 
 type PackUnit = "g" | "kg" | "ml" | "L" | "piece";
 
+// Up to this many listings per ingredient, each from a different store, so
+// the admin can average several real prices instead of trusting one. All
+// come from the SAME web-searching request, so this doesn't multiply cost
+// the way 3 separate lookups would.
+const MAX_SOURCES = 3;
+
 type Listing = {
-  found: boolean;
   store?: string;
   productTitle?: string;
   packPrice?: number;
@@ -87,7 +93,11 @@ type Listing = {
   note?: string;
 };
 
+type ModelResponse = { listings?: Listing[]; note?: string };
+
 type Candidate = {
+  confidence: "HIGH" | "LOW";
+  reasons: string[];
   pricePerUnit: number;
   unit: "kg" | "L";
   store: string;
@@ -101,18 +111,21 @@ type Candidate = {
 type PriceResult =
   | { id: string; confidence: "NONE"; reason: string }
   | { id: string; confidence: "ERROR"; error: string }
-  | { id: string; confidence: "HIGH" | "LOW"; candidate: Candidate; reasons: string[] };
+  // `confidence` is the best candidate's, so the row-level tier still reads
+  // the same as before; each candidate carries its own tier and reasons.
+  | { id: string; confidence: "HIGH" | "LOW"; candidates: Candidate[] };
 
 const INSTRUCTIONS = `You look up current retail prices of grocery ingredients in Philippine supermarkets. Always search the web.
 
-Find ONE online product listing with a visible price from one of these Philippine supermarkets' online stores, and only these: ${ALLOWED_STORES.map((s) => `${s.name} (${s.domain})`).join(", ")}. Pick the listing a Filipino home cook would normally buy for this ingredient: same cut/part, same state (raw vs cooked/dried/canned), plain and unflavored, a common or store brand, regular retail size (not bulk/wholesale). Prices are in PHP.
+Find up to ${MAX_SOURCES} online product listings with a visible price, EACH FROM A DIFFERENT STORE, from these Philippine supermarkets' online stores, and only these: ${ALLOWED_STORES.map((s) => `${s.name} (${s.domain})`).join(", ")}. For each store, pick the listing a Filipino home cook would normally buy for this ingredient: same cut/part, same state (raw vs cooked/dried/canned), plain and unflavored, a common or store brand, regular retail size (not bulk/wholesale). Prices are in PHP.
 
 Return ONLY a JSON object, no markdown fences:
-{"found": true, "store": string, "productTitle": string (as listed), "packPrice": number (PHP for the whole pack as listed; the current price if a sale price is shown), "packSize": number, "packUnit": "g" | "kg" | "ml" | "L" | "piece", "url": string (the product page the price came from), "matchQuality": "exact" | "close", "note": string}
+{"listings": [{"store": string, "productTitle": string (as listed), "packPrice": number (PHP for the whole pack as listed; the current price if a sale price is shown), "packSize": number, "packUnit": "g" | "kg" | "ml" | "L" | "piece", "url": string (the product page the price came from), "matchQuality": "exact" | "close", "note": string}], "note": string}
 
 - packSize + packUnit is the quantity the packPrice buys: 500 + "g", 1 + "L", 12 + "piece" for a dozen eggs. Meat/fish/produce priced per kilo: packPrice is the per-kg price, packSize 1, packUnit "kg".
 - "exact": the same ingredient as named. "close": a reasonable stand-in (different cut, a flavored or branded variant, a different state); explain in "note".
-- If you cannot find a real listing with a visible price, return {"found": false, "note": string}. Never estimate, average, or invent a price, size, or URL.`;
+- Fewer than ${MAX_SOURCES} is fine; never pad with a second listing from the same store or a weak match just to fill the list.
+- If you cannot find any real listing with a visible price, return {"listings": [], "note": string explaining why}. Never estimate, average, or invent a price, size, or URL.`;
 
 function describe(item: PriceInput): string {
   const parts = [`Ingredient: ${item.canonicalName}`];
@@ -165,13 +178,14 @@ function readResponse(data: any): { text: string; urls: string[] } {
   return { text, urls };
 }
 
-function parseListing(text: string): Listing {
+function parseModelResponse(text: string): ModelResponse {
   // web_search can't be combined with JSON mode, so the object comes back
   // as plain text, sometimes fenced or with a sentence around it.
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start < 0 || end <= start) throw new Error("Model didn't return a JSON object");
-  return JSON.parse(text.slice(start, end + 1)) as Listing;
+  const parsed = JSON.parse(text.slice(start, end + 1));
+  return { listings: Array.isArray(parsed.listings) ? parsed.listings : [], note: parsed.note };
 }
 
 // Converts a listing's pack into the ingredient's own price unit: "kg" for
@@ -278,7 +292,7 @@ function sendOpenAIRequest(item: PriceInput, withDomainFilter: boolean) {
   });
 }
 
-async function lookupListing(item: PriceInput): Promise<{ listing: Listing; urls: string[] }> {
+async function lookupListings(item: PriceInput): Promise<{ response: ModelResponse; urls: string[] }> {
   let res = await requestOpenAI(item, domainFilterSupported);
 
   if (!res.ok && res.status === 400 && domainFilterSupported) {
@@ -296,74 +310,137 @@ async function lookupListing(item: PriceInput): Promise<{ listing: Listing; urls
 
   const { text, urls } = readResponse(await res.json());
   if (!text) throw new Error("OpenAI returned no text");
-  return { listing: parseListing(text), urls };
+  return { response: parseModelResponse(text), urls };
+}
+
+// Checks one listing the same way a single result used to be checked:
+// complete, from an allowed store, a page the search actually returned,
+// convertible to the ingredient's unit, and in a plausible range. Returns a
+// candidate, or why it was dropped.
+function checkListing(
+  listing: Listing,
+  item: PriceInput,
+  seenPages: Set<string>,
+  seenHosts: Set<string>,
+): { ok: true; candidate: Candidate } | { ok: false; reason: string } {
+  const { store, productTitle, packPrice, packSize, packUnit, url } = listing;
+  const label = store || "A listing";
+  if (!store || !productTitle || !url || typeof packPrice !== "number" || typeof packSize !== "number" || !packUnit) {
+    return { ok: false, reason: `${label} came back incomplete (missing price, size, or link)` };
+  }
+  if (!(packPrice > 0) || !(packSize > 0)) {
+    return { ok: false, reason: `${label} has a zero/negative price or size` };
+  }
+
+  // Backstop for the allowed_domains filter: never accept a source from
+  // outside the store list, even if the search somehow returned one.
+  const listingHost = hostOf(url);
+  if (!listingHost || !isAllowedHost(listingHost)) {
+    return { ok: false, reason: `${listingHost ?? url} isn't one of the allowed supermarket sites` };
+  }
+  // Exact page among what web_search returned = verified. Same site but a
+  // different page = plausible but unverified (LOW). Neither = the link was
+  // likely invented; drop it rather than store a fake source.
+  const normalizedUrl = normalizeUrl(url);
+  const pageVerified = normalizedUrl !== null && seenPages.has(normalizedUrl);
+  if (!pageVerified && !seenHosts.has(listingHost)) {
+    return { ok: false, reason: `${label}'s link didn't match any page the search actually returned` };
+  }
+
+  const normalized = normalizeToPriceUnit({ packPrice, packSize, packUnit }, item);
+  if (!normalized.ok) return { ok: false, reason: `${label}: ${normalized.reason}` };
+  if (normalized.pricePerUnit < MIN_PLAUSIBLE_PRICE || normalized.pricePerUnit > MAX_PLAUSIBLE_PRICE) {
+    return { ok: false, reason: `${label} works out to ₱${normalized.pricePerUnit}/${normalized.unit}, outside a plausible range` };
+  }
+
+  const reasons: string[] = [];
+  if (!pageVerified) reasons.push("Exact page not confirmed by search, only the site");
+  if (listing.matchQuality !== "exact") reasons.push(`Close match: ${listing.note || "not the exact ingredient"}`);
+  if (normalized.viaBridge) reasons.push(`Converted via ${normalized.viaBridge}`);
+
+  return {
+    ok: true,
+    candidate: {
+      confidence: reasons.length === 0 ? "HIGH" : "LOW",
+      reasons,
+      pricePerUnit: normalized.pricePerUnit,
+      unit: normalized.unit,
+      store,
+      productTitle,
+      packPrice,
+      packSize,
+      packUnit,
+      url,
+    },
+  };
+}
+
+// Search indexes keep old snapshots: Puregold's product pages, for one,
+// all 404 now even though web_search still returns them (with a price that
+// may be stale). A source whose page is definitely gone is dropped. Only a
+// 404/410 counts: a timeout, TLS error, or 403 bot-block says nothing about
+// the page (gorobinsons.ph fails TLS from some clients but works in a
+// browser), so those sources are kept.
+const LINK_CHECK_TIMEOUT_MS = 6000;
+
+async function isDeadLink(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, {
+      redirect: "follow",
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; AnoUlamPriceCheck/1.0)" },
+      signal: AbortSignal.timeout(LINK_CHECK_TIMEOUT_MS),
+    });
+    await res.body?.cancel();
+    return res.status === 404 || res.status === 410;
+  } catch {
+    return false;
+  }
 }
 
 async function priceOne(item: PriceInput): Promise<PriceResult> {
   try {
-    const { listing, urls } = await lookupListing(item);
+    const { response, urls } = await lookupListings(item);
+    const seenPages = new Set(urls.map(normalizeUrl).filter((u): u is string => !!u));
+    const seenHosts = new Set(urls.map(hostOf).filter((h): h is string => !!h));
 
-    if (!listing.found) {
-      return { id: item.id, confidence: "NONE", reason: listing.note || "No supermarket listing found" };
-    }
-    const { store, productTitle, packPrice, packSize, packUnit, url } = listing;
-    if (!store || !productTitle || !url || typeof packPrice !== "number" || typeof packSize !== "number" || !packUnit) {
-      return { id: item.id, confidence: "NONE", reason: "Listing came back incomplete (missing price, size, or link)" };
-    }
-    if (!(packPrice > 0) || !(packSize > 0)) {
-      return { id: item.id, confidence: "NONE", reason: "Listing has a zero/negative price or size" };
-    }
-
-    // Exact page among what web_search returned = verified. Same site but
-    // a different page = plausible but unverified (LOW). Neither = the link
-    // was likely invented; drop it rather than store a fake source.
-    const normalizedUrl = normalizeUrl(url);
-    const seenPages = new Set(urls.map(normalizeUrl).filter(Boolean));
-    const seenHosts = new Set(urls.map(hostOf).filter(Boolean));
-    const pageVerified = normalizedUrl !== null && seenPages.has(normalizedUrl);
-    const hostVerified = pageVerified || (hostOf(url) !== null && seenHosts.has(hostOf(url)));
-    // Backstop for the allowed_domains filter: never accept a source from
-    // outside the store list, even if the search somehow returned one.
-    const listingHost = hostOf(url);
-    if (!listingHost || !isAllowedHost(listingHost)) {
-      return { id: item.id, confidence: "NONE", reason: `Source ${listingHost ?? url} isn't one of the allowed supermarket sites` };
-    }
-    if (!hostVerified) {
-      return { id: item.id, confidence: "NONE", reason: "Price link didn't match any page the search actually returned" };
+    const candidates: Candidate[] = [];
+    const dropped: string[] = [];
+    const usedHosts = new Set<string>();
+    for (const listing of response.listings ?? []) {
+      const checked = checkListing(listing, item, seenPages, seenHosts);
+      if (!checked.ok) {
+        dropped.push(checked.reason);
+        continue;
+      }
+      // One per store, even if the model returned two from the same site:
+      // averaging two SM listings would just double-weight SM.
+      const host = hostOf(checked.candidate.url) as string;
+      if (usedHosts.has(host)) continue;
+      usedHosts.add(host);
+      candidates.push(checked.candidate);
     }
 
-    const normalized = normalizeToPriceUnit({ packPrice, packSize, packUnit }, item);
-    if (!normalized.ok) {
-      return { id: item.id, confidence: "NONE", reason: normalized.reason };
-    }
-    if (normalized.pricePerUnit < MIN_PLAUSIBLE_PRICE || normalized.pricePerUnit > MAX_PLAUSIBLE_PRICE) {
+    // Link check runs on every passing source (in parallel) before the cap,
+    // so a dead Puregold page frees its slot for the next store.
+    const dead = await Promise.all(candidates.map((c) => isDeadLink(c.url)));
+    const live: Candidate[] = [];
+    candidates.forEach((c, i) => {
+      if (dead[i]) dropped.push(`${c.store}'s page no longer exists (404), so its price may be outdated`);
+      else live.push(c);
+    });
+    candidates.length = 0;
+    candidates.push(...live.slice(0, MAX_SOURCES));
+
+    if (candidates.length === 0) {
       return {
         id: item.id,
         confidence: "NONE",
-        reason: `Works out to ₱${normalized.pricePerUnit}/${normalized.unit}, outside a plausible range`,
+        reason: dropped[0] ?? response.note ?? "No supermarket listing found",
       };
     }
-
-    const reasons: string[] = [];
-    if (!pageVerified) reasons.push("Exact page not confirmed by search, only the site");
-    if (listing.matchQuality !== "exact") reasons.push(`Close match: ${listing.note || "not the exact ingredient"}`);
-    if (normalized.viaBridge) reasons.push(`Converted via ${normalized.viaBridge}`);
-
-    return {
-      id: item.id,
-      confidence: reasons.length === 0 ? "HIGH" : "LOW",
-      reasons,
-      candidate: {
-        pricePerUnit: normalized.pricePerUnit,
-        unit: normalized.unit,
-        store,
-        productTitle,
-        packPrice,
-        packSize,
-        packUnit,
-        url,
-      },
-    };
+    // HIGH first, so the best source leads the list in the UI.
+    candidates.sort((a, b) => (a.confidence === b.confidence ? 0 : a.confidence === "HIGH" ? -1 : 1));
+    return { id: item.id, confidence: candidates[0].confidence, candidates };
   } catch (err) {
     return { id: item.id, confidence: "ERROR", error: err instanceof Error ? err.message : String(err) };
   }
