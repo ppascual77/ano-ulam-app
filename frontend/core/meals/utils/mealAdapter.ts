@@ -1,9 +1,10 @@
 import { computeItemTotals, convertQuantityToBasis, type MealRow, type MealWithIngredients } from "@/api/meals";
-import type { IngredientType, MealType } from "@/frontend/core/meals/mealTypes";
+import type { IngredientType, MealType, PriceSourceType } from "@/frontend/core/meals/mealTypes";
+import { formatCount } from "./multiplyQty";
 
 // Real computed totals carry long floating-point tails (e.g. summing many
 // ingredients' scaled macros) that mock data never had — MealCard/
-// MacroBreakdown/IngredientDetailPanel render whatever number they're
+// MacroBreakdown/IngredientDetailSheet render whatever number they're
 // given with no formatting of their own, so it's formatted once here at
 // the source rather than patched into every display component downstream.
 // Calories as a whole number (standard nutrition-label convention),
@@ -61,6 +62,33 @@ export function mealRowToMealType(meal: MealRow, mealIngredients?: MealWithIngre
   };
 }
 
+// price_sources is jsonb, so its shape isn't enforced by the DB. Keep only
+// entries with what the price source section actually needs to render.
+function parsePriceSources(value: unknown): PriceSourceType[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (s): s is PriceSourceType =>
+      !!s && typeof s === "object" && typeof s.store === "string" && typeof s.url === "string" && typeof s.pricePerUnit === "number",
+  );
+}
+
+// A recipe's display_text is usually a full quantity ("2 cloves, minced"),
+// but sometimes just a number ("1"), which reads as "1 what?". In that case
+// the quantity is rebuilt from the stored amount and unit: a count gets the
+// ingredient's piece_label (or "piece"), and a weight/volume gets its unit.
+const BARE_NUMBER = /^\s*\d+(\.\d+)?\s*$/;
+
+function describeQuantity(
+  mi: MealWithIngredients["meal_ingredients"][number],
+): Pick<IngredientType, "qty" | "count"> {
+  const text = mi.display_text;
+  if (mi.quantity_amount == null || (text.trim() !== "" && !BARE_NUMBER.test(text))) return { qty: text };
+  const unit = mi.quantity_unit;
+  if (unit && unit !== "piece") return { qty: `${mi.quantity_amount} ${unit}` };
+  const count = { amount: mi.quantity_amount, label: mi.ingredient.piece_label ?? "piece" };
+  return { qty: formatCount(count.amount, count.label), count };
+}
+
 function mealIngredientToIngredientType(
   mi: MealWithIngredients["meal_ingredients"][number],
 ): IngredientType & { sortOrder: number } {
@@ -88,7 +116,7 @@ function mealIngredientToIngredientType(
 
   return {
     sortOrder: mi.sort_order,
-    qty: mi.display_text,
+    ...describeQuantity(mi),
     name: mi.ingredient.canonical_name,
     type: (mi.ingredient.role as "main" | "pantry") ?? "pantry",
     calories: totals?.calories != null ? roundCalories(totals.calories) : undefined,
@@ -102,5 +130,7 @@ function mealIngredientToIngredientType(
     sourceRefId: mi.ingredient.source_ref_id,
     sourceDescription: mi.ingredient.source_description,
     note: mi.note,
+    priceSource: mi.ingredient.price_source,
+    priceSources: parsePriceSources(mi.ingredient.price_sources),
   };
 }

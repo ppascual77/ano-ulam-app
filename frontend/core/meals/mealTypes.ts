@@ -1,5 +1,18 @@
 import type { LucideIcon } from "lucide-react-native";
 
+// One supermarket listing an ingredient's price was averaged from (see
+// ingredients.price_sources). pricePerUnit is ₱ per `unit` (kg or L).
+export type PriceSourceType = {
+  store: string;
+  productTitle: string;
+  packPrice: number;
+  packSize: number;
+  packUnit: string;
+  url: string;
+  pricePerUnit: number;
+  unit: string;
+};
+
 export type IngredientType = {
   qty: string;
   name: string;
@@ -19,7 +32,7 @@ export type IngredientType = {
   source?: string | null;
   // Only meaningful when source === "USDA" — the matched USDA record's own
   // description and FDC id, for the USDA FoodData Central attribution
-  // block in IngredientDetailPanel. Same admin-only-diagnostic population
+  // block in IngredientDetailSheet. Same admin-only-diagnostic population
   // rule as bridgeLabel/calculationError/source above.
   sourceRefId?: string | null;
   sourceDescription?: string | null;
@@ -28,6 +41,18 @@ export type IngredientType = {
   // only a fraction is actually absorbed). Set by an admin, read by
   // everyone.
   note?: string | null;
+  // Where the ingredient's price came from. "supermarket" with
+  // priceSources = averaged from those real listings (Ground Prices);
+  // "manual" = an estimate. Shown to every viewer in IngredientDetailSheet's
+  // price source section. Populated only from joined ingredient rows, same
+  // as `source` above.
+  priceSource?: string | null;
+  priceSources?: PriceSourceType[];
+  // Set when the recipe's quantity text was a bare number ("1") and `qty`
+  // was generated from the stored amount + count label instead ("1 clove").
+  // Kept separately so scaling servings can re-pluralize ("2 cloves")
+  // rather than just swapping the number.
+  count?: { amount: number; label: string };
 };
 
 export type MealType = {
