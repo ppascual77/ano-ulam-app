@@ -156,10 +156,48 @@ let posts: FoodPost[] = [
   },
 ];
 
+// TEMP (mock): a dozen more posts by "me", older than the rest, so
+// Profile's Food Posts list has enough to page through (10 per page).
+const MY_OLDER_CAPTIONS = [
+  "Meal prep Sunday: adobo for the whole week 🍗",
+  "Tried the ₱99 sinigang recipe. Asim kilig!",
+  "Leftover rice = sinangag. Never waste kanin.",
+  "Ginataang kalabasa, first attempt. Not bad!",
+  "Late night pancit canton upgrade 🍜",
+  "Tortang talong with banana ketchup, the classic",
+  "Lumpia rolling session with the fam",
+  "Champorado for a rainy morning ☔",
+  "Budget bistek tagalog, ₱180 for 3 servings",
+  "Laing that didn't make my throat itchy. Success!",
+  "Arroz caldo with all the toppings",
+];
+posts = [
+  ...posts,
+  ...MY_OLDER_CAPTIONS.map((caption, i) => ({
+    ...empty,
+    id: `me-${i + 1}`,
+    user_id: MOCK_ME_ID,
+    display_name: "You",
+    avatar_url: null,
+    caption,
+    image_url: null,
+    liked_by: i % 3 === 0 ? ["u2"] : [],
+    created_at: new Date(Date.UTC(2026, 8, 20 - i, 12)).toISOString(),
+  })),
+];
+
+const newestFirst = (list: FoodPost[]) => [...list].sort((a, b) => b.created_at.localeCompare(a.created_at));
+
+// One user's posts (Profile), newest first, one page at a time.
+export async function listUserPosts(userId: string, offset: number, limit = 10): Promise<FoodPost[]> {
+  await delay(500);
+  return newestFirst(posts.filter((post) => post.user_id === userId)).slice(offset, offset + limit);
+}
+
 // Newest first, one page at a time.
 export async function getCommunityPosts(offset: number, limit = 5): Promise<FoodPost[]> {
   await delay(600);
-  return [...posts].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(offset, offset + limit);
+  return newestFirst(posts).slice(offset, offset + limit);
 }
 
 export async function deletePost(id: string): Promise<void> {

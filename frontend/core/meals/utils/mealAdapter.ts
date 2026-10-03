@@ -52,13 +52,13 @@ export function mealRowToMealType(meal: MealRow, mealIngredients?: MealWithIngre
     serving_size: meal.serving_size,
     updated_at: meal.updated_at,
     ingredients_synced_at: meal.ingredients_synced_at,
-    // No likes/saves/moderation backend yet — always the same neutral
-    // defaults every DB-backed meal gets, not per-viewer state.
+    // No likes backend yet: the same neutral defaults for every meal, not
+    // per-viewer state.
     like_count: 0,
     liked_by_me: false,
-    poster_id: null,
-    status: undefined,
-    rejection_reason: null,
+    poster_id: meal.poster_id,
+    status: meal.status,
+    rejection_reason: meal.rejection_reason,
   };
 }
 

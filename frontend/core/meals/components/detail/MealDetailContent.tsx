@@ -308,7 +308,9 @@ export function MealDetailContent({
               below, overlapping it whenever a meal was already published
               (the normal case for anything reaching Manage Meals), which is
               what made Edit intermittently untappable. */}
-          {meal.status === "approved" && !isAdmin && (
+          {/* Only on the viewer's own recipe: every catalog meal is
+              approved, so on anything else the chip says nothing. */}
+          {meal.status === "approved" && recipeOwner && !isAdmin && (
             <View className="absolute right-4 top-4">
               <Chips
                 label="Published"

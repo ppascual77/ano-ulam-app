@@ -65,6 +65,19 @@ export async function countMyRecipes(posterId: string): Promise<number> {
   return count ?? 0;
 }
 
+// Everything the user has submitted, any status, newest first (Profile's
+// Created tab). `posterId` null = dev-build submissions made without a
+// session (see submitRecipe): those are matched by poster_id null plus the
+// user_published tag every submission carries, so seeded catalog meals
+// (also poster_id null) stay out.
+export async function listMyRecipes(posterId: string | null): Promise<MealRow[]> {
+  let query = supabase.from("meals").select("*").is("archived_at", null).order("created_at", { ascending: false });
+  query = posterId ? query.eq("poster_id", posterId) : query.is("poster_id", null).contains("tags", ["user_published"]);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data;
+}
+
 // Creates the pending meal, uploads its cover photo, adds the linked
 // ingredients, keeps the unmatched ones for review, then computes price
 // and macros. `posterId` is null only for dev-build test submissions made

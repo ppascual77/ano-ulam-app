@@ -3,7 +3,7 @@ import { FlatList, Pressable, Text, View, type ViewToken } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { setStatusBarStyle } from "expo-status-bar";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronUp } from "lucide-react-native";
@@ -259,6 +259,16 @@ export default function DiscoverScreen() {
       listRef.current?.scrollToOffset({ offset: 0, animated: false });
     }
   };
+
+  // Deep link from Profile (Community Feed row, or a post made there):
+  // /discover?tab=community&at=<time>. `at` changes per visit, so the same
+  // link works again after the user has switched back to Recipes.
+  const params = useLocalSearchParams<{ tab?: string; at?: string }>();
+  useEffect(() => {
+    if (params.tab === "community" || params.tab === "recipes") changeTab(params.tab);
+    if (params.tab === "community") setCommunityRefreshKey((key) => key + 1);
+    // Only on a new visit.
+  }, [params.at]);
 
   const likeEntry = activeKey ? feed.likes[activeKey] : undefined;
 
