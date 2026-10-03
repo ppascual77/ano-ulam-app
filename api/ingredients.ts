@@ -151,7 +151,7 @@ export type PriceGroundingResult =
   | { id: string; confidence: "HIGH" | "LOW"; candidate: PriceGroundingCandidate; reasons: string[] };
 
 // Mirrors ground-ingredient-prices's own MAX_PER_CALL — callers chunk to this.
-export const PRICE_GROUNDING_MAX_PER_CALL = 10;
+export const PRICE_GROUNDING_MAX_PER_CALL = 5;
 
 export async function groundIngredientPrices(ingredients: IngredientRow[]) {
   const data = await invokeEdgeFunction<{ results: PriceGroundingResult[] }>("ground-ingredient-prices", {

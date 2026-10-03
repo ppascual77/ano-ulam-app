@@ -72,36 +72,40 @@ export function PriceGroundingPanel() {
   }, [ingredients]);
 
   const handleRun = async () => {
-    // Skip anything already showing in the results list, so "already
-    // checked" mode doesn't re-search rows still awaiting review.
-    const shown = new Set(results.map((r) => r.id));
+    // Skip rows already showing and awaiting review, so "already checked"
+    // mode doesn't re-search them. ERROR rows (e.g. rate-limited) aren't
+    // skipped: the next run retries them first, since they're still at the
+    // front of the never-checked pool.
+    const shown = new Set(results.filter((r) => r.confidence !== "ERROR").map((r) => r.id));
     const batch = pool.filter((i) => !shown.has(i.id)).slice(0, RUN_SIZE);
     if (batch.length === 0) return;
 
     setRunError(null);
     setRunning({ done: 0, total: batch.length });
-    // Chunks run in parallel and land as they finish, so the first results
-    // are reviewable while the rest are still searching.
-    await Promise.all(
-      chunk(batch, PRICE_GROUNDING_MAX_PER_CALL).map(async (part) => {
-        try {
-          const data = await ground.mutateAsync(part);
-          setResults((prev) => [...prev, ...data]);
-          setSelected((prev) => {
-            const next = new Set(prev);
-            for (const r of data) if (r.confidence === "HIGH") next.add(r.id);
-            return next;
-          });
-          // Checked regardless of outcome, same as USDA grounding — NONE/
-          // ERROR rows shouldn't resurface in the default pool next run.
-          markAttempted.mutate(part.map((i) => i.id));
-        } catch (err) {
-          setRunError(errorMessage(err));
-        } finally {
-          setRunning((prev) => (prev ? { ...prev, done: prev.done + part.length } : prev));
-        }
-      }),
-    );
+    // One chunk at a time, not in parallel: parallel chunks hit gpt-5-mini's
+    // per-minute rate limit. Results still land per chunk, so the first ones
+    // are reviewable while the rest are searching.
+    for (const part of chunk(batch, PRICE_GROUNDING_MAX_PER_CALL)) {
+      try {
+        const data = await ground.mutateAsync(part);
+        const ids = new Set(data.map((r) => r.id));
+        // Replace an earlier ERROR row for the same ingredient with its retry.
+        setResults((prev) => [...prev.filter((r) => !ids.has(r.id)), ...data]);
+        setSelected((prev) => {
+          const next = new Set(prev);
+          for (const r of data) if (r.confidence === "HIGH") next.add(r.id);
+          return next;
+        });
+        // NONE counts as checked (same as USDA grounding: don't resurface it
+        // by default). ERROR doesn't: a rate limit or timeout says nothing
+        // about the ingredient, so it stays in the pool for the next run.
+        markAttempted.mutate(data.filter((r) => r.confidence !== "ERROR").map((r) => r.id));
+      } catch (err) {
+        setRunError(errorMessage(err));
+      } finally {
+        setRunning((prev) => (prev ? { ...prev, done: prev.done + part.length } : prev));
+      }
+    }
     setRunning(null);
   };
 
