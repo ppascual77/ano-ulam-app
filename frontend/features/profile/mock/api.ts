@@ -56,3 +56,36 @@ export async function flushGroceryChecks(changes: Record<string, string | null>)
   }
   groceryChecks = next;
 }
+
+// Account settings with no column yet (privacy, newsletter) and which
+// first-run tours were completed. Dietary focus / allergens are NOT here:
+// they're real (users.preferences).
+export type AccountSettings = {
+  show_saved_public: boolean;
+  newsletter_subscribed: boolean;
+  tours_completed: string[];
+};
+
+let settings: AccountSettings = { show_saved_public: false, newsletter_subscribed: true, tours_completed: [] };
+
+export async function getAccountSettings(): Promise<AccountSettings> {
+  await delay(250);
+  return { ...settings, tours_completed: [...settings.tours_completed] };
+}
+
+export async function updatePrivacy(show: boolean): Promise<void> {
+  await delay(300);
+  settings = { ...settings, show_saved_public: show };
+}
+
+export async function updateNewsletter(on: boolean): Promise<void> {
+  await delay(300);
+  settings = { ...settings, newsletter_subscribed: on };
+}
+
+export async function markTourShown(tourId: string): Promise<void> {
+  await delay(200);
+  if (!settings.tours_completed.includes(tourId)) {
+    settings = { ...settings, tours_completed: [...settings.tours_completed, tourId] };
+  }
+}

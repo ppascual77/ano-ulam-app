@@ -2,11 +2,11 @@ import { useCallback, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, LogOut, Settings, UserCog } from "lucide-react-native";
-import { Dropdown, Screen, Spinner, Toast, type ToastState } from "@/frontend/components/ui";
+import { ArrowLeft, Settings } from "lucide-react-native";
+import { Screen, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { RECIPE_LIMIT } from "@/api/recipes";
-import { useAuth, useSignInWithGoogle, useSignOut } from "@/frontend/features/auth/hooks/useAuth";
+import { useAuth, useSignInWithGoogle } from "@/frontend/features/auth/hooks/useAuth";
 import { CreateSheet, type CreateChoice } from "@/frontend/core/posts/components/CreateSheet";
 import { CreatePostSheet } from "@/frontend/core/posts/components/CreatePostSheet";
 import { createPost, updatePost, type FoodPost, type PostInput } from "@/frontend/core/posts/mock/posts";
@@ -33,7 +33,6 @@ type DevAccount = "user" | "official" | "guest";
 const NEXT_DEV_ACCOUNT: Record<DevAccount, DevAccount> = { user: "official", official: "guest", guest: "user" };
 const DEV_ACCOUNT_LABEL: Record<DevAccount, string> = { user: "signed in", official: "official", guest: "guest" };
 
-const LOG_OUT_DELAY_MS = 2000;
 
 const TAB_PARAMS: ProfileTab[] = ["saved", "recipes", "grocery", "pantry"];
 
@@ -46,7 +45,6 @@ export default function ProfileScreen() {
   const queryClient = useQueryClient();
   const { isSignedIn } = useAuth();
   const signIn = useSignInWithGoogle();
-  const signOut = useSignOut();
   const me = useMe();
 
   const [devAccount, setDevAccount] = useState<DevAccount>("user");
@@ -124,20 +122,6 @@ export default function ProfileScreen() {
     }
   };
 
-  // ---- account menu --------------------------------------------------------
-
-  const [loggingOut, setLoggingOut] = useState(false);
-  const logOut = () => {
-    setLoggingOut(true);
-    setTimeout(async () => {
-      try {
-        if (isSignedIn) await signOut.mutateAsync();
-      } finally {
-        router.replace("/home");
-      }
-    }, LOG_OUT_DELAY_MS);
-  };
-
   const signInWithGoogle = async () => {
     try {
       await signIn.mutateAsync();
@@ -159,21 +143,14 @@ export default function ProfileScreen() {
             </Pressable>
           )}
           {!isGuest && (
-            <Dropdown
-              trigger={
-                <View accessibilityLabel="Account menu" className="h-9 w-9 items-center justify-center">
-                  <Settings color={colors.webInk.DEFAULT} size={20} />
-                </View>
-              }
-              items={[
-                {
-                  label: "Profile Settings",
-                  icon: <UserCog color={colors.webInk.muted} size={14} />,
-                  onPress: () => showToast("Settings are coming soon", "success"),
-                },
-                { label: "Log out", icon: <LogOut color={colors.like} size={14} />, onPress: logOut, destructive: true },
-              ]}
-            />
+            <Pressable
+              onPress={() => router.push("/profile/settings")}
+              hitSlop={8}
+              accessibilityLabel="Settings"
+              className="h-9 w-9 items-center justify-center"
+            >
+              <Settings color={colors.webInk.DEFAULT} size={20} />
+            </Pressable>
           )}
         </View>
       </View>
@@ -253,13 +230,6 @@ export default function ProfileScreen() {
         onSubmit={submitPost}
       />
       <RecipeLimitSheet visible={limitOpen} onClose={() => setLimitOpen(false)} />
-
-      {loggingOut && (
-        <View className="absolute inset-0 items-center justify-center gap-3 bg-white">
-          <Spinner size={28} color={colors.brandGreen.DEFAULT} trackColor={colors.webDivider} />
-          <Text className="font-inter-medium text-body text-web-ink-muted">Logging out...</Text>
-        </View>
-      )}
 
       <Toast toast={toast} onHide={() => setToast(null)} />
     </Screen>
