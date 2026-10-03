@@ -684,6 +684,8 @@ Not yet built: the USDA API integration, confidence scoring, and this review/app
 
 Matches the existing mock `IngredientType.type` concept already used elsewhere in the app: **`main`** is a headline ingredient you'd shop for specifically for a given meal (e.g. chicken breast); **`pantry`** is a staple usually already on hand (salt, cooking oil, garlic, rice, condiments). Stored as `role text check (role is null or role in ('main', 'pantry'))`.
 
+**Update (2026-10-03):** `role` is a display label only (the Main / Pantry tag in meal details). It no longer decides what counts toward a meal's totals: `recomputeMealTotals` sums every quantified ingredient, pantry included, for both macros and price. Previously only `main` plus oils counted, which undercounted calories (sugar, coconut milk, sauces) and the real per-meal cost.
+
 ## Estimated price — a deliberate, flagged compromise
 
 This one sits in real tension with section 11's principle that nutrition and price/procurement are separate concerns (nutrition is stable, price is dynamic, and price eventually needs full history/sourcing via Price Watch). Adding a single static price value directly on `ingredients` is exactly the kind of undifferentiated object that section 11 warns against as the *permanent* design.

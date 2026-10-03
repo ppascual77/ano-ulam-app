@@ -30,7 +30,7 @@ export function IngredientDetailSheet({ ingredient, onClose, maxHeightPercent }:
   }, [ingredient]);
 
   const isMain = rendered?.type === "main";
-  const hasPrice = isMain && rendered?.price != null && rendered.price > 0;
+  const hasPrice = rendered?.price != null && rendered.price > 0;
 
   return (
     // fitContent: only as tall as this ingredient's sections need (a pantry
@@ -70,9 +70,7 @@ export function IngredientDetailSheet({ ingredient, onClose, maxHeightPercent }:
 
           <NutritionSection item={rendered} />
           {hasNutrition(rendered) && <NutritionSourceSection item={rendered} />}
-          {/* Pantry items aren't counted in the meal's price, so they have no
-              price to source. */}
-          {isMain && <PriceSourceSection item={rendered} />}
+          <PriceSourceSection item={rendered} />
         </View>
       )}
     </BottomSheet>
