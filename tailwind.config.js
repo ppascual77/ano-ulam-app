@@ -19,8 +19,11 @@ module.exports = {
         "brand-green": { DEFAULT: "#006D4D", dark: "#18402F" },
         "brand-orange": "#F88927",
         verified: "#1D9BF0", // verified-poster badge
-        "web-ink": { DEFAULT: "#1F2937", soft: "#374151", muted: "#9CA3AF" },
+        "web-ink": { DEFAULT: "#1F2937", soft: "#374151", body: "#4B5563", muted: "#9CA3AF", faint: "#D1D5DB" },
         "web-divider": "#F3F4F6",
+        // Profile port: info blue (updated-meal / servings confirms, catalog
+        // "updated" strip) and its soft tile background.
+        info: { DEFAULT: "#3B82F6", soft: "#EFF6FF" },
         ink: {
           subtle: "#666666", // subtle text
           DEFAULT: "#444444", // normal text
@@ -60,7 +63,8 @@ module.exports = {
           fats: "#F46767",
         },
         // Liked-heart red (MealCard). Not a general-purpose brand color.
-        like: "#EF4444",
+        // soft: destructive icon tile behind a red icon (Delete Recipe confirm).
+        like: { DEFAULT: "#EF4444", soft: "#FEE2E2" },
         // Button's "tinted" variant fill (e.g. a meal card's "View Details").
         "tinted-bg": "#DFF3E3",
         // Browse's mood-selection card background (features/browse).

@@ -19,7 +19,8 @@ export const colors = {
   brandGreen: { DEFAULT: "#006D4D", dark: "#18402F" },
   brandOrange: "#F88927",
   verified: "#1D9BF0",
-  webInk: { DEFAULT: "#1F2937", soft: "#374151", muted: "#9CA3AF" },
+  webInk: { DEFAULT: "#1F2937", soft: "#374151", body: "#4B5563", muted: "#9CA3AF", faint: "#D1D5DB" },
+  info: "#3B82F6",
   webDivider: "#F3F4F6",
   avatar: {
     // Generated-avatar fallback palette only (see components/ui/Avatar.tsx).

@@ -365,7 +365,7 @@ export default function DiscoverScreen() {
                   key={activeKey}
                   liked={likeEntry?.liked ?? false}
                   likeCount={likeEntry?.count ?? 0}
-                  saved={!!(activeKey && feed.saves[activeKey])}
+                  saved={feed.isSaved(activeMeal)}
                   busy={!!(activeKey && feed.inFlight[activeKey])}
                   onLike={() => handleAction({ type: "like", meal: activeMeal })}
                   onSave={() => handleAction({ type: "save", meal: activeMeal })}

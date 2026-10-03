@@ -1,5 +1,9 @@
 import { ReactNode, useEffect, useState } from "react";
-import { BottomSheet } from "@/frontend/components/ui";
+import { Text, View } from "react-native";
+import { Sparkles } from "lucide-react-native";
+import { BottomSheet, ConfirmSheet } from "@/frontend/components/ui";
+import { colors } from "@/frontend/constants/theme";
+import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
 import { MealDetailContent } from "./MealDetailContent";
 import { IngredientDetailSheet } from "./IngredientDetailSheet";
 import type { IngredientType, MealType } from "../../mealTypes";
@@ -35,6 +39,13 @@ type MealDetailSheetProps = {
   like?: { liked: boolean; count: number; onToggle: () => void };
   /** Admin review actions (see MealDetailContent's `review`). */
   review?: { onApprove: () => void; onReject: () => void; busy?: boolean };
+  /** The viewer's own recipe (see MealDetailContent's `recipeOwner`).
+   *  Applies to `meal` only. */
+  recipeOwner?: { onEditRecipe: () => void; onDeleteRecipe: () => void };
+  /** Toasts from the save footer: the 15-meal limit, a failed save, and
+   *  "{name} updated" after a servings update. Callers without a Toast can
+   *  leave it out. */
+  onNotify?: (message: string, tone: "success" | "error") => void;
 };
 
 export function MealDetailSheet({
@@ -47,11 +58,17 @@ export function MealDetailSheet({
   overlay,
   like,
   review,
+  recipeOwner,
+  onNotify,
 }: MealDetailSheetProps) {
   // Keep the last meal rendered while the sheet animates closed, so the
   // content doesn't flash empty before it's off-screen.
   const [renderedMeal, setRenderedMeal] = useState(meal);
-  const [isSaved, setIsSaved] = useState(false);
+  const savedMeals = useSavedMealActions();
+  const savedEntry = savedMeals.savedFor(renderedMeal);
+  // Servings picked for "Update Meal", awaiting the confirm. null = closed.
+  const [pendingServings, setPendingServings] = useState<number | null>(null);
+  const [updating, setUpdating] = useState(false);
   // Meals visited via "related meals", most recent last — lets the back
   // button return to whatever the user originally opened.
   const [history, setHistory] = useState<MealType[]>([]);
@@ -66,7 +83,6 @@ export function MealDetailSheet({
   useEffect(() => {
     if (meal) {
       setRenderedMeal(meal);
-      setIsSaved(false);
       setHistory([]);
       setDirection("none");
     }
@@ -80,7 +96,6 @@ export function MealDetailSheet({
     setDirection("forward");
     setSelectedIngredient(null);
     setRenderedMeal(next);
-    setIsSaved(false);
   };
 
   const handleBack = () => {
@@ -89,9 +104,23 @@ export function MealDetailSheet({
       const next = prev.slice(0, -1);
       setDirection("back");
       setRenderedMeal(prev[prev.length - 1]);
-      setIsSaved(false);
       return next;
     });
+  };
+
+  const notify = (error: string | null) => {
+    if (error) onNotify?.(error, "error");
+  };
+
+  const confirmUpdate = async () => {
+    if (!renderedMeal || !savedEntry || pendingServings == null) return;
+    setUpdating(true);
+    const error = await savedMeals.updateServings(savedEntry, renderedMeal, pendingServings);
+    setUpdating(false);
+    setPendingServings(null);
+    if (error) return notify(error);
+    onNotify?.(`${renderedMeal.name} updated`, "success");
+    onClose();
   };
 
   return (
@@ -111,6 +140,28 @@ export function MealDetailSheet({
             onClose={() => setSelectedIngredient(null)}
             maxHeightPercent={INGREDIENT_SHEET_HEIGHT_PERCENT}
           />
+          <ConfirmSheet
+            presentation="inline"
+            visible={pendingServings != null}
+            icon={
+              <View className="h-12 w-12 items-center justify-center rounded-full bg-info-soft">
+                <Sparkles color={colors.info} size={20} />
+              </View>
+            }
+            title="Update servings?"
+            body={
+              <Text className="mt-1 text-center font-inter-regular text-body text-web-ink-muted">
+                Changing the servings for <Text className="font-inter-medium text-web-ink-soft">{renderedMeal?.name}</Text> will
+                recalculate its ingredient quantities. Any Grocery List items affected by this change will be unchecked so you
+                know to restock the right amount.
+              </Text>
+            }
+            confirmLabel={updating ? "Updating…" : "Update"}
+            tone="primary"
+            busy={updating}
+            onCancel={() => setPendingServings(null)}
+            onConfirm={confirmUpdate}
+          />
           {overlay}
         </>
       }
@@ -119,8 +170,15 @@ export function MealDetailSheet({
         <MealDetailContent
           key={renderedMeal.id}
           meal={renderedMeal}
-          isSaved={isSaved}
-          onSave={() => setIsSaved((prev) => !prev)}
+          initialServings={savedEntry?.serving_size}
+          saved={{
+            isSaved: !!savedEntry,
+            savedServings: savedEntry?.serving_size,
+            onSave: (servings) => void savedMeals.save(renderedMeal, servings).then(notify),
+            onUnsave: () => savedEntry && void savedMeals.unsave(savedEntry).then(notify),
+            onUpdate: setPendingServings,
+          }}
+          recipeOwner={meal && renderedMeal.id === meal.id ? recipeOwner : undefined}
           onSelectMeal={handleSelectMeal}
           onBack={history.length > 0 ? handleBack : undefined}
           direction={direction}

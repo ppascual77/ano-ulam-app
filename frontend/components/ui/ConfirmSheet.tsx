@@ -7,6 +7,8 @@ import { colors } from "@/frontend/constants/theme";
 type ConfirmSheetProps = {
   visible: boolean;
   title: string;
+  /** Optional icon tile above the title. */
+  icon?: ReactNode;
   /** Line(s) under the title. A string renders as muted body text. */
   body?: ReactNode;
   confirmLabel: string;
@@ -27,6 +29,7 @@ type ConfirmSheetProps = {
 export function ConfirmSheet({
   visible,
   title,
+  icon,
   body,
   confirmLabel,
   cancelLabel = "Cancel",
@@ -47,6 +50,7 @@ export function ConfirmSheet({
       presentation={presentation}
     >
       <View className="items-center gap-5 px-6 pb-8 pt-12">
+        {icon}
         <View className="items-center">
           <Text className="text-center font-inter-bold text-subheading text-web-ink">{title}</Text>
           {typeof body === "string" ? (

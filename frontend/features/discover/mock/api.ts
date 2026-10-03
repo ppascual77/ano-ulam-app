@@ -1,6 +1,6 @@
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 
-// MOCK — Discover's like/save calls, with the same names and shapes as the
+// MOCK — Discover's like calls (saves moved to core/saved), with the same names and shapes as the
 // web app's frontend/src/api/mealService.ts. There's no like/save backend
 // in this app yet, so state lives in memory (resets on reload). When the
 // real endpoints exist, replace these function bodies; callers (the
@@ -9,14 +9,9 @@ import type { MealType } from "@/frontend/core/meals/mealTypes";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Mirrors the web app's cap on saved meals.
-export const SAVED_MEALS_LIMIT = 15;
-
 type LikeState = { liked: boolean; like_count: number };
 
 const likes = new Map<string, LikeState>();
-const saved = new Map<string, string>(); // meal id -> saved id
-let nextSavedId = 1;
 
 // The in-memory "server" starts from whatever the real meal row says, so a
 // first toggle flips the meal's actual like_count rather than 0.
@@ -38,18 +33,4 @@ export async function toggleMealLike(mealId: string): Promise<LikeState> {
   };
   likes.set(mealId, next);
   return next;
-}
-
-export async function saveMeal(meal: MealType): Promise<{ savedId: string }> {
-  await delay(400);
-  const savedId = `saved-${nextSavedId++}`;
-  if (meal.id) saved.set(meal.id, savedId);
-  return { savedId };
-}
-
-export async function unsaveMeal(savedId: string): Promise<void> {
-  await delay(400);
-  for (const [mealId, id] of saved) {
-    if (id === savedId) saved.delete(mealId);
-  }
 }
