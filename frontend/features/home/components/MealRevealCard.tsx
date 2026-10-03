@@ -100,7 +100,12 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
         <Pressable className="flex-1" onPress={onDismiss} accessibilityLabel="Close" />
       </Animated.View>
 
-      <View pointerEvents="box-none" className="flex-1 items-center justify-center">
+      {/* collapsable={false}: keeps this wrapper as a real native view, so
+          the card's 3D turn is flattened inside it. Without it React Native
+          folds the wrapper away, the card and the backdrop become siblings,
+          and iOS depth-sorts them: whichever half of the card tilts "behind"
+          the screen goes under the dim backdrop (a gray half that flips sides). */}
+      <View collapsable={false} pointerEvents="box-none" className="flex-1 items-center justify-center">
         <Animated.View style={[{ width: cardWidth, height: cardHeight }, cardStyle]}>
           {/* Back: green with the white logo, pre-turned to face away. */}
           <Animated.View
