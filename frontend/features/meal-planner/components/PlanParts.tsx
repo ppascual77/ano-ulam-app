@@ -3,11 +3,12 @@ import { FlatList, Pressable, Text, View, type NativeScrollEvent, type NativeSyn
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
-import { ArrowLeftRight, ChevronRight, Droplets, Dumbbell, Flame, Lock, Pencil, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
+import { ArrowLeftRight, ChevronRight, CloudSun, Moon, Sun, Droplets, Dumbbell, Flame, Lock, Pencil, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import type { MacroTargets } from "../utils/macros";
 import { SLOT_LABELS, dayLabel, dayTotals, formatPeso, monthDay, type MealPlan, type PlanDay, type PlannedMeal } from "../utils/generatePlan";
 import { MealImage } from "./ImagePlaceholder";
+import type { MealSlot } from "../mock/plannerMeals";
 
 // ---- Date selector -----------------------------------------------------------
 
@@ -170,6 +171,8 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
   );
 }
 
+const SLOT_ICONS: Record<MealSlot, LucideIcon> = { breakfast: CloudSun, lunch: Sun, dinner: Moon };
+
 // ---- Hero carousel ---------------------------------------------------------------
 
 // Dark fade from the left/bottom so the white text reads on any photo.
@@ -269,9 +272,12 @@ export function HeroCarousel({ day, servings, dayIndex, width, selected, onChang
                 </View>
               </View>
             </View>
-            {/* Open-recipe arrow, top right (the stats take the bottom row). */}
+            {/* Time of day, top right: cloud-sun breakfast, sun lunch, moon dinner. */}
             <View pointerEvents="none" className="absolute right-4 top-4 h-8 w-8 items-center justify-center rounded-full bg-white">
-              <ChevronRight color={colors.webInk.DEFAULT} size={18} />
+              {(() => {
+                const SlotIcon = SLOT_ICONS[item.slot];
+                return <SlotIcon color={colors.webInk.DEFAULT} size={17} />;
+              })()}
             </View>
           </Pressable>
         )}
