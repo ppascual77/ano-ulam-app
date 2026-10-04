@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -169,7 +169,8 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
   const pct = (grams: number, kcalPerGram: number) => (targets && targets.calories > 0 ? Math.round(((grams * kcalPerGram) / targets.calories) * 100) : 0);
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} heightPercent={0.92}>
+    // Sized to the current step (up to 92% of the screen, then it scrolls).
+    <BottomSheet visible={visible} onClose={onClose} heightPercent={0.92} fitContent>
       <View className="flex-row items-center justify-between px-5 pt-8">
         {back ? (
           <Pressable onPress={() => setStep(back)} hitSlop={10} accessibilityLabel="Back">
@@ -183,7 +184,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
         </Pressable>
       </View>
 
-      <ScrollView keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets showsVerticalScrollIndicator={false} contentContainerClassName="px-6 pb-10 pt-3">
+      <View className="px-6 pb-10 pt-3">
         {/* Keyed by step: each step fades in. */}
         <Animated.View key={step} entering={FadeIn.duration(220)} className="gap-5">
           {step === "intro" && (
@@ -338,7 +339,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
             </>
           )}
         </Animated.View>
-      </ScrollView>
+      </View>
     </BottomSheet>
   );
 }
