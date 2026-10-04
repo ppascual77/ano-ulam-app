@@ -11,7 +11,8 @@ import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { usePlannerStore } from "../store/usePlannerStore";
 import { PLAN_WITH_REAL_MEALS_ONLY, usePlannerPool } from "../hooks/usePlannerPool";
-import { usePlanGroceryList } from "../hooks/usePlanGroceryList";
+import { usePlanGroceryList } from "@/frontend/core/grocery/hooks/usePlanGroceryList";
+import { useSavedGroceryList } from "@/frontend/core/grocery/hooks/useSavedGroceryList";
 import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
 import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
 import { PLAN_DAYS, formatPeso, generatePlan, monthDay, regenerateDay, swapOptions } from "../utils/generatePlan";
@@ -73,6 +74,8 @@ export default function MealPlannerScreen() {
   // ready when the sheet opens.
   const groceryDays = useMemo(() => (store.isPremium ? [0, 1, 2, 3, 4] : [0]), [store.isPremium]);
   const grocery = usePlanGroceryList(plan, groceryDays, store.stage === "plan");
+  // The sheet's other tab: the saved-meals list (same as Profile's).
+  const savedGrocery = useSavedGroceryList(session?.user.id ?? null);
   const { data: pantry = [] } = usePantry();
 
   // seed: a fresh one from "Regenerate", for a different plan.
@@ -289,12 +292,32 @@ export default function MealPlannerScreen() {
 
       <FullGroceryListSheet
         visible={groceryOpen}
-        onClose={() => setGroceryOpen(false)}
-        items={grocery.items}
-        total={grocery.total}
+        onClose={() => {
+          setGroceryOpen(false);
+          void savedGrocery.flush();
+        }}
+        initialTab="plan"
+        tabs={[
+          {
+            key: "plan",
+            label: "Meal plan",
+            items: grocery.items,
+            total: grocery.total,
+            isChecked: grocery.isChecked,
+            onToggle: grocery.toggle,
+            emptyText: "Your meal plan's ingredients will show up here.",
+          },
+          {
+            key: "saved",
+            label: "Saved meals",
+            items: savedGrocery.items,
+            total: savedGrocery.total,
+            isChecked: savedGrocery.isChecked,
+            onToggle: savedGrocery.toggle,
+            emptyText: "Save home-cooked meals and their ingredients will show up here.",
+          },
+        ]}
         pantry={pantry}
-        isChecked={grocery.isChecked}
-        onToggle={grocery.toggle}
       />
 
       <LockedDaySheet visible={lockedOpen} lockedDays={PLAN_DAYS - 1} onClose={() => setLockedOpen(false)} onUnlock={unlock} />
