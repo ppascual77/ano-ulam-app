@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Goal, MacroTargets } from "../utils/macros";
-import type { MealPlan } from "../utils/generatePlan";
+import type { MealPlan, PlannedMeal } from "../utils/generatePlan";
 import type { MealSlot, PlannerMeal } from "../mock/plannerMeals";
 
 export type PlannerStage = "setup" | "generating" | "plan" | "error";
@@ -23,6 +23,7 @@ type PlannerStore = {
   setPlan: (plan: MealPlan | null) => void;
   setPremium: (isPremium: boolean) => void;
   swapMeal: (dayIndex: number, slot: MealSlot, meal: PlannerMeal) => void;
+  replaceDay: (dayIndex: number, meals: PlannedMeal[]) => void;
 };
 
 // Meal Planner state. Event-driven (setup -> generating -> plan), and kept
@@ -50,4 +51,8 @@ export const usePlannerStore = create<PlannerStore>((set) => ({
       );
       return { plan: { ...state.plan, days } };
     }),
+  replaceDay: (dayIndex, meals) =>
+    set((state) =>
+      state.plan ? { plan: { ...state.plan, days: state.plan.days.map((day, i) => (i === dayIndex ? { ...day, meals } : day)) } } : {},
+    ),
 }));

@@ -67,6 +67,61 @@ type GenerateInput = {
   ignoreBudget?: boolean;
 };
 
+type PickDayInput = {
+  bySlot: Record<MealSlot, PlannerMeal[]>;
+  date: Date;
+  servings: number;
+  dayBudget: number;
+  targets: MacroTargets | null;
+  ignoreBudget: boolean;
+  /** How often each meal is already in the plan (repeats score worse). */
+  used: Map<string, number>;
+  random: () => number;
+};
+
+// The best of COMBO_TRIES random breakfast/lunch/dinner combinations for one
+// day: within budget, then closest to the targets, then least repetitive.
+function pickDay({ bySlot, date, servings, dayBudget, targets, ignoreBudget, used, random }: PickDayInput): PlannedMeal[] | null {
+  let best: { meals: PlannedMeal[]; score: number } | null = null;
+  for (let i = 0; i < COMBO_TRIES; i++) {
+    const meals = SLOTS.map((slot) => ({ slot, meal: bySlot[slot][Math.floor(random() * bySlot[slot].length)] }));
+    // No lunch and dinner the same day.
+    if (meals[1].meal.id === meals[2].meal.id) continue;
+    const totals = dayTotals({ date, meals }, servings);
+    if (!ignoreBudget && totals.cost > dayBudget) continue;
+    let score = meals.reduce((sum, { meal }) => sum + (used.get(meal.id as string) ?? 0) * 1.5, 0);
+    if (targets) {
+      score += Math.abs(totals.calories - targets.calories) / targets.calories;
+      score += Math.max(0, targets.protein - totals.protein) / targets.protein;
+    }
+    if (!best || score < best.score) best = { meals, score };
+  }
+  return best?.meals ?? null;
+}
+
+const groupBySlot = (pool: PlannerMeal[]) =>
+  Object.fromEntries(SLOTS.map((slot) => [slot, pool.filter((m) => m.slots.includes(slot))])) as Record<MealSlot, PlannerMeal[]>;
+
+// "Regenerate day": a fresh set of meals for one day of an existing plan,
+// avoiding the day's current meals and the rest of the week's where it can.
+// null when nothing fits.
+export function regenerateDay(pool: PlannerMeal[], plan: MealPlan, dayIndex: number, ignoreBudget = false): PlannedMeal[] | null {
+  const used = new Map<string, number>();
+  plan.days.forEach((day, i) =>
+    day.meals.forEach(({ meal }) => used.set(meal.id as string, (used.get(meal.id as string) ?? 0) + (i === dayIndex ? 3 : 1))),
+  );
+  return pickDay({
+    bySlot: groupBySlot(pool),
+    date: plan.days[dayIndex].date,
+    servings: plan.servings,
+    dayBudget: plan.budget / PLAN_DAYS,
+    targets: plan.targets,
+    ignoreBudget,
+    used,
+    random: Math.random,
+  });
+}
+
 // Builds a 5-day plan (breakfast, lunch, dinner) within budget: each day
 // may spend about a fifth of the weekly budget. Tries random combinations
 // per day and keeps the best one: under budget first, then (with a macro
@@ -74,10 +129,7 @@ type GenerateInput = {
 // Returns null when no day can be filled within budget.
 export function generatePlan({ pool, budget, servings, targets, from = new Date(), ignoreBudget = false }: GenerateInput): MealPlan | null {
   const dates = planDates(from);
-  const bySlot = Object.fromEntries(SLOTS.map((slot) => [slot, pool.filter((m) => m.slots.includes(slot))])) as Record<
-    MealSlot,
-    PlannerMeal[]
-  >;
+  const bySlot = groupBySlot(pool);
   if (SLOTS.some((slot) => bySlot[slot].length === 0)) return null;
 
   const dayBudget = budget / PLAN_DAYS;
@@ -86,23 +138,10 @@ export function generatePlan({ pool, budget, servings, targets, from = new Date(
   const days: PlanDay[] = [];
 
   for (const date of dates) {
-    let best: { meals: PlannedMeal[]; score: number } | null = null;
-    for (let i = 0; i < COMBO_TRIES; i++) {
-      const meals = SLOTS.map((slot) => ({ slot, meal: bySlot[slot][Math.floor(random() * bySlot[slot].length)] }));
-      // No lunch and dinner the same day.
-      if (meals[1].meal.id === meals[2].meal.id) continue;
-      const totals = dayTotals({ date, meals }, servings);
-      if (!ignoreBudget && totals.cost > dayBudget) continue;
-      let score = meals.reduce((sum, { meal }) => sum + (used.get(meal.id as string) ?? 0) * 1.5, 0);
-      if (targets) {
-        score += Math.abs(totals.calories - targets.calories) / targets.calories;
-        score += Math.max(0, targets.protein - totals.protein) / targets.protein;
-      }
-      if (!best || score < best.score) best = { meals, score };
-    }
-    if (!best) return null;
-    for (const { meal } of best.meals) used.set(meal.id as string, (used.get(meal.id as string) ?? 0) + 1);
-    days.push({ date, meals: best.meals });
+    const meals = pickDay({ bySlot, date, servings, dayBudget, targets, ignoreBudget, used, random });
+    if (!meals) return null;
+    for (const { meal } of meals) used.set(meal.id as string, (used.get(meal.id as string) ?? 0) + 1);
+    days.push({ date, meals });
   }
 
   return { days, budget, servings, targets };

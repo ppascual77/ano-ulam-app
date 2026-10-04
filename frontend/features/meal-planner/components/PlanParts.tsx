@@ -1,11 +1,12 @@
-import { Pressable, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { FlatList, Pressable, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import Svg, { Circle } from "react-native-svg";
-import Animated, { FadeIn } from "react-native-reanimated";
-import { ArrowLeftRight, BookOpen, ChevronRight, Crown, Droplets, Dumbbell, Lightbulb, Lock, Moon, Sun, UtensilsCrossed, Wheat, type LucideIcon } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { ArrowLeftRight, ChevronRight, Droplets, Dumbbell, Lock, Moon, Pencil, RefreshCw, Sun, UtensilsCrossed, Wheat, type LucideIcon } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import type { MacroTargets } from "../utils/macros";
 import type { MealSlot } from "../mock/plannerMeals";
-import { SLOT_LABELS, dayLabel, dayTotals, formatPeso, monthDay, perServing, type MealPlan, type PlanDay, type PlannedMeal } from "../utils/generatePlan";
+import { SLOT_LABELS, dayLabel, dayTotals, formatPeso, monthDay, type MealPlan, type PlanDay, type PlannedMeal } from "../utils/generatePlan";
 import { MealImage } from "./ImagePlaceholder";
 
 // ---- Date selector -----------------------------------------------------------
@@ -19,7 +20,7 @@ type DateSelectorProps = {
   onLocked: () => void;
 };
 
-// Five equal day pills. Free users see days 2-5 with a lock.
+// Five equal day pills. Free users see days 2-5 locked.
 export function DateSelector({ plan, selected, isPremium, onSelect, onLocked }: DateSelectorProps) {
   return (
     <View className="flex-row gap-1.5 px-5">
@@ -46,53 +47,17 @@ export function DateSelector({ plan, selected, isPremium, onSelect, onLocked }: 
   );
 }
 
-// ---- Free: upgrade prompts -------------------------------------------------------
+// ---- Summary row -------------------------------------------------------------
 
-// Orange banner above the day: the soft way in to Premium.
-export function UpgradeBanner({ onPress }: { onPress: () => void }) {
-  return (
-    <View className="flex-row items-center gap-3 rounded-2xl bg-brand-orange/10 p-3">
-      <View className="h-10 w-10 items-center justify-center rounded-xl bg-brand-orange/20">
-        <Crown color={colors.brandOrange} size={20} />
-      </View>
-      <View className="flex-1">
-        <Text className="font-inter-semibold text-small text-web-ink">Unlock your 5-day meal plan</Text>
-        <Text className="mt-0.5 font-inter-regular text-sub leading-4 text-web-ink-body">Get 4 more days of personalized meals, swaps and more.</Text>
-      </View>
-      <Pressable onPress={onPress} className="rounded-full bg-brand-orange px-4 py-2 active:opacity-80">
-        <Text className="font-inter-semibold text-small text-white">Upgrade</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-// Card under the day's meals.
-export function RestOfWeekCard({ onPress }: { onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} className="flex-row items-center gap-3 rounded-2xl border border-web-divider bg-white p-4 active:bg-web-divider/40">
-      <View className="h-10 w-10 items-center justify-center rounded-full bg-notice-bg">
-        <Lightbulb color={colors.notice.icon} size={18} />
-      </View>
-      <View className="flex-1">
-        <Text className="font-inter-semibold text-body text-web-ink">Want to see the rest of your week?</Text>
-        <Text className="mt-0.5 font-inter-regular text-small text-web-ink-muted">Unlock 4 more days and the ability to customize your plan.</Text>
-      </View>
-      <ChevronRight color={colors.webInk.muted} size={18} />
-    </Pressable>
-  );
-}
-
-// ---- Macro chips / summary ----------------------------------------------------
-
-const MACROS: { key: "protein" | "carbs" | "fats"; letter: string; label: string; Icon: LucideIcon; color: string; tint: string; text: string }[] = [
-  { key: "protein", letter: "P", label: "Protein", Icon: Dumbbell, color: colors.macro.protein, tint: "bg-macro-protein/10", text: "text-macro-protein" },
-  { key: "carbs", letter: "C", label: "Carbs", Icon: Wheat, color: colors.macro.carbs, tint: "bg-macro-carbs/10", text: "text-macro-carbs" },
-  { key: "fats", letter: "F", label: "Fats", Icon: Droplets, color: colors.macro.fats, tint: "bg-macro-fats/10", text: "text-macro-fats" },
+const MACROS: { key: "protein" | "carbs" | "fats"; letter: string; label: string; Icon: LucideIcon; color: string; tint: string }[] = [
+  { key: "protein", letter: "P", label: "Protein", Icon: Dumbbell, color: colors.macro.protein, tint: "bg-macro-protein/10" },
+  { key: "carbs", letter: "C", label: "Carbs", Icon: Wheat, color: colors.macro.carbs, tint: "bg-macro-carbs/10" },
+  { key: "fats", letter: "F", label: "Fats", Icon: Droplets, color: colors.macro.fats, tint: "bg-macro-fats/10" },
 ];
 
 // Small ring: how much of the calorie target the day reaches.
 function CalorieRing({ share }: { share: number }) {
-  const size = 40;
+  const size = 44;
   const stroke = 5;
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
@@ -113,126 +78,235 @@ function CalorieRing({ share }: { share: number }) {
   );
 }
 
-// Premium, macro goal on: the selected day's calories (ring vs target) and
-// macros as small chips. Food first, so it stays a single compact row.
-export function PremiumSummary({ day, servings, targets }: { day: PlanDay; servings: number; targets: MacroTargets }) {
-  const totals = dayTotals(day, servings);
+function SummaryChip({ Icon, color, tint, value, label }: { Icon?: LucideIcon; color?: string; tint?: string; value: string; label: string }) {
   return (
-    <View className="flex-row items-center gap-2">
-      <View className="flex-row items-center gap-2 pr-1">
-        <CalorieRing share={totals.calories / targets.calories} />
-        <View>
-          <Text className="font-inter-bold text-body text-web-ink">{totals.calories.toLocaleString("en-PH")}</Text>
-          <Text className="font-inter-regular text-sub text-web-ink-muted">kcal</Text>
-        </View>
-      </View>
-      {MACROS.map(({ key, label, Icon, color, tint }) => (
-        <View key={key} className="flex-1 flex-row items-center gap-1.5 rounded-xl border border-web-divider px-2 py-1.5">
-          <View className={`h-6 w-6 items-center justify-center rounded-full ${tint}`}>
-            <Icon color={color} size={12} />
-          </View>
-          <View>
-            <Text className="font-inter-bold text-small text-web-ink">{totals[key]}g</Text>
-            <Text className="font-inter-regular text-sub text-web-ink-muted">{label}</Text>
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-// "Today · Sep 27" + meal count and kcal (or cost). With a macro goal and no
-// summary row above (Free), small P / C / F tiles sit on the right.
-export function DayHeader({ day, index, servings, targets, showMacroTiles }: { day: PlanDay; index: number; servings: number; targets: MacroTargets | null; showMacroTiles: boolean }) {
-  const totals = dayTotals(day, servings);
-  return (
-    <View className="flex-row items-center justify-between gap-3">
-      <View className="flex-1">
-        <Text className="font-inter-bold text-subheading text-web-ink">
-          {dayLabel(day.date, index)} · {monthDay(day.date)}
-        </Text>
-        <Text className="mt-0.5 font-inter-regular text-small text-web-ink-muted">
-          {day.meals.length} meals · {targets ? `~${totals.calories.toLocaleString("en-PH")} kcal` : `~${formatPeso(totals.cost)}`}
-        </Text>
-      </View>
-      {targets && showMacroTiles && (
-        <View className="flex-row gap-1.5">
-          {MACROS.map(({ key, letter, tint, text }) => (
-            <View key={key} className={`items-center rounded-lg px-2 py-1 ${tint}`}>
-              <Text className={`font-inter-bold text-sub ${text}`}>{letter}</Text>
-              <Text className="font-inter-semibold text-sub text-web-ink">{totals[key]}g</Text>
-            </View>
-          ))}
+    <View className="flex-1 flex-row items-center gap-1.5 rounded-xl border border-web-divider bg-white px-2 py-1.5">
+      {Icon && color && (
+        <View className={`h-7 w-7 items-center justify-center rounded-full ${tint}`}>
+          <Icon color={color} size={13} />
         </View>
       )}
+      <View className="shrink">
+        <Text className="font-inter-bold text-small text-web-ink" numberOfLines={1}>
+          {value}
+        </Text>
+        <Text className="font-inter-regular text-sub text-web-ink-muted" numberOfLines={1}>
+          {label}
+        </Text>
+      </View>
     </View>
   );
 }
 
-// ---- Meal row --------------------------------------------------------------------
-
-const SLOT_ICONS: Record<MealSlot, { Icon: LucideIcon; color: string }> = {
-  breakfast: { Icon: Sun, color: colors.brandOrange },
-  lunch: { Icon: UtensilsCrossed, color: colors.brandGreen.DEFAULT },
-  dinner: { Icon: Moon, color: colors.webInk.soft },
-};
-
-type PlanMealRowProps = {
-  item: PlannedMeal;
-  servings: number;
-  showMacros: boolean;
-  isPremium: boolean;
-  onViewRecipe: () => void;
-  onSwap: () => void;
-};
-
-function SmallAction({ Icon, label, onPress }: { Icon: LucideIcon; label: string; onPress: () => void }) {
+// The selected day at a glance. With a macro goal: a calorie ring (vs the
+// target) and macro chips. Without: cost and calories, no macro tracking.
+export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
+  const totals = dayTotals(day, plan.servings);
+  if (plan.targets) {
+    return (
+      <View className="flex-row items-center gap-2">
+        <View className="flex-row items-center gap-2 pr-1">
+          <CalorieRing share={totals.calories / plan.targets.calories} />
+          <View>
+            <Text className="font-inter-bold text-body text-web-ink">{totals.calories.toLocaleString("en-PH")}</Text>
+            <Text className="font-inter-regular text-sub text-web-ink-muted">kcal</Text>
+          </View>
+        </View>
+        {MACROS.map(({ key, label, Icon, color, tint }) => (
+          <SummaryChip key={key} Icon={Icon} color={color} tint={tint} value={`${totals[key]}g`} label={label} />
+        ))}
+      </View>
+    );
+  }
+  const weekCost = plan.days.reduce((sum, d) => sum + dayTotals(d, plan.servings).cost, 0);
   return (
-    <Pressable onPress={onPress} className="flex-row items-center gap-1.5 rounded-lg border border-web-divider px-2.5 py-1.5 active:bg-web-divider/50">
-      <Icon color={colors.webInk.soft} size={13} />
-      <Text className="font-inter-medium text-sub text-web-ink-soft">{label}</Text>
+    <View className="flex-row gap-2">
+      <SummaryChip value={`~${formatPeso(totals.cost)}`} label="today" />
+      <SummaryChip value={`~${formatPeso(weekCost)}`} label={`this week of ${formatPeso(plan.budget)}`} />
+      <SummaryChip value={totals.calories.toLocaleString("en-PH")} label="kcal today" />
+    </View>
+  );
+}
+
+// ---- Hero carousel ---------------------------------------------------------------
+
+// Dark fade from the left/bottom so the white text reads on any photo.
+const HERO_SCRIM = ["rgba(0,0,0,0.75)", "rgba(0,0,0,0.35)", "rgba(0,0,0,0.05)"] as const;
+const HERO_HEIGHT = 200;
+
+function GlassPill({ text }: { text: string }) {
+  return (
+    <View className="rounded-full border border-white/40 bg-black/25 px-2.5 py-1">
+      <Text className="font-inter-medium text-sub text-white">{text}</Text>
+    </View>
+  );
+}
+
+type HeroCarouselProps = {
+  day: PlanDay;
+  dayIndex: number;
+  width: number;
+  /** Which meal (0-2) is showing. */
+  selected: number;
+  onChange: (index: number) => void;
+  onOpen: (item: PlannedMeal) => void;
+};
+
+// The day's meals as big swipeable photo cards: date, name, description and
+// macro pills over a dark fade, a › to open the recipe, and paging dots.
+// Kept in sync with the list below (tapping a row scrolls here).
+export function HeroCarousel({ day, dayIndex, width, selected, onChange, onOpen }: HeroCarouselProps) {
+  const list = useRef<FlatList<PlannedMeal>>(null);
+
+  useEffect(() => {
+    list.current?.scrollToOffset({ offset: selected * width, animated: true });
+  }, [selected, width]);
+
+  const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const index = Math.round(e.nativeEvent.contentOffset.x / width);
+    if (index !== selected) onChange(index);
+  };
+
+  return (
+    <View className="gap-2.5">
+      <FlatList
+        ref={list}
+        horizontal
+        pagingEnabled
+        data={day.meals}
+        keyExtractor={(item) => item.slot}
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={onScrollEnd}
+        getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
+        renderItem={({ item }) => (
+          <Pressable onPress={() => onOpen(item)} style={{ width, height: HERO_HEIGHT }} className="overflow-hidden rounded-3xl">
+            <MealImage meal={item.meal} height={HERO_HEIGHT} width={width} rounded="rounded-3xl" />
+            <LinearGradient
+              colors={HERO_SCRIM}
+              start={{ x: 0, y: 1 }}
+              end={{ x: 1, y: 0 }}
+              pointerEvents="none"
+              style={{ position: "absolute", inset: 0 }}
+            />
+            <View pointerEvents="box-none" className="absolute inset-0 justify-between p-4">
+              <Text className="font-inter-medium text-small text-white/90">
+                {dayLabel(day.date, dayIndex)} · {monthDay(day.date)} · {SLOT_LABELS[item.slot]}
+              </Text>
+              <View className="gap-1.5 pr-12">
+                <Text numberOfLines={2} className="font-inter-bold text-heading leading-7 text-white">
+                  {item.meal.name}
+                </Text>
+                {!!item.meal.description && (
+                  <Text numberOfLines={1} className="font-inter-regular text-small text-white/80">
+                    {item.meal.description}
+                  </Text>
+                )}
+                <View className="mt-1 flex-row flex-wrap gap-1.5">
+                  <GlassPill text={`${item.meal.calories} kcal`} />
+                  <GlassPill text={`${item.meal.protein}g P`} />
+                  <GlassPill text={`${item.meal.carbs}g C`} />
+                  <GlassPill text={`${item.meal.fats}g F`} />
+                </View>
+              </View>
+            </View>
+            <View pointerEvents="none" className="absolute bottom-4 right-4 h-9 w-9 items-center justify-center rounded-full bg-white">
+              <ChevronRight color={colors.webInk.DEFAULT} size={18} />
+            </View>
+          </Pressable>
+        )}
+      />
+      <View className="flex-row justify-center gap-1.5">
+        {day.meals.map((item, i) => (
+          <View key={item.slot} className={`h-1.5 rounded-full ${i === selected ? "w-5 bg-web-ink" : "w-1.5 bg-web-ink-faint"}`} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ---- Meal list ---------------------------------------------------------------------
+
+const SLOT_STYLE: Record<MealSlot, { Icon: LucideIcon; color: string; tint: string }> = {
+  breakfast: { Icon: Sun, color: colors.brandOrange, tint: "bg-brand-orange/10" },
+  lunch: { Icon: UtensilsCrossed, color: colors.brandGreen.DEFAULT, tint: "bg-brand-green/10" },
+  dinner: { Icon: Moon, color: colors.webInk.soft, tint: "bg-web-divider" },
+};
+
+type MealListRowProps = {
+  item: PlannedMeal;
+  /** The meal showing in the hero: highlighted. */
+  active: boolean;
+  showMacros: boolean;
+  servings: number;
+  onPress: () => void;
+};
+
+// Compact row: thumbnail, slot pill, name, macros (or cost), ›.
+export function MealListRow({ item, active, showMacros, servings, onPress }: MealListRowProps) {
+  const { meal, slot } = item;
+  const { Icon, color, tint } = SLOT_STYLE[slot];
+  const perPerson = Number(meal.price) / (meal.serving_size ?? 1);
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityState={{ selected: active }}
+      className={`flex-row items-center gap-3 rounded-2xl border p-2 ${active ? "border-brand-green/20 bg-brand-green/10" : "border-web-divider bg-white"}`}
+    >
+      <MealImage meal={meal} height={64} width={64} rounded="rounded-xl" />
+      <View className="flex-1 gap-0.5">
+        <View className="flex-row">
+          <View className={`flex-row items-center gap-1 rounded-full px-2 py-0.5 ${tint}`}>
+            <Icon color={color} size={11} />
+            <Text className="font-inter-medium text-sub text-web-ink-soft">{SLOT_LABELS[slot]}</Text>
+          </View>
+        </View>
+        <Text numberOfLines={1} className="font-inter-semibold text-body text-web-ink">
+          {meal.name}
+        </Text>
+        <Text className="font-inter-regular text-sub text-web-ink-muted">
+          {showMacros
+            ? `${meal.calories} kcal · ${meal.protein}g P · ${meal.carbs}g C · ${meal.fats}g F`
+            : `~${formatPeso(perPerson * servings)}${servings > 1 ? ` for ${servings}` : ""} · ${meal.calories} kcal`}
+        </Text>
+      </View>
+      <View className="h-7 w-7 items-center justify-center rounded-full bg-white">
+        <ChevronRight color={colors.webInk.soft} size={16} />
+      </View>
     </Pressable>
   );
 }
 
-// Photo on the left, slot + name + macros (or cost). Free: tap for the
-// recipe. Premium: Swap meal and View recipe buttons.
-export function PlanMealRow({ item, servings, showMacros, isPremium, onViewRecipe, onSwap }: PlanMealRowProps) {
-  const { meal, slot } = item;
-  const { Icon, color } = SLOT_ICONS[slot];
+// ---- Day actions -------------------------------------------------------------------
+
+type DayActionsProps = {
+  /** Free: actions show a lock and open the unlock sheet. */
+  locked: boolean;
+  onRegenerate: () => void;
+  onSwap: () => void;
+  onEdit: () => void;
+};
+
+function ActionButton({ Icon, label, locked, onPress }: { Icon: LucideIcon; label: string; locked: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onViewRecipe} className="rounded-2xl border border-web-divider bg-white p-2.5 active:bg-web-divider/30">
-      {/* Keyed by meal: a swap crossfades the new meal in. */}
-      <Animated.View key={meal.id} entering={FadeIn.duration(250)} className="flex-row gap-3">
-        <MealImage meal={meal} height={isPremium ? 104 : 84} width={isPremium ? 104 : 84} rounded="rounded-xl" />
-        <View className="flex-1 justify-center gap-1">
-          <View className="flex-row items-center gap-1.5">
-            <Icon color={color} size={13} />
-            <Text className="font-inter-medium text-sub text-web-ink-muted">{SLOT_LABELS[slot]}</Text>
-          </View>
-          <Text numberOfLines={2} className="font-inter-bold text-body text-web-ink">
-            {meal.name}
-          </Text>
-          <Text className="font-inter-regular text-sub text-web-ink-muted">
-            {showMacros
-              ? `${meal.calories} kcal · ${meal.protein}g P · ${meal.carbs}g C · ${meal.fats}g F`
-              : `~${formatPeso(perServing(meal) * servings)}${servings > 1 ? ` for ${servings}` : ""} · ${meal.calories} kcal`}
-          </Text>
-          {isPremium && (
-            <View className="mt-1 flex-row gap-2">
-              <SmallAction Icon={ArrowLeftRight} label="Swap meal" onPress={onSwap} />
-              <SmallAction Icon={BookOpen} label="View recipe" onPress={onViewRecipe} />
-            </View>
-          )}
-        </View>
-        {!isPremium && (
-          <View className="justify-center">
-            <View className="h-7 w-7 items-center justify-center rounded-full bg-web-divider">
-              <ChevronRight color={colors.webInk.soft} size={16} />
-            </View>
-          </View>
-        )}
-      </Animated.View>
+    <Pressable onPress={onPress} className="flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border border-web-divider bg-white py-3 active:bg-web-divider/50">
+      {locked ? <Lock color={colors.webInk.muted} size={13} /> : <Icon color={colors.webInk.soft} size={14} />}
+      <Text className={`font-inter-semibold text-small ${locked ? "text-web-ink-muted" : "text-web-ink-soft"}`}>{label}</Text>
     </Pressable>
   );
+}
+
+export function DayActions({ locked, onRegenerate, onSwap, onEdit }: DayActionsProps) {
+  return (
+    <View className="flex-row gap-2">
+      <ActionButton Icon={RefreshCw} label="Regenerate day" locked={locked} onPress={onRegenerate} />
+      <ActionButton Icon={ArrowLeftRight} label="Swap meal" locked={locked} onPress={onSwap} />
+      <ActionButton Icon={Pencil} label="Edit day" locked={locked} onPress={onEdit} />
+    </View>
+  );
+}
+
+// Width helper for the hero: measured once from the content column.
+export function useMeasuredWidth() {
+  const [width, setWidth] = useState(0);
+  return { width, onLayout: (e: { nativeEvent: { layout: { width: number } } }) => setWidth(e.nativeEvent.layout.width) };
 }

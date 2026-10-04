@@ -11,18 +11,19 @@ import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { usePlannerStore } from "../store/usePlannerStore";
 import { PLAN_WITH_REAL_MEALS_ONLY, usePlannerPool } from "../hooks/usePlannerPool";
-import { PLAN_DAYS, formatPeso, generatePlan, monthDay, swapOptions } from "../utils/generatePlan";
+import { PLAN_DAYS, formatPeso, generatePlan, monthDay, regenerateDay, swapOptions } from "../utils/generatePlan";
 import type { MealSlot } from "../mock/plannerMeals";
 import { BudgetInput, MacroGoalCard, ServingStepper, parseBudget } from "../components/PlannerInputs";
 import { MacroGoalSheet } from "../components/MacroGoalSheet";
 import { GeneratingView } from "../components/GeneratingView";
-import { DateSelector, DayHeader, PlanMealRow, PremiumSummary, RestOfWeekCard, UpgradeBanner } from "../components/PlanParts";
+import { DateSelector, DayActions, HeroCarousel, MealListRow, SummaryRow, useMeasuredWidth } from "../components/PlanParts";
 import { LockedDaySheet, SwapMealSheet } from "../components/PlannerSheets";
 
 // Meal Planner (test build of the flow): setup (budget, people, optional
 // macro goal) -> a short timed "Planning your week" checklist -> a 5-day
-// plan from today. Free users get day 1; days 2-5 and the upgrade prompts
-// open a light upgrade sheet whose "Unlock Premium" is a mock unlock.
+// plan from today. Free users get day 1; days 2-5 are locked, and tapping
+// them (or a day action) opens a light upgrade sheet whose "Unlock
+// Premium" is a mock unlock.
 // No Grocery List yet.
 const MOCK_NAME = "Patrick";
 
@@ -40,6 +41,13 @@ export default function MealPlannerScreen() {
 
   const [macroSheetOpen, setMacroSheetOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState(0);
+  // Which of the day's meals is in the hero (and highlighted in the list).
+  const [selectedMeal, setSelectedMeal] = useState(0);
+  const hero = useMeasuredWidth();
+  const selectDay = (index: number) => {
+    setSelectedDay(index);
+    setSelectedMeal(0);
+  };
   const [lockedOpen, setLockedOpen] = useState(false);
   const [swap, setSwap] = useState<{ dayIndex: number; slot: MealSlot } | null>(null);
   const [localDetail, setLocalDetail] = useState<MealType | null>(null);
@@ -54,7 +62,7 @@ export default function MealPlannerScreen() {
     store.setPlan(
       generatePlan({ pool, budget, servings: store.servings, targets: store.targets, ignoreBudget: PLAN_WITH_REAL_MEALS_ONLY }),
     );
-    setSelectedDay(0);
+    selectDay(0);
     store.setStage("generating");
   };
 
@@ -64,17 +72,20 @@ export default function MealPlannerScreen() {
     else detail.open(meal.id);
   };
 
+  const regenerate = () => {
+    if (!plan) return;
+    const meals = regenerateDay(pool, plan, selectedDay, PLAN_WITH_REAL_MEALS_ONLY);
+    if (!meals) return showToast("No other meals fit this day's budget", "error");
+    store.replaceDay(selectedDay, meals);
+    showToast("New meals for this day");
+  };
+
   const unlock = () => {
     store.setPremium(true);
     setLockedOpen(false);
     showToast("Premium unlocked (test)");
   };
 
-  const devPill = __DEV__ && (
-    <Pressable onPress={() => store.setPremium(!store.isPremium)} className="rounded-full bg-web-ink/80 px-2 py-1">
-      <Text className="font-inter-semibold text-sub text-white">DEV {store.isPremium ? "premium" : "free"}</Text>
-    </Pressable>
-  );
 
   return (
     <Screen edges={["top"]} padded={false} dismissKeyboardOnTap={false}>
@@ -92,7 +103,6 @@ export default function MealPlannerScreen() {
                 <AppText variant="heading">Let's plan your week</AppText>
               </View>
               <View className="flex-row items-center gap-2">
-                {devPill}
                 <Avatar name={fullName} imageUri={avatarUrl} size={48} />
               </View>
             </View>
@@ -148,7 +158,7 @@ export default function MealPlannerScreen() {
               <ArrowLeft color={colors.webInk.DEFAULT} size={20} />
             </Pressable>
             <View className="flex-1 items-center">
-              <Text className="font-inter-bold text-subheading text-web-ink">{store.isPremium ? "Your 5-Day Meal Plan" : "Your Meal Plan"}</Text>
+              <Text className="font-inter-bold text-subheading text-web-ink">Your 5-Day Meal Plan</Text>
               <Text className="font-inter-regular text-small text-web-ink-muted">
                 {monthDay(plan.days[0].date)} – {monthDay(plan.days[plan.days.length - 1].date)}
               </Text>
@@ -171,30 +181,50 @@ export default function MealPlannerScreen() {
             </View>
           </View>
 
-          <DateSelector plan={plan} selected={selectedDay} isPremium={store.isPremium} onSelect={setSelectedDay} onLocked={() => setLockedOpen(true)} />
+          <DateSelector plan={plan} selected={selectedDay} isPremium={store.isPremium} onSelect={selectDay} onLocked={() => setLockedOpen(true)} />
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="gap-4 px-5 pb-10 pt-4">
-            {devPill && <View className="items-end">{devPill}</View>}
-            {!store.isPremium && <UpgradeBanner onPress={() => setLockedOpen(true)} />}
-            {store.isPremium && plan.targets && <PremiumSummary day={plan.days[selectedDay]} servings={plan.servings} targets={plan.targets} />}
+            <SummaryRow plan={plan} day={plan.days[selectedDay]} />
 
             {/* Keyed by day: switching days slides the new day in. */}
-            <Animated.View key={selectedDay} entering={FadeInRight.duration(220)} className="gap-3">
-              <DayHeader day={plan.days[selectedDay]} index={selectedDay} servings={plan.servings} targets={plan.targets} showMacroTiles={!store.isPremium} />
-              {plan.days[selectedDay].meals.map((item) => (
-                <PlanMealRow
-                  key={item.slot}
-                  item={item}
-                  servings={plan.servings}
-                  showMacros={!!plan.targets}
-                  isPremium={store.isPremium}
-                  onViewRecipe={() => viewRecipe(item.meal)}
-                  onSwap={() => setSwap({ dayIndex: selectedDay, slot: item.slot })}
+            <Animated.View key={selectedDay} entering={FadeInRight.duration(220)} className="gap-4" onLayout={hero.onLayout}>
+              {hero.width > 0 && (
+                <HeroCarousel
+                  day={plan.days[selectedDay]}
+                  dayIndex={selectedDay}
+                  width={hero.width}
+                  selected={selectedMeal}
+                  onChange={setSelectedMeal}
+                  onOpen={(item) => viewRecipe(item.meal)}
                 />
-              ))}
+              )}
+
+              <View className="gap-2">
+                {plan.days[selectedDay].meals.map((item, i) => (
+                  <MealListRow
+                    key={item.slot}
+                    item={item}
+                    active={i === selectedMeal}
+                    showMacros={!!plan.targets}
+                    servings={plan.servings}
+                    // First tap brings it into the hero; tapping the one
+                    // already there opens its recipe.
+                    onPress={() => (i === selectedMeal ? viewRecipe(item.meal) : setSelectedMeal(i))}
+                  />
+                ))}
+              </View>
             </Animated.View>
 
-            {!store.isPremium && <RestOfWeekCard onPress={() => setLockedOpen(true)} />}
+            <DayActions
+              locked={!store.isPremium}
+              onRegenerate={() => (store.isPremium ? regenerate() : setLockedOpen(true))}
+              onSwap={() =>
+                store.isPremium
+                  ? setSwap({ dayIndex: selectedDay, slot: plan.days[selectedDay].meals[selectedMeal].slot })
+                  : setLockedOpen(true)
+              }
+              onEdit={() => (store.isPremium ? showToast("Editing a day is coming soon") : setLockedOpen(true))}
+            />
           </ScrollView>
         </Animated.View>
       )}
