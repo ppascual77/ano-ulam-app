@@ -210,6 +210,67 @@ function IntroStep({ onStart }: { onStart: () => void }) {
   );
 }
 
+// Step 3: main goal + activity level. The tallest step, so it also sets the
+// sheet's height for every step after the intro (measured invisibly).
+type GoalStepProps = {
+  goal: Goal;
+  activity: Activity;
+  onGoal: (goal: Goal) => void;
+  onActivity: (activity: Activity) => void;
+  onCalculate: () => void;
+  canCalculate: boolean;
+};
+
+function GoalStep({ goal, activity, onGoal, onActivity, onCalculate, canCalculate }: GoalStepProps) {
+  return (
+    <>
+      <Text className="font-inter-semibold text-heading text-web-ink">What's your main goal?</Text>
+      <View className="flex-row gap-2">
+        {GOAL_OPTIONS.map((option) => {
+          const Icon = GOAL_ICONS[option.value];
+          const selected = goal === option.value;
+          return (
+            <Selectable key={option.value} selected={selected} onPress={() => onGoal(option.value)} className="flex-1 items-center gap-1.5 px-2 py-3">
+              <Icon color={selected ? colors.brandGreen.DEFAULT : colors.brandOrange} size={22} />
+              <Text className="text-center font-inter-semibold text-small text-web-ink">{option.label}</Text>
+              <Text className="text-center font-inter-regular text-sub leading-4 text-web-ink-muted">{option.description}</Text>
+              {selected && (
+                <View className="absolute right-1.5 top-1.5 h-4 w-4 items-center justify-center rounded-full bg-brand-green">
+                  <Check color={colors.white} size={10} strokeWidth={3} />
+                </View>
+              )}
+            </Selectable>
+          );
+        })}
+      </View>
+
+      <View>
+        <Text className="font-inter-bold text-subheading text-web-ink">Activity level</Text>
+        <Text className="mt-0.5 font-inter-regular text-small text-web-ink-muted">How active are you on a weekly basis?</Text>
+      </View>
+      <View className="gap-2">
+        {ACTIVITY_OPTIONS.map((option) => {
+          const Icon = ACTIVITY_ICONS[option.value];
+          const selected = activity === option.value;
+          return (
+            <Selectable key={option.value} selected={selected} onPress={() => onActivity(option.value)} className="flex-row items-center gap-3 px-4 py-3">
+              <Icon color={selected ? colors.brandGreen.DEFAULT : colors.webInk.muted} size={18} />
+              <View className="flex-1">
+                <Text className="font-inter-semibold text-small text-web-ink">{option.label}</Text>
+                <Text className="font-inter-regular text-sub text-web-ink-muted">{option.description}</Text>
+              </View>
+              <View className={`h-5 w-5 items-center justify-center rounded-full ${selected ? "bg-brand-green" : "border-2 border-web-ink-faint"}`}>
+                {selected && <Check color={colors.white} size={12} strokeWidth={3} />}
+              </View>
+            </Selectable>
+          );
+        })}
+      </View>
+      <Button label="Calculate my targets" icon={<ArrowRight color={colors.white} size={18} />} iconPosition="right" onPress={onCalculate} disabled={!canCalculate} />
+    </>
+  );
+}
+
 type MacroGoalSheetProps = {
   visible: boolean;
   /** Current targets/goal, when editing an enabled goal. */
@@ -268,13 +329,17 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
 
   const back = PREVIOUS[step];
 
-  // Sheet height: the intro fits its content; every later step shares one
-  // fixed height so swiping between them doesn't resize the sheet. Going
+  // Sheet height: the intro fits its content; every later step shares the
+  // goal step's height (the tallest) so swiping between them doesn't
+  // resize the sheet. Going
   // intro <-> stats, the content area animates between the two heights in
   // step with the swipe.
   const { height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const fixedHeight = windowHeight * SHEET_HEIGHT - ARROW_ROW - insets.bottom;
+  const maxHeight = windowHeight * SHEET_HEIGHT - ARROW_ROW - insets.bottom;
+  // Later steps: as tall as the goal step (the tallest), within the max.
+  const [goalHeight, setGoalHeight] = useState(0);
+  const fixedHeight = goalHeight > 0 ? Math.min(goalHeight, maxHeight) : maxHeight;
   const [introHeight, setIntroHeight] = useState(0);
   const targetHeight = step === "intro" && introHeight > 0 ? Math.min(introHeight, fixedHeight) : fixedHeight;
   const contentHeight = useSharedValue(targetHeight);
@@ -297,10 +362,17 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
         )}
       </View>
 
-      {/* Invisible copy of the intro, only to measure its natural height. */}
+      {/* Invisible copies of the intro and goal steps, only to measure
+          their natural heights. */}
       <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, opacity: 0 }}>
         <View className={STEP_PADDING} onLayout={(e) => setIntroHeight(e.nativeEvent.layout.height)}>
           <IntroStep onStart={() => {}} />
+        </View>
+      </View>
+      <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, opacity: 0 }}>
+        <View className={STEP_PADDING} onLayout={(e) => setGoalHeight(e.nativeEvent.layout.height)}>
+          <StepProgress step="goal" />
+          <GoalStep goal={draft.goal} activity={draft.activity} onGoal={() => {}} onActivity={() => {}} onCalculate={() => {}} canCalculate />
         </View>
       </View>
 
@@ -360,51 +432,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
           )}
 
           {step === "goal" && (
-            <>
-              <Text className="font-inter-semibold text-heading text-web-ink">What's your main goal?</Text>
-              <View className="flex-row gap-2">
-                {GOAL_OPTIONS.map((option) => {
-                  const Icon = GOAL_ICONS[option.value];
-                  const selected = draft.goal === option.value;
-                  return (
-                    <Selectable key={option.value} selected={selected} onPress={() => set("goal", option.value)} className="flex-1 items-center gap-1.5 px-2 py-3">
-                      <Icon color={selected ? colors.brandGreen.DEFAULT : colors.brandOrange} size={22} />
-                      <Text className="text-center font-inter-semibold text-small text-web-ink">{option.label}</Text>
-                      <Text className="text-center font-inter-regular text-sub leading-4 text-web-ink-muted">{option.description}</Text>
-                      {selected && (
-                        <View className="absolute right-1.5 top-1.5 h-4 w-4 items-center justify-center rounded-full bg-brand-green">
-                          <Check color={colors.white} size={10} strokeWidth={3} />
-                        </View>
-                      )}
-                    </Selectable>
-                  );
-                })}
-              </View>
-
-              <View>
-                <Text className="font-inter-bold text-subheading text-web-ink">Activity level</Text>
-                <Text className="mt-0.5 font-inter-regular text-small text-web-ink-muted">How active are you on a weekly basis?</Text>
-              </View>
-              <View className="gap-2">
-                {ACTIVITY_OPTIONS.map((option) => {
-                  const Icon = ACTIVITY_ICONS[option.value];
-                  const selected = draft.activity === option.value;
-                  return (
-                    <Selectable key={option.value} selected={selected} onPress={() => set("activity", option.value)} className="flex-row items-center gap-3 px-4 py-3">
-                      <Icon color={selected ? colors.brandGreen.DEFAULT : colors.webInk.muted} size={18} />
-                      <View className="flex-1">
-                        <Text className="font-inter-semibold text-small text-web-ink">{option.label}</Text>
-                        <Text className="font-inter-regular text-sub text-web-ink-muted">{option.description}</Text>
-                      </View>
-                      <View className={`h-5 w-5 items-center justify-center rounded-full ${selected ? "bg-brand-green" : "border-2 border-web-ink-faint"}`}>
-                        {selected && <Check color={colors.white} size={12} strokeWidth={3} />}
-                      </View>
-                    </Selectable>
-                  );
-                })}
-              </View>
-              <Button label="Calculate my targets" icon={<ArrowRight color={colors.white} size={18} />} iconPosition="right" onPress={calculate} disabled={!stats} />
-            </>
+            <GoalStep goal={draft.goal} activity={draft.activity} onGoal={(g) => set("goal", g)} onActivity={(v) => set("activity", v)} onCalculate={calculate} canCalculate={!!stats} />
           )}
 
           {step === "targets" && targets && (
