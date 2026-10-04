@@ -145,9 +145,10 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
         </View>
         <View className="flex-row items-center rounded-2xl border border-web-divider bg-white px-3 py-2.5">
           <MacroDonut calories={calories} protein={totals.protein} carbs={totals.carbs} fats={totals.fats} />
-          {MACROS.map(({ key, label, color }) => (
-            <View key={key} className="flex-1 flex-row">
-              <View className="mx-2 w-px self-stretch bg-web-divider" />
+          {MACROS.map(({ key, label, color }, i) => (
+            <View key={key} className={`flex-1 flex-row ${i === 0 ? "ml-2" : ""}`}>
+              {/* Dividers between the macros only, not after the donut. */}
+              {i > 0 && <View className="mx-2 w-px self-stretch bg-web-divider" />}
               {/* Centered in its column, label over value. */}
               <View className="flex-1 items-center justify-center">
                 <View className="flex-row items-center gap-1.5">
