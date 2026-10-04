@@ -3,7 +3,7 @@ import { FlatList, Pressable, Text, View, type NativeScrollEvent, type NativeSyn
 import Svg, { Circle } from "react-native-svg";
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
-import { ArrowLeftRight, ChevronRight, Droplets, Dumbbell, Flame, Lock, Pencil, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
+import { ArrowLeftRight, ChevronRight, Droplets, Dumbbell, Flame, Lock, Pencil, RefreshCw, Users, Wheat, type LucideIcon } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import type { MacroTargets } from "../utils/macros";
 import { SLOT_LABELS, dayLabel, dayTotals, formatPeso, monthDay, type MealPlan, type PlanDay, type PlannedMeal } from "../utils/generatePlan";
@@ -287,10 +287,16 @@ export function MealListRow({ item, active, servings, onPress }: MealListRowProp
         <Text numberOfLines={1} className="font-inter-semibold text-subheading text-web-ink">
           {meal.name}
         </Text>
-        <Text className="font-inter-regular text-small text-web-ink-muted">
-          ~{formatPeso(perPerson * servings)}
-          {servings > 1 ? ` for ${servings}` : ""}
-        </Text>
+        {/* Price in the brand green, with the servings it covers as a chip. */}
+        <View className="mt-0.5 flex-row items-center gap-2">
+          <Text className="font-inter-bold text-body text-primary">~{formatPeso(perPerson * servings)}</Text>
+          <View className="flex-row items-center gap-1 rounded-full bg-web-divider px-2 py-0.5">
+            <Users color={colors.webInk.body} size={11} />
+            <Text className="font-inter-medium text-sub text-web-ink-body">
+              {servings} {servings === 1 ? "serving" : "servings"}
+            </Text>
+          </View>
+        </View>
       </View>
       <ChevronRight color={colors.webInk.muted} size={18} />
     </AnimatedPressable>
