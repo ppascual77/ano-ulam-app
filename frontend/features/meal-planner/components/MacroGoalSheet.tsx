@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import Animated, { SlideInLeft, SlideInRight, SlideOutLeft, SlideOutRight } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from "react-native";
+import Animated, { SlideInLeft, SlideInRight, SlideOutLeft, SlideOutRight, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ArrowLeft,
@@ -45,6 +46,10 @@ const STATS_KEY = "planner_body_stats";
 
 type Step = "intro" | "stats" | "goal" | "targets";
 const SHEET_HEIGHT = 0.88;
+// The back-arrow row above the steps (pt-8 + a 20px icon).
+const ARROW_ROW = 52;
+// Matches every step's ScrollView padding, for measuring the intro.
+const STEP_PADDING = "gap-5 px-6 pb-10 pt-3";
 const SLIDE_MS = 260;
 const PREVIOUS: Record<Step, Step | null> = { intro: null, stats: "intro", goal: "stats", targets: "goal" };
 
@@ -182,6 +187,29 @@ function MacroTile({ Icon, tint, color, value, label, pct }: { Icon: LucideIcon;
   );
 }
 
+// Step 1: what setting a goal gets you. Also rendered invisibly to measure
+// its natural height (the sheet fits this step, see MacroGoalSheet).
+function IntroStep({ onStart }: { onStart: () => void }) {
+  return (
+    <>
+      <Title centered title="Set your nutrition goal" body="We'll use your stats to calculate your daily calorie and macro targets for a more personalized meal plan." />
+      <View className="gap-6 rounded-2xl bg-brand-green/5 px-4 py-6">
+        {[
+          { Icon: Target, text: "Meals matched to your goal" },
+          { Icon: ChartColumn, text: "Balanced calories and macros" },
+          { Icon: Leaf, text: "Still budget-friendly" },
+        ].map(({ Icon, text }) => (
+          <View key={text} className="flex-row items-center gap-3">
+            <Icon color={colors.brandGreen.DEFAULT} size={20} />
+            <Text className="font-inter-medium text-body text-web-ink-soft">{text}</Text>
+          </View>
+        ))}
+      </View>
+      <Button label="Get Started" icon={<ArrowRight color={colors.white} size={18} />} iconPosition="right" onPress={onStart} />
+    </>
+  );
+}
+
 type MacroGoalSheetProps = {
   visible: boolean;
   /** Current targets/goal, when editing an enabled goal. */
@@ -239,13 +267,27 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
     setTargets((prev) => (prev ? { ...prev, [key]: Math.round(num(text)) || 0 } : prev));
 
   const back = PREVIOUS[step];
+
+  // Sheet height: the intro fits its content; every later step shares one
+  // fixed height so swiping between them doesn't resize the sheet. Going
+  // intro <-> stats, the content area animates between the two heights in
+  // step with the swipe.
+  const { height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const fixedHeight = windowHeight * SHEET_HEIGHT - ARROW_ROW - insets.bottom;
+  const [introHeight, setIntroHeight] = useState(0);
+  const targetHeight = step === "intro" && introHeight > 0 ? Math.min(introHeight, fixedHeight) : fixedHeight;
+  const contentHeight = useSharedValue(targetHeight);
+  useEffect(() => {
+    contentHeight.value = direction === "none" ? targetHeight : withTiming(targetHeight, { duration: SLIDE_MS });
+  }, [targetHeight]);
+  const contentStyle = useAnimatedStyle(() => ({ height: contentHeight.value }));
   const goalLabel = GOAL_OPTIONS.find((o) => o.value === draft.goal)?.label;
   const pct = (grams: number, kcalPerGram: number) => (targets && targets.calories > 0 ? Math.round(((grams * kcalPerGram) / targets.calories) * 100) : 0);
 
   return (
-    // One fixed height for every step, so moving between steps is a clean
-    // sideways swipe with no resizing. Each step scrolls if it's taller.
-    <BottomSheet visible={visible} onClose={onClose} heightPercent={SHEET_HEIGHT}>
+    // fitContent: the sheet follows the content area's (animated) height.
+    <BottomSheet visible={visible} onClose={onClose} heightPercent={SHEET_HEIGHT} fitContent>
       {/* Back arrow from the second step on; close by swiping down or tapping outside. */}
       <View className="flex-row items-center px-5 pt-8">
         {back && (
@@ -255,7 +297,14 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
         )}
       </View>
 
-      <View className="flex-1 overflow-hidden">
+      {/* Invisible copy of the intro, only to measure its natural height. */}
+      <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, opacity: 0 }}>
+        <View className={STEP_PADDING} onLayout={(e) => setIntroHeight(e.nativeEvent.layout.height)}>
+          <IntroStep onStart={() => {}} />
+        </View>
+      </View>
+
+      <Animated.View style={contentStyle} className="overflow-hidden">
         {/* Keyed by step: each step fades in. */}
         <Animated.View
           key={step}
@@ -263,26 +312,9 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
           exiting={direction === "back" ? SlideOutRight.duration(SLIDE_MS) : SlideOutLeft.duration(SLIDE_MS)}
           className="absolute inset-0"
         >
-        <ScrollView keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets showsVerticalScrollIndicator={false} contentContainerClassName="gap-5 px-6 pb-10 pt-3">
+        <ScrollView keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets showsVerticalScrollIndicator={false} contentContainerClassName={STEP_PADDING}>
           <StepProgress step={step} />
-          {step === "intro" && (
-            <>
-              <Title centered title="Set your nutrition goal" body="We'll use your stats to calculate your daily calorie and macro targets for a more personalized meal plan." />
-              <View className="gap-6 rounded-2xl bg-brand-green/5 px-4 py-6">
-                {[
-                  { Icon: Target, text: "Meals matched to your goal" },
-                  { Icon: ChartColumn, text: "Balanced calories and macros" },
-                  { Icon: Leaf, text: "Still budget-friendly" },
-                ].map(({ Icon, text }) => (
-                  <View key={text} className="flex-row items-center gap-3">
-                    <Icon color={colors.brandGreen.DEFAULT} size={20} />
-                    <Text className="font-inter-medium text-body text-web-ink-soft">{text}</Text>
-                  </View>
-                ))}
-              </View>
-              <Button label="Get Started" icon={<ArrowRight color={colors.white} size={18} />} iconPosition="right" onPress={() => go("stats", "forward")} />
-            </>
-          )}
+          {step === "intro" && <IntroStep onStart={() => go("stats", "forward")} />}
 
           {step === "stats" && (
             <>
@@ -434,7 +466,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
           )}
         </ScrollView>
         </Animated.View>
-      </View>
+      </Animated.View>
     </BottomSheet>
   );
 }
