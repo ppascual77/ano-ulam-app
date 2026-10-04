@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import Animated, { SlideInLeft, SlideInRight, SlideOutLeft, SlideOutRight } from "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ArrowLeft,
@@ -44,6 +44,8 @@ import {
 const STATS_KEY = "planner_body_stats";
 
 type Step = "intro" | "stats" | "goal" | "targets";
+const SHEET_HEIGHT = 0.88;
+const SLIDE_MS = 260;
 const PREVIOUS: Record<Step, Step | null> = { intro: null, stats: "intro", goal: "stats", targets: "goal" };
 
 type Draft = { weight: string; height: string; age: string; sex: Sex; bodyFat: string; goal: Goal; activity: Activity };
@@ -195,6 +197,16 @@ type MacroGoalSheetProps = {
 // goal + activity -> recommended targets (use, or adjust first).
 export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, onConfirm, onTurnOff }: MacroGoalSheetProps) {
   const [step, setStep] = useState<Step>("intro");
+  // Which way the next step slides: "none" on open (the sheet's own rise
+  // covers it), "forward" from the right, "back" from the left.
+  const [direction, setDirection] = useState<"none" | "forward" | "back">("none");
+  // Direction first, step on the next frame: the outgoing step re-renders
+  // with the new direction, so it exits the right way (its exit animation
+  // is read from its last render).
+  const go = (next: Step, dir: "forward" | "back") => {
+    setDirection(dir);
+    requestAnimationFrame(() => setStep(next));
+  };
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [targets, setTargets] = useState<MacroTargets | null>(initialTargets);
   const [adjusting, setAdjusting] = useState(false);
@@ -205,6 +217,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
     if (!visible) return;
     setAdjusting(false);
     setTargets(initialTargets);
+    setDirection("none");
     setStep(initialTargets ? "targets" : "intro");
     AsyncStorage.getItem(STATS_KEY)
       .then((raw) => raw && setDraft((prev) => ({ ...prev, ...JSON.parse(raw), ...(initialGoal ? { goal: initialGoal } : {}) })))
@@ -219,7 +232,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
     AsyncStorage.setItem(STATS_KEY, JSON.stringify(draft)).catch(() => {});
     setTargets(recommendTargets(stats, draft.goal, draft.activity));
     setAdjusting(false);
-    setStep("targets");
+    go("targets", "forward");
   };
 
   const editTarget = (key: keyof MacroTargets, text: string) =>
@@ -230,20 +243,27 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
   const pct = (grams: number, kcalPerGram: number) => (targets && targets.calories > 0 ? Math.round(((grams * kcalPerGram) / targets.calories) * 100) : 0);
 
   return (
-    // Sized to the current step (up to 92% of the screen, then it scrolls).
-    <BottomSheet visible={visible} onClose={onClose} heightPercent={0.92} fitContent>
+    // One fixed height for every step, so moving between steps is a clean
+    // sideways swipe with no resizing. Each step scrolls if it's taller.
+    <BottomSheet visible={visible} onClose={onClose} heightPercent={SHEET_HEIGHT}>
       {/* Back arrow from the second step on; close by swiping down or tapping outside. */}
       <View className="flex-row items-center px-5 pt-8">
         {back && (
-          <Pressable onPress={() => setStep(back)} hitSlop={10} accessibilityLabel="Back">
+          <Pressable onPress={() => go(back, "back")} hitSlop={10} accessibilityLabel="Back">
             <ArrowLeft color={colors.webInk.DEFAULT} size={20} />
           </Pressable>
         )}
       </View>
 
-      <View className="px-6 pb-10 pt-3">
+      <View className="flex-1 overflow-hidden">
         {/* Keyed by step: each step fades in. */}
-        <Animated.View key={step} entering={FadeIn.duration(220)} className="gap-5">
+        <Animated.View
+          key={step}
+          entering={direction === "forward" ? SlideInRight.duration(SLIDE_MS) : direction === "back" ? SlideInLeft.duration(SLIDE_MS) : undefined}
+          exiting={direction === "back" ? SlideOutRight.duration(SLIDE_MS) : SlideOutLeft.duration(SLIDE_MS)}
+          className="absolute inset-0"
+        >
+        <ScrollView keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets showsVerticalScrollIndicator={false} contentContainerClassName="gap-5 px-6 pb-10 pt-3">
           <StepProgress step={step} />
           {step === "intro" && (
             <>
@@ -260,7 +280,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
                   </View>
                 ))}
               </View>
-              <Button label="Get Started" icon={<ArrowRight color={colors.white} size={18} />} iconPosition="right" onPress={() => setStep("stats")} />
+              <Button label="Get Started" icon={<ArrowRight color={colors.white} size={18} />} iconPosition="right" onPress={() => go("stats", "forward")} />
             </>
           )}
 
@@ -303,7 +323,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
                 <Text className="font-inter-regular text-small text-web-ink-muted">Only used to calculate your targets.</Text>
               </View>
 
-              <Button label="Continue" icon={<ArrowRight color={colors.white} size={18} />} iconPosition="right" onPress={() => setStep("goal")} disabled={!stats} />
+              <Button label="Continue" icon={<ArrowRight color={colors.white} size={18} />} iconPosition="right" onPress={() => go("goal", "forward")} disabled={!stats} />
             </>
           )}
 
@@ -412,6 +432,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
               )}
             </>
           )}
+        </ScrollView>
         </Animated.View>
       </View>
     </BottomSheet>
