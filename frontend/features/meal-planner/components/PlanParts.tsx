@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FlatList, Pressable, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import Svg, { Circle } from "react-native-svg";
+import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { ArrowLeftRight, ChevronRight, Droplets, Dumbbell, Flame, Lock, Pencil, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
@@ -251,17 +252,34 @@ type MealListRowProps = {
   onPress: () => void;
 };
 
+// Highlight colors: brand green at 10% (background) and 20% (border), the
+// same as the bg-brand-green/10 and border-brand-green/20 classes.
+const ROW_ACTIVE_BG = "rgba(0,109,77,0.10)";
+const ROW_ACTIVE_BORDER = "rgba(0,109,77,0.20)";
+const HIGHLIGHT_MS = 250;
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 // A light index under the hero (which carries the detail): thumbnail, name,
 // one quiet line (kcal, plus cost without a macro goal), ›. Tap to bring the
 // meal into the hero.
 export function MealListRow({ item, active, showMacros, servings, onPress }: MealListRowProps) {
   const { meal } = item;
   const perPerson = Number(meal.price) / (meal.serving_size ?? 1);
+  // The highlight fades between rows when the hero changes (swipe or tap).
+  const highlight = useSharedValue(active ? 1 : 0);
+  useEffect(() => {
+    highlight.value = withTiming(active ? 1 : 0, { duration: HIGHLIGHT_MS });
+  }, [active, highlight]);
+  const highlightStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(highlight.value, [0, 1], [colors.white, ROW_ACTIVE_BG]),
+    borderColor: interpolateColor(highlight.value, [0, 1], [colors.webDivider, ROW_ACTIVE_BORDER]),
+  }));
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
       accessibilityState={{ selected: active }}
-      className={`flex-row items-center gap-3 rounded-2xl border p-2 ${active ? "border-brand-green/20 bg-brand-green/10" : "border-web-divider bg-white"}`}
+      style={highlightStyle}
+      className="flex-row items-center gap-3 rounded-2xl border p-2"
     >
       <MealImage meal={meal} height={56} width={56} rounded="rounded-xl" />
       <View className="flex-1 gap-0.5">
@@ -273,7 +291,7 @@ export function MealListRow({ item, active, showMacros, servings, onPress }: Mea
         </Text>
       </View>
       <ChevronRight color={colors.webInk.muted} size={18} />
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
