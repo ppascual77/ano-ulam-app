@@ -108,6 +108,8 @@ module.exports = {
         hero: ["70px", { lineHeight: "76px" }],
         subhero: ["55px", { lineHeight: "59px" }],
         heading: "24px",
+        // Big sheet/page titles (e.g. the Meal Planner's nutrition goal sheet).
+        "heading-lg": ["30px", { lineHeight: "36px" }],
         subheading: "18px",
         body: "14px",
         sub: ["10px", { lineHeight: "10px" }],
