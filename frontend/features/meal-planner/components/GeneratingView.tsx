@@ -199,7 +199,7 @@ export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone, failed 
       </View>
 
       {finished && (
-        <Animated.View entering={FadeInDown.delay(BUTTON_DELAY_MS).duration(350)} className="mx-7 mt-auto pb-8">
+        <Animated.View entering={FadeInDown.delay(BUTTON_DELAY_MS).duration(350)} className="mx-7 mt-auto pb-14">
           <Button label="See my meal plan" icon={<ArrowRight color={colors.white} size={18} />} iconPosition="right" onPress={onDone} />
         </Animated.View>
       )}
