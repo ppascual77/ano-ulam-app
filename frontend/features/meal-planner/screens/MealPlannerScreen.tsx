@@ -77,10 +77,11 @@ export default function MealPlannerScreen() {
     <Screen edges={["top"]} padded={false} dismissKeyboardOnTap={false}>
       {store.stage === "setup" && (
         <Animated.View key="setup" entering={FadeInUp.duration(250)} className="flex-1">
-          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false} contentContainerClassName="gap-4 px-5 pb-10 pt-2">
-            {/* Same type and spacing as Home's header (features/home/components/Header):
-                the 36px inset from the screen edge = Home's Screen padding (28) + ml-2. */}
-            <View className="ml-4 mr-2 flex-row items-center justify-between">
+          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false} contentContainerClassName="gap-4 px-9 pb-10 pt-2">
+            {/* Same type and spacing as Home's header (features/home/components/Header).
+                The screen's 36px side padding puts it where Home's sits (28 + ml-2),
+                with the cards below lined up to it. */}
+            <View className="flex-row items-center justify-between">
               <View>
                 <AppText variant="title">
                   Hello, <Text className="font-inter-bold text-primary">{firstName}</Text>
