@@ -191,6 +191,7 @@ export default function MealPlannerScreen() {
               {hero.width > 0 && (
                 <HeroCarousel
                   day={plan.days[selectedDay]}
+                  servings={plan.servings}
                   dayIndex={selectedDay}
                   width={hero.width}
                   selected={selectedMeal}
@@ -232,6 +233,7 @@ export default function MealPlannerScreen() {
         visible={macroSheetOpen}
         initialTargets={store.targets}
         initialGoal={store.goal}
+        servings={store.servings}
         onClose={() => setMacroSheetOpen(false)}
         onConfirm={(targets, goal) => {
           store.setTargets(targets, goal);

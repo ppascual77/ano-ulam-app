@@ -280,11 +280,14 @@ type MacroGoalSheetProps = {
   onConfirm: (targets: MacroTargets, goal: Goal) => void;
   /** Editing only: switch the macro goal off. */
   onTurnOff?: () => void;
+  /** People the plan cooks for. Above 1, the targets step explains that
+   *  targets (and meal macros) are per person, per serving. */
+  servings: number;
 };
 
 // "Set your nutrition goal", one step at a time: intro -> your stats ->
 // goal + activity -> recommended targets (use, or adjust first).
-export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, onConfirm, onTurnOff }: MacroGoalSheetProps) {
+export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, onConfirm, onTurnOff, servings }: MacroGoalSheetProps) {
   const [step, setStep] = useState<Step>("intro");
   // Which way the next step slides: "none" on open (the sheet's own rise
   // covers it), "forward" from the right, "back" from the left.
@@ -472,6 +475,11 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
                 <Lightbulb color={colors.notice.icon} size={16} />
                 <Text className="flex-1 font-inter-regular text-small text-notice-text">
                   These targets will be used to find meals that fit your nutrition goal and budget.
+                  {servings > 1 && (
+                    <Text className="font-inter-semibold">
+                      {`\n\nCooking for ${servings}? Your targets are just for you. We'll plan each meal's macros for one serving (your plate).`}
+                    </Text>
+                  )}
                 </Text>
               </View>
 

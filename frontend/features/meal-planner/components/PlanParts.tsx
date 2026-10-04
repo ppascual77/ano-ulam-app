@@ -105,6 +105,13 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
   const totals = dayTotals(day, plan.servings);
   if (plan.targets) {
     return (
+      <View className="gap-1.5">
+      {/* Macros are one person's portion; prices cover everyone. */}
+      {plan.servings > 1 && (
+        <Text className="font-inter-regular text-sub text-web-ink-muted">
+          Nutrition per serving · prices for {plan.servings} people
+        </Text>
+      )}
       <View className="flex-row items-center gap-2">
         <View className="flex-row items-center gap-2 pr-1">
           <CalorieRing share={totals.calories / plan.targets.calories} />
@@ -116,6 +123,7 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
         {MACROS.map(({ key, label, Icon, color, tint }) => (
           <SummaryChip key={key} Icon={Icon} color={color} tint={tint} value={`${totals[key]}g`} label={label} />
         ))}
+      </View>
       </View>
     );
   }
@@ -133,7 +141,7 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
 
 // Dark fade from the left/bottom so the white text reads on any photo.
 const HERO_SCRIM = ["rgba(0,0,0,0.75)", "rgba(0,0,0,0.35)", "rgba(0,0,0,0.05)"] as const;
-const HERO_HEIGHT = 230;
+const HERO_HEIGHT = 240;
 
 // A stat on the photo, in the stats-field format: icon on the left, small
 // label above a bold value. Frosted so it reads on any photo.
@@ -159,6 +167,8 @@ function GlassStat({ value, label, color, flame }: { value: string; label: strin
 
 type HeroCarouselProps = {
   day: PlanDay;
+  /** Above 1: a "Per serving" caption over the macro tiles. */
+  servings: number;
   dayIndex: number;
   width: number;
   /** Which meal (0-2) is showing. */
@@ -170,7 +180,7 @@ type HeroCarouselProps = {
 // The day's meals as big swipeable photo cards: date, name, description and
 // macro pills over a dark fade, a › to open the recipe, and paging dots.
 // Kept in sync with the list below (tapping a row scrolls here).
-export function HeroCarousel({ day, dayIndex, width, selected, onChange, onOpen }: HeroCarouselProps) {
+export function HeroCarousel({ day, servings, dayIndex, width, selected, onChange, onOpen }: HeroCarouselProps) {
   const list = useRef<FlatList<PlannedMeal>>(null);
 
   useEffect(() => {
@@ -216,6 +226,7 @@ export function HeroCarousel({ day, dayIndex, width, selected, onChange, onOpen 
                     {item.meal.description}
                   </Text>
                 )}
+                {servings > 1 && <Text className="mt-1 font-inter-medium text-sub text-white/75">Per serving</Text>}
                 {/* Four equal tiles across the card. */}
                 <View className="mt-1.5 flex-row gap-1.5">
                   <GlassStat flame value={`${item.meal.calories}`} label="Calories" />
