@@ -132,12 +132,13 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
     const share = Math.round((calories / plan.targets.calories) * 100);
     return (
       <View className="gap-2">
-        <View className="flex-row items-center justify-between">
-          {/* Macros are one person's portion; prices cover everyone. */}
-          <Text className="font-inter-regular text-sub text-web-ink-muted">
-            {plan.servings > 1 ? `Nutrition per serving · prices for ${plan.servings}` : "Your plate today"}
+        {/* Section heading: how to read the numbers (one person's portion;
+            the rows' "Serves N" covers prices). */}
+        <View className="flex-row items-baseline justify-between">
+          <Text className="font-inter-semibold text-body text-web-ink">
+            {plan.servings > 1 ? "Nutrition per serving" : "Today's nutrition"}
           </Text>
-          <Text className="font-inter-regular text-sub text-web-ink-muted">
+          <Text className="font-inter-regular text-small text-web-ink-muted">
             <Text className="font-inter-bold text-web-ink">{share}%</Text> of {plan.targets.calories.toLocaleString("en-PH")} kcal goal
           </Text>
         </View>
