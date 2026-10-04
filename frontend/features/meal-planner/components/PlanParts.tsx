@@ -252,10 +252,12 @@ type MealListRowProps = {
   onPress: () => void;
 };
 
-// Highlight colors: brand green at 10% (background) and 20% (border), the
-// same as the bg-brand-green/10 and border-brand-green/20 classes.
-const ROW_ACTIVE_BG = "rgba(0,109,77,0.10)";
-const ROW_ACTIVE_BORDER = "rgba(0,109,77,0.20)";
+// Highlight colors: brand green at 10% (background) and 20% (border) over
+// white, pre-blended to solid colors. Fading between white and a
+// translucent green passes through a half-opaque darker green midway (a
+// visible flash); solid end colors fade cleanly.
+const ROW_ACTIVE_BG = "rgb(230,240,237)";
+const ROW_ACTIVE_BORDER = "rgb(204,226,219)";
 const HIGHLIGHT_MS = 250;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
