@@ -133,10 +133,18 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
 const HERO_SCRIM = ["rgba(0,0,0,0.75)", "rgba(0,0,0,0.35)", "rgba(0,0,0,0.05)"] as const;
 const HERO_HEIGHT = 200;
 
-function GlassPill({ text }: { text: string }) {
+// A stat on the photo: colored dot (or the flame for kcal), bold value,
+// light label, on a frosted pill so it reads on any photo.
+function GlassStat({ value, label, color, flame }: { value: string; label: string; color?: string; flame?: boolean }) {
   return (
-    <View className="rounded-full border border-white/40 bg-black/25 px-2.5 py-1">
-      <Text className="font-inter-medium text-sub text-white">{text}</Text>
+    <View className="flex-row items-center gap-1.5 rounded-full border border-white/30 bg-black/35 px-3 py-1.5">
+      {flame ? (
+        <Flame color={colors.brandOrange} size={13} />
+      ) : (
+        <View className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+      )}
+      <Text className="font-inter-bold text-small text-white">{value}</Text>
+      <Text className="font-inter-regular text-small text-white/75">{label}</Text>
     </View>
   );
 }
@@ -201,10 +209,10 @@ export function HeroCarousel({ day, dayIndex, width, selected, onChange, onOpen 
                   </Text>
                 )}
                 <View className="mt-1 flex-row flex-wrap gap-1.5">
-                  <GlassPill text={`${item.meal.calories} kcal`} />
-                  <GlassPill text={`${item.meal.protein}g P`} />
-                  <GlassPill text={`${item.meal.carbs}g C`} />
-                  <GlassPill text={`${item.meal.fats}g F`} />
+                  <GlassStat flame value={String(item.meal.calories)} label="kcal" />
+                  {MACROS.map(({ key, letter, color }) => (
+                    <GlassStat key={key} color={color} value={`${item.meal[key]}g`} label={letter} />
+                  ))}
                 </View>
               </View>
             </View>
@@ -234,8 +242,9 @@ type MealListRowProps = {
   onPress: () => void;
 };
 
-// Compact row: thumbnail, name, then calories (flame) and the macros as
-// three colored-dot stats (or, without a macro goal, cost and calories), ›.
+// A light index under the hero (which carries the detail): thumbnail, name,
+// one quiet line (kcal, plus cost without a macro goal), ›. Tap to bring the
+// meal into the hero.
 export function MealListRow({ item, active, showMacros, servings, onPress }: MealListRowProps) {
   const { meal } = item;
   const perPerson = Number(meal.price) / (meal.serving_size ?? 1);
@@ -243,45 +252,18 @@ export function MealListRow({ item, active, showMacros, servings, onPress }: Mea
     <Pressable
       onPress={onPress}
       accessibilityState={{ selected: active }}
-      className={`flex-row items-center gap-3 rounded-2xl border p-2.5 ${active ? "border-brand-green/20 bg-brand-green/10" : "border-web-divider bg-white"}`}
+      className={`flex-row items-center gap-3 rounded-2xl border p-2 ${active ? "border-brand-green/20 bg-brand-green/10" : "border-web-divider bg-white"}`}
     >
-      <MealImage meal={meal} height={76} width={76} rounded="rounded-xl" />
-      <View className="flex-1 gap-1.5">
-        <Text numberOfLines={2} className="font-inter-semibold text-subheading leading-6 text-web-ink">
+      <MealImage meal={meal} height={56} width={56} rounded="rounded-xl" />
+      <View className="flex-1 gap-0.5">
+        <Text numberOfLines={1} className="font-inter-semibold text-subheading text-web-ink">
           {meal.name}
         </Text>
-        {showMacros ? (
-          <>
-            <View className="flex-row items-center gap-1">
-              <Flame color={colors.brandOrange} size={13} />
-              <Text className="font-inter-semibold text-small text-web-ink">{meal.calories} kcal</Text>
-            </View>
-            <View className="flex-row items-center gap-3">
-              {MACROS.map(({ key, letter, color }) => (
-                <View key={key} className="flex-row items-center gap-1">
-                  <View className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
-                  <Text className="font-inter-bold text-small text-web-ink">{meal[key]}g</Text>
-                  <Text className="font-inter-medium text-small text-web-ink-muted">{letter}</Text>
-                </View>
-              ))}
-            </View>
-          </>
-        ) : (
-          <>
-            <Text className="font-inter-semibold text-small text-web-ink">
-              ~{formatPeso(perPerson * servings)}
-              {servings > 1 && <Text className="font-inter-regular text-web-ink-muted"> for {servings}</Text>}
-            </Text>
-            <View className="flex-row items-center gap-1">
-              <Flame color={colors.brandOrange} size={13} />
-              <Text className="font-inter-medium text-small text-web-ink-body">{meal.calories} kcal</Text>
-            </View>
-          </>
-        )}
+        <Text className="font-inter-regular text-small text-web-ink-muted">
+          {showMacros ? `${meal.calories} kcal` : `~${formatPeso(perPerson * servings)}${servings > 1 ? ` for ${servings}` : ""} · ${meal.calories} kcal`}
+        </Text>
       </View>
-      <View className="h-7 w-7 items-center justify-center rounded-full bg-white">
-        <ChevronRight color={colors.webInk.soft} size={16} />
-      </View>
+      <ChevronRight color={colors.webInk.muted} size={18} />
     </Pressable>
   );
 }
