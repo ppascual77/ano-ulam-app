@@ -64,11 +64,12 @@ function toStats(draft: Draft): BodyStats | null {
   return { weightKg, heightCm, age, sex: draft.sex, bodyFatPct };
 }
 
-function Title({ title, body }: { title: string; body: string }) {
+function Title({ title, body, centered = false }: { title: string; body: string; centered?: boolean }) {
+  const align = centered ? "text-center" : "";
   return (
-    <View>
-      <Text className="font-inter-bold text-subheading text-web-ink">{title}</Text>
-      <Text className="mt-1 font-inter-regular text-body text-web-ink-muted">{body}</Text>
+    <View className={centered ? "items-center" : ""}>
+      <Text className={`font-inter-bold text-subheading text-web-ink ${align}`}>{title}</Text>
+      <Text className={`mt-1 font-inter-regular text-body text-web-ink-muted ${align}`}>{body}</Text>
     </View>
   );
 }
@@ -184,7 +185,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
         <Animated.View key={step} entering={FadeIn.duration(220)} className="gap-5">
           {step === "intro" && (
             <>
-              <Title title="Set your nutrition goal" body="We'll use your stats to calculate your daily calorie and macro targets for a more personalized meal plan." />
+              <Title centered title="Set your nutrition goal" body="We'll use your stats to calculate your daily calorie and macro targets for a more personalized meal plan." />
               <View className="gap-4 rounded-2xl bg-brand-green/5 p-4">
                 {[
                   { Icon: Target, text: "Meals matched to your goal" },
