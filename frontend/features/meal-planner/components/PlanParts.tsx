@@ -3,7 +3,7 @@ import { FlatList, Pressable, Text, View, type NativeScrollEvent, type NativeSyn
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
-import { ArrowLeftRight, ChevronRight, CloudSun, Moon, Sun, Droplets, Dumbbell, Flame, Lock, Pencil, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
+import { ArrowLeftRight, ChevronRight, ShoppingCart, CloudSun, Moon, Sun, Droplets, Dumbbell, Flame, Lock, Pencil, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import type { MacroTargets } from "../utils/macros";
 import { SLOT_LABELS, dayLabel, dayTotals, formatPeso, monthDay, type MealPlan, type PlanDay, type PlannedMeal } from "../utils/generatePlan";
@@ -388,4 +388,18 @@ export function DayActions({ locked, onRegenerate, onSwap, onEdit }: DayActionsP
 export function useMeasuredWidth() {
   const [width, setWidth] = useState(0);
   return { width, onLayout: (e: { nativeEvent: { layout: { width: number } } }) => setWidth(e.nativeEvent.layout.width) };
+}
+
+// "View Grocery List": the mockup's full-width dark button under the day.
+// The plan's grocery list isn't built yet (separate hand-off).
+export function GroceryListButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} className="flex-row items-center justify-center gap-2 rounded-2xl bg-brand-green-dark py-4 active:opacity-90">
+      <ShoppingCart color={colors.white} size={18} />
+      <Text className="font-inter-semibold text-body text-white">View Grocery List</Text>
+      <View className="absolute right-4">
+        <ChevronRight color={colors.white} size={18} />
+      </View>
+    </Pressable>
+  );
 }

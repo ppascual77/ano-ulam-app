@@ -16,7 +16,7 @@ import type { MealSlot } from "../mock/plannerMeals";
 import { BudgetInput, MacroGoalCard, ServingStepper, parseBudget } from "../components/PlannerInputs";
 import { MacroGoalSheet } from "../components/MacroGoalSheet";
 import { GeneratingView } from "../components/GeneratingView";
-import { DateSelector, DayActions, HeroCarousel, MealListRow, SummaryRow, useMeasuredWidth } from "../components/PlanParts";
+import { DateSelector, DayActions, GroceryListButton, HeroCarousel, MealListRow, SummaryRow, useMeasuredWidth } from "../components/PlanParts";
 import { LockedDaySheet, SwapMealSheet } from "../components/PlannerSheets";
 
 // Meal Planner (test build of the flow): setup (budget, people, optional
@@ -222,6 +222,8 @@ export default function MealPlannerScreen() {
               }
               onEdit={() => (store.isPremium ? showToast("Editing a day is coming soon") : setLockedOpen(true))}
             />
+            {/* TEMP: the plan's grocery list comes in a later hand-off. */}
+            <GroceryListButton onPress={() => showToast("Grocery list is coming soon")} />
           </ScrollView>
         </Animated.View>
       )}
