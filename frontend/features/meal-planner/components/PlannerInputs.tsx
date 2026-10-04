@@ -1,8 +1,9 @@
+import { ReactNode } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { Check, ChevronRight } from "lucide-react-native";
-import { Stepper, Toggle } from "@/frontend/components/ui";
+import { ChartColumn, ChevronRight, Lightbulb, Minus, Plus, Users, Wallet, type LucideIcon } from "lucide-react-native";
+import { Toggle } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import type { MacroTargets } from "../utils/macros";
+import { GOAL_OPTIONS, type Goal, type MacroTargets } from "../utils/macros";
 
 export const MAX_SERVINGS = 10;
 
@@ -13,17 +14,37 @@ const formatBudget = (text: string) => {
   return digits ? Number(digits).toLocaleString("en-PH") : "";
 };
 
-function SectionLabel({ children }: { children: string }) {
-  return <Text className="mb-2 font-inter-semibold text-body text-web-ink-soft">{children}</Text>;
+// Icon tile + title + one-line description: the head of each setup card.
+function CardHead({ Icon, tone = "green", title, optional, body, trailing }: { Icon: LucideIcon; tone?: "green" | "orange"; title: string; optional?: boolean; body: string; trailing?: ReactNode }) {
+  const orange = tone === "orange";
+  return (
+    <View className="flex-row items-center gap-3">
+      <View className={`h-10 w-10 items-center justify-center rounded-xl ${orange ? "bg-brand-orange/15" : "bg-white"}`}>
+        <Icon color={orange ? colors.brandOrange : colors.brandGreen.DEFAULT} size={20} />
+      </View>
+      <View className="flex-1">
+        <Text className="font-inter-semibold text-body text-web-ink">
+          {title}
+          {optional && <Text className="font-inter-regular text-web-ink-muted"> (Optional)</Text>}
+        </Text>
+        <Text className="mt-0.5 font-inter-regular text-small text-web-ink-muted">{body}</Text>
+      </View>
+      {trailing}
+    </View>
+  );
 }
 
-// The primary field: a large ₱ amount on a soft fill, no hard border.
+function SetupCard({ children }: { children: ReactNode }) {
+  return <View className="gap-3 rounded-2xl bg-brand-green/5 p-4">{children}</View>;
+}
+
 export function BudgetInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
-    <View>
-      <SectionLabel>Weekly budget</SectionLabel>
-      <View className="flex-row items-center gap-2 rounded-2xl bg-web-divider/70 px-5 py-4">
-        <Text className="font-inter-bold text-heading text-primary">₱</Text>
+    <SetupCard>
+      <CardHead Icon={Wallet} title="Weekly budget" body="We'll find the best meals within your budget." />
+      <View className="flex-row items-center rounded-xl border border-web-divider bg-white px-4 py-3">
+        <Text className="font-inter-semibold text-subheading text-web-ink">₱</Text>
+        <View className="mx-3 h-5 w-px bg-web-divider" />
         <TextInput
           value={value}
           onChangeText={(text) => onChange(formatBudget(text))}
@@ -31,60 +52,90 @@ export function BudgetInput({ value, onChange }: { value: string; onChange: (val
           placeholderTextColor={colors.ink.placeholder}
           keyboardType="number-pad"
           returnKeyType="done"
-          className="flex-1 font-inter-bold text-heading text-web-ink"
+          className="flex-1 font-inter-semibold text-subheading text-web-ink"
           style={{ padding: 0 }}
         />
       </View>
-    </View>
+    </SetupCard>
+  );
+}
+
+function StepButton({ onPress, disabled, children, label }: { onPress: () => void; disabled: boolean; children: ReactNode; label: string }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityLabel={label}
+      className={`h-10 w-10 items-center justify-center rounded-xl border border-web-divider bg-white ${disabled ? "opacity-40" : "active:bg-web-divider/50"}`}
+    >
+      {children}
+    </Pressable>
   );
 }
 
 export function ServingStepper({ value, onChange }: { value: number; onChange: (value: number) => void }) {
   return (
-    <View className="flex-row items-center justify-between">
-      <Text className="font-inter-semibold text-body text-web-ink-soft">For how many people?</Text>
-      <Stepper value={value} onChange={onChange} min={1} max={MAX_SERVINGS} />
-    </View>
+    <SetupCard>
+      <CardHead Icon={Users} title="How many people?" body="We'll adjust ingredient quantities for you." />
+      <View className="flex-row items-center gap-5 pl-[52px]">
+        <StepButton label="Fewer people" disabled={value <= 1} onPress={() => onChange(value - 1)}>
+          <Minus color={colors.webInk.soft} size={16} />
+        </StepButton>
+        <Text className="min-w-[24px] text-center font-inter-bold text-subheading text-web-ink">{value}</Text>
+        <StepButton label="More people" disabled={value >= MAX_SERVINGS} onPress={() => onChange(value + 1)}>
+          <Plus color={colors.webInk.soft} size={16} />
+        </StepButton>
+      </View>
+    </SetupCard>
   );
 }
 
-type MacroGoalRowProps = {
+type MacroGoalCardProps = {
   targets: MacroTargets | null;
-  /** Toggle on (opens the sheet) / off (clears the goal). */
-  onToggle: (on: boolean) => void;
-  /** Tap the enabled card to edit. */
+  goal: Goal | null;
+  /** Toggle on: opens the nutrition sheet. */
+  onEnable: () => void;
+  /** Tap the enabled card: edit. */
   onEdit: () => void;
 };
 
-// Off: a toggle row. On: a compact card with the targets, tap to edit.
-export function MacroGoalRow({ targets, onToggle, onEdit }: MacroGoalRowProps) {
-  return (
-    <View className="gap-3">
-      <View className="flex-row items-center gap-4">
-        <View className="flex-1">
-          <Text className="font-inter-semibold text-body text-web-ink-soft">Set a macro goal</Text>
-          <Text className="mt-0.5 font-inter-regular text-small text-web-ink-muted">Plan around calories and macros</Text>
+// Off: toggle + a "not sure about macros?" reassurance. On: a summary card
+// (tap to edit stats, goal or targets).
+export function MacroGoalCard({ targets, goal, onEnable, onEdit }: MacroGoalCardProps) {
+  if (targets) {
+    const goalLabel = GOAL_OPTIONS.find((o) => o.value === goal)?.label;
+    return (
+      <Pressable onPress={onEdit} className="flex-row items-center gap-3 rounded-2xl border border-web-divider bg-white p-4 active:bg-web-divider/40">
+        <View className="h-10 w-10 items-center justify-center rounded-xl bg-brand-orange/15">
+          <ChartColumn color={colors.brandOrange} size={20} />
         </View>
-        <Toggle checked={!!targets} onChange={onToggle} />
+        <View className="flex-1">
+          <Text className="font-inter-semibold text-body text-web-ink">Macro goal enabled</Text>
+          <Text className="mt-0.5 font-inter-regular text-small text-web-ink-body">
+            {targets.calories.toLocaleString("en-PH")} kcal · {targets.protein}g protein{goalLabel ? ` · ${goalLabel}` : ""}
+          </Text>
+        </View>
+        <ChevronRight color={colors.webInk.muted} size={18} />
+      </Pressable>
+    );
+  }
+  return (
+    <SetupCard>
+      <CardHead
+        Icon={ChartColumn}
+        tone="orange"
+        title="Set a macro goal"
+        optional
+        body="Plan around calories and macros."
+        trailing={<Toggle checked={false} onChange={(on) => on && onEnable()} />}
+      />
+      <View className="flex-row items-start gap-3 rounded-xl bg-notice-bg px-3 py-2.5">
+        <Lightbulb color={colors.notice.icon} size={16} />
+        <View className="flex-1">
+          <Text className="font-inter-semibold text-small text-notice-text">Not sure about macros?</Text>
+          <Text className="font-inter-regular text-small text-notice-text">You can always skip this and set it later.</Text>
+        </View>
       </View>
-
-      {targets && (
-        <Pressable
-          onPress={onEdit}
-          className="flex-row items-center gap-3 rounded-2xl border border-brand-green/20 bg-brand-green/5 px-4 py-3 active:bg-brand-green/10"
-        >
-          <View className="h-6 w-6 items-center justify-center rounded-full bg-brand-green">
-            <Check color={colors.white} size={14} strokeWidth={3} />
-          </View>
-          <View className="flex-1">
-            <Text className="font-inter-semibold text-body text-web-ink">Macro goal enabled</Text>
-            <Text className="mt-0.5 font-inter-regular text-small text-web-ink-body">
-              {targets.calories.toLocaleString("en-PH")} kcal · {targets.protein}g protein
-            </Text>
-          </View>
-          <ChevronRight color={colors.webInk.muted} size={16} />
-        </Pressable>
-      )}
-    </View>
+    </SetupCard>
   );
 }

@@ -15,18 +15,18 @@ export type BodyStats = {
 
 export type MacroTargets = { calories: number; protein: number; carbs: number; fats: number };
 
-export const GOAL_OPTIONS: { value: Goal; label: string }[] = [
-  { value: "lose", label: "Lose fat" },
-  { value: "build", label: "Build muscle" },
-  { value: "maintain", label: "Maintain" },
+export const GOAL_OPTIONS: { value: Goal; label: string; description: string }[] = [
+  { value: "lose", label: "Lose fat", description: "Lower calories while keeping you full" },
+  { value: "build", label: "Build muscle", description: "Higher protein to support muscle growth" },
+  { value: "maintain", label: "Maintain", description: "Keep your current weight" },
 ];
 
-export const ACTIVITY_OPTIONS: { value: Activity; label: string }[] = [
-  { value: "sedentary", label: "Sedentary" },
-  { value: "light", label: "Lightly active" },
-  { value: "moderate", label: "Moderately active" },
-  { value: "very", label: "Very active" },
-  { value: "athlete", label: "Athlete" },
+export const ACTIVITY_OPTIONS: { value: Activity; label: string; description: string }[] = [
+  { value: "sedentary", label: "Sedentary", description: "Little or no exercise" },
+  { value: "light", label: "Lightly active", description: "1–2x/week exercise" },
+  { value: "moderate", label: "Moderately active", description: "3–5x/week gym" },
+  { value: "very", label: "Very active", description: "6–7x/week hard training" },
+  { value: "athlete", label: "Athlete", description: "Twice a day, or a physical job" },
 ];
 
 const ACTIVITY_FACTOR: Record<Activity, number> = {

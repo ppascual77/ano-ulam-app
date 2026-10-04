@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { MacroTargets } from "../utils/macros";
+import type { Goal, MacroTargets } from "../utils/macros";
 import type { MealPlan } from "../utils/generatePlan";
 import type { MealSlot, PlannerMeal } from "../mock/plannerMeals";
 
@@ -11,13 +11,15 @@ type PlannerStore = {
   servings: number;
   /** null = macro goal off. */
   targets: MacroTargets | null;
+  /** The goal the targets were made for (shown on the enabled card). */
+  goal: Goal | null;
   plan: MealPlan | null;
   /** MOCK: no subscriptions yet. "Unlock Premium" flips this (resets on reload). */
   isPremium: boolean;
   setStage: (stage: PlannerStage) => void;
   setBudget: (budget: string) => void;
   setServings: (servings: number) => void;
-  setTargets: (targets: MacroTargets | null) => void;
+  setTargets: (targets: MacroTargets | null, goal?: Goal | null) => void;
   setPlan: (plan: MealPlan | null) => void;
   setPremium: (isPremium: boolean) => void;
   swapMeal: (dayIndex: number, slot: MealSlot, meal: PlannerMeal) => void;
@@ -31,12 +33,13 @@ export const usePlannerStore = create<PlannerStore>((set) => ({
   budget: "",
   servings: 1,
   targets: null,
+  goal: null,
   plan: null,
   isPremium: false,
   setStage: (stage) => set({ stage }),
   setBudget: (budget) => set({ budget }),
   setServings: (servings) => set({ servings }),
-  setTargets: (targets) => set({ targets }),
+  setTargets: (targets, goal = null) => set({ targets, goal: targets ? goal : null }),
   setPlan: (plan) => set({ plan }),
   setPremium: (isPremium) => set({ isPremium }),
   swapMeal: (dayIndex, slot, meal) =>

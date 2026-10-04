@@ -13,6 +13,28 @@ export type PlannerMeal = MealType & { slots: MealSlot[] };
 
 type Seed = [name: string, slots: MealSlot[], price: number, kcal: number, protein: number, carbs: number, fats: number, description: string];
 
+// Main protein, for the Swap sheet's filter chips.
+const PROTEIN_TYPE: Record<string, string> = {
+  "Oatmeal with Banana and Peanut Butter": "veg",
+  "Egg and Tomato with Garlic Rice": "egg",
+  "Tuna and Egg with Rice": "seafood",
+  "Chicken Longganisa with Rice and Egg": "chicken",
+  "Champorado with Tuyo": "seafood",
+  "Pandesal with Cheese and Egg": "egg",
+  "Chicken Adobo with Rice": "chicken",
+  "Sinigang na Baboy": "pork",
+  "Ginisang Monggo with Rice": "veg",
+  "Tinolang Manok": "chicken",
+  "Pinakbet with Rice": "veg",
+  "Pritong Tilapia with Rice": "seafood",
+  "Tortang Talong with Rice": "veg",
+  "Bistek Tagalog with Rice": "beef",
+  "Ginisang Sayote with Chicken": "chicken",
+  "Pancit Bihon": "chicken",
+  "Laing with Rice": "veg",
+  "Inihaw na Liempo with Rice": "pork",
+};
+
 const MAINS: MealSlot[] = ["lunch", "dinner"];
 
 const SEEDS: Seed[] = [
@@ -54,5 +76,6 @@ export const PLANNER_MEALS: PlannerMeal[] = SEEDS.map(([name, slots, price, calo
   fats,
   serving_size: 1,
   image_url: null,
+  protein_type: PROTEIN_TYPE[name],
   slots,
 }));
