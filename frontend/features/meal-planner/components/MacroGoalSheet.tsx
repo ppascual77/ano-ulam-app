@@ -171,7 +171,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
     // Sized to the current step (up to 92% of the screen, then it scrolls).
     <BottomSheet visible={visible} onClose={onClose} heightPercent={0.92} fitContent>
       {/* Back arrow from the second step on; close by swiping down or tapping outside. */}
-      <View className="h-5 flex-row items-center px-5 pt-8">
+      <View className="flex-row items-center px-5 pt-8">
         {back && (
           <Pressable onPress={() => setStep(back)} hitSlop={10} accessibilityLabel="Back">
             <ArrowLeft color={colors.webInk.DEFAULT} size={20} />
