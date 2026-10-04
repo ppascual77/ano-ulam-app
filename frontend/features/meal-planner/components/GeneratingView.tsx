@@ -4,7 +4,7 @@ import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withTim
 import { ArrowLeft, Check } from "lucide-react-native";
 import { Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { ImagePlaceholder } from "./ImagePlaceholder";
+import { Image } from "expo-image";
 
 // Mock generation: a timed checklist (no backend wait), ~3.3s in total.
 const STEP_MS = 650;
@@ -72,7 +72,8 @@ export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone }: Gener
       </Pressable>
 
       <View className="mt-4 items-center">
-        <ImagePlaceholder kind="hero" height={120} width={160} rounded="rounded-3xl" />
+        {/* Reuses onboarding's illustration until the planner's own arrives. */}
+        <Image source={require("@/assets/onboarding/slide-2.gif")} style={{ width: 160, height: 158 }} contentFit="contain" />
       </View>
 
       <View className="mt-6 items-center">
