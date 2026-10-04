@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
 import Animated, { FadeIn, FadeInRight, FadeInUp } from "react-native-reanimated";
-import { ArrowLeft, MoreHorizontal, Pencil } from "lucide-react-native";
-import { AppText, Avatar, Button, Dropdown, Screen, Toast, type ToastState } from "@/frontend/components/ui";
+import { Pencil, RefreshCw } from "lucide-react-native";
+import { AppText, Avatar, Button, ConfirmSheet, Screen, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
@@ -49,6 +49,13 @@ export default function MealPlannerScreen() {
     setSelectedMeal(0);
   };
   const [lockedOpen, setLockedOpen] = useState(false);
+  // Header actions, each confirmed in a sheet first.
+  const [confirm, setConfirm] = useState<"regenerate" | "edit" | null>(null);
+  const confirmKind = useRef<"regenerate" | "edit" | null>(null);
+  if (confirm) confirmKind.current = confirm;
+  // What to do once the confirm sheet has finished closing (the loading
+  // screen / setup shouldn't appear under a sheet still sliding away).
+  const afterConfirm = useRef<(() => void) | null>(null);
   const [swap, setSwap] = useState<{ dayIndex: number; slot: MealSlot } | null>(null);
   const [localDetail, setLocalDetail] = useState<MealType | null>(null);
   const detail = useMealDetail();
@@ -58,9 +65,10 @@ export default function MealPlannerScreen() {
   const budget = parseBudget(store.budget);
   const plan = store.plan;
 
-  const build = () => {
+  // seed: a fresh one from "Regenerate", for a different plan.
+  const build = (seed = 0) => {
     store.setPlan(
-      generatePlan({ pool, budget, servings: store.servings, targets: store.targets, ignoreBudget: PLAN_WITH_REAL_MEALS_ONLY }),
+      generatePlan({ pool, budget, servings: store.servings, targets: store.targets, ignoreBudget: PLAN_WITH_REAL_MEALS_ONLY, seed }),
     );
     selectDay(0);
     store.setStage("generating");
@@ -121,7 +129,7 @@ export default function MealPlannerScreen() {
             <MacroGoalCard targets={store.targets} goal={store.goal} onEnable={() => setMacroSheetOpen(true)} onEdit={() => setMacroSheetOpen(true)} />
 
             <View className="mt-2">
-              <Button label="Continue" onPress={build} disabled={budget <= 0 || poolLoading} />
+              <Button label="Continue" onPress={() => build()} disabled={budget <= 0 || poolLoading} />
             </View>
           </ScrollView>
         </Animated.View>
@@ -154,8 +162,8 @@ export default function MealPlannerScreen() {
       {store.stage === "plan" && plan && (
         <Animated.View key="plan" entering={FadeInUp.duration(300)} className="flex-1">
           <View className="flex-row items-center px-5 pb-3 pt-2">
-            <Pressable onPress={() => store.setStage("setup")} hitSlop={10} accessibilityLabel="Back to setup" className="w-16">
-              <ArrowLeft color={colors.webInk.DEFAULT} size={20} />
+            <Pressable onPress={() => setConfirm("regenerate")} hitSlop={10} accessibilityLabel="Regenerate plan" className="w-16">
+              <RefreshCw color={colors.webInk.DEFAULT} size={20} />
             </Pressable>
             <View className="flex-1 items-center">
               <Text className="font-inter-bold text-subheading text-web-ink">Your 5-Day Meal Plan</Text>
@@ -163,21 +171,10 @@ export default function MealPlannerScreen() {
                 {monthDay(plan.days[0].date)} – {monthDay(plan.days[plan.days.length - 1].date)}
               </Text>
             </View>
-            <View className="w-16 flex-row items-center justify-end">
-              <Dropdown
-                trigger={
-                  <View className="p-1">
-                    <MoreHorizontal color={colors.webInk.DEFAULT} size={20} />
-                  </View>
-                }
-                items={[
-                  {
-                    label: "Edit plan details",
-                    icon: <Pencil color={colors.webInk.muted} size={14} />,
-                    onPress: () => store.setStage("setup"),
-                  },
-                ]}
-              />
+            <View className="w-16 items-end">
+              <Pressable onPress={() => setConfirm("edit")} hitSlop={10} accessibilityLabel="Edit plan details">
+                <Pencil color={colors.webInk.DEFAULT} size={19} />
+              </Pressable>
             </View>
           </View>
 
@@ -247,6 +244,36 @@ export default function MealPlannerScreen() {
               }
             : undefined
         }
+      />
+
+      <ConfirmSheet
+        visible={!!confirm}
+        tone="primary"
+        icon={
+          <View className="h-12 w-12 items-center justify-center rounded-full bg-brand-green/10">
+            {confirmKind.current === "edit" ? (
+              <Pencil color={colors.brandGreen.DEFAULT} size={20} />
+            ) : (
+              <RefreshCw color={colors.brandGreen.DEFAULT} size={20} />
+            )}
+          </View>
+        }
+        title={confirmKind.current === "edit" ? "Edit your plan details?" : "Regenerate your plan?"}
+        body={
+          confirmKind.current === "edit"
+            ? "You'll go back to your budget, people and nutrition goal. Building again replaces this plan."
+            : "We'll plan a fresh 5 days with the same budget and settings. Your current meals and swaps will be replaced."
+        }
+        confirmLabel={confirmKind.current === "edit" ? "Edit details" : "Regenerate"}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => {
+          afterConfirm.current = confirm === "edit" ? () => store.setStage("setup") : () => build(Date.now() % 100000);
+          setConfirm(null);
+        }}
+        onClosed={() => {
+          afterConfirm.current?.();
+          afterConfirm.current = null;
+        }}
       />
 
       <LockedDaySheet visible={lockedOpen} lockedDays={PLAN_DAYS - 1} onClose={() => setLockedOpen(false)} onUnlock={unlock} />

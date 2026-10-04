@@ -65,6 +65,10 @@ type GenerateInput = {
   from?: Date;
   /** Preview only: don't enforce the per-day budget. */
   ignoreBudget?: boolean;
+  /** Extra seed: "Regenerate" passes a new one for a different plan from
+   *  the same inputs (otherwise the same inputs on the same day give the
+   *  same plan). */
+  seed?: number;
 };
 
 type PickDayInput = {
@@ -127,13 +131,13 @@ export function regenerateDay(pool: PlannerMeal[], plan: MealPlan, dayIndex: num
 // per day and keeps the best one: under budget first, then (with a macro
 // goal) closest to the calorie and protein targets, and least repetitive.
 // Returns null when no day can be filled within budget.
-export function generatePlan({ pool, budget, servings, targets, from = new Date(), ignoreBudget = false }: GenerateInput): MealPlan | null {
+export function generatePlan({ pool, budget, servings, targets, from = new Date(), ignoreBudget = false, seed = 0 }: GenerateInput): MealPlan | null {
   const dates = planDates(from);
   const bySlot = groupBySlot(pool);
   if (SLOTS.some((slot) => bySlot[slot].length === 0)) return null;
 
   const dayBudget = budget / PLAN_DAYS;
-  const random = seededRandom(Math.round(budget) * 31 + servings * 7 + startOfDay(from).getTime() / 86400000);
+  const random = seededRandom(Math.round(budget) * 31 + servings * 7 + startOfDay(from).getTime() / 86400000 + seed);
   const used = new Map<string, number>();
   const days: PlanDay[] = [];
 
