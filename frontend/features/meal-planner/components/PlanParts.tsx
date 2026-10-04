@@ -246,7 +246,7 @@ export function MealListRow({ item, active, showMacros, servings, onPress }: Mea
     >
       <MealImage meal={meal} height={64} width={64} rounded="rounded-xl" />
       <View className="flex-1 gap-0.5">
-        <Text numberOfLines={1} className="font-inter-semibold text-body text-web-ink">
+        <Text numberOfLines={2} className="font-inter-semibold text-subheading leading-6 text-web-ink">
           {meal.name}
         </Text>
         <Text className="font-inter-regular text-sub text-web-ink-muted">
