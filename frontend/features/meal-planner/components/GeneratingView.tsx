@@ -91,7 +91,7 @@ export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone }: Gener
 
       <View className="mt-4 items-center">
         {/* Reuses onboarding's illustration until the planner's own arrives. */}
-        <Image source={require("@/assets/onboarding/slide-2.gif")} style={{ width: 160, height: 158 }} contentFit="contain" />
+        <Image source={require("@/assets/onboarding/slide-2.gif")} style={{ width: 210, height: 208 }} contentFit="contain" />
       </View>
 
       <View className="mt-6 items-center">
