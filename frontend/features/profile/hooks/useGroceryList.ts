@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSavedMeals } from "@/frontend/core/saved/hooks/useSavedMeals";
 import { flushGroceryChecks, getGroceryChecks } from "../mock/api";
-import { buildGroceryList, type GroceryItem } from "../utils/buildGroceryList";
+import { buildGroceryList, type GroceryItem } from "@/frontend/core/grocery/utils/buildGroceryList";
 
 const checksKey = ["grocery", "checks"] as const;
 type Pending = Record<string, string | null>;

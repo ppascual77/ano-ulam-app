@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
 import Animated, { FadeIn, FadeInRight, FadeInUp } from "react-native-reanimated";
@@ -11,6 +11,9 @@ import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { usePlannerStore } from "../store/usePlannerStore";
 import { PLAN_WITH_REAL_MEALS_ONLY, usePlannerPool } from "../hooks/usePlannerPool";
+import { usePlanGroceryList } from "../hooks/usePlanGroceryList";
+import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
+import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
 import { PLAN_DAYS, formatPeso, generatePlan, monthDay, regenerateDay, swapOptions } from "../utils/generatePlan";
 import type { MealSlot } from "../mock/plannerMeals";
 import { BudgetInput, MacroGoalCard, ServingStepper, parseBudget } from "../components/PlannerInputs";
@@ -49,6 +52,7 @@ export default function MealPlannerScreen() {
     setSelectedMeal(0);
   };
   const [lockedOpen, setLockedOpen] = useState(false);
+  const [groceryOpen, setGroceryOpen] = useState(false);
   // Header actions, each confirmed in a sheet first.
   const [confirm, setConfirm] = useState<"regenerate" | "edit" | null>(null);
   const confirmKind = useRef<"regenerate" | "edit" | null>(null);
@@ -64,6 +68,12 @@ export default function MealPlannerScreen() {
 
   const budget = parseBudget(store.budget);
   const plan = store.plan;
+  // The grocery list covers the days you can see: the whole week for
+  // Premium, today for Free. Fetched while the plan is on screen, so it's
+  // ready when the sheet opens.
+  const groceryDays = useMemo(() => (store.isPremium ? [0, 1, 2, 3, 4] : [0]), [store.isPremium]);
+  const grocery = usePlanGroceryList(plan, groceryDays, store.stage === "plan");
+  const { data: pantry = [] } = usePantry();
 
   // seed: a fresh one from "Regenerate", for a different plan.
   const build = (seed = 0) => {
@@ -222,8 +232,7 @@ export default function MealPlannerScreen() {
               }
               onEdit={() => (store.isPremium ? showToast("Editing a day is coming soon") : setLockedOpen(true))}
             />
-            {/* TEMP: the plan's grocery list comes in a later hand-off. */}
-            <GroceryListButton onPress={() => showToast("Grocery list is coming soon")} />
+            <GroceryListButton onPress={() => setGroceryOpen(true)} />
           </ScrollView>
         </Animated.View>
       )}
@@ -276,6 +285,16 @@ export default function MealPlannerScreen() {
           afterConfirm.current?.();
           afterConfirm.current = null;
         }}
+      />
+
+      <FullGroceryListSheet
+        visible={groceryOpen}
+        onClose={() => setGroceryOpen(false)}
+        items={grocery.items}
+        total={grocery.total}
+        pantry={pantry}
+        isChecked={grocery.isChecked}
+        onToggle={grocery.toggle}
       />
 
       <LockedDaySheet visible={lockedOpen} lockedDays={PLAN_DAYS - 1} onClose={() => setLockedOpen(false)} onUnlock={unlock} />

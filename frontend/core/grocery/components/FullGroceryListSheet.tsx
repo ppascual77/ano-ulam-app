@@ -4,7 +4,7 @@ import { BottomSheet } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { pantryHas } from "@/frontend/core/pantry/hooks/usePantry";
 import type { PantryIngredient } from "@/frontend/core/pantry/mock/api";
-import type { GroceryItem } from "../../utils/buildGroceryList";
+import type { GroceryItem } from "../utils/buildGroceryList";
 import { GroceryRow, formatPeso } from "./GroceryRow";
 
 type FullGroceryListSheetProps = {

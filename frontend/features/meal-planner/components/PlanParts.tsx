@@ -175,13 +175,13 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
 
 const SLOT_ICONS: Record<MealSlot, LucideIcon> = { breakfast: CloudSun, lunch: Sun, dinner: Moon };
 
-// Time of day on the hero's top-right corner: cloud-sun for breakfast, sun
-// for lunch, moon for dinner.
+// Time of day on the hero's top-right corner, a plain white outline icon:
+// cloud-sun for breakfast, sun for lunch, moon for dinner.
 function SlotBadge({ slot }: { slot: MealSlot }) {
   const Icon = SLOT_ICONS[slot];
   return (
-    <View pointerEvents="none" className="absolute right-4 top-4 h-8 w-8 items-center justify-center rounded-full bg-white">
-      <Icon color={colors.webInk.DEFAULT} size={17} />
+    <View pointerEvents="none" className="absolute right-4 top-4">
+      <Icon color={colors.white} size={22} />
     </View>
   );
 }
@@ -390,8 +390,8 @@ export function useMeasuredWidth() {
   return { width, onLayout: (e: { nativeEvent: { layout: { width: number } } }) => setWidth(e.nativeEvent.layout.width) };
 }
 
-// "View Grocery List": the mockup's full-width dark button under the day.
-// The plan's grocery list isn't built yet (separate hand-off).
+// "View Grocery List": the full-width dark button under the day; opens the
+// plan's grocery list (the same sheet as Profile's Grocery tab).
 export function GroceryListButton({ onPress }: { onPress: () => void }) {
   return (
     <Pressable onPress={onPress} className="flex-row items-center justify-center gap-2 rounded-2xl bg-brand-green-dark py-4 active:opacity-90">

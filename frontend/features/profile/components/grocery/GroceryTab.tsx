@@ -6,8 +6,8 @@ import { colors } from "@/frontend/constants/theme";
 import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
 import { useGroceryList } from "../../hooks/useGroceryList";
 import { useCountUp } from "../../hooks/useCountUp";
-import { GroceryRow, formatPeso } from "./GroceryRow";
-import { FullGroceryListSheet } from "./FullGroceryListSheet";
+import { GroceryRow, formatPeso } from "@/frontend/core/grocery/components/GroceryRow";
+import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
 
 const PREVIEW_LIMIT = 7;
 
