@@ -68,8 +68,8 @@ function Title({ title, body, centered = false }: { title: string; body: string;
   const align = centered ? "text-center" : "";
   return (
     <View className={centered ? "items-center" : ""}>
-      <Text className={`font-inter-bold text-heading-lg text-web-ink ${align}`}>{title}</Text>
-      <Text className={`mt-1 font-inter-regular text-body text-web-ink-muted ${align}`}>{body}</Text>
+      <Text className={`font-inter-semibold text-heading text-web-ink ${align}`}>{title}</Text>
+      <Text className={`mt-1 px-4 font-inter-regular text-body text-web-ink-muted ${align}`}>{body}</Text>
     </View>
   );
 }
@@ -231,7 +231,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
 
           {step === "goal" && (
             <>
-              <Text className="font-inter-bold text-heading-lg text-web-ink">What's your main goal?</Text>
+              <Text className="font-inter-semibold text-heading text-web-ink">What's your main goal?</Text>
               <View className="flex-row gap-2">
                 {GOAL_OPTIONS.map((option) => {
                   const Icon = GOAL_ICONS[option.value];
@@ -283,7 +283,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
                 <View className="h-14 w-14 items-center justify-center rounded-full bg-brand-orange/15">
                   <Target color={colors.brandOrange} size={28} />
                 </View>
-                <Text className="text-center font-inter-bold text-heading-lg text-web-ink">Here are your recommended targets</Text>
+                <Text className="text-center font-inter-semibold text-heading text-web-ink">Here are your recommended targets</Text>
                 <Text className="text-center font-inter-regular text-small text-web-ink-muted">
                   Based on your stats and goal{goalLabel ? ` (${goalLabel})` : ""}
                 </Text>
