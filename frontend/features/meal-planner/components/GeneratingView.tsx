@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import Animated, { FadeInDown, ZoomIn, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { ArrowLeft, Check } from "lucide-react-native";
 import { Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -27,7 +27,7 @@ function steps(budgetLabel: string, hasMacros: boolean): Step[] {
 function StepIcon({ state }: { state: "pending" | "active" | "done" }) {
   if (state === "done") {
     return (
-      <Animated.View entering={ZoomIn.springify().damping(12)} className="h-5 w-5 items-center justify-center rounded-full bg-brand-green">
+      <Animated.View entering={FadeIn.duration(200)} className="h-5 w-5 items-center justify-center rounded-full bg-brand-green">
         <Check color={colors.white} size={12} strokeWidth={3} />
       </Animated.View>
     );
