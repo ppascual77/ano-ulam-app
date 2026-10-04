@@ -110,7 +110,7 @@ export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone }: Gener
         </Text>
       </View>
 
-      <View className="mx-7 mt-6 gap-4">
+      <View className="mx-7 mt-6 gap-4 pl-3">
         {list.map((step, i) => {
           const state = i < active ? "done" : i === active ? "active" : "pending";
           const done = state === "done";
