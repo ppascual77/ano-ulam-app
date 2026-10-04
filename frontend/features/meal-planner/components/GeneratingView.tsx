@@ -143,7 +143,7 @@ export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone, failed 
 
       <View className="mt-4 items-center">
         {/* Reuses onboarding's illustration until the planner's own arrives. */}
-        <Image source={require("@/assets/onboarding/slide-2.gif")} style={{ width: 210, height: 208 }} contentFit="contain" />
+        <Image source={require("@/assets/onboarding/slide-2.gif")} style={{ width: 180, height: 178 }} contentFit="contain" />
       </View>
 
       <View className="mt-6 items-center">
@@ -199,7 +199,7 @@ export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone, failed 
       </View>
 
       {finished && (
-        <Animated.View entering={FadeInDown.delay(BUTTON_DELAY_MS).duration(350)} className="mt-auto pb-8">
+        <Animated.View entering={FadeInDown.delay(BUTTON_DELAY_MS).duration(350)} className="mx-7 mt-auto pb-8">
           <Button label="See my meal plan" icon={<ArrowRight color={colors.white} size={18} />} iconPosition="right" onPress={onDone} />
         </Animated.View>
       )}
