@@ -148,12 +148,13 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
           {MACROS.map(({ key, label, color }) => (
             <View key={key} className="flex-1 flex-row">
               <View className="mx-2 w-px self-stretch bg-web-divider" />
-              <View className="flex-1 justify-center">
+              {/* Centered in its column, label over value. */}
+              <View className="flex-1 items-center justify-center">
                 <View className="flex-row items-center gap-1.5">
                   <View className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
                   <Text className="font-inter-regular text-sub text-web-ink-muted">{label}</Text>
                 </View>
-                <Text className="mt-0.5 font-inter-bold text-subheading text-web-ink">{Math.round(totals[key])}g</Text>
+                <Text className="mt-0.5 text-center font-inter-bold text-subheading text-web-ink">{Math.round(totals[key])}g</Text>
               </View>
             </View>
           ))}
