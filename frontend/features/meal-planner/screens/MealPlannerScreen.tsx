@@ -26,10 +26,6 @@ import { LockedDaySheet, SwapMealSheet } from "../components/PlannerSheets";
 // No Grocery List yet.
 const MOCK_NAME = "Patrick";
 
-// TEMP (design iteration): stay on the "Planning your week" screen after the
-// checklist finishes instead of moving on to the plan. Use the back arrow to
-// return to setup. Set to false to restore the normal flow.
-const HOLD_ON_GENERATING = true;
 
 export default function MealPlannerScreen() {
   const store = usePlannerStore();
@@ -125,7 +121,8 @@ export default function MealPlannerScreen() {
             budgetLabel={formatPeso(budget)}
             hasMacros={!!store.targets}
             onBack={() => store.setStage("setup")}
-            onDone={() => !HOLD_ON_GENERATING && store.setStage(plan ? "plan" : "error")}
+            onDone={() => store.setStage(plan ? "plan" : "error")}
+            failed={!plan}
           />
         </Animated.View>
       )}

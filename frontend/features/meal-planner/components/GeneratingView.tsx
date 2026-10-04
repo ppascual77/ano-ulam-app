@@ -1,9 +1,19 @@
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, { Easing, FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
-import { ArrowLeft, Check } from "lucide-react-native";
-import { Spinner } from "@/frontend/components/ui";
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+  FadeOutUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
+import { ArrowLeft, ArrowRight, Check } from "lucide-react-native";
+import { Button, Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { Image } from "expo-image";
 
@@ -12,6 +22,9 @@ const STEP_MS = 650;
 // Per-step length multiplier, by index: "Planning your 5 days" (the 4th)
 // takes twice as long, like the heavy part of the work.
 const STEP_DURATION_FACTOR: Record<number, number> = { 3: 2 };
+// Done: old title out, new title in, then the button.
+const TITLE_SWAP_MS = 300;
+const BUTTON_DELAY_MS = TITLE_SWAP_MS * 2 + 150;
 
 // Each step reads as work in progress, then as done (past tense).
 type Step = { title: string; detail: string; doneDetail: string };
@@ -91,21 +104,28 @@ type GeneratingViewProps = {
   hasMacros: boolean;
   /** Back arrow: cancel and return to setup. */
   onBack: () => void;
-  /** After the last step completes. */
+  /** "See my meal plan", shown once every step is done. */
   onDone: () => void;
+  /** No plan could be built: skip the success state and call onDone
+   *  right away (the screen then shows the error). */
+  failed?: boolean;
 };
 
-// "Planning your week...": the steps tick off one by one, then onDone.
-export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone }: GeneratingViewProps) {
+// "Planning your week...": the steps tick off one by one; then the title
+// changes to "Your week is planned!" and a "See my meal plan" button fades
+// in (which calls onDone).
+export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone, failed = false }: GeneratingViewProps) {
   const list = steps(budgetLabel, hasMacros);
   // Index of the step in progress; list.length = all done.
   const [active, setActive] = useState(0);
   const progress = useSharedValue(0);
   const doneCount = Math.min(active, list.length);
+  const finished = active >= list.length && !failed;
 
   useEffect(() => {
     progress.value = withTiming(doneCount / list.length, { duration: 300 });
     if (active >= list.length) {
+      if (!failed) return;
       const timer = setTimeout(onDone, 450);
       return () => clearTimeout(timer);
     }
@@ -127,7 +147,19 @@ export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone }: Gener
       </View>
 
       <View className="mt-6 items-center">
-        <ShimmerTitle text="Planning your week..." />
+        {/* The working title fades up and out; the done title fades up into
+            its place right after. Fixed height so nothing jumps. */}
+        <View className="h-9 items-center justify-center">
+          {finished ? (
+            <Animated.View key="done" entering={FadeInUp.delay(TITLE_SWAP_MS).duration(TITLE_SWAP_MS)}>
+              <Text className="text-center font-inter-bold text-heading-lg text-primary">Your week is planned!</Text>
+            </Animated.View>
+          ) : (
+            <Animated.View key="planning" exiting={FadeOutUp.duration(TITLE_SWAP_MS)}>
+              <ShimmerTitle text="Planning your week..." />
+            </Animated.View>
+          )}
+        </View>
         <Text className="mt-2 px-6 text-center font-inter-regular text-subheading text-web-ink-muted">
           Finding the best meals for your budget, preferences, and nutrition goals.
         </Text>
@@ -165,6 +197,12 @@ export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone }: Gener
           );
         })}
       </View>
+
+      {finished && (
+        <Animated.View entering={FadeInDown.delay(BUTTON_DELAY_MS).duration(350)} className="mt-auto pb-8">
+          <Button label="See my meal plan" icon={<ArrowRight color={colors.white} size={18} />} iconPosition="right" onPress={onDone} />
+        </Animated.View>
+      )}
     </View>
   );
 }
