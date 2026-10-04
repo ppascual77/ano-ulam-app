@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { FlatList, Pressable, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
-import { ArrowLeftRight, ChevronRight, Droplets, Dumbbell, Lock, Pencil, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
+import { ArrowLeftRight, ChevronRight, Droplets, Dumbbell, Flame, Lock, Pencil, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import type { MacroTargets } from "../utils/macros";
 import { SLOT_LABELS, dayLabel, dayTotals, formatPeso, monthDay, type MealPlan, type PlanDay, type PlannedMeal } from "../utils/generatePlan";
@@ -234,7 +234,8 @@ type MealListRowProps = {
   onPress: () => void;
 };
 
-// Compact row: thumbnail, name, macros (or cost), ›.
+// Compact row: thumbnail, name, then calories (flame) and the macros as
+// three colored-dot stats (or, without a macro goal, cost and calories), ›.
 export function MealListRow({ item, active, showMacros, servings, onPress }: MealListRowProps) {
   const { meal } = item;
   const perPerson = Number(meal.price) / (meal.serving_size ?? 1);
@@ -242,18 +243,41 @@ export function MealListRow({ item, active, showMacros, servings, onPress }: Mea
     <Pressable
       onPress={onPress}
       accessibilityState={{ selected: active }}
-      className={`flex-row items-center gap-3 rounded-2xl border p-2 ${active ? "border-brand-green/20 bg-brand-green/10" : "border-web-divider bg-white"}`}
+      className={`flex-row items-center gap-3 rounded-2xl border p-2.5 ${active ? "border-brand-green/20 bg-brand-green/10" : "border-web-divider bg-white"}`}
     >
-      <MealImage meal={meal} height={64} width={64} rounded="rounded-xl" />
-      <View className="flex-1 gap-0.5">
+      <MealImage meal={meal} height={76} width={76} rounded="rounded-xl" />
+      <View className="flex-1 gap-1.5">
         <Text numberOfLines={2} className="font-inter-semibold text-subheading leading-6 text-web-ink">
           {meal.name}
         </Text>
-        <Text className="font-inter-regular text-sub text-web-ink-muted">
-          {showMacros
-            ? `${meal.calories} kcal · ${meal.protein}g P · ${meal.carbs}g C · ${meal.fats}g F`
-            : `~${formatPeso(perPerson * servings)}${servings > 1 ? ` for ${servings}` : ""} · ${meal.calories} kcal`}
-        </Text>
+        {showMacros ? (
+          <>
+            <View className="flex-row items-center gap-1">
+              <Flame color={colors.brandOrange} size={13} />
+              <Text className="font-inter-semibold text-small text-web-ink">{meal.calories} kcal</Text>
+            </View>
+            <View className="flex-row items-center gap-3">
+              {MACROS.map(({ key, letter, color }) => (
+                <View key={key} className="flex-row items-center gap-1">
+                  <View className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
+                  <Text className="font-inter-bold text-small text-web-ink">{meal[key]}g</Text>
+                  <Text className="font-inter-medium text-small text-web-ink-muted">{letter}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        ) : (
+          <>
+            <Text className="font-inter-semibold text-small text-web-ink">
+              ~{formatPeso(perPerson * servings)}
+              {servings > 1 && <Text className="font-inter-regular text-web-ink-muted"> for {servings}</Text>}
+            </Text>
+            <View className="flex-row items-center gap-1">
+              <Flame color={colors.brandOrange} size={13} />
+              <Text className="font-inter-medium text-small text-web-ink-body">{meal.calories} kcal</Text>
+            </View>
+          </>
+        )}
       </View>
       <View className="h-7 w-7 items-center justify-center rounded-full bg-white">
         <ChevronRight color={colors.webInk.soft} size={16} />
