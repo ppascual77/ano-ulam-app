@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import Animated, { Easing, FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";
+import Animated, { Easing, FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { ArrowLeft, Check } from "lucide-react-native";
 import { Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -22,6 +23,34 @@ function steps(budgetLabel: string, hasMacros: boolean): Step[] {
     { title: "Planning your 5 days", detail: "Picking the best meal combinations", doneDetail: "Picked the best meal combinations" },
     { title: "Building your meal plan", detail: "Putting everything together", doneDetail: "Put everything together" },
   ];
+}
+
+// The title with a soft light band sweeping across it on a loop. No text
+// mask needed: the band is white, so over the white background it's
+// invisible and over the dark letters it briefly brightens them.
+const SHIMMER_MS = 1600;
+const SHIMMER_WIDTH = 90;
+const SHIMMER_BAND = ["rgba(255,255,255,0)", "rgba(255,255,255,0.75)", "rgba(255,255,255,0)"] as const;
+
+function ShimmerTitle({ text }: { text: string }) {
+  const [width, setWidth] = useState(0);
+  const sweep = useSharedValue(0);
+  useEffect(() => {
+    if (width === 0) return;
+    sweep.value = 0;
+    sweep.value = withRepeat(withTiming(1, { duration: SHIMMER_MS, easing: Easing.inOut(Easing.quad) }), -1, false);
+  }, [width]);
+  const bandStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: -SHIMMER_WIDTH + (width + SHIMMER_WIDTH * 2) * sweep.value }],
+  }));
+  return (
+    <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} className="overflow-hidden">
+      <Text className="text-center font-inter-bold text-heading-lg text-web-ink">{text}</Text>
+      <Animated.View pointerEvents="none" style={[{ position: "absolute", top: 0, bottom: 0, left: 0, width: SHIMMER_WIDTH }, bandStyle]}>
+        <LinearGradient colors={SHIMMER_BAND} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={{ flex: 1 }} />
+      </Animated.View>
+    </View>
+  );
 }
 
 // One soft ring that expands out from a check as it lands, then fades.
@@ -95,7 +124,7 @@ export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone }: Gener
       </View>
 
       <View className="mt-6 items-center">
-        <Text className="text-center font-inter-bold text-heading-lg text-web-ink">Planning your week...</Text>
+        <ShimmerTitle text="Planning your week..." />
         <Text className="mt-2 px-6 text-center font-inter-regular text-subheading text-web-ink-muted">
           Finding the best meals for your budget, preferences, and nutrition goals.
         </Text>
