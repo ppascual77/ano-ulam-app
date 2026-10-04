@@ -186,7 +186,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
           {step === "intro" && (
             <>
               <Title centered title="Set your nutrition goal" body="We'll use your stats to calculate your daily calorie and macro targets for a more personalized meal plan." />
-              <View className="gap-4 rounded-2xl bg-brand-green/5 p-4">
+              <View className="gap-6 rounded-2xl bg-brand-green/5 px-4 py-6">
                 {[
                   { Icon: Target, text: "Meals matched to your goal" },
                   { Icon: ChartColumn, text: "Balanced calories and macros" },
@@ -194,7 +194,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
                 ].map(({ Icon, text }) => (
                   <View key={text} className="flex-row items-center gap-3">
                     <Icon color={colors.brandGreen.DEFAULT} size={20} />
-                    <Text className="font-inter-medium text-subheading text-web-ink-soft">{text}</Text>
+                    <Text className="font-inter-medium text-body text-web-ink-soft">{text}</Text>
                   </View>
                 ))}
               </View>
