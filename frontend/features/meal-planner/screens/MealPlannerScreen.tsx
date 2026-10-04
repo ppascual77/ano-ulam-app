@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
 import Animated, { FadeIn, FadeInRight, FadeInUp } from "react-native-reanimated";
 import { ArrowLeft, MoreHorizontal, Pencil } from "lucide-react-native";
-import { Avatar, Button, Dropdown, Screen, Toast, type ToastState } from "@/frontend/components/ui";
+import { AppText, Avatar, Button, Dropdown, Screen, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
@@ -73,14 +73,21 @@ export default function MealPlannerScreen() {
     <Screen edges={["top"]} padded={false} dismissKeyboardOnTap={false}>
       {store.stage === "setup" && (
         <Animated.View key="setup" entering={FadeInUp.duration(250)} className="flex-1">
-          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false} contentContainerClassName="gap-4 px-5 pb-10 pt-4">
-            <View className="flex-row items-center justify-between">
+          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false} contentContainerClassName="gap-4 px-5 pb-10 pt-2">
+            {/* Same type and spacing as Home's header (features/home/components/Header):
+                the 36px inset from the screen edge = Home's Screen padding (28) + ml-2. */}
+            <View className="ml-4 mr-2 flex-row items-center justify-between">
               <View>
-                <Text className="font-inter-semibold text-subheading text-web-ink">
-                  Hello{firstName ? ", " : "!"}
-                  {firstName && <Text className="text-brand-green">{firstName}</Text>}
-                </Text>
-                <Text className="mt-0.5 font-inter-semibold text-body text-web-ink-soft">Let's plan your week</Text>
+                <AppText variant="title">
+                  {firstName ? (
+                    <>
+                      Hello, <Text className="font-inter-bold text-primary">{firstName}</Text>
+                    </>
+                  ) : (
+                    "Hello"
+                  )}
+                </AppText>
+                <AppText variant="heading">Let's plan your week</AppText>
               </View>
               <View className="flex-row items-center gap-2">
                 {devPill}
