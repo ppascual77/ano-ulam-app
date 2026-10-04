@@ -23,7 +23,6 @@ import {
   Target,
   Trophy,
   Wheat,
-  X,
   type LucideIcon,
 } from "lucide-react-native";
 import { BottomSheet, Button } from "@/frontend/components/ui";
@@ -171,17 +170,13 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
   return (
     // Sized to the current step (up to 92% of the screen, then it scrolls).
     <BottomSheet visible={visible} onClose={onClose} heightPercent={0.92} fitContent>
-      <View className="flex-row items-center justify-between px-5 pt-8">
-        {back ? (
+      {/* Back arrow from the second step on; close by swiping down or tapping outside. */}
+      <View className="h-5 flex-row items-center px-5 pt-8">
+        {back && (
           <Pressable onPress={() => setStep(back)} hitSlop={10} accessibilityLabel="Back">
             <ArrowLeft color={colors.webInk.DEFAULT} size={20} />
           </Pressable>
-        ) : (
-          <View />
         )}
-        <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="Close">
-          <X color={colors.webInk.muted} size={20} />
-        </Pressable>
       </View>
 
       <View className="px-6 pb-10 pt-3">
