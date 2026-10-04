@@ -78,7 +78,7 @@ export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone }: Gener
 
       <View className="mt-6 items-center">
         <Text className="text-center font-inter-bold text-heading-lg text-web-ink">Planning your week...</Text>
-        <Text className="mt-2 text-center font-inter-regular text-body text-web-ink-muted">
+        <Text className="mt-2 px-6 text-center font-inter-regular text-subheading text-web-ink-muted">
           Finding the best meals for your budget, preferences, and nutrition goals.
         </Text>
       </View>
