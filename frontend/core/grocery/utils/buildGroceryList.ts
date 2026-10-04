@@ -1,6 +1,5 @@
 import { formatCount } from "@/frontend/core/meals/utils/multiplyQty";
-import type { IngredientType } from "@/frontend/core/meals/mealTypes";
-import type { SavedMeal } from "@/frontend/core/saved/types";
+import type { IngredientType, MealType } from "@/frontend/core/meals/mealTypes";
 
 export type GroceryItem = {
   /** Lowercased name: the merge key, and what checkbox state is stored by. */
@@ -67,13 +66,14 @@ function formatParts(parts: QtyPart[]): string {
 
 const sentenceCase = (name: string) => name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
 
-// Every ingredient of every saved home-cooked meal (fast food is left out),
+// Every ingredient of every home-cooked meal given (fast food is left out),
 // merged by name: quantities added up per unit, prices summed, and "main"
-// if any meal uses it as a main ingredient. Saved meals are snapshots at
-// the user's servings, so quantities are already scaled.
-export function buildGroceryList(saved: SavedMeal[]): GroceryItem[] {
+// if any meal uses it as a main ingredient. Meals must already be scaled to
+// the servings being cooked (saved meals are; the Meal Planner scales them).
+// Used by Profile's Grocery tab (saved meals) and the Meal Planner's plan.
+export function buildGroceryList(meals: Pick<MealType, "category" | "ingredients">[]): GroceryItem[] {
   const groups = new Map<string, { name: string; parts: QtyPart[]; price: number; main: boolean }>();
-  for (const meal of saved) {
+  for (const meal of meals) {
     if (meal.category === "fast_food") continue;
     for (const ingredient of meal.ingredients ?? []) {
       const id = ingredient.name.trim().toLowerCase();

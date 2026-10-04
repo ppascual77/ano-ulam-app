@@ -3,18 +3,19 @@ import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSavedMeals } from "@/frontend/core/saved/hooks/useSavedMeals";
-import { flushGroceryChecks, getGroceryChecks } from "../mock/api";
+import { flushGroceryChecks, getGroceryChecks } from "../mock/checks";
 import { buildGroceryList, type GroceryItem } from "../utils/buildGroceryList";
 
 const checksKey = ["grocery", "checks"] as const;
 type Pending = Record<string, string | null>;
 
-// The grocery list (rebuilt from saved meals whenever they change) plus its
+// The saved-meals grocery list (rebuilt from saved meals whenever they
+// change; Profile's Grocery tab and the grocery sheet's "Saved meals" tab) plus its
 // checkboxes. A tap flips the box instantly and is kept on the phone
 // (AsyncStorage) as a pending change; pending changes go to the server in
 // one batch via `flush` (leaving the tab, closing the full list) or when
 // the app goes to the background. Pending values win over the server's.
-export function useGroceryList(userId: string | null) {
+export function useSavedGroceryList(userId: string | null) {
   const queryClient = useQueryClient();
   const saved = useSavedMeals();
   const checks = useQuery({ queryKey: checksKey, queryFn: getGroceryChecks });
@@ -77,5 +78,6 @@ export function useGroceryList(userId: string | null) {
     return () => subscription.remove();
   }, [flush]);
 
-  return { items, loading: saved.isLoading || checks.isLoading, isChecked, toggle, flush };
+  const total = items.reduce((sum, item) => (item.category === "main" ? sum + item.price : sum), 0);
+  return { items, total, loading: saved.isLoading || checks.isLoading, isChecked, toggle, flush };
 }

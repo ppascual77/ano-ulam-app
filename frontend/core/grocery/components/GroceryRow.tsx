@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import { Check } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
-import type { GroceryItem } from "../../utils/buildGroceryList";
+import type { GroceryItem } from "../utils/buildGroceryList";
 
 export const formatPeso = (n: number, decimals = 2) =>
   n.toLocaleString("en-PH", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });

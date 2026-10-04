@@ -1,13 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { ChevronRight, Info, Lightbulb, ShoppingCart } from "lucide-react-native";
 import { Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
-import { useGroceryList } from "../../hooks/useGroceryList";
+import { useSavedGroceryList } from "@/frontend/core/grocery/hooks/useSavedGroceryList";
+import { usePlanGroceryList } from "@/frontend/core/grocery/hooks/usePlanGroceryList";
+// The one link into the Meal Planner: the grocery sheet's "Meal plan" tab
+// shows here only when the user has built a plan.
+import { usePlannerStore } from "@/frontend/features/meal-planner/store/usePlannerStore";
 import { useCountUp } from "../../hooks/useCountUp";
-import { GroceryRow, formatPeso } from "./GroceryRow";
-import { FullGroceryListSheet } from "./FullGroceryListSheet";
+import { GroceryRow, formatPeso } from "@/frontend/core/grocery/components/GroceryRow";
+import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
 
 const PREVIEW_LIMIT = 7;
 
@@ -26,7 +30,11 @@ function SummaryRow({ dotClassName, label, count }: { dotClassName: string; labe
 // Owner-only: one shopping list built from every saved home-cooked meal,
 // a preview of up to 7 items (rest in a sheet), and a summary.
 export function GroceryTab({ userId }: { userId: string | null }) {
-  const grocery = useGroceryList(userId);
+  const grocery = useSavedGroceryList(userId);
+  const plan = usePlannerStore((s) => s.plan);
+  const isPremium = usePlannerStore((s) => s.isPremium);
+  const planDays = useMemo(() => (isPremium ? [0, 1, 2, 3, 4] : [0]), [isPremium]);
+  const planGrocery = usePlanGroceryList(plan, planDays, !!plan);
   const { data: pantry = [] } = usePantry();
   const [fullOpen, setFullOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -35,7 +43,7 @@ export function GroceryTab({ userId }: { userId: string | null }) {
   const mainCount = items.filter((item) => item.category === "main").length;
   // Only main ingredients count toward the total (pantry staples are
   // usually on hand).
-  const total = items.reduce((sum, item) => (item.category === "main" ? sum + item.price : sum), 0);
+  const { total } = grocery;
   const shownTotal = useCountUp(total);
 
   // Leaving the tab sends any pending checkbox changes.
@@ -104,13 +112,16 @@ export function GroceryTab({ userId }: { userId: string | null }) {
                 isLast={i === shown.length - 1}
               />
             ))}
-            {items.length > PREVIEW_LIMIT && (
-              <Pressable onPress={() => setFullOpen(true)} className="mt-2 h-[30px] flex-row items-center justify-center gap-1">
-                <Text className="font-inter-medium text-small text-brand-green">View Grocery List</Text>
-                <ChevronRight color={colors.brandGreen.DEFAULT} size={15} />
-              </Pressable>
-            )}
           </View>
+        )}
+
+        {/* Full list: when the preview is cut off, or there's a meal plan
+            (its list lives in the sheet's "Meal plan" tab). */}
+        {!grocery.loading && (items.length > PREVIEW_LIMIT || !!plan) && (
+          <Pressable onPress={() => setFullOpen(true)} className="mt-2 h-[30px] flex-row items-center justify-center gap-1">
+            <Text className="font-inter-medium text-small text-brand-green">View Grocery List</Text>
+            <ChevronRight color={colors.brandGreen.DEFAULT} size={15} />
+          </Pressable>
         )}
       </View>
 
@@ -149,11 +160,32 @@ export function GroceryTab({ userId }: { userId: string | null }) {
           setFullOpen(false);
           void grocery.flush();
         }}
-        items={items}
-        total={total}
+        initialTab="saved"
+        tabs={[
+          {
+            key: "saved",
+            label: "Saved meals",
+            items,
+            total,
+            isChecked: grocery.isChecked,
+            onToggle: grocery.toggle,
+            emptyText: "Save home-cooked meals and their ingredients will show up here.",
+          },
+          ...(plan
+            ? [
+                {
+                  key: "plan",
+                  label: "Meal plan",
+                  items: planGrocery.items,
+                  total: planGrocery.total,
+                  isChecked: planGrocery.isChecked,
+                  onToggle: planGrocery.toggle,
+                  emptyText: "Your meal plan's ingredients will show up here.",
+                },
+              ]
+            : []),
+        ]}
         pantry={pantry}
-        isChecked={grocery.isChecked}
-        onToggle={grocery.toggle}
       />
     </View>
   );
