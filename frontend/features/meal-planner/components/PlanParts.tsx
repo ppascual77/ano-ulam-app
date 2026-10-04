@@ -85,12 +85,13 @@ function SummaryChip({ Icon, color, tint, value, label }: { Icon?: LucideIcon; c
           <Icon color={color} size={13} />
         </View>
       )}
+      {/* Label above the value, like the stats fields. */}
       <View className="shrink">
-        <Text className="font-inter-bold text-small text-web-ink" numberOfLines={1}>
-          {value}
-        </Text>
         <Text className="font-inter-regular text-sub text-web-ink-muted" numberOfLines={1}>
           {label}
+        </Text>
+        <Text className="font-inter-bold text-small text-web-ink" numberOfLines={1}>
+          {value}
         </Text>
       </View>
     </View>
@@ -107,8 +108,8 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
         <View className="flex-row items-center gap-2 pr-1">
           <CalorieRing share={totals.calories / plan.targets.calories} />
           <View>
+            <Text className="font-inter-regular text-sub text-web-ink-muted">Calories</Text>
             <Text className="font-inter-bold text-body text-web-ink">{totals.calories.toLocaleString("en-PH")}</Text>
-            <Text className="font-inter-regular text-sub text-web-ink-muted">kcal</Text>
           </View>
         </View>
         {MACROS.map(({ key, label, Icon, color, tint }) => (
@@ -120,9 +121,9 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
   const weekCost = plan.days.reduce((sum, d) => sum + dayTotals(d, plan.servings).cost, 0);
   return (
     <View className="flex-row gap-2">
-      <SummaryChip value={`~${formatPeso(totals.cost)}`} label="today" />
-      <SummaryChip value={`~${formatPeso(weekCost)}`} label={`this week of ${formatPeso(plan.budget)}`} />
-      <SummaryChip value={totals.calories.toLocaleString("en-PH")} label="kcal today" />
+      <SummaryChip value={`~${formatPeso(totals.cost)}`} label="Today" />
+      <SummaryChip value={`~${formatPeso(weekCost)}`} label={`Week of ${formatPeso(plan.budget)}`} />
+      <SummaryChip value={`${totals.calories.toLocaleString("en-PH")} kcal`} label="Calories" />
     </View>
   );
 }
@@ -131,20 +132,26 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
 
 // Dark fade from the left/bottom so the white text reads on any photo.
 const HERO_SCRIM = ["rgba(0,0,0,0.75)", "rgba(0,0,0,0.35)", "rgba(0,0,0,0.05)"] as const;
-const HERO_HEIGHT = 200;
+const HERO_HEIGHT = 230;
 
-// A stat on the photo: colored dot (or the flame for kcal), bold value,
-// light label, on a frosted pill so it reads on any photo.
+// A stat on the photo, in the stats-field format: icon on the left, small
+// label above a bold value. Frosted so it reads on any photo.
 function GlassStat({ value, label, color, flame }: { value: string; label: string; color?: string; flame?: boolean }) {
   return (
-    <View className="flex-row items-center gap-1.5 rounded-full border border-white/30 bg-black/35 px-3 py-1.5">
+    <View className="flex-1 flex-row items-center gap-1.5 rounded-xl border border-white/20 bg-black/35 px-2 py-1.5">
       {flame ? (
-        <Flame color={colors.brandOrange} size={13} />
+        <Flame color={colors.brandOrange} size={14} />
       ) : (
         <View className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
       )}
-      <Text className="font-inter-bold text-small text-white">{value}</Text>
-      <Text className="font-inter-regular text-small text-white/75">{label}</Text>
+      <View className="shrink">
+        <Text numberOfLines={1} className="font-inter-regular text-sub text-white/75">
+          {label}
+        </Text>
+        <Text numberOfLines={1} className="font-inter-bold text-small text-white">
+          {value}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -199,8 +206,8 @@ export function HeroCarousel({ day, dayIndex, width, selected, onChange, onOpen 
               <Text className="font-inter-medium text-small text-white/90">
                 {dayLabel(day.date, dayIndex)} · {monthDay(day.date)} · {SLOT_LABELS[item.slot]}
               </Text>
-              <View className="gap-1.5 pr-12">
-                <Text numberOfLines={2} className="font-inter-bold text-heading leading-7 text-white">
+              <View className="gap-1.5">
+                <Text numberOfLines={2} className="pr-4 font-inter-bold text-heading leading-7 text-white">
                   {item.meal.name}
                 </Text>
                 {!!item.meal.description && (
@@ -208,15 +215,17 @@ export function HeroCarousel({ day, dayIndex, width, selected, onChange, onOpen 
                     {item.meal.description}
                   </Text>
                 )}
-                <View className="mt-1 flex-row flex-wrap gap-1.5">
-                  <GlassStat flame value={String(item.meal.calories)} label="kcal" />
-                  {MACROS.map(({ key, letter, color }) => (
-                    <GlassStat key={key} color={color} value={`${item.meal[key]}g`} label={letter} />
+                {/* Four equal tiles across the card. */}
+                <View className="mt-1.5 flex-row gap-1.5">
+                  <GlassStat flame value={`${item.meal.calories}`} label="Calories" />
+                  {MACROS.map(({ key, label, color }) => (
+                    <GlassStat key={key} color={color} value={`${item.meal[key]}g`} label={label} />
                   ))}
                 </View>
               </View>
             </View>
-            <View pointerEvents="none" className="absolute bottom-4 right-4 h-9 w-9 items-center justify-center rounded-full bg-white">
+            {/* Open-recipe arrow, top right (the stats take the bottom row). */}
+            <View pointerEvents="none" className="absolute right-4 top-4 h-8 w-8 items-center justify-center rounded-full bg-white">
               <ChevronRight color={colors.webInk.DEFAULT} size={18} />
             </View>
           </Pressable>
