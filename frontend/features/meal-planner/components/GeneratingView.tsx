@@ -103,11 +103,11 @@ export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone }: Gener
               </View>
               <View className="flex-1">
                 <Text
-                  className={`font-inter-medium text-subheading ${done ? "text-web-ink-muted line-through" : state === "active" ? "text-web-ink" : "text-web-ink-body"}`}
+                  className={`font-inter-medium text-subheading ${done ? "text-web-ink-muted" : state === "active" ? "text-web-ink" : "text-web-ink-body"}`}
                 >
                   {step.title}
                 </Text>
-                <Text className={`mt-0.5 font-inter-regular text-small text-web-ink-muted ${done ? "line-through" : ""}`}>
+                <Text className={`mt-0.5 font-inter-regular text-small ${done ? "text-web-ink-faint" : "text-web-ink-muted"}`}>
                   {done ? step.doneDetail : step.detail}
                 </Text>
               </View>
