@@ -226,10 +226,10 @@ export function HeroCarousel({ day, dayIndex, width, selected, onChange, onOpen 
 
 // ---- Meal list ---------------------------------------------------------------------
 
-const SLOT_STYLE: Record<MealSlot, { Icon: LucideIcon; color: string; tint: string }> = {
-  breakfast: { Icon: Sun, color: colors.brandOrange, tint: "bg-brand-orange/10" },
-  lunch: { Icon: UtensilsCrossed, color: colors.brandGreen.DEFAULT, tint: "bg-brand-green/10" },
-  dinner: { Icon: Moon, color: colors.webInk.soft, tint: "bg-web-divider" },
+const SLOT_STYLE: Record<MealSlot, { Icon: LucideIcon; color: string }> = {
+  breakfast: { Icon: Sun, color: colors.brandOrange },
+  lunch: { Icon: UtensilsCrossed, color: colors.brandGreen.DEFAULT },
+  dinner: { Icon: Moon, color: colors.webInk.soft },
 };
 
 type MealListRowProps = {
@@ -241,10 +241,10 @@ type MealListRowProps = {
   onPress: () => void;
 };
 
-// Compact row: thumbnail, slot pill, name, macros (or cost), ›.
+// Compact row: thumbnail, slot label, name, macros (or cost), ›.
 export function MealListRow({ item, active, showMacros, servings, onPress }: MealListRowProps) {
   const { meal, slot } = item;
-  const { Icon, color, tint } = SLOT_STYLE[slot];
+  const { Icon, color } = SLOT_STYLE[slot];
   const perPerson = Number(meal.price) / (meal.serving_size ?? 1);
   return (
     <Pressable
@@ -254,11 +254,9 @@ export function MealListRow({ item, active, showMacros, servings, onPress }: Mea
     >
       <MealImage meal={meal} height={64} width={64} rounded="rounded-xl" />
       <View className="flex-1 gap-0.5">
-        <View className="flex-row">
-          <View className={`flex-row items-center gap-1 rounded-full px-2 py-0.5 ${tint}`}>
-            <Icon color={color} size={11} />
-            <Text className="font-inter-medium text-sub text-web-ink-soft">{SLOT_LABELS[slot]}</Text>
-          </View>
+        <View className="flex-row items-center gap-1">
+          <Icon color={color} size={12} />
+          <Text className="font-inter-medium text-sub text-web-ink-muted">{SLOT_LABELS[slot]}</Text>
         </View>
         <Text numberOfLines={1} className="font-inter-semibold text-body text-web-ink">
           {meal.name}
