@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { ArrowLeft, Check } from "lucide-react-native";
 import { Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -24,14 +24,32 @@ function steps(budgetLabel: string, hasMacros: boolean): Step[] {
   ];
 }
 
-function StepIcon({ state }: { state: "pending" | "active" | "done" }) {
-  if (state === "done") {
-    return (
+// One soft ring that expands out from a check as it lands, then fades.
+const PULSE_MS = 650;
+const PULSE_SCALE = 2.4;
+
+function DoneCheck() {
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    pulse.value = withTiming(1, { duration: PULSE_MS, easing: Easing.out(Easing.quad) });
+    // Once, when the step completes.
+  }, []);
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: 0.45 * (1 - pulse.value),
+    transform: [{ scale: 1 + (PULSE_SCALE - 1) * pulse.value }],
+  }));
+  return (
+    <View className="h-5 w-5 items-center justify-center">
+      <Animated.View pointerEvents="none" style={ringStyle} className="absolute h-5 w-5 rounded-full bg-brand-green" />
       <Animated.View entering={FadeIn.duration(200)} className="h-5 w-5 items-center justify-center rounded-full bg-brand-green">
         <Check color={colors.white} size={12} strokeWidth={3} />
       </Animated.View>
-    );
-  }
+    </View>
+  );
+}
+
+function StepIcon({ state }: { state: "pending" | "active" | "done" }) {
+  if (state === "done") return <DoneCheck />;
   if (state === "active") return <Spinner size={20} thickness={2} color={colors.brandGreen.DEFAULT} trackColor={colors.webDivider} />;
   return <View className="h-5 w-5 rounded-full border-2 border-web-ink-faint" />;
 }
