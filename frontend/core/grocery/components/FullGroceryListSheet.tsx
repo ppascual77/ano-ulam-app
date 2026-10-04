@@ -77,13 +77,16 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
           <View className="mt-4 flex-row rounded-xl bg-web-divider/70 p-1">
             {tabs.map((t) => {
               const selected = t.key === tab.key;
+              // No conditional shadow-* class: NativeWind swaps a component's internals
+              // when one is toggled, which throws "Couldn't find a navigation context".
+              // The raised look is bg + border instead.
               return (
                 <Pressable
                   key={t.key}
                   onPress={() => setActiveKey(t.key)}
                   accessibilityRole="tab"
                   accessibilityState={{ selected }}
-                  className={`flex-1 items-center rounded-lg py-2 ${selected ? "bg-white shadow-sm" : ""}`}
+                  className={`flex-1 items-center rounded-lg border py-2 ${selected ? "border-web-divider bg-white" : "border-transparent"}`}
                 >
                   <Text className={`font-inter-semibold text-small ${selected ? "text-brand-green" : "text-web-ink-muted"}`}>{t.label}</Text>
                 </Pressable>

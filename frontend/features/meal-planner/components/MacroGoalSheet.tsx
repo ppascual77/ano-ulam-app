@@ -408,13 +408,16 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
                 <View className="flex-row rounded-2xl bg-web-divider/70 p-1">
                   {(["male", "female"] as Sex[]).map((sex) => {
                     const selected = draft.sex === sex;
+                    // No conditional shadow-* class: NativeWind swaps a component's internals
+                    // when one is toggled, which throws "Couldn't find a navigation context".
+                    // The raised look is bg + border instead.
                     return (
                       <Pressable
                         key={sex}
                         onPress={() => set("sex", sex)}
                         accessibilityRole="radio"
                         accessibilityState={{ selected }}
-                        className={`flex-1 items-center rounded-xl py-2.5 ${selected ? "bg-white shadow-sm" : ""}`}
+                        className={`flex-1 items-center rounded-xl border py-2.5 ${selected ? "border-web-divider bg-white" : "border-transparent"}`}
                       >
                         <Text className={`font-inter-semibold text-body ${selected ? "text-brand-green" : "text-web-ink-muted"}`}>
                           {sex === "male" ? "Male" : "Female"}
