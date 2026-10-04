@@ -6,14 +6,18 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withSequence,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
+import * as Haptics from "expo-haptics";
 import { colors } from "@/frontend/constants/theme";
 import { mockMeals } from "@/frontend/core/meals/mocks/meals";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
+import { MealRevealCard } from "./MealRevealCard";
+import { POP_MAX_LIFETIME_MS, PopConfettiPiece, buildCornerPops, type PopPieceConfig } from "./CornerPopConfetti";
 
 // A small pull-tab that slides down from the top of Home at random
 // intervals — for people who can't decide what to eat, drag it down to
@@ -38,6 +42,16 @@ const TASSEL_OFFSET_X = 70;
 const FADE_IN_DURATION_MS = 250;
 
 const REVEAL_DISTANCE = 90; // past this much extra pull, commit to a reveal
+
+// "Tug" hint: a beat after the tag drops in, it dips and springs back twice,
+// as if tugged by an invisible hand, to show it's meant to be pulled (a tap
+// works too). Skipped if the user grabs it first.
+const TUG_HINT_DELAY_MS = 1100;
+const TUG_HINT_DEPTH = 22;
+const TUG_HINT_DOWN_MS = 160;
+const TUG_HINT_SPRING = { damping: 7, stiffness: 160, mass: 0.6 };
+// Pause between the first tug settling and the second.
+const TUG_HINT_GAP_MS = 1000;
 const REVEAL_VELOCITY = 800; // same magnitude as BottomSheet's DISMISS_VELOCITY
 
 const SPRING_BACK_DURATION_MS = 220; // mirrors BottomSheet's spring-back
@@ -74,20 +88,26 @@ const DRAG_SWAY_SENSITIVITY = -0.4; // negative: dragging right should lean the 
 
 // Confetti burst when a pull actually commits to a reveal — celebrates the
 // "surprise me" moment, not shown on a spring-back or an ignored retract.
-// Passed into MealDetailSheet's `overlay` slot (rendered inside ITS OWN
-// Modal, above the sheet panel) rather than opened as a second Modal here —
-// React Native doesn't reliably support two native Modals presented at
-// once (a second present() call can silently no-op while the first is
-// still showing), which is exactly why an earlier attempt at a standalone
-// confetti Modal never actually appeared.
-//
-// Still starts a beat after the meal is set, not in the exact same tick —
-// purely for pacing now (matches "falling after the meal is shown"), not
-// to dodge a Modal race, since there's no longer a second Modal to race.
-const CONFETTI_START_DELAY_MS = 400;
+// Rendered inside the reveal card's own Modal (its `overlay`) rather than
+// a second Modal: React Native doesn't reliably present two native Modals
+// at once. Fires when the card lands face up.
+// The reveal card's fade-out (MealRevealCard's EXIT_MS) plus a margin,
+// before the meal sheet opens.
+const DETAIL_AFTER_CARD_MS = 320;
 const CONFETTI_COLORS = [colors.primary, colors.accent, colors.like, colors.macro.protein, colors.macro.carbs, colors.macro.fats];
-const CONFETTI_COUNT = 26;
+const CONFETTI_COUNT = 44;
 const CONFETTI_SIZE_SCALE = 1.2; // 20% larger than the original base size
+// Size mix for variety: a few big pieces, mostly medium, some tiny specks.
+// [share of pieces, min size, max size] before CONFETTI_SIZE_SCALE.
+const CONFETTI_SIZES: [number, number, number][] = [
+  [0.25, 13, 18],
+  [0.5, 7, 11],
+  [0.25, 3, 6],
+];
+// Pieces start this far past each screen edge, and drift up to this far
+// sideways while falling, so the burst covers the whole width.
+const CONFETTI_EDGE_SPILL = 0.1;
+const CONFETTI_MAX_DRIFT = 220;
 // Longest any single piece could still be falling: max delay (400) + max
 // fallDuration (1800+900=2700) = 3100ms. Kept mounted comfortably past that
 // so every piece finishes its own per-piece fade-out (see ConfettiPiece)
@@ -108,20 +128,36 @@ type ConfettiPieceConfig = {
   fallDuration: number;
   rotations: number;
   drift: number;
+  /** Strip, square or round, for shape variety. */
+  borderRadius: number;
 };
 
+function pickConfettiSize() {
+  let roll = Math.random();
+  for (const [share, min, max] of CONFETTI_SIZES) {
+    if (roll < share) return (min + Math.random() * (max - min)) * CONFETTI_SIZE_SCALE;
+    roll -= share;
+  }
+  return 8 * CONFETTI_SIZE_SCALE;
+}
+
 function buildConfettiPieces(screenWidth: number): ConfettiPieceConfig[] {
+  const spill = screenWidth * CONFETTI_EDGE_SPILL;
   return Array.from({ length: CONFETTI_COUNT }, () => {
-    const size = (6 + Math.random() * 6) * CONFETTI_SIZE_SCALE;
+    const size = pickConfettiSize();
+    const shape = Math.random();
+    // Mostly strips, plus some squares and dots.
+    const height = shape < 0.6 ? size * 0.4 : size;
     return {
-      startX: Math.random() * screenWidth,
+      startX: -spill + Math.random() * (screenWidth + spill * 2),
       color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
       width: size,
-      height: size * 0.4,
+      height,
+      borderRadius: shape >= 0.85 ? size / 2 : 1,
       delay: Math.random() * 400,
       fallDuration: 1800 + Math.random() * 900,
       rotations: (180 + Math.random() * 540) * (Math.random() < 0.5 ? -1 : 1),
-      drift: (Math.random() - 0.5) * 100,
+      drift: (Math.random() - 0.5) * 2 * CONFETTI_MAX_DRIFT,
     };
   });
 }
@@ -156,7 +192,7 @@ function ConfettiPiece({ config, screenHeight }: { config: ConfettiPieceConfig; 
           width: config.width,
           height: config.height,
           backgroundColor: config.color,
-          borderRadius: 1,
+          borderRadius: config.borderRadius,
         },
       ]}
     />
@@ -171,12 +207,18 @@ function pickRandomMeal(excludeId: string | null): MealType {
 export function RandomMealPuller() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [tabVisible, setTabVisible] = useState(false);
+  // The flip-card reveal, then (on "View Details") the full sheet.
   const [revealedMeal, setRevealedMeal] = useState<MealType | null>(null);
+  const [detailMeal, setDetailMeal] = useState<MealType | null>(null);
   const [confettiPieces, setConfettiPieces] = useState<ConfettiPieceConfig[] | null>(null);
+  // Logos (bottom-right) and hearts (bottom-left) popping up alongside the
+  // falling confetti.
+  const [popPieces, setPopPieces] = useState<PopPieceConfig[] | null>(null);
   const lastMealIdRef = useRef<string | null>(null);
   const appearTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const retractTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const confettiStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const tugHintTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const detailTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const confettiFadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const confettiClearTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -196,7 +238,8 @@ export function RandomMealPuller() {
     return () => {
       clearTimeout(appearTimeoutRef.current);
       clearTimeout(retractTimeoutRef.current);
-      clearTimeout(confettiStartTimeoutRef.current);
+      clearTimeout(tugHintTimeoutRef.current);
+      clearTimeout(detailTimeoutRef.current);
       clearTimeout(confettiFadeTimeoutRef.current);
       clearTimeout(confettiClearTimeoutRef.current);
     };
@@ -230,12 +273,31 @@ export function RandomMealPuller() {
     swayAngle.value = SWAY_MAX_DEG * (0.6 + Math.random() * 0.4) * (Math.random() < 0.5 ? -1 : 1);
     swayAngle.value = withSpring(0, SWAY_SPRING);
     retractTimeoutRef.current = setTimeout(retract, IGNORE_TIMEOUT_MS);
-    return () => clearTimeout(retractTimeoutRef.current);
+    tugHintTimeoutRef.current = setTimeout(() => {
+      // Two tugs: dip, spring back, wait, dip again.
+      cordLength.value = withSequence(
+        withTiming(REST_LENGTH + TUG_HINT_DEPTH, { duration: TUG_HINT_DOWN_MS }),
+        withSpring(REST_LENGTH, TUG_HINT_SPRING),
+        withDelay(TUG_HINT_GAP_MS, withTiming(REST_LENGTH + TUG_HINT_DEPTH, { duration: TUG_HINT_DOWN_MS })),
+        withSpring(REST_LENGTH, TUG_HINT_SPRING),
+      );
+    }, TUG_HINT_DELAY_MS);
+    return () => {
+      clearTimeout(retractTimeoutRef.current);
+      clearTimeout(tugHintTimeoutRef.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabVisible]);
 
   function clearIgnoreTimer() {
     clearTimeout(retractTimeoutRef.current);
+    // Grabbed before the hint played: no need to hint.
+    clearTimeout(tugHintTimeoutRef.current);
+  }
+  // A light tick when a pull crosses the reveal point (or on a tap), so the
+  // user feels it "catch".
+  function tick() {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
   }
   function resumeIgnoreTimer() {
     retractTimeoutRef.current = setTimeout(retract, IGNORE_TIMEOUT_MS);
@@ -244,27 +306,59 @@ export function RandomMealPuller() {
     const meal = pickRandomMeal(lastMealIdRef.current);
     lastMealIdRef.current = meal.id ?? null;
     setRevealedMeal(meal);
-
-    // Waits until just after the sheet's own open animation actually
-    // finishes before presenting confetti's Modal — see the comment above
-    // CONFETTI_START_DELAY_MS for why (presenting two Modals in the same
-    // commit silently fails to show the second one on iOS).
-    confettiStartTimeoutRef.current = setTimeout(() => {
-      confettiOpacity.value = 1;
-      setConfettiPieces(buildConfettiPieces(screenWidth));
-      confettiFadeTimeoutRef.current = setTimeout(() => {
-        confettiOpacity.value = withTiming(0, { duration: CONFETTI_EXIT_FADE_MS });
-      }, CONFETTI_LIFETIME_MS - CONFETTI_EXIT_FADE_MS);
-      confettiClearTimeoutRef.current = setTimeout(() => setConfettiPieces(null), CONFETTI_LIFETIME_MS);
-    }, CONFETTI_START_DELAY_MS);
+  }
+  function burstConfetti() {
+    confettiOpacity.value = 1;
+    setConfettiPieces(buildConfettiPieces(screenWidth));
+    setPopPieces(buildCornerPops(screenWidth, screenHeight));
+    confettiFadeTimeoutRef.current = setTimeout(() => {
+      confettiOpacity.value = withTiming(0, { duration: CONFETTI_EXIT_FADE_MS });
+    }, CONFETTI_LIFETIME_MS - CONFETTI_EXIT_FADE_MS);
+    // Kept until both the falling confetti and the slowest pop are done.
+    confettiClearTimeoutRef.current = setTimeout(() => {
+      setConfettiPieces(null);
+      setPopPieces(null);
+    }, Math.max(CONFETTI_LIFETIME_MS, POP_MAX_LIFETIME_MS + 200));
+  }
+  // The card fades out first, then the sheet opens (never two Modals up at
+  // once; see the confetti note above).
+  function openDetails(meal: MealType) {
+    setRevealedMeal(null);
+    setConfettiPieces(null);
+    setPopPieces(null);
+    detailTimeoutRef.current = setTimeout(() => setDetailMeal(meal), DETAIL_AFTER_CARD_MS);
+  }
+  function dismissReveal() {
+    setRevealedMeal(null);
+    setConfettiPieces(null);
+    setPopPieces(null);
+    scheduleNextAppearance();
   }
   function finishCommit() {
     setTabVisible(false);
   }
 
+  // Committed (pull or tap): quick overshoot "snap", then retract while
+  // the card reveal opens: the tab visually delivers the meal and leaves.
+  const commitReveal = () => {
+    "worklet";
+    cordLength.value = withTiming(MAX_PULL + 20, { duration: REVEAL_SNAP_DURATION_MS }, () => {
+      tabOpacity.value = withTiming(0, { duration: REVEAL_RETRACT_DURATION_MS });
+      swayAngle.value = withSpring(0, SWAY_SPRING);
+      cordLength.value = withTiming(0, { duration: REVEAL_RETRACT_DURATION_MS }, (finished) => {
+        if (finished) scheduleOnRN(finishCommit);
+      });
+      scheduleOnRN(openMealSheet);
+    });
+  };
+
+  // Whether this pull has already crossed the reveal point (one tick each).
+  const pastReveal = useSharedValue(false);
+
   const dragGesture = Gesture.Pan()
     .onStart(() => {
       dragStartLength.value = cordLength.value;
+      pastReveal.value = false;
       scheduleOnRN(clearIgnoreTimer);
     })
     .onUpdate((e) => {
@@ -274,19 +368,13 @@ export function RandomMealPuller() {
         Math.min(DRAG_SWAY_MAX_DEG, e.translationX * DRAG_SWAY_SENSITIVITY),
       );
       swayAngle.value = withSpring(targetAngle, DRAG_SWAY_SPRING);
+      const past = e.translationY > REVEAL_DISTANCE;
+      if (past && !pastReveal.value) scheduleOnRN(tick);
+      pastReveal.value = past;
     })
     .onEnd((e) => {
       if (e.translationY > REVEAL_DISTANCE || e.velocityY > REVEAL_VELOCITY) {
-        // Committed: quick overshoot "snap", then retract while the sheet
-        // opens underneath — the tab visually delivers the meal and leaves.
-        cordLength.value = withTiming(MAX_PULL + 20, { duration: REVEAL_SNAP_DURATION_MS }, () => {
-          tabOpacity.value = withTiming(0, { duration: REVEAL_RETRACT_DURATION_MS });
-          swayAngle.value = withSpring(0, SWAY_SPRING);
-          cordLength.value = withTiming(0, { duration: REVEAL_RETRACT_DURATION_MS }, (finished) => {
-            if (finished) scheduleOnRN(finishCommit);
-          });
-          scheduleOnRN(openMealSheet);
-        });
+        commitReveal();
       } else {
         cordLength.value = withTiming(REST_LENGTH, { duration: SPRING_BACK_DURATION_MS });
         // Letting go mid-lean shouldn't leave it hanging crooked — swings
@@ -296,6 +384,16 @@ export function RandomMealPuller() {
         scheduleOnRN(resumeIgnoreTimer);
       }
     });
+
+  // A tap reveals too: pulling is the fun way, but a tap shouldn't be a
+  // dead end. Any drag wins over the tap (Exclusive, pan first).
+  const tapGesture = Gesture.Tap().onEnd((_e, success) => {
+    if (!success) return;
+    scheduleOnRN(clearIgnoreTimer);
+    scheduleOnRN(tick);
+    commitReveal();
+  });
+  const tabGesture = Gesture.Exclusive(dragGesture, tapGesture);
 
   const cordStyle = useAnimatedStyle(() => ({ height: cordLength.value }));
   // Rotates the whole cord+tab group around its top edge — where it hangs
@@ -314,7 +412,7 @@ export function RandomMealPuller() {
     <>
       {tabVisible && (
         <View pointerEvents="box-none" className="absolute left-0 right-0 top-0 items-center">
-          <GestureDetector gesture={dragGesture}>
+          <GestureDetector gesture={tabGesture}>
             <Animated.View
               collapsable={false}
               hitSlop={{ top: 8, bottom: 20, left: 20, right: 20 }}
@@ -332,21 +430,29 @@ export function RandomMealPuller() {
         </View>
       )}
 
-      <MealDetailSheet
+      <MealRevealCard
         meal={revealedMeal}
-        onClose={() => {
-          setRevealedMeal(null);
-          scheduleNextAppearance();
-        }}
+        onLanded={burstConfetti}
+        onViewDetails={openDetails}
+        onDismiss={dismissReveal}
         overlay={
           confettiPieces ? (
             <Animated.View pointerEvents="none" style={confettiContainerStyle} className="absolute left-0 right-0 top-0 bottom-0">
               {confettiPieces.map((piece, i) => (
                 <ConfettiPiece key={i} config={piece} screenHeight={screenHeight} />
               ))}
+              {popPieces?.map((piece, i) => <PopConfettiPiece key={`pop-${i}`} config={piece} />)}
             </Animated.View>
           ) : undefined
         }
+      />
+
+      <MealDetailSheet
+        meal={detailMeal}
+        onClose={() => {
+          setDetailMeal(null);
+          scheduleNextAppearance();
+        }}
       />
     </>
   );
