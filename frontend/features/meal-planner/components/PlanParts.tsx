@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { FlatList, Pressable, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Svg, { Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import { ArrowLeftRight, ChevronRight, Droplets, Dumbbell, Flame, Lock, Pencil, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import type { MacroTargets } from "../utils/macros";
 import { SLOT_LABELS, dayLabel, dayTotals, formatPeso, monthDay, type MealPlan, type PlanDay, type PlannedMeal } from "../utils/generatePlan";
 import { MealImage } from "./ImagePlaceholder";
-import { MacroSection } from "@/frontend/core/meals/components/detail/MacroSection";
 
 // ---- Date selector -----------------------------------------------------------
 
@@ -76,36 +76,86 @@ function SummaryChip({ Icon, color, tint, value, label }: { Icon?: LucideIcon; c
   );
 }
 
-// The selected day at a glance. With a macro goal: a card with the macro
-// donut and legend, and how the day compares to the calorie goal. Without:
-// cost and calories, no macro tracking.
+// Small donut of the macro split: protein / carbs / fat as their share of
+// the calories (4 / 4 / 9 kcal per gram), kcal in the middle.
+function MacroDonut({ calories, protein, carbs, fats }: { calories: number; protein: number; carbs: number; fats: number }) {
+  const size = 58;
+  const stroke = 6;
+  const gap = 3; // px of track between slices
+  const r = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * r;
+  const parts = [
+    { key: "protein", kcal: protein * 4, color: colors.macro.protein },
+    { key: "carbs", kcal: carbs * 4, color: colors.macro.carbs },
+    { key: "fats", kcal: fats * 9, color: colors.macro.fats },
+  ].filter((p) => p.kcal > 0);
+  const total = parts.reduce((sum, p) => sum + p.kcal, 0);
+  let offset = 0;
+  return (
+    <View style={{ width: size, height: size }} className="items-center justify-center">
+      <Svg width={size} height={size} style={{ position: "absolute", transform: [{ rotate: "-90deg" }] }}>
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.webDivider} strokeWidth={stroke} fill="none" />
+        {total > 0 &&
+          parts.map((p) => {
+            const length = Math.max(0, (p.kcal / total) * circumference - gap);
+            const dashOffset = -offset;
+            offset += (p.kcal / total) * circumference;
+            return (
+              <Circle
+                key={p.key}
+                cx={size / 2}
+                cy={size / 2}
+                r={r}
+                stroke={p.color}
+                strokeWidth={stroke}
+                fill="none"
+                strokeDasharray={`${length} ${circumference}`}
+                strokeDashoffset={dashOffset}
+              />
+            );
+          })}
+      </Svg>
+      <Text className="font-inter-bold text-small text-web-ink">{calories.toLocaleString("en-PH")}</Text>
+      <Text className="-mt-0.5 font-inter-regular text-sub text-web-ink-muted">kcal</Text>
+    </View>
+  );
+}
+
+// The selected day at a glance, one compact row. With a macro goal: the
+// macro donut, then protein / carbs / fat as plain stats (dot + label over a
+// bold value), and how the day compares to the calorie goal. Without: cost
+// and calories, no macro tracking.
 export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
   const totals = dayTotals(day, plan.servings);
   if (plan.targets) {
     const calories = Math.round(totals.calories);
     const share = Math.round((calories / plan.targets.calories) * 100);
     return (
-      <View className="gap-3 rounded-2xl border border-web-divider bg-white p-4">
-        <View className="flex-row items-end justify-between">
-          <View>
-            <Text className="font-inter-semibold text-body text-web-ink">Today's nutrition</Text>
-            {/* Macros are one person's portion; prices cover everyone. */}
-            <Text className="mt-0.5 font-inter-regular text-sub text-web-ink-muted">
-              {plan.servings > 1 ? `Per serving · prices for ${plan.servings} people` : "Your plate for the day"}
-            </Text>
-          </View>
-          <Text className="font-inter-regular text-small text-web-ink-muted">
+      <View className="gap-2">
+        <View className="flex-row items-center justify-between">
+          {/* Macros are one person's portion; prices cover everyone. */}
+          <Text className="font-inter-regular text-sub text-web-ink-muted">
+            {plan.servings > 1 ? `Nutrition per serving · prices for ${plan.servings}` : "Your plate today"}
+          </Text>
+          <Text className="font-inter-regular text-sub text-web-ink-muted">
             <Text className="font-inter-bold text-web-ink">{share}%</Text> of {plan.targets.calories.toLocaleString("en-PH")} kcal goal
           </Text>
         </View>
-        {/* Same donut + legend as Meal Details: protein / carbs / fat as their
-            share of the calories, kcal in the middle. */}
-        <MacroSection
-          calories={calories}
-          protein={Math.round(totals.protein)}
-          carbs={Math.round(totals.carbs)}
-          fats={Math.round(totals.fats)}
-        />
+        <View className="flex-row items-center rounded-2xl border border-web-divider bg-white px-3 py-2.5">
+          <MacroDonut calories={calories} protein={totals.protein} carbs={totals.carbs} fats={totals.fats} />
+          {MACROS.map(({ key, label, color }) => (
+            <View key={key} className="flex-1 flex-row">
+              <View className="mx-2 w-px self-stretch bg-web-divider" />
+              <View className="flex-1 justify-center">
+                <View className="flex-row items-center gap-1.5">
+                  <View className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                  <Text className="font-inter-regular text-sub text-web-ink-muted">{label}</Text>
+                </View>
+                <Text className="mt-0.5 font-inter-bold text-subheading text-web-ink">{Math.round(totals[key])}g</Text>
+              </View>
+            </View>
+          ))}
+        </View>
       </View>
     );
   }
