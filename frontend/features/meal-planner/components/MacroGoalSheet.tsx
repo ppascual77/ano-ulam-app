@@ -194,7 +194,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
                 ].map(({ Icon, text }) => (
                   <View key={text} className="flex-row items-center gap-3">
                     <Icon color={colors.brandGreen.DEFAULT} size={20} />
-                    <Text className="font-inter-medium text-body text-web-ink-soft">{text}</Text>
+                    <Text className="font-inter-medium text-subheading text-web-ink-soft">{text}</Text>
                   </View>
                 ))}
               </View>
