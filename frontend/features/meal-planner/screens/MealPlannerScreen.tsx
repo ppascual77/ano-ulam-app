@@ -205,7 +205,6 @@ export default function MealPlannerScreen() {
                     key={item.slot}
                     item={item}
                     active={i === selectedMeal}
-                    showMacros={!!plan.targets}
                     servings={plan.servings}
                     // First tap brings it into the hero; tapping the one
                     // already there opens its recipe.

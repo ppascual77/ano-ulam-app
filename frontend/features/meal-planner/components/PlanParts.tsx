@@ -247,7 +247,6 @@ type MealListRowProps = {
   item: PlannedMeal;
   /** The meal showing in the hero: highlighted. */
   active: boolean;
-  showMacros: boolean;
   servings: number;
   onPress: () => void;
 };
@@ -261,10 +260,10 @@ const ROW_ACTIVE_BORDER = "rgb(204,226,219)";
 const HIGHLIGHT_MS = 250;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-// A light index under the hero (which carries the detail): thumbnail, name,
-// one quiet line (kcal, plus cost without a macro goal), ›. Tap to bring the
+// A light index under the hero (which carries the nutrition detail):
+// thumbnail, name, the meal's cost for everyone eating, ›. Tap to bring the
 // meal into the hero.
-export function MealListRow({ item, active, showMacros, servings, onPress }: MealListRowProps) {
+export function MealListRow({ item, active, servings, onPress }: MealListRowProps) {
   const { meal } = item;
   const perPerson = Number(meal.price) / (meal.serving_size ?? 1);
   // The highlight fades between rows when the hero changes (swipe or tap).
@@ -289,7 +288,8 @@ export function MealListRow({ item, active, showMacros, servings, onPress }: Mea
           {meal.name}
         </Text>
         <Text className="font-inter-regular text-small text-web-ink-muted">
-          {showMacros ? `${meal.calories} kcal` : `~${formatPeso(perPerson * servings)}${servings > 1 ? ` for ${servings}` : ""} · ${meal.calories} kcal`}
+          ~{formatPeso(perPerson * servings)}
+          {servings > 1 ? ` for ${servings}` : ""}
         </Text>
       </View>
       <ChevronRight color={colors.webInk.muted} size={18} />
