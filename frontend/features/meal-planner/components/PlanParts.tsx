@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { FlatList, Pressable, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
-import { ArrowLeftRight, ChevronRight, Droplets, Dumbbell, Lock, Moon, Pencil, RefreshCw, Sun, UtensilsCrossed, Wheat, type LucideIcon } from "lucide-react-native";
+import { ArrowLeftRight, ChevronRight, Droplets, Dumbbell, Lock, Pencil, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import type { MacroTargets } from "../utils/macros";
-import type { MealSlot } from "../mock/plannerMeals";
 import { SLOT_LABELS, dayLabel, dayTotals, formatPeso, monthDay, type MealPlan, type PlanDay, type PlannedMeal } from "../utils/generatePlan";
 import { MealImage } from "./ImagePlaceholder";
 
@@ -226,12 +225,6 @@ export function HeroCarousel({ day, dayIndex, width, selected, onChange, onOpen 
 
 // ---- Meal list ---------------------------------------------------------------------
 
-const SLOT_STYLE: Record<MealSlot, { Icon: LucideIcon; color: string }> = {
-  breakfast: { Icon: Sun, color: colors.brandOrange },
-  lunch: { Icon: UtensilsCrossed, color: colors.brandGreen.DEFAULT },
-  dinner: { Icon: Moon, color: colors.webInk.soft },
-};
-
 type MealListRowProps = {
   item: PlannedMeal;
   /** The meal showing in the hero: highlighted. */
@@ -241,10 +234,9 @@ type MealListRowProps = {
   onPress: () => void;
 };
 
-// Compact row: thumbnail, slot label, name, macros (or cost), ›.
+// Compact row: thumbnail, name, macros (or cost), ›.
 export function MealListRow({ item, active, showMacros, servings, onPress }: MealListRowProps) {
-  const { meal, slot } = item;
-  const { Icon, color } = SLOT_STYLE[slot];
+  const { meal } = item;
   const perPerson = Number(meal.price) / (meal.serving_size ?? 1);
   return (
     <Pressable
@@ -254,10 +246,6 @@ export function MealListRow({ item, active, showMacros, servings, onPress }: Mea
     >
       <MealImage meal={meal} height={64} width={64} rounded="rounded-xl" />
       <View className="flex-1 gap-0.5">
-        <View className="flex-row items-center gap-1">
-          <Icon color={color} size={12} />
-          <Text className="font-inter-medium text-sub text-web-ink-muted">{SLOT_LABELS[slot]}</Text>
-        </View>
         <Text numberOfLines={1} className="font-inter-semibold text-body text-web-ink">
           {meal.name}
         </Text>
