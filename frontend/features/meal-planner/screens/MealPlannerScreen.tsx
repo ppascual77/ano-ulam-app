@@ -24,13 +24,17 @@ import { LockedDaySheet, SwapMealSheet } from "../components/PlannerSheets";
 // plan from today. Free users get day 1; days 2-5 and the upgrade prompts
 // open a light upgrade sheet whose "Unlock Premium" is a mock unlock.
 // No Grocery List yet.
+const MOCK_NAME = "Patrick";
+
 export default function MealPlannerScreen() {
   const store = usePlannerStore();
   const { pool } = usePlannerPool();
   const { session } = useAuth();
   const meta = session?.user.user_metadata ?? {};
-  const fullName = (meta.full_name as string | undefined) ?? (meta.name as string | undefined) ?? null;
-  const firstName = fullName?.split(" ")[0] ?? null;
+  // The signed-in user's name; without a session (dev on a device), the
+  // same mock name Home's header uses.
+  const fullName = (meta.full_name as string | undefined) ?? (meta.name as string | undefined) ?? MOCK_NAME;
+  const firstName = fullName.split(" ")[0];
   const avatarUrl = (meta.avatar_url as string | undefined) ?? (meta.picture as string | undefined);
 
   const [macroSheetOpen, setMacroSheetOpen] = useState(false);
@@ -79,19 +83,13 @@ export default function MealPlannerScreen() {
             <View className="ml-4 mr-2 flex-row items-center justify-between">
               <View>
                 <AppText variant="title">
-                  {firstName ? (
-                    <>
-                      Hello, <Text className="font-inter-bold text-primary">{firstName}</Text>
-                    </>
-                  ) : (
-                    "Hello"
-                  )}
+                  Hello, <Text className="font-inter-bold text-primary">{firstName}</Text>
                 </AppText>
                 <AppText variant="heading">Let's plan your week</AppText>
               </View>
               <View className="flex-row items-center gap-2">
                 {devPill}
-                <Avatar name={fullName ?? "Guest"} imageUri={avatarUrl} size={48} />
+                <Avatar name={fullName} imageUri={avatarUrl} size={48} />
               </View>
             </View>
 
