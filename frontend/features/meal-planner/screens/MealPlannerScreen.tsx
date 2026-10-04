@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
+import { Image } from "expo-image";
 import Animated, { FadeIn, FadeInRight, FadeInUp } from "react-native-reanimated";
 import { ArrowLeft, MoreHorizontal, Pencil } from "lucide-react-native";
 import { Avatar, Button, Dropdown, Screen, Toast, type ToastState } from "@/frontend/components/ui";
@@ -17,7 +18,6 @@ import { MacroGoalSheet } from "../components/MacroGoalSheet";
 import { GeneratingView } from "../components/GeneratingView";
 import { DateSelector, DayHeader, PlanMealRow, PremiumSummary, RestOfWeekCard, UpgradeBanner } from "../components/PlanParts";
 import { LockedDaySheet, SwapMealSheet } from "../components/PlannerSheets";
-import { ImagePlaceholder } from "../components/ImagePlaceholder";
 
 // Meal Planner (test build of the flow): setup (budget, people, optional
 // macro goal) -> a short timed "Planning your week" checklist -> a 5-day
@@ -89,7 +89,9 @@ export default function MealPlannerScreen() {
             </View>
 
             <View className="items-center gap-3 py-2">
-              <ImagePlaceholder kind="hero" height={130} width={170} rounded="rounded-3xl" />
+              {/* Reuses onboarding's meal-planning illustration until the
+                  planner's own hero asset arrives. */}
+              <Image source={require("@/assets/onboarding/slide-3.gif")} style={{ width: 180, height: 174 }} contentFit="contain" />
               <Text className="max-w-[280px] text-center font-inter-regular text-body text-web-ink-body">
                 Tell us a few details and we'll plan your week for you.
               </Text>
