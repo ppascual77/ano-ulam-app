@@ -10,7 +10,7 @@ import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { usePlannerStore } from "../store/usePlannerStore";
-import { usePlannerPool } from "../hooks/usePlannerPool";
+import { PLAN_WITH_REAL_MEALS_ONLY, usePlannerPool } from "../hooks/usePlannerPool";
 import { PLAN_DAYS, formatPeso, generatePlan, monthDay, swapOptions } from "../utils/generatePlan";
 import type { MealSlot } from "../mock/plannerMeals";
 import { BudgetInput, MacroGoalCard, ServingStepper, parseBudget } from "../components/PlannerInputs";
@@ -29,7 +29,7 @@ const MOCK_NAME = "Patrick";
 
 export default function MealPlannerScreen() {
   const store = usePlannerStore();
-  const { pool } = usePlannerPool();
+  const { pool, isLoading: poolLoading } = usePlannerPool();
   const { session } = useAuth();
   const meta = session?.user.user_metadata ?? {};
   // The signed-in user's name; without a session (dev on a device), the
@@ -51,7 +51,9 @@ export default function MealPlannerScreen() {
   const plan = store.plan;
 
   const build = () => {
-    store.setPlan(generatePlan({ pool, budget, servings: store.servings, targets: store.targets }));
+    store.setPlan(
+      generatePlan({ pool, budget, servings: store.servings, targets: store.targets, ignoreBudget: PLAN_WITH_REAL_MEALS_ONLY }),
+    );
     setSelectedDay(0);
     store.setStage("generating");
   };
@@ -109,7 +111,7 @@ export default function MealPlannerScreen() {
             <MacroGoalCard targets={store.targets} goal={store.goal} onEnable={() => setMacroSheetOpen(true)} onEdit={() => setMacroSheetOpen(true)} />
 
             <View className="mt-2">
-              <Button label="Continue" onPress={build} disabled={budget <= 0} />
+              <Button label="Continue" onPress={build} disabled={budget <= 0 || poolLoading} />
             </View>
           </ScrollView>
         </Animated.View>
@@ -220,7 +222,7 @@ export default function MealPlannerScreen() {
 
       <SwapMealSheet
         slot={swap?.slot ?? null}
-        options={plan && swap ? swapOptions(pool, plan, swap.dayIndex, swap.slot) : []}
+        options={plan && swap ? swapOptions(pool, plan, swap.dayIndex, swap.slot, PLAN_WITH_REAL_MEALS_ONLY) : []}
         showMacros={!!plan?.targets}
         onClose={() => setSwap(null)}
         onSwap={(meal) => {

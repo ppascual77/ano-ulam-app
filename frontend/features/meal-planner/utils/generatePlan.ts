@@ -63,6 +63,8 @@ type GenerateInput = {
   servings: number;
   targets: MacroTargets | null;
   from?: Date;
+  /** Preview only: don't enforce the per-day budget. */
+  ignoreBudget?: boolean;
 };
 
 // Builds a 5-day plan (breakfast, lunch, dinner) within budget: each day
@@ -70,7 +72,7 @@ type GenerateInput = {
 // per day and keeps the best one: under budget first, then (with a macro
 // goal) closest to the calorie and protein targets, and least repetitive.
 // Returns null when no day can be filled within budget.
-export function generatePlan({ pool, budget, servings, targets, from = new Date() }: GenerateInput): MealPlan | null {
+export function generatePlan({ pool, budget, servings, targets, from = new Date(), ignoreBudget = false }: GenerateInput): MealPlan | null {
   const dates = planDates(from);
   const bySlot = Object.fromEntries(SLOTS.map((slot) => [slot, pool.filter((m) => m.slots.includes(slot))])) as Record<
     MealSlot,
@@ -90,7 +92,7 @@ export function generatePlan({ pool, budget, servings, targets, from = new Date(
       // No lunch and dinner the same day.
       if (meals[1].meal.id === meals[2].meal.id) continue;
       const totals = dayTotals({ date, meals }, servings);
-      if (totals.cost > dayBudget) continue;
+      if (!ignoreBudget && totals.cost > dayBudget) continue;
       let score = meals.reduce((sum, { meal }) => sum + (used.get(meal.id as string) ?? 0) * 1.5, 0);
       if (targets) {
         score += Math.abs(totals.calories - targets.calories) / targets.calories;
@@ -108,7 +110,7 @@ export function generatePlan({ pool, budget, servings, targets, from = new Date(
 
 // Other meals for a slot (the Swap sheet), cheapest first, excluding the
 // day's current pick. Kept to ones that keep the day within budget.
-export function swapOptions(pool: PlannerMeal[], plan: MealPlan, dayIndex: number, slot: MealSlot): PlannerMeal[] {
+export function swapOptions(pool: PlannerMeal[], plan: MealPlan, dayIndex: number, slot: MealSlot, ignoreBudget = false): PlannerMeal[] {
   const day = plan.days[dayIndex];
   const current = day.meals.find((m) => m.slot === slot)?.meal;
   const othersCost = day.meals
@@ -117,7 +119,7 @@ export function swapOptions(pool: PlannerMeal[], plan: MealPlan, dayIndex: numbe
   const dayBudget = plan.budget / PLAN_DAYS;
   return pool
     .filter((meal) => meal.slots.includes(slot) && meal.id !== current?.id)
-    .filter((meal) => othersCost + perServing(meal) * plan.servings <= dayBudget)
+    .filter((meal) => ignoreBudget || othersCost + perServing(meal) * plan.servings <= dayBudget)
     .sort((a, b) => perServing(a) - perServing(b));
 }
 
