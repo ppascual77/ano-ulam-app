@@ -173,6 +173,17 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
 
 const SLOT_ICONS: Record<MealSlot, LucideIcon> = { breakfast: CloudSun, lunch: Sun, dinner: Moon };
 
+// Time of day on the hero's top-right corner: cloud-sun for breakfast, sun
+// for lunch, moon for dinner.
+function SlotBadge({ slot }: { slot: MealSlot }) {
+  const Icon = SLOT_ICONS[slot];
+  return (
+    <View pointerEvents="none" className="absolute right-4 top-4 h-8 w-8 items-center justify-center rounded-full bg-white">
+      <Icon color={colors.webInk.DEFAULT} size={17} />
+    </View>
+  );
+}
+
 // ---- Hero carousel ---------------------------------------------------------------
 
 // Dark fade from the left/bottom so the white text reads on any photo.
@@ -272,13 +283,7 @@ export function HeroCarousel({ day, servings, dayIndex, width, selected, onChang
                 </View>
               </View>
             </View>
-            {/* Time of day, top right: cloud-sun breakfast, sun lunch, moon dinner. */}
-            <View pointerEvents="none" className="absolute right-4 top-4 h-8 w-8 items-center justify-center rounded-full bg-white">
-              {(() => {
-                const SlotIcon = SLOT_ICONS[item.slot];
-                return <SlotIcon color={colors.webInk.DEFAULT} size={17} />;
-              })()}
-            </View>
+            <SlotBadge slot={item.slot} />
           </Pressable>
         )}
       />
