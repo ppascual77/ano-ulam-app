@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { FlatList, Pressable, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
-import Svg, { Circle } from "react-native-svg";
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { ArrowLeftRight, ChevronRight, Droplets, Dumbbell, Flame, Lock, Pencil, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
@@ -8,6 +7,7 @@ import { colors } from "@/frontend/constants/theme";
 import type { MacroTargets } from "../utils/macros";
 import { SLOT_LABELS, dayLabel, dayTotals, formatPeso, monthDay, type MealPlan, type PlanDay, type PlannedMeal } from "../utils/generatePlan";
 import { MealImage } from "./ImagePlaceholder";
+import { MacroSection } from "@/frontend/core/meals/components/detail/MacroSection";
 
 // ---- Date selector -----------------------------------------------------------
 
@@ -55,29 +55,6 @@ const MACROS: { key: "protein" | "carbs" | "fats"; letter: string; label: string
   { key: "fats", letter: "F", label: "Fats", Icon: Droplets, color: colors.macro.fats, tint: "bg-macro-fats/10" },
 ];
 
-// Small ring: how much of the calorie target the day reaches.
-function CalorieRing({ share }: { share: number }) {
-  const size = 44;
-  const stroke = 5;
-  const r = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * r;
-  return (
-    <Svg width={size} height={size} style={{ transform: [{ rotate: "-90deg" }] }}>
-      <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.webDivider} strokeWidth={stroke} fill="none" />
-      <Circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        stroke={colors.brandOrange}
-        strokeWidth={stroke}
-        fill="none"
-        strokeLinecap="round"
-        strokeDasharray={`${circumference * Math.min(1, share)} ${circumference}`}
-      />
-    </Svg>
-  );
-}
-
 function SummaryChip({ Icon, color, tint, value, label }: { Icon?: LucideIcon; color?: string; tint?: string; value: string; label: string }) {
   return (
     <View className="flex-1 flex-row items-center gap-1.5 rounded-xl border border-web-divider bg-white px-2 py-1.5">
@@ -99,31 +76,36 @@ function SummaryChip({ Icon, color, tint, value, label }: { Icon?: LucideIcon; c
   );
 }
 
-// The selected day at a glance. With a macro goal: a calorie ring (vs the
-// target) and macro chips. Without: cost and calories, no macro tracking.
+// The selected day at a glance. With a macro goal: a card with the macro
+// donut and legend, and how the day compares to the calorie goal. Without:
+// cost and calories, no macro tracking.
 export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
   const totals = dayTotals(day, plan.servings);
   if (plan.targets) {
+    const calories = Math.round(totals.calories);
+    const share = Math.round((calories / plan.targets.calories) * 100);
     return (
-      <View className="gap-1.5">
-      {/* Macros are one person's portion; prices cover everyone. */}
-      {plan.servings > 1 && (
-        <Text className="font-inter-regular text-sub text-web-ink-muted">
-          Nutrition per serving · prices for {plan.servings} people
-        </Text>
-      )}
-      <View className="flex-row items-center gap-2">
-        <View className="flex-row items-center gap-2 pr-1">
-          <CalorieRing share={totals.calories / plan.targets.calories} />
+      <View className="gap-3 rounded-2xl border border-web-divider bg-white p-4">
+        <View className="flex-row items-end justify-between">
           <View>
-            <Text className="font-inter-regular text-sub text-web-ink-muted">Calories</Text>
-            <Text className="font-inter-bold text-body text-web-ink">{totals.calories.toLocaleString("en-PH")}</Text>
+            <Text className="font-inter-semibold text-body text-web-ink">Today's nutrition</Text>
+            {/* Macros are one person's portion; prices cover everyone. */}
+            <Text className="mt-0.5 font-inter-regular text-sub text-web-ink-muted">
+              {plan.servings > 1 ? `Per serving · prices for ${plan.servings} people` : "Your plate for the day"}
+            </Text>
           </View>
+          <Text className="font-inter-regular text-small text-web-ink-muted">
+            <Text className="font-inter-bold text-web-ink">{share}%</Text> of {plan.targets.calories.toLocaleString("en-PH")} kcal goal
+          </Text>
         </View>
-        {MACROS.map(({ key, label, Icon, color, tint }) => (
-          <SummaryChip key={key} Icon={Icon} color={color} tint={tint} value={`${totals[key]}g`} label={label} />
-        ))}
-      </View>
+        {/* Same donut + legend as Meal Details: protein / carbs / fat as their
+            share of the calories, kcal in the middle. */}
+        <MacroSection
+          calories={calories}
+          protein={Math.round(totals.protein)}
+          carbs={Math.round(totals.carbs)}
+          fats={Math.round(totals.fats)}
+        />
       </View>
     );
   }
@@ -132,7 +114,7 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
     <View className="flex-row gap-2">
       <SummaryChip value={`~${formatPeso(totals.cost)}`} label="Today" />
       <SummaryChip value={`~${formatPeso(weekCost)}`} label={`Week of ${formatPeso(plan.budget)}`} />
-      <SummaryChip value={`${totals.calories.toLocaleString("en-PH")} kcal`} label="Calories" />
+      <SummaryChip value={`${Math.round(totals.calories).toLocaleString("en-PH")} kcal`} label="Calories" />
     </View>
   );
 }
@@ -229,9 +211,9 @@ export function HeroCarousel({ day, servings, dayIndex, width, selected, onChang
                 {servings > 1 && <Text className="mt-1 font-inter-medium text-sub text-white/75">Per serving</Text>}
                 {/* Four equal tiles across the card. */}
                 <View className="mt-1.5 flex-row gap-1.5">
-                  <GlassStat flame value={`${item.meal.calories}`} label="Calories" />
+                  <GlassStat flame value={`${Math.round(item.meal.calories)}`} label="Calories" />
                   {MACROS.map(({ key, label, color }) => (
-                    <GlassStat key={key} color={color} value={`${item.meal[key]}g`} label={label} />
+                    <GlassStat key={key} color={color} value={`${Math.round(item.meal[key])}g`} label={label} />
                   ))}
                 </View>
               </View>

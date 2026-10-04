@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useRealMeals } from "@/frontend/core/meals/hooks/useRealMeals";
+import { scaleMeal } from "@/frontend/core/meals/utils/scaleMeal";
 import { PLANNER_MEALS, type PlannerMeal } from "../mock/plannerMeals";
 
 // Real catalog meals join the planner's pool as lunch/dinner options:
@@ -19,12 +20,15 @@ export const PLAN_WITH_REAL_MEALS_ONLY = true;
 export function usePlannerPool() {
   const { data: realMeals, isLoading } = useRealMeals();
   const pool = useMemo<PlannerMeal[]>(() => {
+    // Real meals store totals for the whole recipe (serving_size servings);
+    // the planner works per person, so each is scaled to one serving first.
+    const oneServing = (realMeals ?? []).map((meal) => scaleMeal(meal, 1));
     if (PLAN_WITH_REAL_MEALS_ONLY) {
-      return (realMeals ?? []).map((meal) => ({ ...meal, slots: ["breakfast", "lunch", "dinner"] as PlannerMeal["slots"] }));
+      return oneServing.map((meal) => ({ ...meal, slots: ["breakfast", "lunch", "dinner"] as PlannerMeal["slots"] }));
     }
-    const real = (realMeals ?? [])
+    const real = oneServing
       .filter((meal) => meal.category !== "fast_food")
-      .filter((meal) => Number(meal.price) / (meal.serving_size ?? 1) <= REAL_MEAL_MAX_PER_SERVING)
+      .filter((meal) => Number(meal.price) <= REAL_MEAL_MAX_PER_SERVING)
       .map((meal) => ({ ...meal, slots: ["lunch", "dinner"] as PlannerMeal["slots"] }));
     return [...PLANNER_MEALS, ...real];
   }, [realMeals]);
