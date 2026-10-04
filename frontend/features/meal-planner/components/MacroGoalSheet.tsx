@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -14,6 +14,7 @@ import {
   Flame,
   Footprints,
   Leaf,
+  Lock,
   Lightbulb,
   Pencil,
   Percent,
@@ -69,7 +70,7 @@ function Title({ title, body, centered = false }: { title: string; body: string;
   return (
     <View className={centered ? "items-center" : ""}>
       <Text className={`font-inter-semibold text-heading text-web-ink ${align}`}>{title}</Text>
-      <Text className={`mt-1 px-4 font-inter-regular text-body text-web-ink-muted ${align}`}>{body}</Text>
+      <Text className={`mt-1 font-inter-regular text-body text-web-ink-muted ${centered ? "px-4 text-center" : ""}`}>{body}</Text>
     </View>
   );
 }
@@ -90,6 +91,66 @@ function StatField({ Icon, label, value, onChange, decimal }: { Icon: LucideIcon
         />
       </View>
     </View>
+  );
+}
+
+// Steps after the intro, for "Step n of 3" and the progress bar.
+const PROGRESS_STEPS: Step[] = ["stats", "goal", "targets"];
+
+function StepProgress({ step }: { step: Step }) {
+  const index = PROGRESS_STEPS.indexOf(step);
+  if (index < 0) return null;
+  return (
+    <View className="gap-2">
+      <Text className="font-inter-semibold text-sub uppercase tracking-widest text-brand-green">
+        Step {index + 1} of {PROGRESS_STEPS.length}
+      </Text>
+      <View className="flex-row gap-1.5">
+        {PROGRESS_STEPS.map((s, i) => (
+          <View key={s} className={`h-1 flex-1 rounded-full ${i <= index ? "bg-brand-green" : "bg-web-divider"}`} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// One stat in the 2-column grid: icon circle, label, then a big value with
+// its unit right after it. The whole tile focuses the input; the border
+// turns green while typing.
+function StatTile({ Icon, label, unit, value, onChange, decimal, hint }: { Icon: LucideIcon; label: string; unit: string; value: string; onChange: (v: string) => void; decimal?: boolean; hint?: string }) {
+  const input = useRef<TextInput>(null);
+  const [focused, setFocused] = useState(false);
+  return (
+    <Pressable
+      onPress={() => input.current?.focus()}
+      className={`flex-1 gap-2 rounded-2xl border bg-white p-3 ${focused ? "border-brand-green" : "border-web-divider"}`}
+    >
+      <View className="flex-row items-center gap-2">
+        <View className="h-7 w-7 items-center justify-center rounded-full bg-brand-green/10">
+          <Icon color={colors.brandGreen.DEFAULT} size={14} />
+        </View>
+        <Text className="flex-1 font-inter-medium text-small text-web-ink-body" numberOfLines={1}>
+          {label}
+        </Text>
+      </View>
+      <View className="flex-row items-baseline gap-1">
+        <TextInput
+          ref={input}
+          value={value}
+          onChangeText={onChange}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder="—"
+          placeholderTextColor={colors.webInk.faint}
+          keyboardType={decimal ? "decimal-pad" : "number-pad"}
+          maxLength={5}
+          className="min-w-[28px] font-inter-bold text-heading text-web-ink"
+          style={{ padding: 0 }}
+        />
+        <Text className="font-inter-medium text-body text-web-ink-muted">{unit}</Text>
+      </View>
+      {hint && <Text className="font-inter-regular text-sub text-web-ink-muted">{hint}</Text>}
+    </Pressable>
   );
 }
 
@@ -183,6 +244,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
       <View className="px-6 pb-10 pt-3">
         {/* Keyed by step: each step fades in. */}
         <Animated.View key={step} entering={FadeIn.duration(220)} className="gap-5">
+          <StepProgress step={step} />
           {step === "intro" && (
             <>
               <Title centered title="Set your nutrition goal" body="We'll use your stats to calculate your daily calorie and macro targets for a more personalized meal plan." />
@@ -206,25 +268,41 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
             <>
               <Title title="Your stats" body="This helps us calculate your calorie and macro targets." />
               <View className="gap-3">
-                <StatField Icon={Scale} label="Weight (kg)" value={draft.weight} onChange={(v) => set("weight", v)} decimal />
-                <StatField Icon={Ruler} label="Height (cm)" value={draft.height} onChange={(v) => set("height", v)} />
-                <StatField Icon={Calendar} label="Age" value={draft.age} onChange={(v) => set("age", v)} />
-                <View className="flex-row items-center gap-3 rounded-xl bg-web-divider/70 px-4 py-3">
-                  <Text className="flex-1 font-inter-regular text-small text-web-ink-muted">Sex</Text>
-                  {(["male", "female"] as Sex[]).map((sex) => (
-                    <Pressable
-                      key={sex}
-                      onPress={() => set("sex", sex)}
-                      className={`rounded-lg border px-4 py-1.5 ${draft.sex === sex ? "border-brand-green bg-brand-green/10" : "border-web-divider bg-white"}`}
-                    >
-                      <Text className={`font-inter-medium text-small ${draft.sex === sex ? "text-brand-green" : "text-web-ink-soft"}`}>
-                        {sex === "male" ? "Male" : "Female"}
-                      </Text>
-                    </Pressable>
-                  ))}
+                <View className="flex-row gap-3">
+                  <StatTile Icon={Scale} label="Weight" unit="kg" value={draft.weight} onChange={(v) => set("weight", v)} decimal />
+                  <StatTile Icon={Ruler} label="Height" unit="cm" value={draft.height} onChange={(v) => set("height", v)} />
                 </View>
-                <StatField Icon={Percent} label="Body fat % (optional)" value={draft.bodyFat} onChange={(v) => set("bodyFat", v)} decimal />
+                <View className="flex-row gap-3">
+                  <StatTile Icon={Calendar} label="Age" unit="yrs" value={draft.age} onChange={(v) => set("age", v)} />
+                  <StatTile Icon={Percent} label="Body fat" unit="%" value={draft.bodyFat} onChange={(v) => set("bodyFat", v)} decimal hint="Optional" />
+                </View>
+
+                {/* Segmented control: a soft track with the selected half raised. */}
+                <View className="flex-row rounded-2xl bg-web-divider/70 p-1">
+                  {(["male", "female"] as Sex[]).map((sex) => {
+                    const selected = draft.sex === sex;
+                    return (
+                      <Pressable
+                        key={sex}
+                        onPress={() => set("sex", sex)}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected }}
+                        className={`flex-1 items-center rounded-xl py-2.5 ${selected ? "bg-white shadow-sm" : ""}`}
+                      >
+                        <Text className={`font-inter-semibold text-body ${selected ? "text-brand-green" : "text-web-ink-muted"}`}>
+                          {sex === "male" ? "Male" : "Female"}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
+
+              <View className="flex-row items-center justify-center gap-1.5">
+                <Lock color={colors.webInk.muted} size={12} />
+                <Text className="font-inter-regular text-small text-web-ink-muted">Only used to calculate your targets.</Text>
+              </View>
+
               <Button label="Continue" icon={<ArrowRight color={colors.white} size={18} />} iconPosition="right" onPress={() => setStep("goal")} disabled={!stats} />
             </>
           )}
