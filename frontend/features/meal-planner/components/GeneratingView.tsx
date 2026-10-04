@@ -7,8 +7,11 @@ import { Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { Image } from "expo-image";
 
-// Mock generation: a timed checklist (no backend wait), ~3.3s in total.
+// Mock generation: a timed checklist (no backend wait), ~4s in total.
 const STEP_MS = 650;
+// Per-step length multiplier, by index: "Planning your 5 days" (the 4th)
+// takes twice as long, like the heavy part of the work.
+const STEP_DURATION_FACTOR: Record<number, number> = { 3: 2 };
 
 // Each step reads as work in progress, then as done (past tense).
 type Step = { title: string; detail: string; doneDetail: string };
@@ -106,7 +109,7 @@ export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone }: Gener
       const timer = setTimeout(onDone, 450);
       return () => clearTimeout(timer);
     }
-    const timer = setTimeout(() => setActive((i) => i + 1), STEP_MS);
+    const timer = setTimeout(() => setActive((i) => i + 1), STEP_MS * (STEP_DURATION_FACTOR[active] ?? 1));
     return () => clearTimeout(timer);
   }, [active]);
 
