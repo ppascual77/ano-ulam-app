@@ -83,7 +83,7 @@ export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone }: Gener
         </Text>
       </View>
 
-      <View className="mt-6 flex-row items-center gap-3">
+      <View className="mx-7 mt-6 flex-row items-center gap-3">
         <View className="h-1.5 flex-1 overflow-hidden rounded-full bg-web-divider">
           <Animated.View style={barStyle} className="h-full rounded-full bg-brand-green" />
         </View>
@@ -92,7 +92,7 @@ export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone }: Gener
         </Text>
       </View>
 
-      <View className="mt-6 gap-4">
+      <View className="mx-7 mt-6 gap-4">
         {list.map((step, i) => {
           const state = i < active ? "done" : i === active ? "active" : "pending";
           const done = state === "done";
