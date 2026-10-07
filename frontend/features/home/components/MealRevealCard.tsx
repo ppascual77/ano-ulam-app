@@ -14,11 +14,14 @@ import * as Haptics from "expo-haptics";
 import { scheduleOnRN } from "react-native-worklets";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
+import { SlotPicker, type Reel, useSlotSounds } from "./SlotPicker";
+import { SunburstBackdrop } from "./SunburstBackdrop";
 
 // Zoom and spin share one timeline: quick at first, then slowing down
 // before it settles face up (a gentle ease-out, not the steep cubic one
-// that spun out while the card was still tiny).
-const REVEAL_MS = 1600;
+// that spun out while the card was still tiny). 1600 / 1.2: the spin runs
+// 20% faster than it first did.
+const REVEAL_MS = 1330;
 const EXIT_MS = 220;
 // Starts face down (180°) and lands face up: END_DEG must be a multiple
 // of 360 (front facing). 1080 = 2.5 turns.
@@ -45,13 +48,16 @@ type MealRevealCardProps = {
   onDismiss: () => void;
   /** Rendered above the card (the confetti). */
   overlay?: ReactNode;
+  /** Slot reel (see SlotPicker's buildReel). When given, the reel spins
+   *  and lands on the meal first, then the card reveal plays. */
+  reel?: Reel;
 };
 
 // "Surprise me" reveal: a small face-down card (green back, white logo)
 // zooms in while flipping and lands face up showing the picked meal: its
 // photo with the name, price and a "See the recipe" button over a dark
 // fade. Tap anywhere on it for details.
-export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overlay }: MealRevealCardProps) {
+export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overlay, reel }: MealRevealCardProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const cardHeight = screenHeight * HEIGHT_SHARE;
   const cardWidth = Math.min(screenWidth * 0.68, cardHeight * ASPECT);
@@ -64,20 +70,39 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
   const [shown, setShown] = useState<MealType | null>(meal);
   const progress = useSharedValue(0);
   const fade = useSharedValue(0);
+  // The slot reel is up; the card waits until it has landed.
+  const [spinning, setSpinning] = useState(false);
+  // Loaded here, while the card sits idle on Home, so they're ready the
+  // moment a spin starts.
+  const slotSounds = useSlotSounds();
+  const confettiSound = slotSounds.confetti;
+
+  function startCardReveal() {
+    progress.value = 0;
+    progress.value = withTiming(1, { duration: REVEAL_MS, easing: Easing.out(Easing.quad) }, (finished) => {
+      if (!finished) return;
+      // A firmer haptic as the card settles (the reveal), after the light
+      // mid-spin ticks.
+      scheduleOnRN(thud);
+      // Plays with the confetti (onLanded bursts it).
+      scheduleOnRN(confettiSound);
+      if (onLanded) scheduleOnRN(onLanded);
+    });
+  }
+  function handleReelDone() {
+    setSpinning(false);
+    startCardReveal();
+  }
 
   useEffect(() => {
     if (meal) {
       setShown(meal);
       progress.value = 0;
       fade.value = withTiming(1, { duration: 250 });
-      progress.value = withTiming(1, { duration: REVEAL_MS, easing: Easing.out(Easing.quad) }, (finished) => {
-        if (!finished) return;
-        // A firmer haptic as the card settles (the reveal), after the light
-        // mid-spin ticks.
-        scheduleOnRN(thud);
-        if (onLanded) scheduleOnRN(onLanded);
-      });
+      if (reel) setSpinning(true);
+      else startCardReveal();
     } else if (shown) {
+      setSpinning(false);
       fade.value = withTiming(0, { duration: EXIT_MS }, (finished) => {
         if (finished) scheduleOnRN(setShown, null);
       });
@@ -129,12 +154,15 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
 
   if (!shown) return null;
   // No drop shadow on the faces: edge-on mid-spin it smears into a gray
-  // flicker beside the card. The dimmed backdrop gives enough contrast.
+  // flicker beside the card. The orange backdrop gives enough contrast.
   const face = { width: cardWidth, height: cardHeight };
 
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onDismiss}>
-      <Animated.View style={backdropStyle} className="absolute inset-0 bg-ink-emphasis/60">
+      {/* Full-screen orange sunburst with slowly turning rays (fades in with
+          the card). Tapping anywhere off the card still dismisses. */}
+      <Animated.View style={backdropStyle} className="absolute inset-0">
+        <SunburstBackdrop />
         <Pressable className="flex-1" onPress={onDismiss} accessibilityLabel="Close" />
       </Animated.View>
 
@@ -142,54 +170,58 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
           the card's 3D turn is flattened inside it. Without it React Native
           folds the wrapper away, the card and the backdrop become siblings,
           and iOS depth-sorts them: whichever half of the card tilts "behind"
-          the screen goes under the dim backdrop (a gray half that flips sides). */}
+          the screen goes under the backdrop (a hidden half that flips sides). */}
       <View collapsable={false} pointerEvents="box-none" className="flex-1 items-center justify-center">
-        <Animated.View style={[{ width: cardWidth, height: cardHeight }, cardStyle]}>
-          {/* Back: green with the white logo. */}
-          <Animated.View
-            style={[face, backStyle]}
-            className="absolute items-center justify-center rounded-3xl bg-primary"
-          >
-            {/* Inset white outline, like a playing card's frame, in from the
-                edge by BACK_FRAME_INSET. Corners follow the card's radius
-                minus the gap, but never sharper than 8. */}
-            <View
-              pointerEvents="none"
-              className="absolute border-2 border-white/70"
-              style={{ top: BACK_FRAME_INSET, left: BACK_FRAME_INSET, right: BACK_FRAME_INSET, bottom: BACK_FRAME_INSET, borderRadius: Math.max(8, 24 - BACK_FRAME_INSET) }}
-            />
-            <Image
-              source={require("@/assets/icons/logo_white.png")}
-              style={{ width: cardWidth * 0.32, height: cardWidth * 0.32 * (374 / 255) }}
-              contentFit="contain"
-            />
-          </Animated.View>
-
-          {/* Front: the meal photo, name and price over a dark fade. */}
-          <Animated.View style={[face, frontStyle]} className="absolute overflow-hidden rounded-3xl bg-white">
-            <Pressable onPress={() => onViewDetails(shown)} className="flex-1" accessibilityLabel={`${shown.name}, view details`}>
-              <Image source={resolveMealImage(shown)} style={{ width: "100%", height: "100%" }} contentFit="cover" />
-              <LinearGradient
-                colors={TEXT_SCRIM}
+        {spinning && reel ? (
+          <SlotPicker reel={reel} sounds={slotSounds} onDone={handleReelDone} />
+        ) : (
+          <Animated.View style={[{ width: cardWidth, height: cardHeight }, cardStyle]}>
+            {/* Back: green with the white logo. */}
+            <Animated.View
+              style={[face, backStyle]}
+              className="absolute items-center justify-center rounded-3xl bg-primary"
+            >
+              {/* Inset white outline, like a playing card's frame, in from the
+                  edge by BACK_FRAME_INSET. Corners follow the card's radius
+                  minus the gap, but never sharper than 8. */}
+              <View
                 pointerEvents="none"
-                style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: cardHeight * 0.45 }}
+                className="absolute border-2 border-white/70"
+                style={{ top: BACK_FRAME_INSET, left: BACK_FRAME_INSET, right: BACK_FRAME_INSET, bottom: BACK_FRAME_INSET, borderRadius: Math.max(8, 24 - BACK_FRAME_INSET) }}
               />
-              <View pointerEvents="none" className="absolute bottom-0 left-0 right-0 gap-1 p-5">
-                <Text numberOfLines={2} className="font-inter-bold text-subheading text-white">
-                  {shown.name}
-                </Text>
-                <Text className="font-inter-semibold text-body text-white">
-                  ₱{shown.price}
-                  {shown.buffer_price ? ` – ₱${shown.buffer_price}` : ""}
-                </Text>
-                {/* Looks like a button; the whole card is the tap target. */}
-                <View className="mt-2 self-start rounded-full border border-white px-4 py-1.5">
-                  <Text className="font-inter-semibold text-small text-white">See the recipe</Text>
+              <Image
+                source={require("@/assets/icons/logo_white.png")}
+                style={{ width: cardWidth * 0.32, height: cardWidth * 0.32 * (374 / 255) }}
+                contentFit="contain"
+              />
+            </Animated.View>
+
+            {/* Front: the meal photo, name and price over a dark fade. */}
+            <Animated.View style={[face, frontStyle]} className="absolute overflow-hidden rounded-3xl bg-white">
+              <Pressable onPress={() => onViewDetails(shown)} className="flex-1" accessibilityLabel={`${shown.name}, view details`}>
+                <Image source={resolveMealImage(shown)} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+                <LinearGradient
+                  colors={TEXT_SCRIM}
+                  pointerEvents="none"
+                  style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: cardHeight * 0.45 }}
+                />
+                <View pointerEvents="none" className="absolute bottom-0 left-0 right-0 gap-1 p-5">
+                  <Text numberOfLines={2} className="font-inter-bold text-subheading text-white">
+                    {shown.name}
+                  </Text>
+                  <Text className="font-inter-semibold text-body text-white">
+                    ₱{shown.price}
+                    {shown.buffer_price ? ` – ₱${shown.buffer_price}` : ""}
+                  </Text>
+                  {/* Looks like a button; the whole card is the tap target. */}
+                  <View className="mt-2 self-start rounded-full border border-white px-4 py-1.5">
+                    <Text className="font-inter-semibold text-small text-white">See the recipe</Text>
+                  </View>
                 </View>
-              </View>
-            </Pressable>
+              </Pressable>
+            </Animated.View>
           </Animated.View>
-        </Animated.View>
+        )}
       </View>
 
       {overlay}

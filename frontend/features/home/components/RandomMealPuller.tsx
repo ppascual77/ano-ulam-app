@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Text, View, useWindowDimensions } from "react-native";
+import { View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   interpolate,
@@ -17,6 +17,8 @@ import { mockMeals } from "@/frontend/core/meals/mocks/meals";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { MealRevealCard } from "./MealRevealCard";
+import { buildReel, type Reel } from "./SlotPicker";
+import { HOLE_CENTER_Y, SurpriseTag } from "./SurpriseTag";
 import { POP_MAX_LIFETIME_MS, PopConfettiPiece, buildCornerPops, type PopPieceConfig } from "./CornerPopConfetti";
 
 // A small pull-tab that slides down from the top of Home at random
@@ -52,6 +54,13 @@ const TUG_HINT_DOWN_MS = 160;
 const TUG_HINT_SPRING = { damping: 7, stiffness: 160, mass: 0.6 };
 // Pause between the first tug settling and the second.
 const TUG_HINT_GAP_MS = 1000;
+// Roughly how long the cord's spring-back takes to settle after a tug, so
+// the second tug starts where it always did (dip + settle + gap later).
+const TUG_HINT_SETTLE_MS = 700;
+const TUG_HINT_REPEAT_MS = TUG_HINT_DOWN_MS + TUG_HINT_SETTLE_MS + TUG_HINT_GAP_MS;
+// Each tug also kicks the tag sideways (alternating sides), so it wobbles
+// on the cord instead of just bobbing straight down.
+const TUG_SWAY_DEG = 9;
 const REVEAL_VELOCITY = 800; // same magnitude as BottomSheet's DISMISS_VELOCITY
 
 const SPRING_BACK_DURATION_MS = 220; // mirrors BottomSheet's spring-back
@@ -67,8 +76,11 @@ const REVEAL_RETRACT_DURATION_MS = 250;
 // tab swaying like a pendulum around its top attachment point rather than
 // just a straight-line drop.
 const ENTER_SPRING = { damping: 8, stiffness: 90, mass: 0.6 };
-const SWAY_SPRING = { damping: 4, stiffness: 60, mass: 0.5 };
-const SWAY_MAX_DEG = 30;
+// A slow, lightly damped pendulum (about 1.5s per swing, fading over a few
+// seconds), so the tag keeps lazily swaying the whole time it hangs there
+// rather than settling almost at once.
+const SWAY_SPRING = { damping: 0.7, stiffness: 9, mass: 0.5 };
+const SWAY_MAX_DEG = 16;
 
 // While the user is actively holding/dragging, the tab leans toward
 // wherever their finger has moved horizontally — but a real rope doesn't
@@ -210,6 +222,8 @@ export function RandomMealPuller() {
   // The flip-card reveal, then (on "View Details") the full sheet.
   const [revealedMeal, setRevealedMeal] = useState<MealType | null>(null);
   const [detailMeal, setDetailMeal] = useState<MealType | null>(null);
+  // Slot reel for the current reveal; it lands on revealedMeal.
+  const [reel, setReel] = useState<Reel | undefined>(undefined);
   const [confettiPieces, setConfettiPieces] = useState<ConfettiPieceConfig[] | null>(null);
   // Logos (bottom-right) and hearts (bottom-left) popping up alongside the
   // falling confetti.
@@ -218,6 +232,7 @@ export function RandomMealPuller() {
   const appearTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const retractTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const tugHintTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const tugHint2TimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const detailTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const confettiFadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const confettiClearTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -239,6 +254,7 @@ export function RandomMealPuller() {
       clearTimeout(appearTimeoutRef.current);
       clearTimeout(retractTimeoutRef.current);
       clearTimeout(tugHintTimeoutRef.current);
+      clearTimeout(tugHint2TimeoutRef.current);
       clearTimeout(detailTimeoutRef.current);
       clearTimeout(confettiFadeTimeoutRef.current);
       clearTimeout(confettiClearTimeoutRef.current);
@@ -273,26 +289,36 @@ export function RandomMealPuller() {
     swayAngle.value = SWAY_MAX_DEG * (0.6 + Math.random() * 0.4) * (Math.random() < 0.5 ? -1 : 1);
     swayAngle.value = withSpring(0, SWAY_SPRING);
     retractTimeoutRef.current = setTimeout(retract, IGNORE_TIMEOUT_MS);
-    tugHintTimeoutRef.current = setTimeout(() => {
-      // Two tugs: dip, spring back, wait, dip again.
-      cordLength.value = withSequence(
-        withTiming(REST_LENGTH + TUG_HINT_DEPTH, { duration: TUG_HINT_DOWN_MS }),
-        withSpring(REST_LENGTH, TUG_HINT_SPRING),
-        withDelay(TUG_HINT_GAP_MS, withTiming(REST_LENGTH + TUG_HINT_DEPTH, { duration: TUG_HINT_DOWN_MS })),
-        withSpring(REST_LENGTH, TUG_HINT_SPRING),
-      );
-    }, TUG_HINT_DELAY_MS);
+    // Two tugs: dip, spring back, wait, dip again. Each one kicks the tag
+    // to the opposite side so it wobbles back through center.
+    const firstSide = Math.random() < 0.5 ? -1 : 1;
+    tugHintTimeoutRef.current = setTimeout(() => tug(firstSide), TUG_HINT_DELAY_MS);
+    tugHint2TimeoutRef.current = setTimeout(() => tug(-firstSide), TUG_HINT_DELAY_MS + TUG_HINT_REPEAT_MS);
     return () => {
       clearTimeout(retractTimeoutRef.current);
       clearTimeout(tugHintTimeoutRef.current);
+      clearTimeout(tugHint2TimeoutRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabVisible]);
 
+  // One hint tug: the cord dips and springs back while the tag is kicked to
+  // `side` and swings back on the slow pendulum spring.
+  function tug(side: number) {
+    cordLength.value = withSequence(
+      withTiming(REST_LENGTH + TUG_HINT_DEPTH, { duration: TUG_HINT_DOWN_MS }),
+      withSpring(REST_LENGTH, TUG_HINT_SPRING),
+    );
+    swayAngle.value = withSequence(
+      withTiming(side * TUG_SWAY_DEG, { duration: TUG_HINT_DOWN_MS }),
+      withSpring(0, SWAY_SPRING),
+    );
+  }
   function clearIgnoreTimer() {
     clearTimeout(retractTimeoutRef.current);
     // Grabbed before the hint played: no need to hint.
     clearTimeout(tugHintTimeoutRef.current);
+    clearTimeout(tugHint2TimeoutRef.current);
   }
   // A light tick when a pull crosses the reveal point (or on a tap), so the
   // user feels it "catch".
@@ -305,6 +331,8 @@ export function RandomMealPuller() {
   function openMealSheet() {
     const meal = pickRandomMeal(lastMealIdRef.current);
     lastMealIdRef.current = meal.id ?? null;
+    // The reel spins through the available meals and always lands on this one.
+    setReel(buildReel(meal.name, mockMeals.map((m) => m.name)));
     setRevealedMeal(meal);
   }
   function burstConfetti() {
@@ -420,10 +448,10 @@ export function RandomMealPuller() {
               className="items-center"
             >
               <Animated.View style={cordStyle} className="w-[3px] rounded-full bg-ink-emphasis/20" />
-              <View className="rounded-lg bg-tag-bg px-3 py-1.5 shadow-md">
-                <Text className="font-handwritten text-ink-emphasis" style={{ fontSize: 18, lineHeight: 20 }} numberOfLines={1}>
-                  Surprise me
-                </Text>
+              {/* Pulled up over the cord's end so the cord reads as tied
+                  through the tag's punch hole. */}
+              <View style={{ marginTop: -HOLE_CENTER_Y }}>
+                <SurpriseTag />
               </View>
             </Animated.View>
           </GestureDetector>
@@ -432,6 +460,7 @@ export function RandomMealPuller() {
 
       <MealRevealCard
         meal={revealedMeal}
+        reel={reel}
         onLanded={burstConfetti}
         onViewDetails={openDetails}
         onDismiss={dismissReveal}
