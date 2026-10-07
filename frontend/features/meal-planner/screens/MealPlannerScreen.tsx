@@ -152,6 +152,7 @@ export default function MealPlannerScreen() {
         <Animated.View key="generating" entering={FadeIn.duration(250)} className="flex-1">
           <GeneratingView
             budgetLabel={formatPeso(budget)}
+            meals={pool}
             hasMacros={!!store.targets}
             onBack={() => store.setStage("setup")}
             onDone={() => store.setStage(plan ? "plan" : "error")}
