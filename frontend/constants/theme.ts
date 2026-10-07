@@ -45,6 +45,11 @@ export const colors = {
     // tailwind.config.js's colors.notice).
     icon: "#F59E0B",
   },
+  tag: {
+    // SurpriseTag's paper fill (an SVG fill, so it can't take a className).
+    // Same value as tailwind.config.js's tag.bg.
+    bg: "#F2EDE1",
+  },
 } as const;
 
 export const fonts = {
