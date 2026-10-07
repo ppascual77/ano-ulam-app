@@ -14,6 +14,7 @@ export { Carousel } from "./Carousel";
 export { BottomSheet } from "./BottomSheet";
 export { ConfirmSheet } from "./ConfirmSheet";
 export { Toggle } from "./Toggle";
+export { SegmentedSwitch } from "./SegmentedSwitch";
 export { NoticeBanner } from "./NoticeBanner";
 export { LoadingState } from "./LoadingState";
 export { ErrorState } from "./ErrorState";

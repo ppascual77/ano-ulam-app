@@ -1,19 +1,11 @@
 import { ReactNode } from "react";
 import { Linking, Pressable, Text, View } from "react-native";
-import {
-  ChartColumn,
-  Database,
-  Droplet,
-  Dumbbell,
-  ExternalLink,
-  Flame,
-  ShoppingCart,
-  Wheat,
-} from "lucide-react-native";
+import { ChartColumn, Database, ExternalLink, ShoppingCart } from "lucide-react-native";
 import { Card, Chips } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { getUsdaSourceUrl } from "@/api/ingredients";
 import type { IngredientType, PriceSourceType } from "../../mealTypes";
+import { MicronutrientList, hasMicronutrients } from "./MicronutrientList";
 
 // The three sections of IngredientDetailSheet: what this amount contains,
 // where that nutrition data comes from, and where the price comes from.
@@ -32,18 +24,17 @@ function Section({ title, description, children }: { title: string; description?
 // Nutrition in this amount
 // ---------------------------------------------------------------------------
 
-function Macro({ icon, value, label }: { icon: ReactNode; value: string; label: string }) {
+// One tile: a colored dot, the value big, the label small under it.
+function MacroTile({ color, value, label }: { color: string; value: string; label: string }) {
   return (
-    <View className="flex-1 items-center gap-1">
-      {icon}
-      <Text className="mt-1 font-inter-bold text-subheading text-ink-emphasis">{value}</Text>
-      <Text className="font-inter-regular text-body text-ink-subtle">{label}</Text>
+    <View className="flex-1 rounded-2xl border border-web-divider bg-web-divider/40 px-3 py-3">
+      <View className="h-3 w-3 rounded-full" style={{ backgroundColor: color }} />
+      <Text className="mt-3 font-inter-extrabold text-subheading text-ink-emphasis" numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
+      <Text className="font-inter-regular text-small text-ink-subtle">{label}</Text>
     </View>
   );
-}
-
-function MacroDivider() {
-  return <View className="w-px self-stretch bg-ink-emphasis/10" />;
 }
 
 type NutritionItem = Pick<IngredientType, "calories" | "protein" | "fats" | "carbs" | "calculationError" | "note">;
@@ -60,32 +51,38 @@ export function NutritionSection({ item }: { item: NutritionItem }) {
       title="Nutrition in this amount"
       description="What this ingredient adds to your meal at the quantity used, adjusted to your servings."
     >
-      <View className="rounded-2xl bg-primary/5 px-3 py-4">
-        {item.calories != null ? (
-          <View className="flex-row">
-            {/* Same per-macro colors as the rest of the app (MacroBreakdown),
-                with accent orange for calories. */}
-            <Macro icon={<Flame color={colors.accent} size={20} />} value={`${Math.round(item.calories)}`} label="kcal" />
-            <MacroDivider />
-            <Macro
-              icon={<Dumbbell color={colors.macro.protein} size={20} />}
-              value={`${(item.protein ?? 0).toFixed(1)}g`}
-              label="Protein"
-            />
-            <MacroDivider />
-            <Macro icon={<Droplet color={colors.macro.fats} size={20} />} value={`${(item.fats ?? 0).toFixed(1)}g`} label="Fat" />
-            <MacroDivider />
-            <Macro icon={<Wheat color={colors.macro.carbs} size={20} />} value={`${(item.carbs ?? 0).toFixed(1)}g`} label="Carbs" />
-          </View>
-        ) : (
-          item.calculationError && (
-            <Text className="px-2 font-inter-medium text-body text-like">Can't calculate: {item.calculationError}</Text>
-          )
-        )}
-        {/* For every viewer, not an admin-only diagnostic — explains why the
-            counted amount differs from the quantity shown above it (e.g.
-            "1 cup" used for frying, but only a fraction gets absorbed). */}
-        {item.note && <Text className="mt-4 px-2 font-inter-regular text-small text-ink-subtle">{item.note}</Text>}
+      {item.calories != null ? (
+        <View className="flex-row gap-2">
+          {/* Same per-macro colors as the rest of the app (MacroBreakdown),
+              with accent orange for calories. */}
+          <MacroTile color={colors.accent} value={`${Math.round(item.calories)}`} label="kcal" />
+          <MacroTile color={colors.macro.protein} value={`${(item.protein ?? 0).toFixed(1)}g`} label="Protein" />
+          <MacroTile color={colors.macro.fats} value={`${(item.fats ?? 0).toFixed(1)}g`} label="Fat" />
+          <MacroTile color={colors.macro.carbs} value={`${(item.carbs ?? 0).toFixed(1)}g`} label="Carbs" />
+        </View>
+      ) : (
+        item.calculationError && (
+          <Text className="font-inter-medium text-body text-like">Can't calculate: {item.calculationError}</Text>
+        )
+      )}
+      {/* For every viewer, not an admin-only diagnostic — explains why the
+          counted amount differs from the quantity shown above it (e.g.
+          "1 cup" used for frying, but only a fraction gets absorbed). */}
+      {item.note && <Text className="mt-3 font-inter-regular text-small text-ink-subtle">{item.note}</Text>}
+    </Section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Micronutrients
+// ---------------------------------------------------------------------------
+
+export function MicronutrientSection({ item }: { item: Pick<IngredientType, "fiber" | "sugar" | "sodium"> }) {
+  if (!hasMicronutrients(item)) return null;
+  return (
+    <Section title="Micronutrients" description="Share of a day's recommended amount, based on a 2,000-calorie diet.">
+      <View className="rounded-2xl border border-web-divider bg-web-divider/40 p-4">
+        <MicronutrientList values={item} />
       </View>
     </Section>
   );

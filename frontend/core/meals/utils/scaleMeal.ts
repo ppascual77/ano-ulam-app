@@ -19,6 +19,9 @@ export function scaleIngredient(ingredient: IngredientType, scale: number): Ingr
     protein: ingredient.protein != null ? ingredient.protein * scale : undefined,
     carbs: ingredient.carbs != null ? ingredient.carbs * scale : undefined,
     fats: ingredient.fats != null ? ingredient.fats * scale : undefined,
+    fiber: ingredient.fiber != null ? ingredient.fiber * scale : undefined,
+    sugar: ingredient.sugar != null ? ingredient.sugar * scale : undefined,
+    sodium: ingredient.sodium != null ? ingredient.sodium * scale : undefined,
   };
 }
 

@@ -1,8 +1,20 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
-import Animated, { SlideInLeft, SlideInRight } from "react-native-reanimated";
+import Animated, {
+  FadeIn,
+  SlideInLeft,
+  SlideInRight,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import {
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
   Archive,
   Bookmark,
   Heart,
@@ -18,16 +30,17 @@ import {
   Users,
   Leaf,
   Info,
-  ChevronRight,
   ArrowLeft,
   Trash2,
 } from "lucide-react-native";
-import { AppText, Button, Card, Chips, NoticeBanner } from "@/frontend/components/ui";
+import { AppText, Button, Card, Chips, NoticeBanner, SegmentedSwitch } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealInfoPill } from "../MealInfoPill";
 import { MacroSection } from "./MacroSection";
+import { MicronutrientList, hasMicronutrients, type Micronutrients } from "./MicronutrientList";
 import { RelatedMeals } from "./RelatedMeals";
 import { resolveMealImage } from "../../resolveMealImage";
+import { ingredientCategoryIcon } from "../../ingredientCategory";
 import { scaleIngredient } from "../../utils/scaleMeal";
 import { DIETARY_ICONS, capitalize } from "../../utils/dietary";
 import type { IngredientType, MealType } from "../../mealTypes";
@@ -53,31 +66,46 @@ type IngredientRowProps = {
   onPress?: () => void;
 };
 
-function IngredientRow({ ingredient, onPress }: IngredientRowProps) {
+// Plain water ("Water", "hot water", "tubig", ...): free and nothing to look
+// up, so its row shows no price/N/A and isn't tappable. Not "coconut water".
+const PLAIN_WATER = /^((hot|cold|warm|boiling|tap|mainit na|malamig na)\s+)?(water|tubig)$/i;
+
+function IngredientRow({ ingredient, onPress: onPressProp }: IngredientRowProps) {
   const isMain = ingredient.type === "main";
+  const isWater = PLAIN_WATER.test(ingredient.name.trim());
+  const onPress = isWater ? undefined : onPressProp;
 
   const content = (
     <View className="flex-row items-center justify-between">
-      <View className="flex-1 flex-row flex-wrap items-center gap-1.5 pr-2">
-        <AppText variant="caption">{capitalize(ingredient.name)}</AppText>
-        <View className={`rounded-full px-2 py-2 ${isMain ? "bg-primary/10" : "bg-ink-emphasis/5"}`}>
-          <Text className={`font-inter-semibold text-sub ${isMain ? "text-primary" : "text-ink-subtle"}`}>
-            {isMain ? "Main" : "Pantry"}
-          </Text>
+      <View className="flex-1 flex-row items-center gap-3 pr-2">
+        {/* Category icon (meat, fish, vegetables, ...), fixed size so the
+            names after it stay lined up. */}
+        <Image source={ingredientCategoryIcon(ingredient)} style={{ width: 32, height: 32 }} contentFit="contain" />
+        <View className="flex-1 gap-1">
+          {/* Quantity right after the name, centered with it: a size smaller
+              and a weight lighter so the name still leads. */}
+          <View className="flex-row items-center gap-1.5">
+            {/* Plain Text so semibold is the only weight (AppText's caption
+                variant would bring its own regular weight). */}
+            <Text className="shrink font-inter-semibold text-body leading-5 text-ink-subtle">{capitalize(ingredient.name)}</Text>
+            <Text className="font-inter-light text-small text-ink-subtle">({ingredient.qty})</Text>
+          </View>
+          {/* Main / Pantry chip under the name, sized to its label. */}
+          <View className={`self-start rounded-full px-2 py-1 ${isMain ? "bg-primary/10" : "bg-ink-emphasis/5"}`}>
+            <Text className={`font-inter-semibold text-sub ${isMain ? "text-primary" : "text-ink-subtle"}`}>
+              {isMain ? "Main" : "Pantry"}
+            </Text>
+          </View>
         </View>
       </View>
 
       <View className="flex-row items-center gap-2">
-        {/* Quantity stacked above price, right-aligned, so the two don't
-            compete for width on one line. */}
         <View className="items-end">
-          <AppText variant="caption">{ingredient.qty}</AppText>
           {/* Every ingredient counts toward the meal's price now, pantry
               included, so every card shows its share. */}
-          {ingredient.price != null && ingredient.price > 0 ? (
-            <AppText variant="caption" className="font-inter-semibold text-primary">
-              ~₱{ingredient.price.toFixed(2)}
-            </AppText>
+          {isWater ? null : ingredient.price != null && ingredient.price > 0 ? (
+            // Plain Text so extrabold isn't fighting the caption variant's regular weight.
+            <Text className="font-inter-extrabold text-body leading-5 text-primary">~₱{ingredient.price.toFixed(2)}</Text>
           ) : (
             <View className="flex-row items-center gap-0.5">
               <Info color={colors.ink.subtle} size={9} />
@@ -269,6 +297,55 @@ export function MealDetailContent({
   const displayProtein = Number((meal.protein * scale).toFixed(1));
   const displayCarbs = Number((meal.carbs * scale).toFixed(1));
   const displayFats = Number((meal.fats * scale).toFixed(1));
+  // Micronutrients per serving: the ingredients' own (quantity-based)
+  // values summed, divided by the recipe's servings. Per serving rather than
+  // the shown total, since "% of daily value" only means something for one
+  // person's plate; so it doesn't change with the servings stepper.
+  const [showMicros, setShowMicros] = useState(false);
+  // Water is left out on both sides: no micronutrients to sum or be missing.
+  const nonWater = (meal.ingredients ?? []).filter((it) => !PLAIN_WATER.test(it.name.trim()));
+  const microIngredients = nonWater.filter(hasMicronutrients);
+  const microPerServing = (key: keyof Micronutrients) =>
+    microIngredients.some((it) => it[key] != null)
+      ? microIngredients.reduce((sum, it) => sum + (it[key] ?? 0), 0) / (meal.serving_size ?? 1)
+      : undefined;
+  const mealMicros: Micronutrients = { fiber: microPerServing("fiber"), sugar: microPerServing("sugar"), sodium: microPerServing("sodium") };
+  const totalIngredients = nonWater.length;
+
+  // "Per serving" view of the Macros card: the same batch (ingredients,
+  // price and servings stay as they are) with its nutrition split across
+  // the servings, as a guide to one plate. Not the same as setting servings
+  // to 1, which would also shrink the ingredients. Only offered for more
+  // than one serving, since otherwise both views are identical.
+  const [perServingView, setPerServingView] = useState(false);
+  const showPerServing = perServingView && servings > 1;
+  // A quick pop on the donut + legend when the view switches, so the eye
+  // catches that the numbers changed. Skipped on first render.
+  const macroPulse = useSharedValue(1);
+  const pulseReady = useRef(false);
+  useEffect(() => {
+    if (!pulseReady.current) {
+      pulseReady.current = true;
+      return;
+    }
+    macroPulse.value = withSequence(withTiming(1.06, { duration: 110 }), withSpring(1, { damping: 7, stiffness: 220, mass: 0.6 }));
+  }, [showPerServing]);
+  const macroPulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: macroPulse.value }] }));
+  const nutritionDivisor = showPerServing ? servings : 1;
+  const shownCalories = Math.round(displayCalories / nutritionDivisor);
+  const shownProtein = Number((displayProtein / nutritionDivisor).toFixed(1));
+  const shownCarbs = Number((displayCarbs / nutritionDivisor).toFixed(1));
+  const shownFats = Number((displayFats / nutritionDivisor).toFixed(1));
+  // Micros: amounts follow the view (whole batch or one serving), but the
+  // % daily value always measures one serving, since a daily value is about
+  // one person's day.
+  const shownMicros: Micronutrients = showPerServing
+    ? mealMicros
+    : {
+        fiber: mealMicros.fiber != null ? mealMicros.fiber * servings : undefined,
+        sugar: mealMicros.sugar != null ? mealMicros.sugar * servings : undefined,
+        sodium: mealMicros.sodium != null ? mealMicros.sodium * servings : undefined,
+      };
   const displayPrice = Number((Number(meal.price) * scale).toFixed(2));
   const displayBufferPrice = meal.buffer_price
     ? Number((meal.buffer_price * scale).toFixed(2))
@@ -422,13 +499,12 @@ export function MealDetailContent({
             </View>
 
             <View className="items-end">
-              <AppText
-                variant="title"
-                className="font-inter-semibold text-primary"
-              >
+              {/* Extra bold, like the ingredient prices. Plain Text so the
+                  title variant's own semibold doesn't compete with it. */}
+              <Text className="font-inter-extrabold text-subheading text-primary">
                 ₱{displayPrice.toFixed(2)}
                 {displayBufferPrice ? ` – ₱${displayBufferPrice.toFixed(2)}` : ""}
-              </AppText>
+              </Text>
               <AppText
                 variant="caption"
                 className="font-inter-light"
@@ -492,14 +568,58 @@ export function MealDetailContent({
           </View>
 
           <View className="mt-5">
-            <AppText variant="title">Macros</AppText>
+            <View className="flex-row items-center justify-between">
+              <AppText variant="title">Macros</AppText>
+              {servings > 1 && (
+                <SegmentedSwitch
+                  options={[
+                    { value: "all", label: `All ${servings}` },
+                    { value: "perServing", label: "Per serving" },
+                  ]}
+                  value={perServingView ? "perServing" : "all"}
+                  onChange={(v) => setPerServingView(v === "perServing")}
+                />
+              )}
+            </View>
             <View className="mt-2 rounded-2xl border border-ink-emphasis/10 p-3">
-              <MacroSection
-                calories={displayCalories}
-                protein={displayProtein}
-                carbs={displayCarbs}
-                fats={displayFats}
-              />
+              <Animated.View style={macroPulseStyle}>
+                <MacroSection calories={shownCalories} protein={shownProtein} carbs={shownCarbs} fats={shownFats} />
+              </Animated.View>
+              {/* Optional micronutrients, tucked under the macros. Hidden
+                  entirely when no ingredient has micronutrient data. */}
+              {hasMicronutrients(mealMicros) && (
+                <>
+                  <Pressable
+                    onPress={() => setShowMicros((v) => !v)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: showMicros }}
+                    className="mt-3 flex-row items-center justify-center gap-1 border-t border-ink-emphasis/10 pt-3"
+                  >
+                    <Text className="font-inter-semibold text-body text-primary">
+                      {showMicros ? "Hide micronutrients" : "Show micronutrients"}
+                    </Text>
+                    {showMicros ? <ChevronUp color={colors.primary} size={16} /> : <ChevronDown color={colors.primary} size={16} />}
+                  </Pressable>
+                  {showMicros && (
+                    <Animated.View entering={FadeIn.duration(200)} className="mt-3 px-1">
+                      <Text className="mb-3 font-inter-regular text-small text-ink-subtle">
+                        {showPerServing || servings === 1
+                          ? "Per serving, as a share of a day's recommended amount (2,000-calorie diet)."
+                          : `For all ${servings} servings. Bars show one serving's share of a day's recommended amount (2,000-calorie diet).`}
+                        {microIngredients.length < totalIngredients
+                          ? ` Based on ${microIngredients.length} of ${totalIngredients} ingredients with data.`
+                          : ""}
+                      </Text>
+                      <MicronutrientList
+                        values={shownMicros}
+                        shareOf={mealMicros}
+                        shareNote={showPerServing || servings === 1 ? undefined : "per serving"}
+                      />
+                    </Animated.View>
+                  )}
+                </>
+              )}
             </View>
           </View>
 
@@ -538,17 +658,28 @@ export function MealDetailContent({
           {meal.procedure && meal.procedure.length > 0 && (
             <View className="mt-5">
               <AppText variant="title">Steps</AppText>
-              <View className="mt-2 rounded-2xl border border-ink-emphasis/10 px-4 py-3">
-                {meal.procedure.map((step, i) => (
-                  <View key={i} className="flex-row items-center gap-3 px-1 py-3">
-                    <AppText variant="heading" className="text-primary mr-3">
-                      {i + 1}
-                    </AppText>
-                    <AppText variant="caption" className="flex-1 leading-5">
-                      {step}
-                    </AppText>
-                  </View>
-                ))}
+              {/* A numbered green circle per step, joined to the next one by a
+                  line running down the left, like a timeline. */}
+              <View className="mt-3 rounded-2xl border border-ink-emphasis/10 px-4 pt-4 pb-1">
+                {meal.procedure.map((step, i) => {
+                  const last = i === meal.procedure!.length - 1;
+                  return (
+                    <View key={i} className="flex-row gap-3">
+                      <View className="items-center">
+                        <View className="h-8 w-8 items-center justify-center rounded-full bg-primary">
+                          <Text className="font-inter-bold text-body text-white">{i + 1}</Text>
+                        </View>
+                        {!last && <View className="w-0.5 flex-1 bg-primary" />}
+                      </View>
+                      {/* Read mid-cook, so large and high-contrast. Plain Text, not
+                          AppText: a variant's own text-body would fight
+                          text-body-lg over the font size. */}
+                      <Text className={`flex-1 pt-1 font-inter-regular text-body-lg text-ink ${last ? "pb-3" : "pb-7"}`}>
+                        {step}
+                      </Text>
+                    </View>
+                  );
+                })}
               </View>
             </View>
           )}

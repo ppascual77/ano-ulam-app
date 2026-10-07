@@ -1,18 +1,20 @@
 import { useState } from "react";
 import { ScrollView, View } from "react-native";
-import { ChipSelect, Screen } from "@/frontend/components/ui";
+import { Screen, SegmentedSwitch } from "@/frontend/components/ui";
 import { Header } from "@/frontend/features/home/components/Header";
 import { RandomMealPuller } from "@/frontend/features/home/components/RandomMealPuller";
 import { BudgetSection } from "@/frontend/core/budget/components/BudgetSection";
 import { PantrySection } from "@/frontend/core/pantry/components/PantrySection";
 
-const MODE_OPTIONS = [
-  { id: "budget", label: "By Budget" },
-  { id: "pantry", label: "By Pantry" },
+type Mode = "budget" | "pantry";
+
+const MODE_OPTIONS: { value: Mode; label: string }[] = [
+  { value: "budget", label: "By Budget" },
+  { value: "pantry", label: "By Pantry" },
 ];
 
 export default function HomeScreen() {
-  const [mode, setMode] = useState<string[]>(["budget"]);
+  const [mode, setMode] = useState<Mode>("budget");
 
   return (
     <Screen edges={["top"]}>
@@ -22,16 +24,9 @@ export default function HomeScreen() {
         <Header name="Patrick" />
 
         <View className="mt-6 mb-4">
-          <ChipSelect
-            variant="segmented"
-            mode="single"
-            required
-            options={MODE_OPTIONS}
-            value={mode}
-            onChange={setMode}
-          />
+          <SegmentedSwitch size="lg" options={MODE_OPTIONS} value={mode} onChange={setMode} />
         </View>
-        {mode[0] === "budget" ? <BudgetSection /> : <PantrySection />}
+        {mode === "budget" ? <BudgetSection /> : <PantrySection />}
       </ScrollView>
       <RandomMealPuller />
     </Screen>
