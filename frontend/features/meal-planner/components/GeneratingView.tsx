@@ -14,8 +14,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react-native";
 import { Button, Spinner } from "@/frontend/components/ui";
+import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { colors } from "@/frontend/constants/theme";
-import { Image } from "expo-image";
+import { OrbitLoader } from "./OrbitLoader";
 
 // Mock generation: a timed checklist (no backend wait), ~4s in total.
 const STEP_MS = 650;
@@ -101,6 +102,8 @@ function StepIcon({ state }: { state: "pending" | "active" | "done" }) {
 
 type GeneratingViewProps = {
   budgetLabel: string;
+  /** The meals being planned with; their photos orbit the loader. */
+  meals: MealType[];
   hasMacros: boolean;
   /** Back arrow: cancel and return to setup. */
   onBack: () => void;
@@ -114,7 +117,7 @@ type GeneratingViewProps = {
 // "Planning your week...": the steps tick off one by one; then the title
 // changes to "Your week is planned!" and a "See my meal plan" button fades
 // in (which calls onDone).
-export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone, failed = false }: GeneratingViewProps) {
+export function GeneratingView({ budgetLabel, meals, hasMacros, onBack, onDone, failed = false }: GeneratingViewProps) {
   const list = steps(budgetLabel, hasMacros);
   // Index of the step in progress; list.length = all done.
   const [active, setActive] = useState(0);
@@ -142,8 +145,7 @@ export function GeneratingView({ budgetLabel, hasMacros, onBack, onDone, failed 
       </Pressable>
 
       <View className="mt-4 items-center">
-        {/* Reuses onboarding's illustration until the planner's own arrives. */}
-        <Image source={require("@/assets/onboarding/slide-2.gif")} style={{ width: 180, height: 178 }} contentFit="contain" />
+        <OrbitLoader meals={meals} />
       </View>
 
       <View className="mt-6 items-center">
