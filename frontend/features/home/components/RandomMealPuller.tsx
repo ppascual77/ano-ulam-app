@@ -12,7 +12,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import * as Haptics from "expo-haptics";
-import { colors } from "@/frontend/constants/theme";
+import { BoilingDoodle, DOODLE_COLORS, DOODLE_LIST, drawBoilPair, type DoodleVersion } from "@/frontend/components/ui";
 import { mockMeals } from "@/frontend/core/meals/mocks/meals";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
@@ -106,15 +106,17 @@ const DRAG_SWAY_SENSITIVITY = -0.4; // negative: dragging right should lean the 
 // The reveal card's fade-out (MealRevealCard's EXIT_MS) plus a margin,
 // before the meal sheet opens.
 const DETAIL_AFTER_CARD_MS = 320;
-const CONFETTI_COLORS = [colors.primary, colors.accent, colors.like, colors.macro.protein, colors.macro.carbs, colors.macro.fats];
+// Pieces are the intro.gif doodles (triangle, star, spiral, circle,
+// zigzags, dots), alternating primary/accent like the like/save bursts.
 const CONFETTI_COUNT = 44;
-const CONFETTI_SIZE_SCALE = 1.2; // 20% larger than the original base size
-// Size mix for variety: a few big pieces, mostly medium, some tiny specks.
-// [share of pieces, min size, max size] before CONFETTI_SIZE_SCALE.
+const CONFETTI_SIZE_SCALE = 1.44; // 1.2 x 1.2: two rounds of "20% bigger" on the base sizes
+// Size mix for variety: a few big pieces, mostly medium, some small ones.
+// [share of pieces, min size, max size] before CONFETTI_SIZE_SCALE. Smallest
+// is bigger than a plain speck so the doodle's shape still reads.
 const CONFETTI_SIZES: [number, number, number][] = [
-  [0.25, 13, 18],
-  [0.5, 7, 11],
-  [0.25, 3, 6],
+  [0.25, 16, 21],
+  [0.5, 11, 15],
+  [0.25, 8, 10],
 ];
 // Pieces start this far past each screen edge, and drift up to this far
 // sideways while falling, so the burst covers the whole width.
@@ -134,14 +136,12 @@ const CONFETTI_EXIT_FADE_MS = 300;
 type ConfettiPieceConfig = {
   startX: number;
   color: string;
-  width: number;
-  height: number;
+  size: number;
+  versions: [DoodleVersion, DoodleVersion];
   delay: number;
   fallDuration: number;
   rotations: number;
   drift: number;
-  /** Strip, square or round, for shape variety. */
-  borderRadius: number;
 };
 
 function pickConfettiSize() {
@@ -155,17 +155,18 @@ function pickConfettiSize() {
 
 function buildConfettiPieces(screenWidth: number): ConfettiPieceConfig[] {
   const spill = screenWidth * CONFETTI_EDGE_SPILL;
-  return Array.from({ length: CONFETTI_COUNT }, () => {
-    const size = pickConfettiSize();
-    const shape = Math.random();
-    // Mostly strips, plus some squares and dots.
-    const height = shape < 0.6 ? size * 0.4 : size;
+  // Random starting shape per burst; then every doodle in turn, so the mix
+  // stays even.
+  const shapeOffset = Math.floor(Math.random() * DOODLE_LIST.length);
+  return Array.from({ length: CONFETTI_COUNT }, (_, i) => {
+    const doodle = DOODLE_LIST[(i + shapeOffset) % DOODLE_LIST.length];
     return {
       startX: -spill + Math.random() * (screenWidth + spill * 2),
-      color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
-      width: size,
-      height,
-      borderRadius: shape >= 0.85 ? size / 2 : 1,
+      // Alternates per piece, flipping each lap through the doodles so every
+      // shape shows up in both colors.
+      color: DOODLE_COLORS[(i + Math.floor(i / DOODLE_LIST.length)) % DOODLE_COLORS.length],
+      size: pickConfettiSize(),
+      versions: drawBoilPair(doodle),
       delay: Math.random() * 400,
       fallDuration: 1800 + Math.random() * 900,
       rotations: (180 + Math.random() * 540) * (Math.random() < 0.5 ? -1 : 1),
@@ -201,13 +202,11 @@ function ConfettiPiece({ config, screenHeight }: { config: ConfettiPieceConfig; 
           position: "absolute",
           top: 0,
           left: 0,
-          width: config.width,
-          height: config.height,
-          backgroundColor: config.color,
-          borderRadius: config.borderRadius,
         },
       ]}
-    />
+    >
+      <BoilingDoodle versions={config.versions} size={config.size} color={config.color} />
+    </Animated.View>
   );
 }
 

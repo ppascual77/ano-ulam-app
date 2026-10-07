@@ -4,7 +4,7 @@ import type { IngredientType } from "./mealTypes";
 // The app's ingredient categories and their icons (assets/icons/). Shared by
 // the meal page's ingredient rows and Price Watch's category grid.
 
-export type IngredientCategory = "meat" | "fish" | "vegetables" | "fruits" | "grains" | "eggs" | "spices" | "other";
+export type IngredientCategory = "meat" | "fish" | "vegetables" | "fruits" | "grains" | "eggs" | "spices" | "other" | "condiments";
 
 // Filenames as provided in assets/icons/: "vegetable.icon.png" and
 // "egg-icon.jpg" don't follow the other files' "<category>-icon.png"
@@ -18,6 +18,7 @@ export const INGREDIENT_CATEGORY_ICONS: Record<IngredientCategory, ImageSourcePr
   eggs: require("@/assets/icons/egg-icon.jpg"),
   spices: require("@/assets/icons/spices-icon.png"),
   other: require("@/assets/icons/other-icon.png"),
+  condiments: require("@/assets/icons/oil-icon.png")
 };
 
 // The ingredients table's finer `category` values, grouped into the icons

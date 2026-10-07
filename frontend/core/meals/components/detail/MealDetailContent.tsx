@@ -33,7 +33,17 @@ import {
   ArrowLeft,
   Trash2,
 } from "lucide-react-native";
-import { AppText, Button, Card, Chips, NoticeBanner, SegmentedSwitch } from "@/frontend/components/ui";
+import {
+  AppText,
+  Button,
+  Card,
+  Chips,
+  Confetti,
+  NoticeBanner,
+  SegmentedSwitch,
+  Spinner,
+  useBurstOnActivate,
+} from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealInfoPill } from "../MealInfoPill";
 import { MacroSection } from "./MacroSection";
@@ -152,6 +162,9 @@ type MealDetailContentProps = {
   saved?: {
     isSaved: boolean;
     savedServings?: number;
+    /** A save/unsave request is in flight: the button shows a spinner and
+     *  ignores taps. */
+    busy?: boolean;
     onSave: (servings: number) => void;
     onUnsave: () => void;
     onUpdate: (servings: number) => void;
@@ -198,6 +211,10 @@ type ConsumerFooterProps = Pick<MealDetailContentProps, "meal" | "saved" | "reci
 // review / rejected, then saved (Unsave, or Update Meal once the servings
 // changed), then Save.
 function ConsumerFooter({ meal, servings, saved, recipeOwner }: ConsumerFooterProps) {
+  // Confetti when a save lands. MealDetailSheet keys the content by meal id,
+  // so opening an already-saved related meal doesn't fire it.
+  const saveBurstId = useBurstOnActivate(!!saved?.isSaved);
+
   if (recipeOwner && (meal.status === "pending" || meal.status === "draft")) {
     return (
       <Button
@@ -236,15 +253,27 @@ function ConsumerFooter({ meal, servings, saved, recipeOwner }: ConsumerFooterPr
     );
   }
   return (
-    <Button
-      label={saved.isSaved ? "Unsave" : "Save Meal"}
-      variant={saved.isSaved ? "primary" : "outline"}
-      icon={
-        <Bookmark color={saved.isSaved ? colors.white : colors.primary} size={16} fill={saved.isSaved ? colors.white : "none"} />
-      }
-      iconPosition="right"
-      onPress={() => (saved.isSaved ? saved.onUnsave() : saved.onSave(servings))}
-    />
+    <View>
+      <Confetti burstId={saveBurstId} direction="up" />
+      <Button
+        label={saved.isSaved ? "Unsave" : "Save Meal"}
+        variant={saved.isSaved ? "primary" : "outline"}
+        icon={
+          saved.busy ? (
+            <Spinner variant="spiral" size={16} color={saved.isSaved ? colors.white : colors.primary} />
+          ) : (
+            <Bookmark color={saved.isSaved ? colors.white : colors.primary} size={16} fill={saved.isSaved ? colors.white : "none"} />
+          )
+        }
+        iconPosition="right"
+        // Not `disabled`: that dims the button, but it's still the live state.
+        onPress={() => {
+          if (saved.busy) return;
+          if (saved.isSaved) saved.onUnsave();
+          else saved.onSave(servings);
+        }}
+      />
+    </View>
   );
 }
 
@@ -319,7 +348,8 @@ export function MealDetailContent({
   // than one serving, since otherwise both views are identical.
   const [perServingView, setPerServingView] = useState(false);
   const showPerServing = perServingView && servings > 1;
-  // A quick pop on the donut + legend when the view switches, so the eye
+  // A quick pop on the donut + legend (and the micronutrients, when open)
+  // when the view switches, so the eye
   // catches that the numbers changed. Skipped on first render.
   const macroPulse = useSharedValue(1);
   const pulseReady = useRef(false);
@@ -603,19 +633,20 @@ export function MealDetailContent({
                   </Pressable>
                   {showMicros && (
                     <Animated.View entering={FadeIn.duration(200)} className="mt-3 px-1">
-                      <Text className="mb-3 font-inter-regular text-small text-ink-subtle">
-                        {showPerServing || servings === 1
-                          ? "Per serving, as a share of a day's recommended amount (2,000-calorie diet)."
-                          : `For all ${servings} servings. Bars show one serving's share of a day's recommended amount (2,000-calorie diet).`}
-                        {microIngredients.length < totalIngredients
-                          ? ` Based on ${microIngredients.length} of ${totalIngredients} ingredients with data.`
-                          : ""}
-                      </Text>
-                      <MicronutrientList
-                        values={shownMicros}
-                        shareOf={mealMicros}
-                        shareNote={showPerServing || servings === 1 ? undefined : "per serving"}
-                      />
+                      {/* Same pop as the donut when All / Per serving switches. */}
+                      <Animated.View style={macroPulseStyle}>
+                        <Text className="mb-3 font-inter-regular text-small text-ink-subtle">
+                          {showPerServing || servings === 1 ? "% of daily value, per serving." : `Totals for ${servings} servings.`}
+                          {microIngredients.length < totalIngredients
+                            ? ` From ${microIngredients.length} of ${totalIngredients} ingredients.`
+                            : ""}
+                        </Text>
+                        <MicronutrientList
+                          values={shownMicros}
+                          shareOf={mealMicros}
+                          shareNote={showPerServing || servings === 1 ? undefined : "per serving"}
+                        />
+                      </Animated.View>
                     </Animated.View>
                   )}
                 </>

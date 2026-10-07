@@ -88,7 +88,7 @@ export function FoodPostCard({ post, currentUserId, onLike, onShare, onOpenPhoto
           <View>
             {/* "up": this heart sits at the post's left edge, so the default
                 up-left fan would send most pieces off-screen. */}
-            <Confetti burstId={likeBurstId} icon={Heart} color={colors.like} direction="up" />
+            <Confetti burstId={likeBurstId} direction="up" />
             <Heart
               color={liked ? colors.like : colors.webInk.muted}
               fill={liked ? colors.like : "none"}
