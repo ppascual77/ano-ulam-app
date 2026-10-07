@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { memo, useEffect } from "react";
 import { View, useWindowDimensions } from "react-native";
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from "react-native-svg";
 import Animated, { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
@@ -25,7 +25,9 @@ function raysPath(size: number) {
   return d;
 }
 
-export function SunburstBackdrop() {
+// Memoized (it takes no props): parent re-renders, like the confetti burst,
+// never redraw the SVG layers or restart the rays.
+export const SunburstBackdrop = memo(function SunburstBackdrop() {
   const { width, height } = useWindowDimensions();
   // The rays layer is a square big enough to cover the screen at any angle.
   const raysSize = Math.ceil(Math.hypot(width, height));
@@ -73,4 +75,4 @@ export function SunburstBackdrop() {
       </Svg>
     </View>
   );
-}
+});
