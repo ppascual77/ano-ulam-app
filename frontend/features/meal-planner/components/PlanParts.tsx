@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { FlatList, Pressable, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
@@ -6,7 +6,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { ArrowLeftRight, ChevronRight, ShoppingCart, CloudSun, Moon, Sun, Droplets, Dumbbell, Flame, Lock, Pencil, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import type { MacroTargets } from "../utils/macros";
-import { SLOT_LABELS, dayLabel, dayTotals, formatPeso, monthDay, type MealPlan, type PlanDay, type PlannedMeal } from "../utils/generatePlan";
+import { PLAN_DAYS, SLOTS, SLOT_LABELS, dayLabel, dayTotals, formatPeso, monthDay, perServing, type MealPlan, type PlanDay, type PlannedMeal } from "../utils/generatePlan";
 import { MealImage } from "./ImagePlaceholder";
 import type { MealSlot } from "../mock/plannerMeals";
 
@@ -56,51 +56,27 @@ const MACROS: { key: "protein" | "carbs" | "fats"; letter: string; label: string
   { key: "fats", letter: "F", label: "Fats", Icon: Droplets, color: colors.macro.fats, tint: "bg-macro-fats/10" },
 ];
 
-function SummaryChip({ Icon, color, tint, value, label }: { Icon?: LucideIcon; color?: string; tint?: string; value: string; label: string }) {
-  return (
-    <View className="flex-1 flex-row items-center gap-1.5 rounded-xl border border-web-divider bg-white px-2 py-1.5">
-      {Icon && color && (
-        <View className={`h-7 w-7 items-center justify-center rounded-full ${tint}`}>
-          <Icon color={color} size={13} />
-        </View>
-      )}
-      {/* Label above the value, like the stats fields. */}
-      <View className="shrink">
-        <Text className="font-inter-regular text-sub text-web-ink-muted" numberOfLines={1}>
-          {label}
-        </Text>
-        <Text className="font-inter-bold text-small text-web-ink" numberOfLines={1}>
-          {value}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-// Small donut of the macro split: protein / carbs / fat as their share of
-// the calories (4 / 4 / 9 kcal per gram), kcal in the middle.
-function MacroDonut({ calories, protein, carbs, fats }: { calories: number; protein: number; carbs: number; fats: number }) {
+// Small donut split into parts (their share of the total), with a value and
+// label in the middle. Used for the macro split (by calories) and the cost
+// split (by meal).
+function SplitDonut({ parts, centerValue, centerLabel }: { parts: { key: string; value: number; color: string }[]; centerValue: string; centerLabel: string }) {
   const size = 58;
   const stroke = 6;
   const gap = 3; // px of track between slices
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
-  const parts = [
-    { key: "protein", kcal: protein * 4, color: colors.macro.protein },
-    { key: "carbs", kcal: carbs * 4, color: colors.macro.carbs },
-    { key: "fats", kcal: fats * 9, color: colors.macro.fats },
-  ].filter((p) => p.kcal > 0);
-  const total = parts.reduce((sum, p) => sum + p.kcal, 0);
+  const shown = parts.filter((p) => p.value > 0);
+  const total = shown.reduce((sum, p) => sum + p.value, 0);
   let offset = 0;
   return (
     <View style={{ width: size, height: size }} className="items-center justify-center">
       <Svg width={size} height={size} style={{ position: "absolute", transform: [{ rotate: "-90deg" }] }}>
         <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.webDivider} strokeWidth={stroke} fill="none" />
         {total > 0 &&
-          parts.map((p) => {
-            const length = Math.max(0, (p.kcal / total) * circumference - gap);
+          shown.map((p) => {
+            const length = Math.max(0, (p.value / total) * circumference - gap);
             const dashOffset = -offset;
-            offset += (p.kcal / total) * circumference;
+            offset += (p.value / total) * circumference;
             return (
               <Circle
                 key={p.key}
@@ -116,60 +92,106 @@ function MacroDonut({ calories, protein, carbs, fats }: { calories: number; prot
             );
           })}
       </Svg>
-      <Text className="font-inter-bold text-small text-web-ink">{calories.toLocaleString("en-PH")}</Text>
-      <Text className="-mt-0.5 font-inter-regular text-sub text-web-ink-muted">kcal</Text>
+      <Text className="font-inter-bold text-small text-web-ink">{centerValue}</Text>
+      <Text className="-mt-0.5 font-inter-regular text-sub text-web-ink-muted">{centerLabel}</Text>
     </View>
   );
 }
 
-// The selected day at a glance, one compact row. With a macro goal: the
-// macro donut, then protein / carbs / fat as plain stats (dot + label over a
-// bold value), and how the day compares to the calorie goal. Without: cost
-// and calories, no macro tracking.
+type SummaryStat = { key: string; label: string; value: string; color: string };
+
+// The summary's shared shell: a heading row (title, and how the day compares
+// to a goal), then one card with the donut and three dot-labelled stats.
+// Macro and cost versions both render through this, so they match exactly.
+function SummaryCard({ title, goal, donut, stats }: { title: string; goal: ReactNode; donut: ReactNode; stats: SummaryStat[] }) {
+  return (
+    <View className="gap-2">
+      <View className="flex-row items-baseline justify-between">
+        <Text className="font-inter-semibold text-body text-web-ink">{title}</Text>
+        <Text className="font-inter-regular text-small text-web-ink-muted">{goal}</Text>
+      </View>
+      <View className="flex-row items-center rounded-2xl border border-web-divider bg-white px-3 py-2.5">
+        {donut}
+        {stats.map(({ key, label, value, color }, i) => (
+          <View key={key} className={`flex-1 flex-row ${i === 0 ? "ml-2" : ""}`}>
+            {/* Dividers between the stats only, not after the donut. */}
+            {i > 0 && <View className="mx-2 w-px self-stretch bg-web-divider" />}
+            {/* Centered in its column, label over value. */}
+            <View className="flex-1 items-center justify-center">
+              <View className="flex-row items-center gap-1.5">
+                <View className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                <Text className="font-inter-regular text-sub text-web-ink-muted">{label}</Text>
+              </View>
+              <Text className="mt-0.5 text-center font-inter-bold text-subheading text-web-ink">{value}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// Meal colors for the cost split (the same three across the plan).
+const MEAL_COLORS: Record<MealSlot, string> = {
+  breakfast: colors.brandOrange,
+  lunch: colors.brandGreen.DEFAULT,
+  dinner: colors.webInk.soft,
+};
+
+// The selected day at a glance. With a macro goal: the macro split (donut
+// by calories) and the day against the calorie goal. Without: the same card
+// for money, today's cost split by meal and the day against its share of
+// the weekly budget (budget / 5, what the planner plans each day within).
 export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
   const totals = dayTotals(day, plan.servings);
   if (plan.targets) {
     const calories = Math.round(totals.calories);
     const share = Math.round((calories / plan.targets.calories) * 100);
     return (
-      <View className="gap-2">
-        {/* Section heading: how to read the numbers (one person's portion;
-            the rows' "Serves N" covers prices). */}
-        <View className="flex-row items-baseline justify-between">
-          <Text className="font-inter-semibold text-body text-web-ink">
-            {plan.servings > 1 ? "Nutrition per serving" : "Today's nutrition"}
-          </Text>
-          <Text className="font-inter-regular text-small text-web-ink-muted">
+      <SummaryCard
+        // Macros are one person's portion; the rows' "Serves N" covers prices.
+        title={plan.servings > 1 ? "Nutrition per serving" : "Today's nutrition"}
+        goal={
+          <>
             <Text className="font-inter-bold text-web-ink">{share}%</Text> of {plan.targets.calories.toLocaleString("en-PH")} kcal goal
-          </Text>
-        </View>
-        <View className="flex-row items-center rounded-2xl border border-web-divider bg-white px-3 py-2.5">
-          <MacroDonut calories={calories} protein={totals.protein} carbs={totals.carbs} fats={totals.fats} />
-          {MACROS.map(({ key, label, color }, i) => (
-            <View key={key} className={`flex-1 flex-row ${i === 0 ? "ml-2" : ""}`}>
-              {/* Dividers between the macros only, not after the donut. */}
-              {i > 0 && <View className="mx-2 w-px self-stretch bg-web-divider" />}
-              {/* Centered in its column, label over value. */}
-              <View className="flex-1 items-center justify-center">
-                <View className="flex-row items-center gap-1.5">
-                  <View className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-                  <Text className="font-inter-regular text-sub text-web-ink-muted">{label}</Text>
-                </View>
-                <Text className="mt-0.5 text-center font-inter-bold text-subheading text-web-ink">{Math.round(totals[key])}g</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      </View>
+          </>
+        }
+        donut={
+          <SplitDonut
+            centerValue={calories.toLocaleString("en-PH")}
+            centerLabel="kcal"
+            parts={MACROS.map(({ key, color }) => ({ key, color, value: totals[key] * (key === "fats" ? 9 : 4) }))}
+          />
+        }
+        stats={MACROS.map(({ key, label, color }) => ({ key, label, color, value: `${Math.round(totals[key])}g` }))}
+      />
     );
   }
-  const weekCost = plan.days.reduce((sum, d) => sum + dayTotals(d, plan.servings).cost, 0);
+
+  const dayBudget = plan.budget / PLAN_DAYS;
+  const cost = Math.round(totals.cost);
+  const share = Math.round((cost / dayBudget) * 100);
+  const mealCost = (slot: MealSlot) => {
+    const item = day.meals.find((m) => m.slot === slot);
+    return item ? perServing(item.meal) * plan.servings : 0;
+  };
   return (
-    <View className="flex-row gap-2">
-      <SummaryChip value={`~${formatPeso(totals.cost)}`} label="Today" />
-      <SummaryChip value={`~${formatPeso(weekCost)}`} label={`Week of ${formatPeso(plan.budget)}`} />
-      <SummaryChip value={`${Math.round(totals.calories).toLocaleString("en-PH")} kcal`} label="Calories" />
-    </View>
+    <SummaryCard
+      title={plan.servings > 1 ? `Today's cost for ${plan.servings}` : "Today's cost"}
+      goal={
+        <>
+          <Text className="font-inter-bold text-web-ink">{share}%</Text> of {formatPeso(dayBudget)} daily budget
+        </>
+      }
+      donut={
+        <SplitDonut
+          centerValue={formatPeso(cost)}
+          centerLabel="today"
+          parts={SLOTS.map((slot) => ({ key: slot, color: MEAL_COLORS[slot], value: mealCost(slot) }))}
+        />
+      }
+      stats={SLOTS.map((slot) => ({ key: slot, label: SLOT_LABELS[slot], color: MEAL_COLORS[slot], value: formatPeso(mealCost(slot)) }))}
+    />
   );
 }
 
