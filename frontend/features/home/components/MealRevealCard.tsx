@@ -160,8 +160,12 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onDismiss}>
       {/* Full-screen orange sunburst with slowly turning rays (fades in with
-          the card). Tapping anywhere off the card still dismisses. */}
-      <Animated.View style={backdropStyle} className="absolute inset-0">
+          the card). Tapping anywhere off the card still dismisses.
+          Positioned with a plain style, NOT a className: NativeWind re-applies
+          className styles on re-render (e.g. when the confetti bursts) and can
+          knock out the animated opacity, which left the backdrop invisible a
+          moment after the card landed. */}
+      <Animated.View style={[{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }, backdropStyle]}>
         <SunburstBackdrop />
         <Pressable className="flex-1" onPress={onDismiss} accessibilityLabel="Close" />
       </Animated.View>

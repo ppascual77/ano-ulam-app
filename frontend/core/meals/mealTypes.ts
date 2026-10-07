@@ -21,6 +21,12 @@ export type IngredientType = {
   protein?: number;
   carbs?: number;
   fats?: number;
+  // Micronutrients at the quantity used (same scaling as the macros): fiber
+  // and sugar in grams, sodium in milligrams. Undefined when the ingredient
+  // has no data for them (e.g. mock meals).
+  fiber?: number;
+  sugar?: number;
+  sodium?: number;
   price?: number;
   // Admin-only diagnostics — only ever populated when mealRowToMealType
   // (frontend/core/meals/utils/mealAdapter.ts) is given real ingredient
@@ -41,6 +47,10 @@ export type IngredientType = {
   // only a fraction is actually absorbed). Set by an admin, read by
   // everyone.
   note?: string | null;
+  // The ingredients table's category (e.g. "Pork", "Leafy Green"), for the
+  // row's category icon (see core/meals/ingredientCategory.ts). Undefined for
+  // mock meals, which fall back to a guess from the name.
+  category?: string | null;
   // Where the ingredient's price came from. "supermarket" with
   // priceSources = averaged from those real listings (Ground Prices);
   // "manual" = an estimate. Shown to every viewer in IngredientDetailSheet's

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
+import { Image } from "expo-image";
 import { BottomSheet } from "@/frontend/components/ui";
+import { ingredientCategoryIcon } from "../../ingredientCategory";
 import { capitalize } from "../../utils/dietary";
-import { NutritionSection, NutritionSourceSection, PriceSourceSection, hasNutrition } from "./IngredientDetailSections";
+import { MicronutrientSection, NutritionSection, NutritionSourceSection, PriceSourceSection, hasNutrition } from "./IngredientDetailSections";
 import type { IngredientType } from "../../mealTypes";
 
 type IngredientDetailSheetProps = {
@@ -44,31 +46,39 @@ export function IngredientDetailSheet({ ingredient, onClose, maxHeightPercent }:
     >
       {rendered && (
         <View className="px-5 pt-8 pb-8">
-          <View className="flex-row items-end justify-between gap-3">
-            <View className="flex-1 items-start gap-2">
-              <View className={`rounded-full px-2.5 py-1 ${isMain ? "bg-primary/10" : "bg-ink-emphasis/5"}`}>
-                <Text className={`font-inter-semibold text-small ${isMain ? "text-primary" : "text-ink-subtle"}`}>
-                  {isMain ? "Main" : "Pantry"}
-                </Text>
+          {/* Category icon on the left, centered on the two lines beside it:
+              name with price (same heading size, top-aligned so a wrapped
+              name keeps the price on its first line), then quantity + pill
+              with "Estimated cost". */}
+          <View className="flex-row items-center gap-3">
+            <Image source={ingredientCategoryIcon(rendered)} style={{ width: 48, height: 48 }} contentFit="contain" />
+            <View className="flex-1 gap-2">
+              <View className="flex-row items-start justify-between gap-3">
+                <Text className="flex-1 font-inter-bold text-heading text-ink-emphasis">{capitalize(rendered.name)}</Text>
+                {hasPrice && <Text className="font-inter-bold text-heading text-primary">~₱{rendered.price!.toFixed(2)}</Text>}
               </View>
-              <Text className="font-inter-bold text-heading text-ink-emphasis">{capitalize(rendered.name)}</Text>
-              {/* Amount used, then the conversion behind it (e.g. "150g per
-                  piece"), separated by a centered dot. */}
-              <Text className="font-inter-regular text-body text-ink">
-                {rendered.qty}
-                {rendered.bridgeLabel && <Text className="text-ink-subtle">{`  ·  ${rendered.bridgeLabel}`}</Text>}
-              </Text>
+              <View className="flex-row items-center justify-between gap-3">
+                {/* Amount used (then the conversion behind it, e.g. "150g per
+                    piece", after a centered dot), with the Main / Pantry pill
+                    beside it. */}
+                <View className="flex-1 flex-row flex-wrap items-center gap-2">
+                  <Text className="font-inter-regular text-body text-ink">
+                    {rendered.qty}
+                    {rendered.bridgeLabel && <Text className="text-ink-subtle">{`  ·  ${rendered.bridgeLabel}`}</Text>}
+                  </Text>
+                  <View className={`rounded-full px-2.5 py-1 ${isMain ? "bg-primary/10" : "bg-ink-emphasis/5"}`}>
+                    <Text className={`font-inter-semibold text-small ${isMain ? "text-primary" : "text-ink-subtle"}`}>
+                      {isMain ? "Main" : "Pantry"}
+                    </Text>
+                  </View>
+                </View>
+                {hasPrice && <Text className="font-inter-regular text-small text-ink-subtle">Estimated cost</Text>}
+              </View>
             </View>
-
-            {hasPrice && (
-              <View className="items-end gap-1">
-                <Text className="font-inter-regular text-small text-ink-subtle">Estimated cost</Text>
-                <Text className="font-inter-bold text-heading text-primary">~₱{rendered.price!.toFixed(2)}</Text>
-              </View>
-            )}
           </View>
 
           <NutritionSection item={rendered} />
+          <MicronutrientSection item={rendered} />
           {hasNutrition(rendered) && <NutritionSourceSection item={rendered} />}
           <PriceSourceSection item={rendered} />
         </View>

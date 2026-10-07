@@ -108,6 +108,11 @@ function mealIngredientToIngredientType(
       ? computeItemTotals(mi.ingredient, mi.quantity_amount, mi.quantity_unit, mi.price_quantity_amount, mi.price_quantity_unit)
       : null;
 
+  // Micronutrients use the same per-basis scaling as the macros above.
+  const microScale = conversion?.ok ? conversion.basisAmount / mi.ingredient.basis_amount : null;
+  const micro = (value: number | null, round: (n: number) => number) =>
+    microScale != null && value != null ? round(value * microScale) : undefined;
+
   const bridgeParts: string[] = [];
   if (mi.ingredient.grams_per_piece != null) {
     bridgeParts.push(`${mi.ingredient.grams_per_piece}g per ${mi.ingredient.piece_label ?? "piece"}`);
@@ -123,6 +128,9 @@ function mealIngredientToIngredientType(
     protein: totals?.protein != null ? roundMacro(totals.protein) : undefined,
     carbs: totals?.carbohydrates != null ? roundMacro(totals.carbohydrates) : undefined,
     fats: totals?.fat != null ? roundMacro(totals.fat) : undefined,
+    fiber: micro(mi.ingredient.fiber, roundMacro),
+    sugar: micro(mi.ingredient.sugar, roundMacro),
+    sodium: micro(mi.ingredient.sodium, Math.round),
     price: totals?.price != null ? roundPrice(totals.price) : undefined,
     bridgeLabel: bridgeParts.length > 0 ? bridgeParts.join(" · ") : null,
     calculationError: conversion && !conversion.ok ? conversion.reason : null,
@@ -130,6 +138,7 @@ function mealIngredientToIngredientType(
     sourceRefId: mi.ingredient.source_ref_id,
     sourceDescription: mi.ingredient.source_description,
     note: mi.note,
+    category: mi.ingredient.category,
     priceSource: mi.ingredient.price_source,
     priceSources: parsePriceSources(mi.ingredient.price_sources),
   };

@@ -112,6 +112,8 @@ module.exports = {
         "heading-lg": ["30px", { lineHeight: "36px" }],
         subheading: "18px",
         body: "14px",
+        // Larger reading text, e.g. recipe steps read mid-cook. Added 2026-10-07.
+        "body-lg": ["16px", { lineHeight: "24px" }],
         sub: ["10px", { lineHeight: "10px" }],
         // A meal card's description text (12px/20px, 0.5px tracking).
         small: ["13px", { lineHeight: "20px", letterSpacing: "0.5px" }],

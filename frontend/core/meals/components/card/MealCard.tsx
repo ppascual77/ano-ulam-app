@@ -235,10 +235,12 @@ export function MealCard({
         </View>
 
         <View className="mt-2">
-          <AppText variant="title" className="font-inter-semibold text-primary">
+          {/* Extra bold, same as the meal page's prices. Plain Text so the
+              title variant's own semibold doesn't compete with it. */}
+          <Text className="font-inter-extrabold text-subheading text-primary">
             ₱{meal.price}
             {meal.buffer_price ? ` – ₱${meal.buffer_price}` : ""}
-          </AppText>
+          </Text>
           <AppText
             variant="caption"
             className="font-inter-light"
