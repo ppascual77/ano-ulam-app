@@ -184,6 +184,19 @@ export async function getMeals(filters: MealFilters = {}) {
   return data;
 }
 
+// Which ingredients each catalog meal uses (ids, names, Main/Pantry role), for matching
+// meals against the user's pantry. Same visibility as getMeals: approved,
+// not archived.
+export async function getMealIngredientIndex() {
+  const { data, error } = await supabase
+    .from("meals")
+    .select("id, name, meal_ingredients(ingredient_id, ingredient:ingredients(canonical_name, role))")
+    .eq("status", "approved")
+    .is("archived_at", null);
+  if (error) throw error;
+  return data;
+}
+
 export type BrowseQuery = {
   q?: string;
   dietaryTags: string[];

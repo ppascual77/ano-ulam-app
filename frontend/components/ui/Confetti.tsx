@@ -7,16 +7,21 @@ import Animated, {
   withDelay,
   withTiming,
 } from "react-native-reanimated";
-import type { LucideIcon } from "lucide-react-native";
+import { BoilingDoodle, DOODLE_COLORS, DOODLE_LIST, drawBoilPair, type DoodleVersion } from "./doodles";
 
-const PARTICLE_COUNT = 12;
-const DURATION_MS = 800;
+const PARTICLE_COUNT = 16;
+const DURATION_MS = 900;
 // Extra downward drift by the end of the burst, so pieces arc and fall
 // instead of flying out in straight lines.
-const GRAVITY_PX = 48;
-// How far pieces fly from the center: MIN + up to RANGE more.
-const DISTANCE_MIN_PX = 45;
-const DISTANCE_RANGE_PX = 40;
+const GRAVITY_PX = 60;
+// How far pieces fly from the center: MIN + up to RANGE more. A wide range
+// so some pieces land close and others fly far, instead of a neat ring.
+const DISTANCE_MIN_PX = 50;
+const DISTANCE_RANGE_PX = 80;
+// Random +/- wobble on each piece's slot in the fan, in degrees.
+const ANGLE_SCATTER_DEG = 20;
+// Pieces leave over this window instead of all at once.
+const DELAY_RANGE_MS = 140;
 
 type Particle = {
   dx: number;
@@ -24,6 +29,8 @@ type Particle = {
   rotate: number;
   size: number;
   delay: number;
+  color: string;
+  versions: [DoodleVersion, DoodleVersion];
 };
 
 // Fan of angles (degrees; 0 = right, -90 = straight up) per direction.
@@ -32,29 +39,36 @@ type Particle = {
 // further right would get clipped or run off-screen. "up": symmetric around
 // straight up, for buttons with room on both sides (or near the left edge).
 const FANS = {
-  upLeft: { from: -200, span: 150 },
-  up: { from: -160, span: 140 },
+  upLeft: { from: -215, span: 175 },
+  up: { from: -180, span: 180 },
 } as const;
 
 export type ConfettiDirection = keyof typeof FANS;
 
 function makeParticles(direction: ConfettiDirection): Particle[] {
   const fan = FANS[direction];
+  // Random starting shape per burst so neighbors differ between taps.
+  const shapeOffset = Math.floor(Math.random() * DOODLE_LIST.length);
   return Array.from({ length: PARTICLE_COUNT }, (_, i) => {
     const baseDeg = fan.from + (i / (PARTICLE_COUNT - 1)) * fan.span;
-    const angle = ((baseDeg + (Math.random() - 0.5) * 15) * Math.PI) / 180;
+    const angle = ((baseDeg + (Math.random() - 0.5) * 2 * ANGLE_SCATTER_DEG) * Math.PI) / 180;
     const distance = DISTANCE_MIN_PX + Math.random() * DISTANCE_RANGE_PX;
+    const doodle = DOODLE_LIST[(i + shapeOffset) % DOODLE_LIST.length];
     return {
       dx: Math.cos(angle) * distance,
       dy: Math.sin(angle) * distance,
       rotate: (Math.random() - 0.5) * 360,
-      size: 10 + Math.random() * 6,
-      delay: Math.random() * 60,
+      size: 12 + Math.random() * 6,
+      delay: Math.random() * DELAY_RANGE_MS,
+      // Alternates per piece, and flips on the second lap through the doodles so
+      // every shape shows up in both colors.
+      color: DOODLE_COLORS[(i + Math.floor(i / DOODLE_LIST.length)) % DOODLE_COLORS.length],
+      versions: drawBoilPair(doodle),
     };
   });
 }
 
-function ConfettiPiece({ dx, dy, rotate, size, delay, icon: Icon, color }: Particle & { icon: LucideIcon; color: string }) {
+function ConfettiPiece({ dx, dy, rotate, size, delay, color, versions }: Particle) {
   const progress = useSharedValue(0);
 
   useEffect(() => {
@@ -76,10 +90,9 @@ function ConfettiPiece({ dx, dy, rotate, size, delay, icon: Icon, color }: Parti
       ],
     };
   });
-
   return (
-    <Animated.View style={[{ position: "absolute", left: -size / 2, top: -size / 2 }, style]}>
-      <Icon color={color} fill={color} size={size} />
+    <Animated.View style={[{ position: "absolute", left: -size / 2, top: -size / 2, width: size, height: size }, style]}>
+      <BoilingDoodle versions={versions} size={size} color={color} />
     </Animated.View>
   );
 }
@@ -87,17 +100,15 @@ function ConfettiPiece({ dx, dy, rotate, size, delay, icon: Icon, color }: Parti
 type ConfettiProps = {
   /** Bump this to fire a new burst. 0 renders nothing. */
   burstId: number;
-  /** The piece shape, e.g. Heart for a like, Bookmark for a save. */
-  icon: LucideIcon;
-  color: string;
   /** Which way pieces fan out. Defaults to "upLeft". */
   direction?: ConfettiDirection;
 };
 
-// Burst of icon-shaped confetti from the center of its parent. Render it as
-// the first child of the button's wrapper so pieces start hidden behind the
-// button and fly out from under it.
-export function Confetti({ burstId, icon, color, direction = "upLeft" }: ConfettiProps) {
+// Burst of hand-drawn doodle confetti (the intro.gif's triangle, star,
+// spiral, circle, zigzags and dots, in primary/accent) from the center of
+// its parent. Render it as the first child of the button's wrapper so pieces
+// start hidden behind the button and fly out from under it.
+export function Confetti({ burstId, direction = "upLeft" }: ConfettiProps) {
   // New random spread per burst, so repeat taps don't look identical.
   const particles = useMemo(() => makeParticles(direction), [burstId, direction]);
 
@@ -107,7 +118,7 @@ export function Confetti({ burstId, icon, color, direction = "upLeft" }: Confett
     <View style={{ pointerEvents: "none" }} className="absolute left-1/2 top-1/2">
       {particles.map((particle, i) => (
         // burstId in the key remounts every piece, restarting its animation.
-        <ConfettiPiece key={`${burstId}-${i}`} {...particle} icon={icon} color={color} />
+        <ConfettiPiece key={`${burstId}-${i}`} {...particle} />
       ))}
     </View>
   );

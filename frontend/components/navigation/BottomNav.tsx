@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { Pressable, View } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, usePathname } from "expo-router";
 import { House, Search, TrendingUp, Salad, Utensils } from "lucide-react-native";
@@ -22,17 +24,44 @@ const RIGHT_TABS: Tab[] = [
   { href: "/meal-planner", label: "Meal Planner", icon: Salad },
 ];
 
+// Same spring as SegmentedSwitch's thumb, so the active pill pops in with
+// the same small bounce as Home's By Budget / By Pantry switch.
+const PILL_SPRING = { damping: 13, stiffness: 220, mass: 0.7 };
+const PILL_FADE_MS = 120;
+
+// Active tab: a soft rounded pill behind the icon (SegmentedSwitch's track
+// color) plus a semibold primary label, so it's obvious at a glance, not
+// just a color change. Inactive tabs use the switch's muted ink-subtle.
 function TabButton({ href, label, icon: Icon }: Tab) {
   const active = usePathname() === href;
-  const color = active ? colors.primary : colors.ink.normal;
+  const color = active ? colors.primary : colors.ink.subtle;
+  const shown = useSharedValue(active ? 1 : 0);
+
+  useEffect(() => {
+    shown.value = active ? withSpring(1, PILL_SPRING) : withTiming(0, { duration: PILL_FADE_MS });
+  }, [active, shown]);
+
+  const pillStyle = useAnimatedStyle(() => ({
+    opacity: Math.min(shown.value, 1),
+    transform: [{ scaleX: 0.5 + 0.5 * shown.value }],
+  }));
 
   return (
     <Pressable
       onPress={() => router.navigate(href)}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
       className="flex-1 items-center justify-center gap-1"
     >
-      <Icon color={color} size={24} strokeWidth={2} />
-      <AppText variant="navLabel" className={active ? "text-primary" : ""}>
+      <View className="h-8 w-14 items-center justify-center">
+        {/* Plain style on the Animated.View, className on the inner View:
+            NativeWind can knock out Reanimated's animated values. */}
+        <Animated.View style={[{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0 }, pillStyle]}>
+          <View className="flex-1 rounded-full border border-web-divider bg-web-divider/70" />
+        </Animated.View>
+        <Icon color={color} size={22} strokeWidth={active ? 2.4 : 2} />
+      </View>
+      <AppText variant="navLabel" className={active ? "font-inter-semibold text-primary" : "text-ink-subtle"}>
         {label}
       </AppText>
     </Pressable>

@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { Flag, Plus, Search } from "lucide-react-native";
-import { AppText } from "@/frontend/components/ui";
+import { AppText, Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { getIngredientsForMatching } from "@/api/meals";
 import type { IngredientRow } from "@/api/ingredients";
@@ -113,7 +113,7 @@ export function IngredientSearch({
           autoCorrect={false}
           className="flex-1 font-inter-regular text-body text-ink"
         />
-        {isLoading && <ActivityIndicator size="small" color={colors.ink.subtle} />}
+        {isLoading && <Spinner variant="spiral" size={18} color={colors.primary} />}
       </View>
 
       {query.trim().length > 0 && (

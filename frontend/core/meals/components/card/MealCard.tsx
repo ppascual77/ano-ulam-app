@@ -172,7 +172,7 @@ export function MealCard({
             {meal.id && !hideLike && (
               <Pressable onPress={toggleLike} className="items-center gap-0.5">
                 <View>
-                  <Confetti burstId={likeBurstId} icon={Heart} color={colors.like} />
+                  <Confetti burstId={likeBurstId} />
                   <View
                     className={`h-9 w-9 items-center justify-center rounded-full border ${
                       liked
@@ -198,7 +198,7 @@ export function MealCard({
             )}
 
             {!hideBookmark && <View>
-              <Confetti burstId={saveBurstId} icon={Bookmark} color={colors.primary} />
+              <Confetti burstId={saveBurstId} />
               <Pressable
                 onPress={toggleSave}
                 className={`h-9 w-9 items-center justify-center rounded-full border ${

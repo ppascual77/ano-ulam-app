@@ -60,7 +60,7 @@ export function ActionRail({ liked, likeCount, saved, busy, onLike, onSave, onSh
     <View className="items-center gap-5">
       <View className="h-16 items-center gap-1">
         <View>
-          <Confetti burstId={likeBurstId} icon={Heart} color={colors.like} />
+          <Confetti burstId={likeBurstId} />
           <RailButton onPress={onLike} active={liked} activeClassName="border-like bg-like" busy={busy} label="Like">
             <Heart color={colors.white} fill={liked ? colors.white : "none"} size={20} />
           </RailButton>
@@ -72,7 +72,7 @@ export function ActionRail({ liked, likeCount, saved, busy, onLike, onSave, onSh
       </View>
       <View className="h-16 items-center">
         <View>
-          <Confetti burstId={saveBurstId} icon={Bookmark} color={colors.brandGreen.DEFAULT} />
+          <Confetti burstId={saveBurstId} />
           <RailButton
             onPress={onSave}
             active={saved}

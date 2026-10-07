@@ -112,6 +112,17 @@ export function MealDetailSheet({
     if (error) onNotify?.(error, "error");
   };
 
+  // The meal whose save/unsave request is still in flight, so its button
+  // shows a spinner (the bookmark flips optimistically before that).
+  const [busyMeal, setBusyMeal] = useState<MealType | null>(null);
+  const track = (target: MealType, request: Promise<string | null>) => {
+    setBusyMeal(target);
+    void request.then((error) => {
+      setBusyMeal((current) => (current === target ? null : current));
+      notify(error);
+    });
+  };
+
   const confirmUpdate = async () => {
     if (!renderedMeal || !savedEntry || pendingServings == null) return;
     setUpdating(true);
@@ -174,8 +185,9 @@ export function MealDetailSheet({
           saved={{
             isSaved: !!savedEntry,
             savedServings: savedEntry?.serving_size,
-            onSave: (servings) => void savedMeals.save(renderedMeal, servings).then(notify),
-            onUnsave: () => savedEntry && void savedMeals.unsave(savedEntry).then(notify),
+            busy: busyMeal === renderedMeal,
+            onSave: (servings) => track(renderedMeal, savedMeals.save(renderedMeal, servings)),
+            onUnsave: () => savedEntry && track(renderedMeal, savedMeals.unsave(savedEntry)),
             onUpdate: setPendingServings,
           }}
           recipeOwner={meal && renderedMeal.id === meal.id ? recipeOwner : undefined}
