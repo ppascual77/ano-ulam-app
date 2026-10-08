@@ -1,6 +1,9 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { View, Pressable, PressableProps, StyleProp, ViewStyle } from "react-native";
+import Animated, { FadeOut, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { colors } from "@/frontend/constants/theme";
 import { AppText } from "./AppText";
+import { Spinner } from "./Spinner";
 
 // "social" is a neutral white/bordered button for third-party auth
 // (Google, Apple) — the icon carries the brand identity, not our palette.
@@ -47,6 +50,9 @@ const shapeStyles: Partial<Record<Shape, { borderRadius: number }>> = {
   fullPill: { borderRadius: 10 },
 };
 
+// Crossfade between the finished spiral and the label coming back.
+const CONTENT_FADE_MS = 200;
+
 type ButtonProps = Omit<PressableProps, "style"> & {
   label?: string;
   icon?: ReactNode;
@@ -55,6 +61,10 @@ type ButtonProps = Omit<PressableProps, "style"> & {
   variant?: Variant;
   shape?: Shape;
   style?: StyleProp<ViewStyle>;
+  /** Swaps the content for Spinner's rolling accent "wave" and blocks
+   *  presses, without the disabled fade. The button keeps its size. When it
+   *  flips back off, the wave curls into a spiral before the label returns. */
+  loading?: boolean;
 };
 
 export function Button({
@@ -65,6 +75,7 @@ export function Button({
   shape = "default",
   style,
   disabled,
+  loading = false,
   ...props
 }: ButtonProps) {
   // "fullPill" (currently only the "tinted" View Details button) centers its
@@ -76,25 +87,52 @@ export function Button({
     </AppText>
   );
 
+  // The wave outlives `loading`: once it flips off, the wave curls into a
+  // spiral first (Spinner's `done`), and only then goes away. Set during
+  // render (not in an effect) so the wave is there on loading's first frame.
+  const [showWave, setShowWave] = useState(loading);
+  if (loading && !showWave) setShowWave(true);
+  const busy = loading || showWave;
+
+  const contentOpacity = useSharedValue(busy ? 0 : 1);
+  useEffect(() => {
+    contentOpacity.value = busy ? 0 : withTiming(1, { duration: CONTENT_FADE_MS });
+  }, [busy, contentOpacity]);
+  const contentStyle = useAnimatedStyle(() => ({ opacity: contentOpacity.value }));
+
   return (
     <Pressable
       className={`items-center justify-center ${containerClasses[variant]} ${shapeClasses[shape]} ${disabled ? "opacity-30" : ""}`}
       style={[shapeStyles[shape], style]}
-      disabled={disabled}
+      disabled={disabled || busy}
+      accessibilityState={{ disabled: disabled || busy, busy }}
       {...props}
     >
-      {isFullPill ? (
-        <View className="w-full flex-row items-center">
-          <View className="flex-1 items-start">{iconPosition === "left" && icon}</View>
-          {labelNode}
-          <View className="flex-1 items-end">{iconPosition === "right" && icon}</View>
-        </View>
-      ) : (
-        <View className="flex-row items-center gap-2">
-          {iconPosition === "left" && icon}
-          {labelNode}
-          {iconPosition === "right" && icon}
-        </View>
+      {/* Content stays mounted (just hidden) while busy so the button
+          doesn't change size under the wave. */}
+      <Animated.View className={isFullPill ? "w-full" : ""} style={contentStyle}>
+        {isFullPill ? (
+          <View className="w-full flex-row items-center">
+            <View className="flex-1 items-start">{iconPosition === "left" && icon}</View>
+            {labelNode}
+            <View className="flex-1 items-end">{iconPosition === "right" && icon}</View>
+          </View>
+        ) : (
+          <View className="flex-row items-center gap-2">
+            {iconPosition === "left" && icon}
+            {labelNode}
+            {iconPosition === "right" && icon}
+          </View>
+        )}
+      </Animated.View>
+      {busy && (
+        <Animated.View
+          exiting={FadeOut.duration(CONTENT_FADE_MS)}
+          pointerEvents="none"
+          className="absolute inset-0 justify-center px-[50px]"
+        >
+          <Spinner variant="wave" size={12} color={colors.accent} done={!loading} onDone={() => setShowWave(false)} />
+        </Animated.View>
       )}
     </Pressable>
   );
