@@ -132,7 +132,8 @@ function wholePacks(usedPrice: number, ingredient: IngredientType): GroceryPack 
     ...listings.map((s) => s.pricePerUnit),
     ...(ingredient.daPriceSources ?? []).map((d) => d.pricePerUnit).filter((p) => p > 0),
   );
-  if (!Number.isFinite(perUnit) || usedPrice <= 0) return null;
+  // "to taste" (no amount, so ₱0 used) still needs one pack: max(1, …).
+  if (!Number.isFinite(perUnit)) return null;
   const needed = usedPrice / perUnit;
   let best: GroceryPack | null = null;
   for (const listing of listings) {
@@ -150,7 +151,7 @@ function wholePacks(usedPrice: number, ingredient: IngredientType): GroceryPack 
 // from the ingredient's own price, so the list shows it as an estimate.
 function estimatedPacks(usedPrice: number, ingredient: IngredientType): GroceryPack | null {
   const estimate = ingredient.packEstimate;
-  if (!estimate || estimate.sizeInUnit <= 0 || estimate.price <= 0 || usedPrice <= 0) return null;
+  if (!estimate || estimate.sizeInUnit <= 0 || estimate.price <= 0) return null;
   const needed = usedPrice / (estimate.price / estimate.sizeInUnit);
   const count = Math.max(1, Math.ceil(needed / estimate.sizeInUnit - 1e-6));
   return { count, size: estimate.size, price: count * estimate.price, container: estimate.container };
@@ -231,7 +232,7 @@ export function buildGroceryList(meals: Pick<MealType, "category" | "ingredients
       const pack = loose ? null : wholePacks(usedPrice, group.ingredient);
       // An estimate unless real listings sized the packs: no pack at all
       // (the used amount) or the AI's typical pack.
-      const estimate = !loose && usedPrice > 0 && (!pack || storeListings(group.ingredient).length === 0);
+      const estimate = !loose && (pack ? storeListings(group.ingredient).length === 0 : usedPrice > 0);
       return {
         id,
         name: group.name,
