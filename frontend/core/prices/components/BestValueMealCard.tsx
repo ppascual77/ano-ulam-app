@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withSpring, withTiming } from "react-native-reanimated";
@@ -6,6 +6,7 @@ import { Clock, Flame, TrendingDown } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { BestValueMeal } from "../hooks/usePriceMeals";
+import { useCountTo } from "../hooks/useCountTo";
 
 export const BEST_VALUE_CARD_WIDTH = 220;
 const PHOTO_HEIGHT = 124;
@@ -21,29 +22,6 @@ const STICKER_SPRING = { damping: 9, stiffness: 220, mass: 0.6 };
 const MIN_SAVING = 1;
 
 const peso = (n: number) => `₱${n.toFixed(2)}`;
-
-// Counts from `from` to `to` (ease-out) after `delayMs`.
-function useCountTo(from: number, to: number, delayMs: number) {
-  const [value, setValue] = useState(from);
-  useEffect(() => {
-    let raf = 0;
-    let start: number | null = null;
-    const tick = (t: number) => {
-      start ??= t;
-      const u = Math.min(1, (t - start) / COUNT_MS);
-      setValue(from + (to - from) * (1 - Math.pow(1 - u, 3)));
-      if (u < 1) raf = requestAnimationFrame(tick);
-    };
-    const timer = setTimeout(() => {
-      raf = requestAnimationFrame(tick);
-    }, delayMs);
-    return () => {
-      clearTimeout(timer);
-      cancelAnimationFrame(raf);
-    };
-  }, [from, to, delayMs]);
-  return value;
-}
 
 type BestValueMealCardProps = {
   value: BestValueMeal;
@@ -61,7 +39,7 @@ export function BestValueMealCard({ value, index, onPress }: BestValueMealCardPr
   const was = hasSaving ? now + saving : null;
   const delay = ENTER_DELAY_MS + index * STAGGER_MS;
 
-  const shown = useCountTo(was ?? now, now, delay + STRIKE_MS);
+  const shown = useCountTo(was ?? now, now, delay + STRIKE_MS, COUNT_MS);
 
   const strike = useSharedValue(0);
   const sticker = useSharedValue(0);

@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Animated, { Easing, useAnimatedProps, useSharedValue, withDelay, withSpring, withTiming } from "react-native-reanimated";
 import { Pressable, Text, View } from "react-native";
 import Svg, { Circle, Line, Path, Text as SvgText } from "react-native-svg";
 import { colors, fonts } from "@/frontend/constants/theme";
@@ -21,6 +22,55 @@ const MIN_LABEL_SPACING = 22;
 const RANGE_DAYS = 30;
 // SVG text can't take a className: the "sub" font size (tailwind.config.js).
 const LABEL_SIZE = 10;
+// Opening animation: the line draws itself left to right, then the latest
+// price lands as the accent dot with a ring rippling off it.
+const LINE_MS = 1000;
+const RING_MS = 650;
+const DOT_RADIUS = 4.5;
+const RING_GROWTH = 10;
+const DOT_SPRING = { damping: 7, stiffness: 240, mass: 0.5 };
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+function DrawnLine({ d, length, endX, endY, delay }: { d: string; length: number; endX: number; endY: number; delay: number }) {
+  const draw = useSharedValue(0);
+  const dot = useSharedValue(0);
+  const ring = useSharedValue(0);
+
+  useEffect(() => {
+    draw.value = 0;
+    dot.value = 0;
+    ring.value = 0;
+    draw.value = withDelay(delay, withTiming(1, { duration: LINE_MS, easing: Easing.inOut(Easing.cubic) }));
+    dot.value = withDelay(delay + LINE_MS, withSpring(1, DOT_SPRING));
+    ring.value = withDelay(delay + LINE_MS, withTiming(1, { duration: RING_MS, easing: Easing.out(Easing.cubic) }));
+  }, [d, delay, draw, dot, ring]);
+
+  const lineProps = useAnimatedProps(() => ({ strokeDashoffset: length * (1 - draw.value) }));
+  const dotProps = useAnimatedProps(() => ({ r: DOT_RADIUS * dot.value }));
+  const ringProps = useAnimatedProps(() => ({
+    r: DOT_RADIUS + RING_GROWTH * ring.value,
+    strokeOpacity: ring.value === 0 ? 0 : 0.5 * (1 - ring.value),
+  }));
+
+  return (
+    <>
+      <AnimatedPath
+        d={d}
+        stroke={colors.primary}
+        strokeWidth={2.5}
+        fill="none"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        strokeDasharray={[length, length]}
+        animatedProps={lineProps}
+      />
+      <AnimatedCircle cx={endX} cy={endY} fill="none" stroke={colors.accent} strokeWidth={2} animatedProps={ringProps} />
+      <AnimatedCircle cx={endX} cy={endY} fill={colors.accent} animatedProps={dotProps} />
+    </>
+  );
+}
 
 // Padded Y domain so a flat or tiny-range line doesn't sit on an edge.
 function yDomain(values: number[]): [number, number] {
@@ -53,7 +103,14 @@ function dayLabel(points: DailyPoint[], labelIndexes: number[], i: number): stri
 // Daily DA prices over the last 30 days. One point per DA publish day, x
 // spaced by date (a 3-day gap looks wider than a 1-day step), straight
 // lines between real points, nothing filled in for missing days.
-export function PriceTrendChart({ daily }: { daily: DailyPoint[] }) {
+type PriceTrendChartProps = {
+  daily: DailyPoint[];
+  /** Before the line starts drawing, in ms (e.g. to follow a sheet's other
+   *  entrance animations). */
+  drawDelay?: number;
+};
+
+export function PriceTrendChart({ daily, drawDelay = 0 }: PriceTrendChartProps) {
   const [width, setWidth] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
 
@@ -81,6 +138,11 @@ export function PriceTrendChart({ daily }: { daily: DailyPoint[] }) {
   const y = (price: number) => TOP_PAD + (1 - (price - yMin) / Math.max(yMax - yMin, 1)) * plotHeight;
 
   const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(p.date)},${y(p.price)}`).join(" ");
+  // Straight segments, so the exact length is just their sum (for the draw-in).
+  const pathLength = points.reduce(
+    (sum, p, i) => (i === 0 ? 0 : sum + Math.hypot(x(p.date) - x(points[i - 1].date), y(p.price) - y(points[i - 1].price))),
+    0,
+  );
   const yTicks = [0, 1, 2, 3].map((i) => yMin + ((yMax - yMin) * i) / 3);
   const labelIndexes = pickLabelIndexes(points, plotWidth);
   const last = points.at(-1)!;
@@ -143,8 +205,7 @@ export function PriceTrendChart({ daily }: { daily: DailyPoint[] }) {
                 {dayLabel(points, labelIndexes, i)}
               </SvgText>
             ))}
-            <Path d={path} stroke={colors.primary} strokeWidth={2.5} fill="none" strokeLinejoin="round" />
-            <Circle cx={x(last.date)} cy={y(last.price)} r={4} fill={colors.primary} />
+            <DrawnLine d={path} length={pathLength} endX={x(last.date)} endY={y(last.price)} delay={drawDelay} />
             {active && (
               <>
                 <Line
