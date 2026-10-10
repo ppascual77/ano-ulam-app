@@ -98,7 +98,12 @@ export default function RootLayout() {
           />
           <SafeAreaProvider>
             <QueryClientProvider client={queryClient}>
-              <Stack screenOptions={{ headerShown: false }} />
+              <Stack screenOptions={{ headerShown: false }}>
+                {/* Fades in (instead of sliding), so onboarding's page
+                    indicator dot appears to stay put as Home's welcome
+                    intro takes it over. */}
+                <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
+              </Stack>
             </QueryClientProvider>
           </SafeAreaProvider>
         </GestureHandlerRootView>

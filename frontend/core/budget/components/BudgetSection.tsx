@@ -1,5 +1,6 @@
-import { type RefObject, useState } from "react";
+import { useState } from "react";
 import { View } from "react-native";
+import type { LandingDot } from "@/frontend/components/ui";
 import { BudgetForm } from "./BudgetForm";
 import { MealSuggestion } from "./MealSuggestion";
 import { CategoriesSection } from "./CategoriesSection";
@@ -11,11 +12,10 @@ import { BestValueMealsSection } from "@/frontend/core/meals/components/BestValu
 // renders this or PantrySection depending on the toggle, nothing more.
 type BudgetSectionProps = {
   /** Passed to the "Categories." title (see CategoriesSection). */
-  categoriesDotRef?: RefObject<View | null>;
-  showCategoriesDot?: boolean;
+  categoriesLanding?: LandingDot;
 };
 
-export function BudgetSection({ categoriesDotRef, showCategoriesDot }: BudgetSectionProps) {
+export function BudgetSection({ categoriesLanding }: BudgetSectionProps) {
   const [suggestion, setSuggestion] = useState<{
     budget: string;
     servings: number;
@@ -29,7 +29,7 @@ export function BudgetSection({ categoriesDotRef, showCategoriesDot }: BudgetSec
         <MealSuggestion budget={suggestion.budget} />
       ) : (
         <>
-          <CategoriesSection dotRef={categoriesDotRef} showDot={showCategoriesDot} />
+          <CategoriesSection landing={categoriesLanding} />
           <RecommendationsSection />
           <CommunityFavoritesSection />
           <BestValueMealsSection />

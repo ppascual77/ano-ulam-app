@@ -1,7 +1,7 @@
-import { type RefObject, useState } from "react";
+import { useState } from "react";
 import { View } from "react-native";
 import { Hamburger, Moon, Sun } from "lucide-react-native";
-import { LandingTitle } from "@/frontend/components/ui";
+import { LandingTitle, type LandingDot } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { CategoryCard } from "./CategoryCard";
 
@@ -50,17 +50,15 @@ const CATEGORIES = [
 
 type CategoriesSectionProps = {
   /** The title's period: Home's post-onboarding intro lands its dot here. */
-  dotRef?: RefObject<View | null>;
-  /** false hides the period until that dot has landed. */
-  showDot?: boolean;
+  landing?: LandingDot;
 };
 
-export function CategoriesSection({ dotRef, showDot }: CategoriesSectionProps) {
+export function CategoriesSection({ landing }: CategoriesSectionProps) {
   const [selected, setSelected] = useState<string | null>(null);
 
   return (
     <View className="gap-3">
-      <LandingTitle dotRef={dotRef} showDot={showDot}>
+      <LandingTitle {...landing}>
         Categories
       </LandingTitle>
       <View className="flex-row gap-3">
