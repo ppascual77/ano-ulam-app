@@ -30,6 +30,8 @@ export type GroceryItem = {
    *  it's an estimate of the spend ("~"). */
   estimate?: boolean;
   category: "main" | "pantry";
+  /** A pantry staple the user moved to "To buy" (see useStaplesToBuyStore). */
+  movedFromStaples?: boolean;
   /** How many of the meals use it (the list's "N meals" tag when > 1). */
   meals: number;
 };

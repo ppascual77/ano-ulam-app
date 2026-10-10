@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { Info, MapPin } from "lucide-react-native";
-import { AppText, BottomSheet, SegmentedSwitch, Toggle } from "@/frontend/components/ui";
+import { AppText, BottomSheet, SegmentedSwitch } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { pantryHas } from "@/frontend/core/pantry/hooks/usePantry";
 import type { PantryIngredient } from "@/frontend/core/pantry/mock/api";
 import type { GroceryItem } from "../utils/buildGroceryList";
 import { GroceryRow, formatPeso } from "./GroceryRow";
 import { GrocerySectionHeader, splitGroceryItems } from "./GrocerySection";
+import { useStaplesToBuyStore } from "../store/useStaplesToBuyStore";
 
 // One list in the sheet: saved meals, or the meal plan.
 export type GroceryListTab = {
@@ -48,15 +49,11 @@ function DashedRule() {
 // item, per app session), so unchecking one sticks until the next launch.
 const autoCheckedHave = new Set<string>();
 
-// "Include in total" (pantry staples) sticks for the app session, across
-// opens and tabs.
-let includePantrySession = false;
-
 const COUNT_UP_MS = 600;
 
 // The total ticks up from 0 each time the sheet opens (or the tab changes),
-// like the teaser's grocery list. Other changes (the pantry toggle) tick from
-// the current value to the new one.
+// like the teaser's grocery list. Other changes (moving a staple to "To
+// buy") tick from the current value to the new one.
 function useCountUp(target: number, resetKey: string, run: boolean) {
   const [value, setValue] = useState(target);
   const valueRef = useRef(target);
@@ -89,10 +86,10 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
     if (visible) setActiveKey(initialTab ?? tabs[0]?.key);
     // Reset to the caller's tab on each open.
   }, [visible]);
-  const [includePantry, setIncludePantry] = useState(includePantrySession);
+  const moveStaple = useStaplesToBuyStore((s) => s.toggle);
   const tab = tabs.find((t) => t.key === activeKey) ?? tabs[0];
-  // Main ingredients, plus pantry staples when they're switched on.
-  const counted = (tab?.items ?? []).filter((item) => item.category === "main" || includePantry);
+  // "To buy": main ingredients and any staples moved there.
+  const counted = (tab?.items ?? []).filter((item) => item.category === "main");
   const total = counted.reduce((sum, item) => sum + item.price, 0);
   // What the meals use of it. Whole packs cost more than what a recipe
   // uses, and the gap is what's left over in the pantry, which explains why
@@ -115,7 +112,6 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
   if (!tab) return null;
   const { items, isChecked, onToggle } = tab;
   const { mains, staples } = splitGroceryItems(items);
-  const mainsSubtotal = mains.reduce((sum, item) => sum + item.price, 0);
 
   const renderRows = (rows: typeof items) =>
     rows.map((item, i) => (
@@ -127,7 +123,7 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
         isLast={i === rows.length - 1}
         wrap
         have={pantryHas(pantry, item.name)}
-        pricePantry={includePantry}
+        onMove={item.category === "pantry" || item.movedFromStaples ? () => moveStaple(item.id) : undefined}
       />
     ));
 
@@ -167,34 +163,12 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
           <View className="mt-5">
             <GrocerySectionHeader title="To buy" count={mains.length} />
             <View className="mt-1">{renderRows(mains)}</View>
-            {/* Only worth showing when staples could add to the total. */}
-            {staples.length > 0 && (
-              <View className="flex-row items-center justify-between px-2 pt-2">
-                <Text className="font-inter-medium text-small text-ink-subtle">Subtotal</Text>
-                <Text className="font-inter-bold text-body text-ink-emphasis">₱{formatPeso(mainsSubtotal, 0)}</Text>
-              </View>
-            )}
           </View>
         )}
 
         {staples.length > 0 && (
           <View className="mt-6">
-            <GrocerySectionHeader
-              title="Pantry staples"
-              count={staples.length}
-              right={
-                <View className="flex-row items-center gap-2">
-                  <Text className="font-inter-medium text-small text-ink-subtle">Include in total</Text>
-                  <Toggle
-                    checked={includePantry}
-                    onChange={(on) => {
-                      includePantrySession = on;
-                      setIncludePantry(on);
-                    }}
-                  />
-                </View>
-              }
-            />
+            <GrocerySectionHeader title="Pantry staples" count={staples.length} />
             <View className="mt-1">{renderRows(staples)}</View>
           </View>
         )}

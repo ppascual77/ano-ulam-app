@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Pressable, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
-import { Check } from "lucide-react-native";
+import { Check, Plus } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import type { GroceryItem } from "../utils/buildGroceryList";
 
@@ -19,8 +19,9 @@ type GroceryRowProps = {
   wrap?: boolean;
   /** Full list: the item is already in the user's pantry. */
   have?: boolean;
-  /** Price pantry staples too (the full list's "Include in total"). */
-  pricePantry?: boolean;
+  /** Full list: moves a pantry staple to "To buy" (a "+ To buy" button),
+   *  or a moved one back ("Move back" under its price). */
+  onMove?: () => void;
 };
 
 // Rounded check box that fills green and pops when checked (only on a tap,
@@ -53,9 +54,9 @@ function CheckBox({ checked }: { checked: boolean }) {
 // Check box, the name with the "2 meals" / "In pantry" chips beside it and
 // what to pick up under it, and the price on the right. Checked items fade
 // and get struck through.
-export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have = false, pricePantry = false }: GroceryRowProps) {
-  // Main ingredients, and pantry staples once "Include in total" is on.
-  const counted = item.category === "main" || pricePantry;
+export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have = false, onMove }: GroceryRowProps) {
+  // Main ingredients and staples moved to "To buy" are priced and counted.
+  const counted = item.category === "main";
   return (
     <Pressable
       onPress={onToggle}
@@ -87,16 +88,34 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
         {!!item.buy && <Text className="font-inter-regular text-small text-ink-subtle">{item.buy}</Text>}
       </View>
 
-      {/* Pantry staples left out of the total say "Staple" in the price's
-          place. ("Staple", not "Pantry": "In pantry" already means
-          you have it.) */}
+      {/* Pantry staples aren't counted: a "+ To buy" button in the price's
+          place for when you're out of one (or "Staple" where it can't be
+          moved). ("Staple", not "Pantry": "In pantry" already means you
+          have it.) */}
       {counted ? (
-        item.price > 0 && (
-          <Text className={`font-inter-extrabold text-body text-ink-emphasis ${checked ? "opacity-40" : ""}`}>
-            {/* "~": no store listing behind it (an AI pack or the used amount). */}
-            {item.estimate ? "~" : ""}₱{formatPeso(item.price, 0)}
-          </Text>
-        )
+        <View className={`items-end gap-1 ${checked ? "opacity-40" : ""}`}>
+          {item.price > 0 && (
+            <Text className="font-inter-extrabold text-body text-ink-emphasis">
+              {/* "~": no store listing behind it (an AI pack or the used amount). */}
+              {item.estimate ? "~" : ""}₱{formatPeso(item.price, 0)}
+            </Text>
+          )}
+          {item.movedFromStaples && onMove && (
+            <Pressable onPress={onMove} hitSlop={8} accessibilityLabel={`Move ${item.name} back to pantry staples`}>
+              <Text className="font-inter-medium text-small text-ink-subtle underline">Move back</Text>
+            </Pressable>
+          )}
+        </View>
+      ) : onMove ? (
+        <Pressable
+          onPress={onMove}
+          hitSlop={8}
+          accessibilityLabel={`Move ${item.name} to To buy`}
+          className="flex-row items-center gap-1"
+        >
+          <Plus color={colors.primary} size={14} strokeWidth={2.5} />
+          <Text className="font-inter-semibold text-small text-primary">To buy</Text>
+        </Pressable>
       ) : (
         <Text className={`font-inter-medium text-small text-ink-subtle ${checked ? "opacity-40" : ""}`}>Staple</Text>
       )}
