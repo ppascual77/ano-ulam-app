@@ -19,6 +19,9 @@ type GroceryRowProps = {
   wrap?: boolean;
   /** Full list: the item is already in the user's pantry. */
   have?: boolean;
+  /** A read-only preview (Profile's Grocery tab): faint check boxes and no
+   *  tapping a row, since the whole preview opens the full list. */
+  preview?: boolean;
   /** Full list: moves a pantry staple to "To buy" (a "+ To buy" button),
    *  or a moved one back (an undo icon under its price). */
   onMove?: () => void;
@@ -26,7 +29,7 @@ type GroceryRowProps = {
 
 // Rounded check box that fills green and pops when checked (only on a tap,
 // not when the row first renders already checked).
-function CheckBox({ checked }: { checked: boolean }) {
+function CheckBox({ checked, faint = false }: { checked: boolean; faint?: boolean }) {
   const scale = useSharedValue(1);
   const mounted = useRef(false);
   useEffect(() => {
@@ -43,7 +46,9 @@ function CheckBox({ checked }: { checked: boolean }) {
   return (
     <Animated.View style={style}>
       <View
-        className={`h-6 w-6 items-center justify-center rounded-lg border-2 border-primary ${checked ? "bg-primary" : "bg-white"}`}
+        className={`h-6 w-6 items-center justify-center rounded-lg border-2 ${faint ? "border-primary/30" : "border-primary"} ${
+          checked ? (faint ? "bg-primary/30" : "bg-primary") : "bg-white"
+        }`}
       >
         {checked && <Check color={colors.white} size={15} strokeWidth={3.2} />}
       </View>
@@ -54,7 +59,16 @@ function CheckBox({ checked }: { checked: boolean }) {
 // Check box, the name with the "2 meals" / "In pantry" chips beside it and
 // what to pick up under it, and the price on the right. Checked items fade
 // and get struck through.
-export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have = false, onMove }: GroceryRowProps) {
+export function GroceryRow({
+  item,
+  checked,
+  onToggle,
+  isLast,
+  wrap = false,
+  have = false,
+  preview = false,
+  onMove,
+}: GroceryRowProps) {
   // Main ingredients and staples moved to "To buy" are priced and counted.
   const counted = item.category === "main";
   // Only items on the shopping run show as checked off (a staple checked
@@ -65,13 +79,15 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
   // looked like something was missing).
   return (
     <Pressable
-      onPress={counted ? onToggle : undefined}
-      disabled={!counted}
+      onPress={counted && !preview ? onToggle : undefined}
+      disabled={!counted || preview}
+      // A preview row lets the tap through to the preview around it.
+      pointerEvents={preview ? "none" : "auto"}
       accessibilityRole={counted ? "checkbox" : undefined}
       accessibilityState={counted ? { checked } : undefined}
       className={`flex-row items-center gap-3 px-2 py-3 ${isLast ? "" : "border-b border-ink-emphasis/10"}`}
     >
-      {counted && <CheckBox checked={checked} />}
+      {counted && <CheckBox checked={checked} faint={preview} />}
 
       <View className={`flex-1 gap-0.5 ${done ? "opacity-40" : ""}`}>
         <View className="flex-row flex-wrap items-center gap-1.5">

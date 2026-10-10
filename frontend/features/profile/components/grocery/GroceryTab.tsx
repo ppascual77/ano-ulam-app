@@ -106,7 +106,14 @@ export function GroceryTab({ userId }: { userId: string | null }) {
             </Text>
           </View>
         ) : (
-          <View className="mt-3 gap-4 px-3">
+          // The whole preview opens the full list (its rows aren't checked
+          // off here).
+          <Pressable
+            onPress={() => setFullOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="View grocery list"
+            className="mt-3 gap-4 rounded-2xl border-2 border-dashed border-accent px-3 pb-1 pt-4"
+          >
             {[
               { title: "To buy", rows: preview.mains, count: mains.length },
               { title: "Pantry staples", rows: preview.staples, count: staples.length },
@@ -122,19 +129,15 @@ export function GroceryTab({ userId }: { userId: string | null }) {
                       checked={grocery.isChecked(item)}
                       onToggle={() => grocery.toggle(item)}
                       isLast={i === section.rows.length - 1}
+                      preview
                     />
                   ))}
                 </View>
               ))}
-          </View>
-        )}
-
-        {/* Full list: when the preview is cut off, or there's a meal plan
-            (its list lives in the sheet's "Meal plan" tab). */}
-        {!grocery.loading && (items.length > PREVIEW_LIMIT || !!plan) && (
-          <Pressable onPress={() => setFullOpen(true)} className="mt-2 h-[30px] flex-row items-center justify-center gap-1">
-            <Text className="font-inter-medium text-small text-brand-green">View Grocery List</Text>
-            <ChevronRight color={colors.brandGreen.DEFAULT} size={15} />
+            <View className="h-[30px] flex-row items-center justify-center gap-1">
+              <Text className="font-inter-medium text-small text-brand-green">View Grocery List</Text>
+              <ChevronRight color={colors.brandGreen.DEFAULT} size={15} />
+            </View>
           </Pressable>
         )}
       </View>
