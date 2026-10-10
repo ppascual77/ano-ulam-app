@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { RefreshControl, ScrollView, View } from "react-native";
+import { useMemo, useRef, useState } from "react";
+import { RefreshControl, ScrollView, useWindowDimensions, View } from "react-native";
 import { AppText, Avatar, Screen } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { BestValueMealsSection } from "@/frontend/core/meals/components/BestValueMealsSection";
@@ -17,10 +17,25 @@ import { priceWatchCategories } from "../constants/categories";
 
 // DA's daily prices (Admin → DA Daily Prices), compared week over week:
 // fresh picks, best value meals, and every commodity by category.
+// Breathing room above the list section when search scrolls it to the top.
+const SEARCH_TOP_GAP = 12;
+
 export default function PriceWatchScreen() {
   const items = usePriceItems();
   const [category, setCategory] = useState<PriceCategory | null>("meat");
   const [search, setSearch] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searching = searchFocused || search.trim() !== "";
+  const scrollRef = useRef<ScrollView>(null);
+  const { height: windowHeight } = useWindowDimensions();
+  // Where the "All" list section starts in the scroll content.
+  const [listY, setListY] = useState(0);
+  // Focusing search parks its section (title, sort chip, search box) at the
+  // top of the screen, and the min height below keeps it there as you type.
+  const handleSearchFocus = () => {
+    setSearchFocused(true);
+    scrollRef.current?.scrollTo({ y: Math.max(0, listY - SEARCH_TOP_GAP), animated: true });
+  };
   const [sortByDrop, setSortByDrop] = useState(true);
   const [selected, setSelected] = useState<PriceItem | null>(null);
   const [marketsOpen, setMarketsOpen] = useState(false);
@@ -57,6 +72,7 @@ export default function PriceWatchScreen() {
           fresh picks arrows can sit half outside the cards without the
           ScrollView clipping them. */}
       <ScrollView
+        ref={scrollRef}
         className="-mx-7 flex-1"
         showsVerticalScrollIndicator={false}
         keyboardDismissMode="on-drag"
@@ -98,7 +114,14 @@ export default function PriceWatchScreen() {
           <CategoryGrid selected={category} onSelect={setCategory} />
         </View>
 
-        <View className="mt-6">
+        {/* While searching, at least a screen tall: filtering shrinks the
+            list, and a page shorter than the scroll position would make
+            the ScrollView jump back up. */}
+        <View
+          className="mt-6"
+          onLayout={(e) => setListY(e.nativeEvent.layout.y)}
+          style={searching ? { minHeight: windowHeight } : undefined}
+        >
           <PriceListSection
             title={title}
             items={listed}
@@ -108,6 +131,8 @@ export default function PriceWatchScreen() {
             sortByDrop={sortByDrop}
             onToggleSort={() => setSortByDrop((v) => !v)}
             onSelect={setSelected}
+            onSearchFocus={handleSearchFocus}
+            onSearchBlur={() => setSearchFocused(false)}
           />
         </View>
       </ScrollView>

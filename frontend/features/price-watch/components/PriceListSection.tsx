@@ -24,6 +24,8 @@ type PriceListSectionProps = {
   sortByDrop: boolean;
   onToggleSort: () => void;
   onSelect: (item: PriceItem) => void;
+  onSearchFocus?: () => void;
+  onSearchBlur?: () => void;
 };
 
 export function PriceListSection({
@@ -35,6 +37,8 @@ export function PriceListSection({
   sortByDrop,
   onToggleSort,
   onSelect,
+  onSearchFocus,
+  onSearchBlur,
 }: PriceListSectionProps) {
   // 0 -> 1 over a pulse; 1 at rest. Not on first render.
   const pulse = useSharedValue(1);
@@ -84,6 +88,8 @@ export function PriceListSection({
           value={search}
           onChangeText={onSearch}
           onClear={() => onSearch("")}
+          onFocus={onSearchFocus}
+          onBlur={onSearchBlur}
           autoCorrect={false}
           returnKeyType="search"
         />
