@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { Image } from "expo-image";
-import { BottomSheet } from "@/frontend/components/ui";
+import { AppText, BottomSheet } from "@/frontend/components/ui";
 import { ingredientCategoryIcon } from "../../ingredientCategory";
 import { capitalize } from "../../utils/dietary";
 import { MicronutrientSection, NutritionSection, NutritionSourceSection, PriceSourceSection, hasNutrition } from "./IngredientDetailSections";
@@ -54,7 +54,9 @@ export function IngredientDetailSheet({ ingredient, onClose, maxHeightPercent }:
             <Image source={ingredientCategoryIcon(rendered)} style={{ width: 48, height: 48 }} contentFit="contain" />
             <View className="flex-1 gap-2">
               <View className="flex-row items-start justify-between gap-3">
-                <Text className="flex-1 font-inter-bold text-heading text-ink-emphasis">{capitalize(rendered.name)}</Text>
+                <AppText variant="sectionTitle" dot className="flex-1">
+                  {capitalize(rendered.name)}
+                </AppText>
                 {hasPrice && <Text className="font-inter-bold text-heading text-primary">~₱{rendered.price!.toFixed(2)}</Text>}
               </View>
               <View className="flex-row items-center justify-between gap-3">

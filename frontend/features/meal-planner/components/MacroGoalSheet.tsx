@@ -27,7 +27,7 @@ import {
   Wheat,
   type LucideIcon,
 } from "lucide-react-native";
-import { BottomSheet, Button } from "@/frontend/components/ui";
+import { AppText, BottomSheet, Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import {
   ACTIVITY_OPTIONS,
@@ -76,7 +76,9 @@ function Title({ title, body, centered = false }: { title: string; body: string;
   const align = centered ? "text-center" : "";
   return (
     <View className={centered ? "items-center" : ""}>
-      <Text className={`font-inter-semibold text-heading text-web-ink ${align}`}>{title}</Text>
+      <AppText variant="sectionTitle" dot className={align}>
+        {title}
+      </AppText>
       <Text className={`mt-1 font-inter-regular text-body text-web-ink-muted ${centered ? "px-4 text-center" : ""}`}>{body}</Text>
     </View>
   );
@@ -224,7 +226,7 @@ type GoalStepProps = {
 function GoalStep({ goal, activity, onGoal, onActivity, onCalculate, canCalculate }: GoalStepProps) {
   return (
     <>
-      <Text className="font-inter-semibold text-heading text-web-ink">What's your main goal?</Text>
+      <AppText variant="sectionTitle">What&apos;s your main goal?</AppText>
       <View className="flex-row gap-2">
         {GOAL_OPTIONS.map((option) => {
           const Icon = GOAL_ICONS[option.value];
@@ -447,7 +449,9 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
                 <View className="h-14 w-14 items-center justify-center rounded-full bg-brand-orange/15">
                   <Target color={colors.brandOrange} size={28} />
                 </View>
-                <Text className="text-center font-inter-semibold text-heading text-web-ink">Here are your recommended targets</Text>
+                <AppText variant="sectionTitle" dot className="text-center">
+                  Here are your recommended targets
+                </AppText>
                 <Text className="text-center font-inter-regular text-small text-web-ink-muted">
                   Based on your stats and goal{goalLabel ? ` (${goalLabel})` : ""}
                 </Text>

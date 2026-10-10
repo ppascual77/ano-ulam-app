@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
-import { AppText, Screen, SearchBar, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
+import { AppText, LandingTitle, Screen, SearchBar, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
 import { CravingTagline } from "@/frontend/features/browse/components/CravingTagline";
 import { MoodSelection } from "@/frontend/features/browse/components/MoodSelection";
 import { TodaysPickCard } from "@/frontend/core/meals/components/card/TodaysPickCard";
@@ -21,7 +21,6 @@ import { FilterSheet } from "../components/FilterSheet";
 import { SearchResults } from "../components/SearchResults";
 import { EmptyMealView, GuestLimitGate } from "../components/EmptyStates";
 import { BrowseIntro } from "../components/BrowseIntro";
-import { LogoQuestionMark } from "../components/LogoQuestionMark";
 
 const todaysPick = mockMeals.find((meal) => meal.normalized_name === "bananaandpeanutbutter");
 
@@ -49,7 +48,7 @@ export default function BrowseScreen() {
 
   const search = useBrowseSearch({ isGuest });
   // The intro, replayed on every visit to the tab (see usePageIntro): its
-  // dot lands as the dot of the header's logo "?". Leaving the tab puts the
+  // dot lands as the period of "Browse.". Leaving the tab puts the
   // header back at the top, ready for the next landing.
   const scrollRef = useRef<ScrollView>(null);
   const intro = usePageIntro({ enabled: SHOW_INTRO, onArm: () => scrollRef.current?.scrollTo({ y: 0, animated: false }) });
@@ -164,12 +163,14 @@ export default function BrowseScreen() {
         keyboardDismissMode="on-drag"
       >
         <View className="flex-row items-start justify-between">
-          {/* Same bold title style as the other sections, with the fork
-              logo as its "?" (the intro's dot lands as its dot). */}
-          <AppText variant="sectionTitle" className="ml-3 mt-3 flex-1 pr-2">
-            What are you craving today
-            <LogoQuestionMark dotRef={intro.targetRef} showDot={intro.landed} />
-          </AppText>
+          {/* "Browse." like the other pages; its period is where the intro's
+              dot lands. The craving question moved under it. */}
+          <View className="ml-3 mt-3 flex-1 pr-2">
+            <LandingTitle dotRef={intro.targetRef} showDot={intro.landed}>
+              Browse
+            </LandingTitle>
+            <AppText variant="caption">What are you craving today?</AppText>
+          </View>
           {__DEV__ && (
             <Pressable onPress={() => setDevGuest((prev) => !prev)} className="mt-3 rounded-full bg-web-ink/80 px-2 py-1">
               <Text className="font-inter-semibold text-sub text-white">DEV {devGuest ? "guest" : "signed in"}</Text>

@@ -91,7 +91,9 @@ function DetailBody({ item, onOpenMeal }: DetailBodyProps) {
         <DotLabel>Today&apos;s price</DotLabel>
         <View className="mt-2 flex-row items-baseline gap-2">
           {/* Counts down (or up) from last week's price to today's. */}
-          <Text className="font-inter-extrabold text-subhero tracking-display text-ink-emphasis">{formatPeso(shownPrice)}</Text>
+          <Text style={{ fontVariant: ["tabular-nums"] }} className="font-inter-extrabold text-subhero tracking-display text-ink-emphasis">
+            {formatPeso(shownPrice)}
+          </Text>
           <Text className="font-inter-regular text-body text-ink-subtle">{unitLabel(item)}</Text>
         </View>
 

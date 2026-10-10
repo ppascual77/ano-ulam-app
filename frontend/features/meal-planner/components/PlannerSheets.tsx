@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { ArrowRight, Check, Crown, Plus, X } from "lucide-react-native";
-import { BottomSheet, Button } from "@/frontend/components/ui";
+import { AppText, BottomSheet, Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { SLOT_LABELS } from "../utils/generatePlan";
 import type { MealSlot, PlannerMeal } from "../mock/plannerMeals";
@@ -26,9 +26,9 @@ export function LockedDaySheet({ visible, lockedDays, onClose, onUnlock }: Locke
           <Crown color={colors.brandOrange} size={24} />
         </View>
         <View>
-          <Text className="font-inter-bold text-subheading text-web-ink">
+          <AppText variant="sectionTitle" dot>
             Your next {lockedDays} days are <Text className="text-brand-orange">ready</Text>
-          </Text>
+          </AppText>
           <Text className="mt-1 font-inter-regular text-body text-web-ink-muted">Unlock the full 5-day plan with AnoUlam Premium.</Text>
         </View>
         <View className="gap-2.5">
@@ -94,7 +94,7 @@ export function SwapMealSheet({ slot, options, showMacros, onClose, onSwap }: Sw
       <View className="flex-1 pt-8">
         <View className="flex-row items-start justify-between px-6">
           <View className="flex-1">
-            <Text className="font-inter-bold text-subheading text-web-ink">Swap {label}</Text>
+            <AppText variant="sectionTitle" dot>{`Swap ${label}`}</AppText>
             <Text className="mt-1 font-inter-regular text-body text-web-ink-muted">Choose another meal for {label.toLowerCase()}.</Text>
           </View>
           <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="Close">

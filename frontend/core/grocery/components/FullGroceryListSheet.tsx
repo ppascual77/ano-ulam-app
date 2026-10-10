@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { Info, MapPin } from "lucide-react-native";
-import { BottomSheet, SegmentedSwitch, Toggle } from "@/frontend/components/ui";
+import { AppText, BottomSheet, SegmentedSwitch, Toggle } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { pantryHas } from "@/frontend/core/pantry/hooks/usePantry";
 import type { PantryIngredient } from "@/frontend/core/pantry/mock/api";
@@ -125,7 +125,7 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
   return (
     <BottomSheet visible={visible} onClose={onClose}>
       <ScrollView contentContainerClassName="px-6 pb-10 pt-10" showsVerticalScrollIndicator={false}>
-        <Text className="font-inter-extrabold text-heading text-ink-emphasis">Grocery list</Text>
+        <AppText variant="sectionTitle" dot>Grocery list</AppText>
         <Text className="mt-0.5 font-inter-medium text-body text-ink-subtle">
           {items.length} item{items.length === 1 ? "" : "s"} · combined from your meals
         </Text>

@@ -346,7 +346,7 @@ export function IngredientEditSheet({
   return (
     <BottomSheet visible={visible} onClose={onClose} onClosed={onClosed} heightPercent={0.9}>
       <ScrollView className="flex-1 px-8 pt-16" contentContainerStyle={{ paddingBottom: 24 }}>
-        <AppText variant="heading" className="mb-6">
+<AppText variant="sectionTitle" dot className="mb-6">
           {ingredient ? "Edit Ingredient" : "Add Ingredient"}
         </AppText>
 

@@ -20,7 +20,7 @@ export default function TabsLayout() {
           default white background while it mounts or slides in. */}
       <Tabs.Screen name="discover" options={{ sceneStyle: { backgroundColor: colors.black } }} />
       <Tabs.Screen name="price-watch" />
-      <Tabs.Screen name="meal-planner" />
+      <Tabs.Screen name="profile" />
     </Tabs>
   );
 }

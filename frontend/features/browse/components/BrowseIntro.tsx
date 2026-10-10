@@ -21,7 +21,7 @@ import { colors } from "@/frontend/constants/theme";
 //   1.75s  the three ulam moods pop in: Tipid, High Protein, Quick & Easy
 //   2.35s  everything collapses into one dot
 //   2.75s  the cover fades to the real page as the dot arcs up and lands as
-//          the dot of the logo "?" in the header (see PageIntro)
+//          the period of the "Browse." header (see PageIntro)
 const SPIN_AT = 200;
 const SPIN_MS = 1300;
 const NOTE_AT = 1550;
@@ -139,8 +139,6 @@ export function BrowseIntro({ active, targetRef, onDone }: BrowseIntroProps) {
       dotStart={collapsePoint}
       dotAt={DOT_AT}
       flyAt={FLY_AT}
-      // Lands as the logo's own dot, so it turns the logo's green.
-      landColor={colors.brandGreen.DEFAULT}
       accessibilityLabel="Browse: search any dish you're craving, or pick by mood: tipid, high protein, or quick and easy."
     >
       {(size) => <CravingScene size={size} />}

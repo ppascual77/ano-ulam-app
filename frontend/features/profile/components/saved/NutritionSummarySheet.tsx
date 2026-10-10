@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Droplets, Dumbbell, Target, Wheat, type LucideIcon } from "lucide-react-native";
-import { BottomSheet, Button } from "@/frontend/components/ui";
+import { AppText, BottomSheet, Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MacroSection } from "@/frontend/core/meals/components/detail/MacroSection";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
@@ -66,9 +66,9 @@ export function NutritionSummarySheet({ visible, onClose, saved }: { visible: bo
         <BottomSheet visible={goalsOpen} onClose={() => setGoalsOpen(false)} presentation="inline" fitContent heightPercent={0.6}>
           <View className="items-center gap-3 px-6 pb-8 pt-10">
             <Text className="text-heading">🎯</Text>
-            <Text className="text-center font-inter-bold text-heading text-web-ink">
+            <AppText variant="sectionTitle" dot className="text-center">
               Goal setting is <Text className="text-brand-orange">coming soon</Text>
-            </Text>
+            </AppText>
             <Text className="text-center font-inter-regular text-body text-web-ink-muted">
               We're working on letting you set your own calorie and macro targets, so suggestions can be tailored to your actual
               goal, whether that's building muscle, losing weight, or just eating better.

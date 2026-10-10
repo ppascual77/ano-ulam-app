@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { RefreshControl, ScrollView, useWindowDimensions, View } from "react-native";
-import { AppText, Avatar, Screen, usePageIntro } from "@/frontend/components/ui";
+import { AppText, LandingTitle, Screen, usePageIntro } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { BestValueMealsSection } from "@/frontend/core/meals/components/BestValueMealsSection";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
@@ -96,21 +96,11 @@ export default function PriceWatchScreen() {
           <View className="flex-1 pr-3">
             {/* "Price Watch." like the other section titles, with a real
                 dot (not a "." glyph) so the intro's dot has a spot to land. */}
-            <View className="flex-row items-end">
-              <AppText variant="sectionTitle">Price Watch</AppText>
-              <View
-                ref={intro.targetRef}
-                collapsable={false}
-                className="mb-1.5 ml-0.5 h-1.5 w-1.5 rounded-full bg-accent"
-                style={{ opacity: intro.landed ? 1 : 0 }}
-              />
-            </View>
+            <LandingTitle dotRef={intro.targetRef} showDot={intro.landed}>
+              Price Watch
+            </LandingTitle>
             <AppText variant="caption">See what&apos;s cheaper this week and cook for less.</AppText>
           </View>
-          {/* TODO: "Patrick" is a placeholder — replace with the
-              authenticated user's first name once auth/profile data is
-              wired up. */}
-          <Avatar name="Patrick" size={48} />
         </View>
 
         <View className="mt-4">

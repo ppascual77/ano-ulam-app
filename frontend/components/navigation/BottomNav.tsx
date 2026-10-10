@@ -3,13 +3,15 @@ import { Pressable, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, usePathname } from "expo-router";
-import { House, Search, TrendingUp, Salad, Utensils } from "lucide-react-native";
+import { House, Lock, Search, TrendingUp, Utensils } from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
-import { AppText } from "@/frontend/components/ui";
+import { AppText, Avatar, Dropdown } from "@/frontend/components/ui";
+import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
+import { adminMenuItems, isAdmin } from "@/frontend/features/admin/adminMenu";
 import { colors } from "@/frontend/constants/theme";
 
 type Tab = {
-  href: "/home" | "/browse" | "/price-watch" | "/meal-planner";
+  href: "/home" | "/browse" | "/price-watch";
   label: string;
   icon: LucideIcon;
 };
@@ -21,7 +23,6 @@ const LEFT_TABS: Tab[] = [
 
 const RIGHT_TABS: Tab[] = [
   { href: "/price-watch", label: "Price Watch", icon: TrendingUp },
-  { href: "/meal-planner", label: "Meal Planner", icon: Salad },
 ];
 
 // Same spring as SegmentedSwitch's thumb, so the active pill pops in with
@@ -68,6 +69,61 @@ function TabButton({ href, label, icon: Icon }: Tab) {
   );
 }
 
+// Without a session (dev on a device): the same mock name the rest of the
+// app uses.
+const MOCK_NAME = "Patrick";
+const NAV_AVATAR = 28;
+
+// The last tab (it took Meal Planner's spot, 2026-10-10: saved meals, the
+// grocery list and pantry get used daily; the planner is a weekly Pro task,
+// opened from Home's "Plan your week" card). Shows the user's avatar or
+// initials, ringed in green when active. Admins get the admin menu (opening
+// upward); everyone else goes straight to their profile.
+function ProfileTabButton() {
+  const active = usePathname() === "/profile";
+  const { session } = useAuth();
+  const meta = session?.user.user_metadata ?? {};
+  const name = (meta.full_name as string | undefined) ?? (meta.name as string | undefined) ?? MOCK_NAME;
+  const avatarUrl = (meta.avatar_url as string | undefined) ?? (meta.picture as string | undefined);
+
+  const content = (
+    <View className="items-center justify-center gap-1">
+      <View className="h-8 w-14 items-center justify-center">
+        <View className={`rounded-full p-0.5 ${active ? "border-2 border-primary" : "border-2 border-transparent"}`}>
+          <Avatar name={name} imageUri={avatarUrl} size={NAV_AVATAR} />
+        </View>
+      </View>
+      <AppText variant="navLabel" className={active ? "font-inter-semibold text-primary" : "text-ink-subtle"}>
+        Profile
+      </AppText>
+    </View>
+  );
+
+  if (isAdmin) {
+    return (
+      <View className="flex-1 items-center" accessibilityRole="tab" accessibilityState={{ selected: active }}>
+        <Dropdown
+          trigger={content}
+          placement="above"
+          headerLabel="Admin"
+          headerIcon={<Lock color={colors.ink.subtle} size={16} />}
+          items={adminMenuItems()}
+        />
+      </View>
+    );
+  }
+  return (
+    <Pressable
+      onPress={() => router.navigate("/profile")}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      className="flex-1 items-center justify-center"
+    >
+      {content}
+    </Pressable>
+  );
+}
+
 // The featured tab: always shown filled/elevated rather than toggling
 // active/inactive like the other four, since it's the app's primary action.
 function DiscoverTabButton() {
@@ -102,6 +158,7 @@ export function BottomNav() {
         {RIGHT_TABS.map((tab) => (
           <TabButton key={tab.href} {...tab} />
         ))}
+        <ProfileTabButton />
       </View>
     </SafeAreaView>
   );

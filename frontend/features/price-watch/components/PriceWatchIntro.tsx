@@ -121,7 +121,9 @@ function DaScene({ size }: { size: IntroSize }) {
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(250).duration(450)} className="mt-3 flex-row items-baseline justify-center gap-2">
-        <Text className="font-inter-extrabold text-heading-lg text-primary">{Math.round(count)}</Text>
+        <Text style={{ fontVariant: ["tabular-nums"] }} className="font-inter-extrabold text-heading-lg text-primary">
+          {Math.round(count)}
+        </Text>
         <Text className="font-inter-bold text-subheading text-ink-emphasis">NCR markets</Text>
       </Animated.View>
 

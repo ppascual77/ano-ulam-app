@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from "react-native";
-import { BottomSheet } from "@/frontend/components/ui";
+import { AppText, BottomSheet } from "@/frontend/components/ui";
 
 export type CreateChoice = "post" | "recipe";
 
@@ -22,7 +22,9 @@ export function CreateSheet({ visible, onClose, onChoose, onClosed }: CreateShee
   return (
     <BottomSheet visible={visible} onClose={onClose} onClosed={onClosed} heightPercent={0.5} fitContent>
       <View className="px-6 pb-6 pt-12">
-        <Text className="mb-2 font-inter-bold text-subheading text-web-ink">Create</Text>
+        <AppText variant="sectionTitle" dot className="mb-2">
+          Create
+        </AppText>
         {ROWS.map((row, i) => (
           <Pressable
             key={row.choice}

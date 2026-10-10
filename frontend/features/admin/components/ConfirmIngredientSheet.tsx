@@ -49,7 +49,7 @@ export function ConfirmIngredientSheet({ visible, patch, onCancel, onConfirm, is
   return (
     <BottomSheet visible={visible} onClose={onCancel} onClosed={onClosed} heightPercent={0.75}>
       <View className="flex-1 px-8 pt-16">
-        <AppText variant="heading" className="mb-1">
+<AppText variant="sectionTitle" dot className="mb-1">
           Review before adding
         </AppText>
         <AppText variant="caption" className="text-ink-subtle mb-4">

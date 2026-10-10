@@ -3,6 +3,7 @@ import { ScrollView, View } from "react-native";
 import { Screen, SegmentedSwitch } from "@/frontend/components/ui";
 import { Header } from "@/frontend/features/home/components/Header";
 import { RandomMealPuller } from "@/frontend/features/home/components/RandomMealPuller";
+import { PlanWeekCard } from "@/frontend/features/home/components/PlanWeekCard";
 import { BudgetSection } from "@/frontend/core/budget/components/BudgetSection";
 import { PantrySection } from "@/frontend/core/pantry/components/PantrySection";
 
@@ -22,6 +23,10 @@ export default function HomeScreen() {
         {/* TODO: "Patrick" is a placeholder — replace with the authenticated
             user's first name once auth/profile data is wired up. */}
         <Header name="Patrick" />
+
+        <View className="mt-5">
+          <PlanWeekCard />
+        </View>
 
         <View className="mt-6 mb-4">
           <SegmentedSwitch size="lg" options={MODE_OPTIONS} value={mode} onChange={setMode} />

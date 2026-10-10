@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
 import Animated, { SlideInLeft, SlideInRight, SlideOutLeft, SlideOutRight } from "react-native-reanimated";
 import { ArrowLeft, Check, X } from "lucide-react-native";
-import { BottomSheet, Button, SearchBar } from "@/frontend/components/ui";
+import { AppText, BottomSheet, Button, SearchBar } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { IngredientSearch } from "@/frontend/core/meals/components/IngredientSearch";
 import { INGREDIENT_CATEGORY_ICONS } from "@/frontend/core/meals/ingredientCategory";
@@ -71,7 +71,7 @@ function Header({ title, subtitle, onBack }: { title: string; subtitle: string; 
         </Pressable>
       )}
       <View className="flex-1">
-        <Text className="font-inter-bold text-subheading text-web-ink">{title}</Text>
+        <AppText variant="sectionTitle" dot>{title}</AppText>
         <Text className="mt-0.5 font-inter-regular text-small text-web-ink-muted">{subtitle}</Text>
       </View>
     </View>

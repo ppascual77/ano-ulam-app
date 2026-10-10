@@ -46,7 +46,9 @@ export function LinkDaCommoditySheet({ commodity, ingredients, linkedTo, onPick,
     <BottomSheet visible={!!commodity} onClose={close} onClosed={onClosed} heightPercent={0.8}>
       <View className="flex-1 px-6 pt-8">
         <AppText variant="eyebrow">Link to ingredient</AppText>
-        <AppText variant="title">{commodity?.commodity}</AppText>
+        <AppText variant="sectionTitle" dot>
+          {commodity?.commodity ?? ""}
+        </AppText>
         {!!commodity?.specification && (
           <AppText variant="caption" className="text-ink-subtle">
             {commodity.specification}

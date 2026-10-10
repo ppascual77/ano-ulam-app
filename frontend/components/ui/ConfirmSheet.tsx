@@ -1,3 +1,4 @@
+import { AppText } from "./AppText";
 import type { ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { BottomSheet } from "./BottomSheet";
@@ -52,7 +53,9 @@ export function ConfirmSheet({
       <View className="items-center gap-5 px-6 pb-8 pt-12">
         {icon}
         <View className="items-center">
-          <Text className="text-center font-inter-bold text-subheading text-web-ink">{title}</Text>
+          <AppText variant="sectionTitle" dot className="text-center">
+            {title}
+          </AppText>
           {typeof body === "string" ? (
             <Text className="mt-1 text-center font-inter-regular text-body text-web-ink-muted">{body}</Text>
           ) : (
