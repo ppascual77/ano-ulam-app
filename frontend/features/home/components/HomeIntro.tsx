@@ -53,6 +53,11 @@ const BANG_BASELINE = 10;
 const DISHES = ["Adobo", "Sinigang", "Sisig", "Kare-Kare", "Tinola", "Bulalo", "Laing", "Pancit"];
 const REEL_LENGTH = DISHES.length + 1;
 const ROW_HEIGHT = 44;
+// The reel reads 20% bigger than the question above it. Scaled rather than
+// a bigger font, since there's no type token at that size.
+const REEL_SCALE = 1.2;
+// Room for the scaled-up reel, which layout doesn't know about.
+const REEL_GROWTH = (ROW_HEIGHT * (REEL_SCALE - 1)) / 2;
 
 const POP_SPRING = { damping: 8, stiffness: 220, mass: 0.5 };
 const SLAM_SPRING = { damping: 11, stiffness: 320, mass: 0.6 };
@@ -158,7 +163,7 @@ function WelcomeScene({ size, entry, onBang }: { size: IntroSize; entry?: Point;
     transform: [{ scale: 1.8 - 0.8 * slam.value }],
   }));
   const reelStyle = useAnimatedStyle(() => ({ transform: [{ translateY: -(REEL_LENGTH - 1) * ROW_HEIGHT * spin.value }] }));
-  const reelWindowStyle = useAnimatedStyle(() => ({ opacity: spin.value > 0 ? 1 : 0 }));
+  const reelWindowStyle = useAnimatedStyle(() => ({ opacity: spin.value > 0 ? 1 : 0, transform: [{ scale: REEL_SCALE }] }));
   const togetherStyle = useAnimatedStyle(() => ({
     opacity: together.value,
     transform: [{ translateY: 10 * (1 - together.value) }],
@@ -198,7 +203,10 @@ function WelcomeScene({ size, entry, onBang }: { size: IntroSize; entry?: Point;
 
         {/* Slot-machine window: one row visible, soft white fades top and
             bottom so the spin reads as a reel. */}
-        <Animated.View className="mt-2 self-stretch overflow-hidden" style={[{ height: ROW_HEIGHT }, reelWindowStyle]}>
+        <Animated.View
+          className="mt-2 self-stretch overflow-hidden"
+          style={[{ height: ROW_HEIGHT, marginVertical: REEL_GROWTH }, reelWindowStyle]}
+        >
           <Animated.View style={reelStyle}>
             {DISHES.map((dish, i) => (
               <Text
