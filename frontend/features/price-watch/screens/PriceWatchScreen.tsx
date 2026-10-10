@@ -94,7 +94,7 @@ export default function PriceWatchScreen() {
         </View>
 
         <View className="mt-4">
-          <PriceDisclaimer variant="chip" asOf={asOf} onOpenMarkets={() => setMarketsOpen(true)} />
+          <PriceDisclaimer asOf={asOf} onOpenMarkets={() => setMarketsOpen(true)} />
           {items.isError && (
             <AppText variant="caption" className="mt-2 text-like">
               Couldn&apos;t load prices. Pull to refresh.
