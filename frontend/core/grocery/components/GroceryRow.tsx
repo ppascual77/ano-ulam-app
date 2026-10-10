@@ -54,7 +54,7 @@ function CheckBox({ checked }: { checked: boolean }) {
 // "2 meals" / "in pantry"), and the price on the right. Checked items fade
 // and get struck through.
 export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have = false, pricePantry = false }: GroceryRowProps) {
-  // Pantry staples left out of the total still show their price, muted.
+  // Main ingredients, and pantry staples once "Include in total" is on.
   const counted = item.category === "main" || pricePantry;
   const detail = [item.buy, item.meals > 1 && `${item.meals} meals`, have && "in pantry"].filter(Boolean).join(" · ");
   return (
@@ -80,13 +80,20 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
         )}
       </View>
 
-      {item.price > 0 && (
-        <Text
-          className={`text-body ${counted ? "font-inter-extrabold text-ink-emphasis" : "font-inter-medium text-web-ink-muted"} ${checked ? "opacity-40" : ""}`}
-        >
-          {/* "~": no store listing behind it (an AI pack or the used amount). */}
-          {item.estimate ? "~" : ""}₱{formatPeso(item.price, 0)}
-        </Text>
+      {/* Pantry staples left out of the total get a "Staple" chip in the
+          price's place. ("Staple", not "Pantry": "in pantry" already means
+          you have it.) */}
+      {counted ? (
+        item.price > 0 && (
+          <Text className={`font-inter-extrabold text-body text-ink-emphasis ${checked ? "opacity-40" : ""}`}>
+            {/* "~": no store listing behind it (an AI pack or the used amount). */}
+            {item.estimate ? "~" : ""}₱{formatPeso(item.price, 0)}
+          </Text>
+        )
+      ) : (
+        <View className={`rounded-full border border-ink-emphasis/15 px-2.5 py-0.5 ${checked ? "opacity-40" : ""}`}>
+          <Text className="font-inter-extrabold text-small text-ink-subtle">Staple</Text>
+        </View>
       )}
     </Pressable>
   );
