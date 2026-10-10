@@ -7,6 +7,7 @@ import { pantryHas } from "@/frontend/core/pantry/hooks/usePantry";
 import type { PantryIngredient } from "@/frontend/core/pantry/mock/api";
 import type { GroceryItem } from "../utils/buildGroceryList";
 import { GroceryRow, formatPeso } from "./GroceryRow";
+import { GrocerySectionHeader, splitGroceryItems } from "./GrocerySection";
 
 // One list in the sheet: saved meals, or the meal plan.
 export type GroceryListTab = {
@@ -47,7 +48,8 @@ function DashedRule() {
 // item, per app session), so unchecking one sticks until the next launch.
 const autoCheckedHave = new Set<string>();
 
-// "Include pantry basics" sticks for the app session, across opens and tabs.
+// "Include in total" (pantry staples) sticks for the app session, across
+// opens and tabs.
 let includePantrySession = false;
 
 function LegendPill({ label, className, textClassName }: { label: string; className: string; textClassName: string }) {
@@ -97,7 +99,7 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
   }, [visible]);
   const [includePantry, setIncludePantry] = useState(includePantrySession);
   const tab = tabs.find((t) => t.key === activeKey) ?? tabs[0];
-  // Main ingredients, plus pantry basics when they're switched on.
+  // Main ingredients, plus pantry staples when they're switched on.
   const total = (tab?.items ?? []).reduce(
     (sum, item) => (item.category === "main" || includePantry ? sum + item.price : sum),
     0,
@@ -119,8 +121,22 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
   const { items, isChecked, onToggle } = tab;
   const anyHave = items.some((item) => pantryHas(pantry, item.name));
   const anyShared = items.some((item) => item.meals > 1);
-  // Rows showing the "Pantry" chip instead of a price (see GroceryRow).
-  const anyPantryChip = items.some((item) => item.category === "pantry" && (!includePantry || item.price <= 0));
+  const { mains, staples } = splitGroceryItems(items);
+  const mainsSubtotal = mains.reduce((sum, item) => sum + item.price, 0);
+
+  const renderRows = (rows: typeof items) =>
+    rows.map((item, i) => (
+      <GroceryRow
+        key={item.id}
+        item={item}
+        checked={isChecked(item)}
+        onToggle={() => onToggle(item)}
+        isLast={i === rows.length - 1}
+        wrap
+        have={pantryHas(pantry, item.name)}
+        pricePantry={includePantry}
+      />
+    ));
 
   return (
     <BottomSheet visible={visible} onClose={onClose}>
@@ -152,34 +168,40 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
         {items.length === 0 && (
           <Text className="py-8 text-center font-inter-regular text-body text-web-ink-muted">{tab.emptyText}</Text>
         )}
-        <View className="mt-2">
-          {items.map((item, i) => (
-            <GroceryRow
-              key={item.id}
-              item={item}
-              checked={isChecked(item)}
-              onToggle={() => onToggle(item)}
-              isLast={i === items.length - 1}
-              wrap
-              have={pantryHas(pantry, item.name)}
-              pricePantry={includePantry}
-            />
-          ))}
-        </View>
+        {/* What to buy (main ingredients) first, then pantry staples. */}
+        {mains.length > 0 && (
+          <View className="mt-5">
+            <GrocerySectionHeader title="To buy" count={mains.length} />
+            <View className="mt-1">{renderRows(mains)}</View>
+            {/* Only worth showing when staples could add to the total. */}
+            {staples.length > 0 && (
+              <View className="flex-row items-center justify-between px-2 pt-2">
+                <Text className="font-inter-medium text-small text-ink-subtle">Subtotal</Text>
+                <Text className="font-inter-bold text-body text-ink-emphasis">₱{formatPeso(mainsSubtotal, 0)}</Text>
+              </View>
+            )}
+          </View>
+        )}
 
-        {items.some((item) => item.category === "pantry") && (
-          <View className="mt-4 flex-row items-center gap-3 rounded-2xl border border-ink-emphasis/10 px-4 py-3">
-            <View className="flex-1">
-              <Text className="font-inter-semibold text-body text-ink-emphasis">Include pantry basics</Text>
-              <Text className="font-inter-regular text-small text-ink-subtle">Add oil, salt and the like to the total</Text>
-            </View>
-            <Toggle
-              checked={includePantry}
-              onChange={(on) => {
-                includePantrySession = on;
-                setIncludePantry(on);
-              }}
+        {staples.length > 0 && (
+          <View className="mt-6">
+            <GrocerySectionHeader
+              title="Pantry staples"
+              count={staples.length}
+              right={
+                <View className="flex-row items-center gap-2">
+                  <Text className="font-inter-medium text-small text-ink-subtle">Include in total</Text>
+                  <Toggle
+                    checked={includePantry}
+                    onChange={(on) => {
+                      includePantrySession = on;
+                      setIncludePantry(on);
+                    }}
+                  />
+                </View>
+              }
             />
+            <View className="mt-1">{renderRows(staples)}</View>
           </View>
         )}
 
@@ -197,7 +219,7 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
           </View>
         )}
 
-        {(anyHave || anyShared || anyPantryChip) && (
+        {(anyHave || anyShared) && (
           <View className="mt-5 gap-2.5 rounded-2xl bg-ink-emphasis/5 p-4">
             {anyHave && (
               <View className="flex-row items-center gap-2">
@@ -209,16 +231,6 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
               <View className="flex-row items-center gap-2">
                 <LegendPill label="2 meals" className="bg-category-breakfast" textClassName="text-accent" />
                 <Text className="flex-1 font-inter-regular text-small text-ink-subtle">Combined from more than one meal</Text>
-              </View>
-            )}
-            {anyPantryChip && (
-              <View className="flex-row items-center gap-2">
-                <View className="rounded-full border border-ink-emphasis/15 px-2.5 py-0.5">
-                  <Text className="font-inter-extrabold text-small text-ink-subtle">Pantry</Text>
-                </View>
-                <Text className="flex-1 font-inter-regular text-small text-ink-subtle">
-                  {includePantry ? "Pantry basic with no price data" : "Pantry basic, not in the total"}
-                </Text>
               </View>
             )}
           </View>

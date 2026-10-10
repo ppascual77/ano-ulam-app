@@ -47,14 +47,14 @@ function searchIngredients(query: string, ingredients: IngredientRow[], limit: n
     .map((r) => r.ingredient);
 }
 
-// Main / Pantry / Needs review pill for an ingredient line. `null` = a
+// Main / Staple / Needs review pill for an ingredient line. `null` = a
 // free-text line not yet linked to a canonical ingredient.
 export function IngredientRoleTag({ ingredient }: { ingredient: IngredientRow | null }) {
   const { label, bg, text } = !ingredient
     ? { label: "Needs review", bg: "bg-notice-bg", text: "text-notice-text" }
     : ingredient.role === "main"
       ? { label: "Main", bg: "bg-primary/10", text: "text-primary" }
-      : { label: "Pantry", bg: "bg-ink-emphasis/5", text: "text-ink-subtle" };
+      : { label: "Staple", bg: "bg-ink-emphasis/5", text: "text-ink-subtle" };
   return (
     <View className={`rounded-full px-2 py-1 ${bg}`}>
       <Text className={`font-inter-semibold text-sub ${text}`}>{label}</Text>
