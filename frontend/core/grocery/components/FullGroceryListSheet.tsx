@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { MapPin } from "lucide-react-native";
+import { Info, MapPin } from "lucide-react-native";
 import { AppText, BottomSheet, SegmentedSwitch, Toggle } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { pantryHas } from "@/frontend/core/pantry/hooks/usePantry";
@@ -160,6 +160,15 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
           </View>
         )}
 
+        {leftover && (
+          <View className="mt-4 flex-row gap-2 rounded-xl border border-notice-border bg-notice-bg px-3 py-2.5">
+            <Info color={colors.notice.icon} size={14} />
+            <Text className="flex-1 font-inter-regular text-sub leading-4 text-notice-text">
+              Some items only come in whole packs, so this is more than your meals use. The rest stays in your pantry.
+            </Text>
+          </View>
+        )}
+
         {items.length === 0 && (
           <Text className="py-8 text-center font-inter-regular text-body text-web-ink-muted">{tab.emptyText}</Text>
         )}
@@ -213,12 +222,7 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
             <Text className="font-inter-extrabold text-heading text-primary">₱{formatPeso(shownTotal, 0)}</Text>
           </View>
         )}
-        {items.length > 0 && leftover && (
-          <Text className="mt-2 font-inter-regular text-small text-ink-subtle">
-            <Text className="font-inter-bold text-ink-emphasis">₱{formatPeso(used, 0)}</Text> goes into your meals. The
-            rest stays in your pantry.
-          </Text>
-        )}
+
 
         {(anyHave || anyShared) && (
           <View className="mt-5 gap-2.5 rounded-2xl bg-ink-emphasis/5 p-4">
