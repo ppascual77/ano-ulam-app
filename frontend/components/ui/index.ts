@@ -30,3 +30,4 @@ export { useFieldErrorAnimation } from "./TextField";
 export { BoilingDoodle, DOODLE_COLORS, DOODLE_LIST, TREND_DOODLES, drawBoilPair, type DoodleVersion } from "./doodles";
 export { PulsePressable } from "./PulsePressable";
 export { RollingText } from "./RollingText";
+export { PageIntro, usePageIntro, type IntroSize } from "./PageIntro";

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
-import { AppText, Screen, SearchBar, Toast, type ToastState } from "@/frontend/components/ui";
+import { AppText, Screen, SearchBar, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
 import { CravingTagline } from "@/frontend/features/browse/components/CravingTagline";
 import { MoodSelection } from "@/frontend/features/browse/components/MoodSelection";
 import { TodaysPickCard } from "@/frontend/core/meals/components/card/TodaysPickCard";
@@ -20,6 +20,8 @@ import { FilterButton } from "../components/FilterButton";
 import { FilterSheet } from "../components/FilterSheet";
 import { SearchResults } from "../components/SearchResults";
 import { EmptyMealView, GuestLimitGate } from "../components/EmptyStates";
+import { BrowseIntro } from "../components/BrowseIntro";
+import { LogoQuestionMark } from "../components/LogoQuestionMark";
 
 const todaysPick = mockMeals.find((meal) => meal.normalized_name === "bananaandpeanutbutter");
 
@@ -27,6 +29,11 @@ const todaysPick = mockMeals.find((meal) => meal.normalized_name === "bananaandp
 // complete in Expo Go on a device). The DEV pill flips to guest, to test
 // the login gates and the 3-searches-a-day limit. Remove with the others.
 const DEV_FORCE_SIGNED_IN = __DEV__;
+
+// Plays the "what are you craving" intro on moving to Browse.
+// TODO: gate this behind a first-time-user flag (the auto tour), e.g. a
+// stored "seen" flag, instead of always.
+const SHOW_INTRO = true;
 
 type LikeEntry = { liked: boolean; count: number };
 
@@ -41,6 +48,11 @@ export default function BrowseScreen() {
   const isGuest = devGuest || (!isSignedIn && !DEV_FORCE_SIGNED_IN);
 
   const search = useBrowseSearch({ isGuest });
+  // The intro, replayed on every visit to the tab (see usePageIntro): its
+  // dot lands as the dot of the header's logo "?". Leaving the tab puts the
+  // header back at the top, ready for the next landing.
+  const scrollRef = useRef<ScrollView>(null);
+  const intro = usePageIntro({ enabled: SHOW_INTRO, onArm: () => scrollRef.current?.scrollTo({ y: 0, animated: false }) });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState<MealType | null>(null);
   const detail = useMealDetail();
@@ -145,14 +157,18 @@ export default function BrowseScreen() {
   return (
     <Screen edges={["top"]} dismissKeyboardOnTap={false}>
       <ScrollView
+        ref={scrollRef}
         className="flex-1"
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
         <View className="flex-row items-start justify-between">
-          <AppText variant="title" className="ml-3 mt-3">
-            What are you craving today?
+          {/* Same bold title style as the other sections, with the fork
+              logo as its "?" (the intro's dot lands as its dot). */}
+          <AppText variant="sectionTitle" className="ml-3 mt-3 flex-1 pr-2">
+            What are you craving today
+            <LogoQuestionMark dotRef={intro.targetRef} showDot={intro.landed} />
           </AppText>
           {__DEV__ && (
             <Pressable onPress={() => setDevGuest((prev) => !prev)} className="mt-3 rounded-full bg-web-ink/80 px-2 py-1">
@@ -230,6 +246,7 @@ export default function BrowseScreen() {
       />
 
       <Toast toast={toast} onHide={() => setToast(null)} />
+      {intro.showing && <BrowseIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={intro.finish} />}
     </Screen>
   );
 }

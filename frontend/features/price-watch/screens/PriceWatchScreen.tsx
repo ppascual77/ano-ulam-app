@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { RefreshControl, ScrollView, useWindowDimensions, View } from "react-native";
-import { AppText, Avatar, Screen } from "@/frontend/components/ui";
+import { AppText, Avatar, Screen, usePageIntro } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { BestValueMealsSection } from "@/frontend/core/meals/components/BestValueMealsSection";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
@@ -10,6 +10,7 @@ import { pickFreshPicks, type PriceCategory, type PriceItem } from "@/frontend/c
 import { FRESH_PICKS_COUNT, FreshPicksSection } from "../components/FreshPicksSection";
 import { CategoryGrid } from "../components/CategoryGrid";
 import { PriceListSection } from "../components/PriceListSection";
+import { PriceWatchIntro } from "../components/PriceWatchIntro";
 import { PriceDetailSheet } from "../components/PriceDetailSheet";
 import { PriceDisclaimer } from "../components/PriceDisclaimer";
 import { MarketsSheet } from "../components/MarketsSheet";
@@ -17,6 +18,11 @@ import { priceWatchCategories } from "../constants/categories";
 
 // DA's daily prices (Admin → DA Daily Prices), compared week over week:
 // fresh picks, best value meals, and every commodity by category.
+// Plays the "Straight from the DA" intro on moving to Price Watch.
+// TODO: gate this behind a first-time-user flag (the auto tour), e.g. a
+// stored "seen" flag, instead of always.
+const SHOW_INTRO = true;
+
 // Breathing room above the list section when search scrolls it to the top.
 const SEARCH_TOP_GAP = 12;
 
@@ -24,6 +30,10 @@ export default function PriceWatchScreen() {
   const items = usePriceItems();
   const [category, setCategory] = useState<PriceCategory | null>("meat");
   const [search, setSearch] = useState("");
+  // The intro, replayed on every visit to the tab (see usePageIntro). The
+  // header's dot stays hidden until the intro's dot lands on it. Leaving the
+  // tab puts the header back at the top, ready for the next landing.
+  const intro = usePageIntro({ enabled: SHOW_INTRO, onArm: () => scrollRef.current?.scrollTo({ y: 0, animated: false }) });
   const [searchFocused, setSearchFocused] = useState(false);
   const searching = searchFocused || search.trim() !== "";
   const scrollRef = useRef<ScrollView>(null);
@@ -84,7 +94,17 @@ export default function PriceWatchScreen() {
       >
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-3">
-            <AppText variant="title">Price Watch</AppText>
+            {/* "Price Watch." like the other section titles, with a real
+                dot (not a "." glyph) so the intro's dot has a spot to land. */}
+            <View className="flex-row items-end">
+              <AppText variant="sectionTitle">Price Watch</AppText>
+              <View
+                ref={intro.targetRef}
+                collapsable={false}
+                className="mb-1.5 ml-0.5 h-1.5 w-1.5 rounded-full bg-accent"
+                style={{ opacity: intro.landed ? 1 : 0 }}
+              />
+            </View>
             <AppText variant="caption">See what&apos;s cheaper this week and cook for less.</AppText>
           </View>
           {/* TODO: "Patrick" is a placeholder — replace with the
@@ -153,6 +173,9 @@ export default function PriceWatchScreen() {
       />
       <MarketsSheet visible={marketsOpen} onClose={() => setMarketsOpen(false)} />
       <MealDetailSheet meal={meal} onClose={() => setMeal(null)} />
+      {intro.showing && (
+        <PriceWatchIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={intro.finish} />
+      )}
     </Screen>
   );
 }
