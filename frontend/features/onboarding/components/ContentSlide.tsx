@@ -2,6 +2,7 @@ import { View, Text } from "react-native";
 import { Image } from "expo-image";
 import { AppText } from "@/frontend/components/ui";
 import type { ContentSlideData } from "../slides";
+import { HighlightedText } from "./HighlightedText";
 
 const heroColorClass = {
   primary: "text-primary",
@@ -43,9 +44,7 @@ export function ContentSlide({ slide, width }: Props) {
         ))}
       </Text>
 
-      <AppText variant="body" className="text-ink-subtle mt-3">
-        {slide.description}
-      </AppText>
+      <HighlightedText className="mt-3">{slide.description}</HighlightedText>
     </View>
   );
 }

@@ -2,6 +2,7 @@ import { View, Text } from "react-native";
 import { Image } from "expo-image";
 import { Lock } from "lucide-react-native";
 import { AppText, ChipSelect } from "@/frontend/components/ui";
+import { HighlightedText } from "./HighlightedText";
 import { colors } from "@/frontend/constants/theme";
 import type { PreferenceGroupsSlideData } from "../slides";
 
@@ -27,9 +28,7 @@ export function PreferenceGroupsSlide({ slide, width, selections, onGroupChange 
           )}
         </View>
 
-        <AppText variant="body" className="text-ink-subtle mb-6">
-          {slide.subtitle}
-        </AppText>
+        <HighlightedText className="mb-6">{slide.subtitle}</HighlightedText>
       </View>
 
       <View className="gap-6">
