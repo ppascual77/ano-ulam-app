@@ -226,15 +226,28 @@ type MealDetailContentProps = {
   review?: { onApprove: () => void; onReject: () => void; busy?: boolean };
 };
 
+// Title ending in an orange dot ("Nutrition.", "Chicken Adobo."), like the
+// show reel: the meal name and each section header.
+function SectionTitle({ children }: { children: string }) {
+  return (
+    <AppText variant="sectionTitle">
+      {children}
+      <Text className="text-accent">.</Text>
+    </AppText>
+  );
+}
+
 type ConsumerFooterProps = Pick<MealDetailContentProps, "meal" | "saved" | "recipeOwner"> & { servings: number };
 
 // Which one button the footer shows, in priority order: own recipe still in
 // review / rejected, then saved (Unsave, or Update Meal once the servings
 // changed), then Save.
 function ConsumerFooter({ meal, servings, saved, recipeOwner }: ConsumerFooterProps) {
-  // Confetti when a save lands. MealDetailSheet keys the content by meal id,
-  // so opening an already-saved related meal doesn't fire it.
-  const saveBurstId = useBurstOnActivate(!!saved?.isSaved);
+  // Confetti when a save lands: once the spinner finishes, not on the
+  // optimistic flip (and never for a save that failed and reverted).
+  // MealDetailSheet keys the content by meal id, so opening an
+  // already-saved related meal doesn't fire it.
+  const saveBurstId = useBurstOnActivate(!!saved?.isSaved && !saved.busy);
 
   if (recipeOwner && (meal.status === "pending" || meal.status === "draft")) {
     return (
@@ -395,7 +408,7 @@ export function MealDetailContent({
   const mealMicros: Micronutrients = { fiber: microPerServing("fiber"), sugar: microPerServing("sugar"), sodium: microPerServing("sodium") };
   const totalIngredients = nonWater.length;
 
-  // "Per serving" view of the Macros card: the same batch (ingredients,
+  // "Per serving" view of the Nutrition card: the same batch (ingredients,
   // price and servings stay as they are) with its nutrition split across
   // the servings, as a guide to one plate. Not the same as setting servings
   // to 1, which would also shrink the ingredients. Only offered for more
@@ -529,7 +542,7 @@ export function MealDetailContent({
     <>
       <View className="flex-row items-start justify-between">
         <View className="flex-1 pr-3">
-          <AppText variant="heading">{meal.name}</AppText>
+          <SectionTitle>{meal.name}</SectionTitle>
 
           <View className="mt-1.5 flex-row items-center gap-1.5 self-start">
             {!isFastFood ? (
@@ -633,7 +646,7 @@ export function MealDetailContent({
 
       <View className="mt-5">
         <View className="flex-row items-center justify-between">
-          <AppText variant="title">Macros</AppText>
+          <SectionTitle>Nutrition</SectionTitle>
           {servings > 1 && (
             <SegmentedSwitch
               options={[
@@ -691,7 +704,7 @@ export function MealDetailContent({
       {meal.ingredients && meal.ingredients.length > 0 && (
         <View className="mt-5">
           <View className="flex-row items-center justify-between">
-            <AppText variant="title">Ingredients</AppText>
+            <SectionTitle>Ingredients</SectionTitle>
           </View>
 
           <View className="my-3">
@@ -722,7 +735,7 @@ export function MealDetailContent({
 
       {meal.procedure && meal.procedure.length > 0 && (
         <View className="mt-5">
-          <AppText variant="title">Steps</AppText>
+          <SectionTitle>Steps</SectionTitle>
           {/* A numbered green circle per step, joined to the next one by a
               line running down the left, like a timeline. */}
           <View className="mt-3 rounded-2xl border border-ink-emphasis/10 px-4 pt-4 pb-1">

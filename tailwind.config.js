@@ -118,6 +118,12 @@ module.exports = {
         // A meal card's description text (12px/20px, 0.5px tracking).
         small: ["13px", { lineHeight: "20px", letterSpacing: "0.5px" }],
       },
+      letterSpacing: {
+        // Tight display tracking for extrabold section titles (meal detail's
+        // "Nutrition." etc.), from the show reel's -0.05em at the 24px
+        // heading size. Added 2026-10-10.
+        display: "-1.2px",
+      },
     },
   },
   plugins: [],
