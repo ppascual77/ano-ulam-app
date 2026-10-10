@@ -65,17 +65,13 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
       <CheckBox checked={checked} />
 
       <View className={`flex-1 gap-1 ${checked ? "opacity-40" : ""}`}>
-        {/* Quantity right after the name, a size smaller and lighter (as in
-            the meal detail's ingredient rows). */}
-        {/* Packaged: the packs to pick up, then what the meals use from them.
-            Loose: just the exact amount to ask for. */}
-        <Text numberOfLines={wrap ? undefined : 1} className={checked ? "line-through" : ""}>
-          <Text className="font-inter-semibold text-body text-ink-emphasis">{item.name}</Text>
-          <Text className="font-inter-light text-small text-ink-subtle">
-            {" "}
-            ({item.pack ? `${item.pack.count} × ${item.pack.size}` : item.qty})
-          </Text>
+        <Text
+          numberOfLines={wrap ? undefined : 1}
+          className={`font-inter-semibold text-body text-ink-emphasis ${checked ? "line-through" : ""}`}
+        >
+          {item.name}
         </Text>
+        {/* Packaged: what the meals use from the packs on the right. */}
         {item.pack && <Text className="font-inter-regular text-small text-ink-subtle">for {item.qty}</Text>}
         {(item.meals > 1 || have) && (
           <View className="flex-row flex-wrap items-center gap-1.5">
@@ -93,21 +89,28 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
         )}
       </View>
 
-      {/* Pantry staples show a "Staple" chip in the price's place, unless
+      {/* Price on top, what to pick up under it: the packs for a packaged
+          item ("1 × 385 ml"), the exact amount for one bought loose.
+          Pantry staples show a "Staple" chip in the price's place, unless
           they're counted in the total and have a price. ("Staple", not
           "Pantry": "Have" already means it's in your pantry.) */}
-      {(isMain || pricePantry) && item.price > 0 ? (
-        <Text className={`font-inter-extrabold text-body text-ink-emphasis ${checked ? "opacity-40" : ""}`}>
-          {/* "~": no listing to size the pack by, so it's the used amount. */}
-          {item.estimate ? "~" : ""}₱{formatPeso(item.price, 0)}
+      <View className={`items-end gap-1 ${checked ? "opacity-40" : ""}`}>
+        {(isMain || pricePantry) && item.price > 0 ? (
+          <Text className="font-inter-extrabold text-body text-ink-emphasis">
+            {/* "~": no listing to size the pack by, so it's the used amount. */}
+            {item.estimate ? "~" : ""}₱{formatPeso(item.price, 0)}
+          </Text>
+        ) : (
+          !isMain && (
+            <View className="rounded-full border border-ink-emphasis/15 px-2.5 py-0.5">
+              <Text className="font-inter-extrabold text-small text-ink-subtle">Staple</Text>
+            </View>
+          )
+        )}
+        <Text className="text-right font-inter-light text-small text-ink-subtle">
+          {item.pack ? `${item.pack.count} × ${item.pack.size}` : item.qty}
         </Text>
-      ) : (
-        !isMain && (
-          <View className={`rounded-full border border-ink-emphasis/15 px-2.5 py-0.5 ${checked ? "opacity-40" : ""}`}>
-            <Text className="font-inter-extrabold text-small text-ink-subtle">Staple</Text>
-          </View>
-        )
-      )}
+      </View>
     </Pressable>
   );
 }

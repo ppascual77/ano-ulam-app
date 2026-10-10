@@ -91,15 +91,14 @@ const LOOSE_CATEGORIES = new Set([
 
 const isLoose = (category: string | null | undefined) => !!category && LOOSE_CATEGORIES.has(category.trim().toLowerCase());
 
-// A listing's pack size in its own price unit (kg or L), or null when it
-// can't be compared (e.g. sold per piece).
+// A listing's pack size in its own price unit (kg or L). Its per-unit price
+// is pack price / that size, so the size is pack price / per-unit price:
+// works whatever units the two are in. Converting units directly can't: a
+// liquid sold by the litre ("Soy sauce, 1 L") is priced per kg (via its
+// density), and comparing L to kg threw those listings away.
 function packSizeInUnit(source: PriceSourceType): number | null {
-  const unit = source.unit.toLowerCase();
-  const packUnit = source.packUnit.toLowerCase();
-  if (packUnit === unit) return source.packSize;
-  if (unit === "kg" && packUnit === "g") return source.packSize / 1000;
-  if (unit === "l" && packUnit === "ml") return source.packSize / 1000;
-  return null;
+  if (source.packPrice <= 0 || source.pricePerUnit <= 0) return null;
+  return source.packPrice / source.pricePerUnit;
 }
 
 const packLabel = (source: PriceSourceType) =>
