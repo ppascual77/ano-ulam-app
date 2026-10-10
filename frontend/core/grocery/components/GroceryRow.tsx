@@ -50,11 +50,13 @@ function CheckBox({ checked }: { checked: boolean }) {
   );
 }
 
-// Check box, then the name with its quantity right after it (and under that,
-// a "N meals" tag when the item was merged from several meals), and the price
-// on the right. Checked items fade and get struck through.
+// Check box, the name with one muted line under it (what to pick up, then
+// "2 meals" / "in pantry"), and the price on the right. Checked items fade
+// and get struck through.
 export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have = false, pricePantry = false }: GroceryRowProps) {
-  const isMain = item.category === "main";
+  // Pantry staples left out of the total still show their price, muted.
+  const counted = item.category === "main" || pricePantry;
+  const detail = [item.buy, item.meals > 1 && `${item.meals} meals`, have && "in pantry"].filter(Boolean).join(" · ");
   return (
     <Pressable
       onPress={onToggle}
@@ -64,53 +66,28 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
     >
       <CheckBox checked={checked} />
 
-      <View className={`flex-1 gap-1 ${checked ? "opacity-40" : ""}`}>
+      <View className={`flex-1 gap-0.5 ${checked ? "opacity-40" : ""}`}>
         <Text
           numberOfLines={wrap ? undefined : 1}
           className={`font-inter-semibold text-body text-ink-emphasis ${checked ? "line-through" : ""}`}
         >
           {item.name}
         </Text>
-        {/* Packaged: what the meals use from the packs on the right. */}
-        {item.pack && <Text className="font-inter-regular text-small text-ink-subtle">for {item.qty}</Text>}
-        {(item.meals > 1 || have) && (
-          <View className="flex-row flex-wrap items-center gap-1.5">
-            {item.meals > 1 && (
-              <View className="rounded-full bg-category-breakfast px-2.5 py-0.5">
-                <Text className="font-inter-extrabold text-small text-accent">{item.meals} meals</Text>
-              </View>
-            )}
-            {have && (
-              <View className="rounded-full bg-tinted-bg px-2.5 py-0.5">
-                <Text className="font-inter-extrabold text-small text-primary">Have</Text>
-              </View>
-            )}
-          </View>
+        {!!detail && (
+          <Text numberOfLines={wrap ? undefined : 1} className="font-inter-regular text-small text-ink-subtle">
+            {detail}
+          </Text>
         )}
       </View>
 
-      {/* Price on top, what to pick up under it: the packs for a packaged
-          item ("1 × 385 ml"), the exact amount for one bought loose.
-          Pantry staples show a "Staple" chip in the price's place, unless
-          they're counted in the total and have a price. ("Staple", not
-          "Pantry": "Have" already means it's in your pantry.) */}
-      <View className={`items-end gap-1 ${checked ? "opacity-40" : ""}`}>
-        {(isMain || pricePantry) && item.price > 0 ? (
-          <Text className="font-inter-extrabold text-body text-ink-emphasis">
-            {/* "~": no listing to size the pack by, so it's the used amount. */}
-            {item.estimate ? "~" : ""}₱{formatPeso(item.price, 0)}
-          </Text>
-        ) : (
-          !isMain && (
-            <View className="rounded-full border border-ink-emphasis/15 px-2.5 py-0.5">
-              <Text className="font-inter-extrabold text-small text-ink-subtle">Staple</Text>
-            </View>
-          )
-        )}
-        <Text className="text-right font-inter-light text-small text-ink-subtle">
-          {item.pack ? `${item.pack.count} × ${item.pack.size}` : item.qty}
+      {item.price > 0 && (
+        <Text
+          className={`font-inter-extrabold text-body ${counted ? "text-ink-emphasis" : "text-ink-subtle"} ${checked ? "opacity-40" : ""}`}
+        >
+          {/* "~": no store listing behind it (an AI pack or the used amount). */}
+          {item.estimate ? "~" : ""}₱{formatPeso(item.price, 0)}
         </Text>
-      </View>
+      )}
     </Pressable>
   );
 }

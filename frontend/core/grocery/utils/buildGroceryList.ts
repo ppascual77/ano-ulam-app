@@ -2,14 +2,20 @@ import { formatCount } from "@/frontend/core/meals/utils/multiplyQty";
 import type { IngredientType, MealType, PriceSourceType } from "@/frontend/core/meals/mealTypes";
 
 // Whole packs to buy of a packaged item ("2 × 385 ml"), from its cheapest
-// supermarket listing for the amount the meals need.
-export type GroceryPack = { count: number; size: string; price: number };
+// supermarket listing for the amount the meals need. `container` ("bottle")
+// only for an AI-estimated typical pack.
+export type GroceryPack = { count: number; size: string; price: number; container?: string };
 
 export type GroceryItem = {
   /** Lowercased name: the merge key, and what checkbox state is stored by. */
   id: string;
   name: string;
+  /** What the meals use, as written ("2 tbsp + 1 tsp"). Also what a saved
+   *  check is stored against, so it's never reformatted. */
   qty: string;
+  /** What to pick up at the store, the row's one detail line: the packs
+   *  ("385 ml bottle", "2 × 385 ml") or a rounded amount ("240 g"). */
+  buy: string;
   /** ₱ to spend on it: whole packs for a packaged item (you can't buy a
    *  teaspoon of soy sauce), the exact amount for one bought loose. */
   price: number;
@@ -58,7 +64,7 @@ function parseQty(ingredient: IngredientType): QtyPart {
 
 const round = (n: number) => (Number.isInteger(n) ? n : Math.round(n * 10) / 10);
 
-function formatParts(parts: QtyPart[]): string {
+function mergeParts(parts: QtyPart[]): QtyPart[] {
   const totals = new Map<string, QtyPart>();
   for (const part of parts) {
     const existing = totals.get(part.key);
@@ -71,8 +77,11 @@ function formatParts(parts: QtyPart[]): string {
   // "to taste" next to a real amount adds nothing at the store.
   const values = [...totals.values()];
   const hasAmount = values.some((part) => "amount" in part);
-  return values
-    .filter((part) => !hasAmount || "amount" in part)
+  return values.filter((part) => !hasAmount || "amount" in part);
+}
+
+function formatParts(parts: QtyPart[]): string {
+  return mergeParts(parts)
     .map((part) => {
       if ("text" in part) return part.text;
       if (part.key.startsWith("count:")) return formatCount(part.amount, part.unit);
@@ -144,7 +153,42 @@ function estimatedPacks(usedPrice: number, ingredient: IngredientType): GroceryP
   if (!estimate || estimate.sizeInUnit <= 0 || estimate.price <= 0 || usedPrice <= 0) return null;
   const needed = usedPrice / (estimate.price / estimate.sizeInUnit);
   const count = Math.max(1, Math.ceil(needed / estimate.sizeInUnit - 1e-6));
-  return { count, size: estimate.size, price: count * estimate.price };
+  return { count, size: estimate.size, price: count * estimate.price, container: estimate.container };
+}
+
+// A weight or volume rounded to what you'd ask for at a store: 236.6 g is
+// "240 g", 1,180 g is "1.2 kg".
+function friendlyAmount(amount: number, unit: "g" | "ml"): string {
+  const step = amount >= 100 ? 10 : amount >= 20 ? 5 : 1;
+  const rounded = Math.max(1, Math.round(amount / step) * step);
+  // Checked after rounding, so 996 g is "1 kg", not "1000 g".
+  if (rounded >= 1000) return `${Math.round(amount / 100) / 10} ${unit === "g" ? "kg" : "L"}`;
+  return `${rounded} ${unit}`;
+}
+
+const isWeightOrVolume = (part: QtyPart): part is Extract<QtyPart, { amount: number }> =>
+  part.key === "unit:g" || part.key === "unit:ml";
+
+// The row's one detail line: what to pick up. Packs as they're sold; else
+// counts as counts ("6 cloves"), weights rounded, and recipe-only units
+// ("2 tbsp + 1 cup") turned into a weight from the price: what the meals
+// use costs `usedPrice`, at the ingredient's own ₱/kg.
+function buyText(parts: QtyPart[], pack: GroceryPack | null, usedPrice: number, ingredient: IngredientType): string {
+  if (pack) {
+    if (pack.count > 1) return `${pack.count} × ${pack.size}`;
+    return pack.container ? `${pack.size} ${pack.container}` : pack.size;
+  }
+  const merged = mergeParts(parts);
+  const amounts = merged.filter((part) => "amount" in part);
+  if (amounts.length > 0 && amounts.every((part) => part.key.startsWith("count:"))) return formatParts(parts);
+  if (amounts.length > 0 && amounts.every(isWeightOrVolume)) {
+    return amounts.map((part) => friendlyAmount(part.amount, part.unit as "g" | "ml")).join(" + ");
+  }
+  const own = ingredient.pricePerUnit;
+  if (own && own.pricePerUnit > 0 && usedPrice > 0) {
+    return friendlyAmount((usedPrice / own.pricePerUnit) * 1000, own.unit === "kg" ? "g" : "ml");
+  }
+  return formatParts(parts);
 }
 
 const sentenceCase = (name: string) => name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
@@ -192,6 +236,7 @@ export function buildGroceryList(meals: Pick<MealType, "category" | "ingredients
         id,
         name: group.name,
         qty: formatParts(group.parts),
+        buy: buyText(group.parts, pack, usedPrice, group.ingredient),
         price: pack ? pack.price : usedPrice,
         usedPrice,
         ...(pack ? { pack } : {}),

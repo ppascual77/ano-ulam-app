@@ -88,6 +88,9 @@ export type IngredientType = {
   // A packaged item with no store listing: its AI-estimated typical retail
   // pack, priced from this ingredient's own price. Never a real listing.
   packEstimate?: PackEstimateType;
+  // The ingredient's own price in ₱ per kg or L (its stored estimated
+  // price), so the grocery list can turn a used price back into a weight.
+  pricePerUnit?: { pricePerUnit: number; unit: "kg" | "L" };
   // Set when the recipe's quantity text was a bare number ("1") and `qty`
   // was generated from the stored amount + count label instead ("1 clove").
   // Kept separately so scaling servings can re-pluralize ("2 cloves")

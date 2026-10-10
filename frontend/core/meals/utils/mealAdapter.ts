@@ -214,5 +214,6 @@ function mealIngredientToIngredientType(mi: MealIngredientRow): IngredientType &
     priceSources: parsePriceSources(mi.ingredient.price_sources),
     daPriceSources: parseDaPriceSources(mi.ingredient),
     packEstimate: parsePackEstimate(mi.ingredient),
+    pricePerUnit: ingredientPricePerUnit(mi.ingredient) ?? undefined,
   };
 }

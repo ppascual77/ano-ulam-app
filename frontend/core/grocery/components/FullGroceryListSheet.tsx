@@ -52,14 +52,6 @@ const autoCheckedHave = new Set<string>();
 // opens and tabs.
 let includePantrySession = false;
 
-function LegendPill({ label, className, textClassName }: { label: string; className: string; textClassName: string }) {
-  return (
-    <View className={`rounded-full px-2.5 py-0.5 ${className}`}>
-      <Text className={`font-inter-extrabold text-small ${textClassName}`}>{label}</Text>
-    </View>
-  );
-}
-
 const COUNT_UP_MS = 600;
 
 // The total ticks up from 0 each time the sheet opens (or the tab changes),
@@ -122,8 +114,6 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
 
   if (!tab) return null;
   const { items, isChecked, onToggle } = tab;
-  const anyHave = items.some((item) => pantryHas(pantry, item.name));
-  const anyShared = items.some((item) => item.meals > 1);
   const { mains, staples } = splitGroceryItems(items);
   const mainsSubtotal = mains.reduce((sum, item) => sum + item.price, 0);
 
@@ -224,22 +214,6 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
         )}
 
 
-        {(anyHave || anyShared) && (
-          <View className="mt-5 gap-2.5 rounded-2xl bg-ink-emphasis/5 p-4">
-            {anyHave && (
-              <View className="flex-row items-center gap-2">
-                <LegendPill label="Have" className="bg-tinted-bg" textClassName="text-primary" />
-                <Text className="flex-1 font-inter-regular text-small text-ink-subtle">In your pantry, already checked</Text>
-              </View>
-            )}
-            {anyShared && (
-              <View className="flex-row items-center gap-2">
-                <LegendPill label="2 meals" className="bg-category-breakfast" textClassName="text-accent" />
-                <Text className="flex-1 font-inter-regular text-small text-ink-subtle">Combined from more than one meal</Text>
-              </View>
-            )}
-          </View>
-        )}
       </ScrollView>
     </BottomSheet>
   );
