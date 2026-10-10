@@ -82,7 +82,7 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
 
       {item.price > 0 && (
         <Text
-          className={`font-inter-extrabold text-body ${counted ? "text-ink-emphasis" : "text-ink-subtle"} ${checked ? "opacity-40" : ""}`}
+          className={`text-body ${counted ? "font-inter-extrabold text-ink-emphasis" : "font-inter-medium text-web-ink-muted"} ${checked ? "opacity-40" : ""}`}
         >
           {/* "~": no store listing behind it (an AI pack or the used amount). */}
           {item.estimate ? "~" : ""}₱{formatPeso(item.price, 0)}
