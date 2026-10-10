@@ -1,12 +1,20 @@
 import { supabase, invokeEdgeFunction } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
 import type { IngredientRow } from "./ingredients";
+import type { DaCommodityRow } from "./daPrices";
 
 export type MealRow = Database["public"]["Tables"]["meals"]["Row"];
 export type MealIngredientRow = Database["public"]["Tables"]["meal_ingredients"]["Row"];
 
+// The DA commodities linked to an ingredient, one DA price source each.
+// Only getMeal joins them; optional so ingredient rows built elsewhere fit.
+export type LinkedDaCommodity = Pick<
+  DaCommodityRow,
+  "commodity" | "specification" | "unit" | "unit_size" | "latest_price" | "latest_price_date"
+>;
+
 export type MealWithIngredients = MealRow & {
-  meal_ingredients: (MealIngredientRow & { ingredient: IngredientRow })[];
+  meal_ingredients: (MealIngredientRow & { ingredient: IngredientRow & { da_commodities?: LinkedDaCommodity[] } })[];
 };
 
 export type QuantityUnit = "g" | "kg" | "ml" | "L" | "piece";
@@ -238,7 +246,9 @@ export async function browseMeals(query: BrowseQuery) {
 export async function getMeal(id: string): Promise<MealWithIngredients> {
   const { data, error } = await supabase
     .from("meals")
-    .select("*, meal_ingredients(*, ingredient:ingredients(*))")
+    .select(
+      "*, meal_ingredients(*, ingredient:ingredients(*, da_commodities(commodity, specification, unit, unit_size, latest_price, latest_price_date)))",
+    )
     .eq("id", id)
     .single();
   if (error) throw error;

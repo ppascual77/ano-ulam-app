@@ -61,6 +61,8 @@ const VERIFICATION_STATUS_OPTIONS = [
 const PRICE_SOURCE_OPTIONS = [
   { id: "manual", label: "Manual" },
   { id: "price_watch", label: "Price Watch" },
+  { id: "supermarket", label: "Supermarket" },
+  { id: "da", label: "DA Daily Price" },
 ];
 
 // Every editable field is a string in local form state (TextInput's native

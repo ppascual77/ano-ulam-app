@@ -180,35 +180,78 @@ export async function groundIngredientPrices(ingredients: IngredientRow[]) {
   return data.results ?? [];
 }
 
-// Mean of the per-kg (or per-L) prices. Every candidate for one ingredient
-// is normalized to the same unit by ground-ingredient-prices, so they're
-// directly averageable.
-export function averagePrice(candidates: PriceGroundingCandidate[]): number {
-  const sum = candidates.reduce((acc, c) => acc + c.pricePerUnit, 0);
-  return Math.round((sum / candidates.length) * 100) / 100;
+// One place an ingredient can be bought, in ₱ per kg or L: a supermarket
+// listing (price_sources) or the linked DA commodity's latest price.
+export type PriceOption = { source: "supermarket" | "da"; pricePerUnit: number; unit: "kg" | "L" };
+
+// price_sources is jsonb, so its shape isn't enforced by the DB.
+export function supermarketPriceOptions(priceSources: unknown): PriceOption[] {
+  if (!Array.isArray(priceSources)) return [];
+  return priceSources.flatMap((s) =>
+    s && typeof s.pricePerUnit === "number" && (s.unit === "kg" || s.unit === "L")
+      ? [{ source: "supermarket" as const, pricePerUnit: s.pricePerUnit, unit: s.unit }]
+      : [],
+  );
 }
 
-// Writes the average of the admin-selected sources. Every source, with its
-// link, is kept in price_sources (see migration
-// 20261003010000_ingredients_price_sources.sql), the only place price links
-// live; customer-facing source display should read from there.
-export function applyPriceMatch(candidates: PriceGroundingCandidate[]): Partial<IngredientRow> {
-  if (candidates.length === 0) throw new Error("applyPriceMatch needs at least one source");
-  const first = candidates[0];
+// The cheapest option sets estimated_price (and gets the "Best price"
+// badge on ingredient detail). Only options in one unit are compared: the
+// first DA one's when there is one, since DA is the reference price.
+export function cheapestPriceOption(options: PriceOption[]): PriceOption | null {
+  if (options.length === 0) return null;
+  const unit = (options.find((o) => o.source === "da") ?? options[0]).unit;
+  return options.filter((o) => o.unit === unit).reduce((best, o) => (o.pricePerUnit < best.pricePerUnit ? o : best));
+}
+
+// The price fields for the cheapest option, or null when there's no option
+// or the ingredient already has exactly that price.
+export function cheapestPricePatch(
+  ingredient: Pick<IngredientRow, "estimated_price" | "estimated_price_unit" | "price_source">,
+  options: PriceOption[],
+): Partial<IngredientRow> | null {
+  const best = cheapestPriceOption(options);
+  if (!best) return null;
+  const price = Math.round(best.pricePerUnit * 100) / 100;
+  if (
+    ingredient.estimated_price === price &&
+    ingredient.estimated_price_unit === best.unit &&
+    ingredient.price_source === best.source
+  ) {
+    return null;
+  }
   return {
-    estimated_price: averagePrice(candidates),
-    estimated_price_unit: first.unit,
-    price_source: "supermarket",
-    price_sources: candidates.map(({ store, productTitle, packPrice, packSize, packUnit, url, pricePerUnit, unit }) => ({
-      store,
-      productTitle,
-      packPrice,
-      packSize,
-      packUnit,
-      url,
-      pricePerUnit,
-      unit,
-    })),
+    estimated_price: price,
+    estimated_price_unit: best.unit,
+    price_source: best.source,
+    price_last_updated_at: new Date().toISOString(),
+  };
+}
+
+// Replaces the supermarket listings with the admin-selected ones (each kept
+// with its link in price_sources, see migration
+// 20261003010000_ingredients_price_sources.sql) and re-picks the cheapest
+// price. `daOptions` are the linked DA commodities' prices, so a cheaper DA
+// price stays the ingredient's price.
+export function applyPriceMatch(
+  ingredient: IngredientRow,
+  candidates: PriceGroundingCandidate[],
+  daOptions: PriceOption[],
+): Partial<IngredientRow> {
+  if (candidates.length === 0) throw new Error("applyPriceMatch needs at least one source");
+  const priceSources = candidates.map(({ store, productTitle, packPrice, packSize, packUnit, url, pricePerUnit, unit }) => ({
+    store,
+    productTitle,
+    packPrice,
+    packSize,
+    packUnit,
+    url,
+    pricePerUnit,
+    unit,
+  }));
+  const options = [...supermarketPriceOptions(priceSources), ...daOptions];
+  return {
+    price_sources: priceSources,
+    ...cheapestPricePatch(ingredient, options),
     price_last_updated_at: new Date().toISOString(),
   };
 }

@@ -1,10 +1,10 @@
 import { ReactNode } from "react";
 import { Linking, Pressable, Text, View } from "react-native";
-import { ChartColumn, Database, ExternalLink, ShoppingCart } from "lucide-react-native";
+import { ChartColumn, Database, ExternalLink, ShoppingCart, Store } from "lucide-react-native";
 import { Card, Chips } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { getUsdaSourceUrl } from "@/api/ingredients";
-import type { IngredientType, PriceSourceType } from "../../mealTypes";
+import type { DaPriceSourceType, IngredientType, PriceSourceType } from "../../mealTypes";
 import { MicronutrientList, hasMicronutrients } from "./MicronutrientList";
 
 // The three sections of IngredientDetailSheet: what this amount contains,
@@ -196,8 +196,19 @@ function SourceCard({
   return url ? <Pressable onPress={() => Linking.openURL(url)}>{card}</Pressable> : card;
 }
 
-// One store listing. The cheapest is highlighted with a "Best price" chip
-// when there's more than one.
+const DA_PRICE_PAGE = "https://www.da.gov.ph/price-monitoring/";
+
+function PriceTrailing({ price, unit, isBest }: { price: number; unit: string; isBest: boolean }) {
+  return (
+    <View className="items-end gap-2">
+      {isBest && <Chips variant="soft" label="Best price" />}
+      <Text className="font-inter-bold text-subheading text-primary">{formatPerUnit(price, unit)}</Text>
+    </View>
+  );
+}
+
+// One store listing. The cheapest source is highlighted with a "Best price"
+// chip when there's more than one.
 function PriceSourceCard({ source, isBest }: { source: PriceSourceType; isBest: boolean }) {
   return (
     <SourceCard
@@ -206,47 +217,65 @@ function PriceSourceCard({ source, isBest }: { source: PriceSourceType; isBest: 
       lines={[source.productTitle, formatPack(source)]}
       url={source.url}
       highlighted={isBest}
-      trailing={
-        <View className="items-end gap-2">
-          {isBest && <Chips variant="soft" label="Best price" />}
-          <Text className="font-inter-bold text-subheading text-primary">
-            {formatPerUnit(source.pricePerUnit, source.unit)}
-          </Text>
-        </View>
-      }
+      trailing={<PriceTrailing price={source.pricePerUnit} unit={source.unit} isBest={isBest} />}
     />
   );
 }
 
-export function PriceSourceSection({ item }: { item: Pick<IngredientType, "priceSources"> }) {
-  const sources = item.priceSources ?? [];
+// One DA Daily Price Index price: the average across NCR wet markets.
+function DaPriceSourceCard({ source, isBest }: { source: DaPriceSourceType; isBest: boolean }) {
+  const date = new Date(`${source.date}T00:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+  return (
+    <SourceCard
+      icon={<Store color={colors.ink.emphasis} size={20} />}
+      title="DA Bantay Presyo"
+      lines={[
+        source.specification ? `${source.commodity} · ${source.specification}` : source.commodity,
+        `Metro Manila wet markets · ${date}`,
+      ]}
+      url={DA_PRICE_PAGE}
+      highlighted={isBest}
+      trailing={<PriceTrailing price={source.pricePerUnit} unit={source.unit} isBest={isBest} />}
+    />
+  );
+}
 
-  if (sources.length === 0) {
+export function PriceSourceSection({ item }: { item: Pick<IngredientType, "priceSources" | "daPriceSources"> }) {
+  const sources = item.priceSources ?? [];
+  const da = item.daPriceSources ?? [];
+  const prices = [...da.map((d) => d.pricePerUnit), ...sources.map((s) => s.pricePerUnit)];
+
+  if (prices.length === 0) {
     return (
       <Section title="Price source">
-        <EstimateBox title="Estimated price" description="Not yet checked against a supermarket listing." />
+        <EstimateBox title="Estimated price" description="Not yet checked against a market or supermarket price." />
       </Section>
     );
   }
 
-  // Same mean the ingredient's stored price was set from (applyPriceMatch
-  // averages pricePerUnit); every source is normalized to the same unit.
-  const average = sources.reduce((sum, s) => sum + s.pricePerUnit, 0) / sources.length;
-  const cheapest = Math.min(...sources.map((s) => s.pricePerUnit));
+  // The cheapest source is the ingredient's stored price (cheapestPriceOption
+  // in api/ingredients.ts). Every source is normalized to ₱/kg or ₱/L.
+  const cheapest = Math.min(...prices);
+  const average = prices.reduce((sum, p) => sum + p, 0) / prices.length;
+  const unit = da[0]?.unit ?? sources[0].unit;
+  const showBest = prices.length > 1;
 
   return (
     <Section title="Price source" description="Prices are per standard market unit. Your actual cost may vary.">
       <View className="gap-3">
-        {sources.map((source) => (
-          <PriceSourceCard
-            key={source.url}
-            source={source}
-            isBest={sources.length > 1 && source.pricePerUnit === cheapest}
+        {da.map((d) => (
+          <DaPriceSourceCard
+            key={`${d.commodity}|${d.specification}`}
+            source={d}
+            isBest={showBest && d.pricePerUnit === cheapest}
           />
+        ))}
+        {sources.map((source) => (
+          <PriceSourceCard key={source.url} source={source} isBest={showBest && source.pricePerUnit === cheapest} />
         ))}
       </View>
 
-      {sources.length > 1 && (
+      {prices.length > 1 && (
         <>
           <View className="my-4 h-px bg-ink-emphasis/10" />
           <View className="flex-row items-center gap-3 rounded-2xl bg-primary/5 px-4 py-4">
@@ -257,9 +286,7 @@ export function PriceSourceSection({ item }: { item: Pick<IngredientType, "price
               <Text className="font-inter-semibold text-body text-ink-emphasis">Average price</Text>
               <Text className="font-inter-regular text-small text-ink-subtle">Based on available sources</Text>
             </View>
-            <Text className="font-inter-bold text-subheading text-primary">
-              {formatPerUnit(average, sources[0].unit)}
-            </Text>
+            <Text className="font-inter-bold text-subheading text-primary">{formatPerUnit(average, unit)}</Text>
           </View>
         </>
       )}

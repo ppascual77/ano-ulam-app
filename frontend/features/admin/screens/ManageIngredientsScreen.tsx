@@ -28,6 +28,7 @@ const SOURCE_OPTIONS = [
 const PRICE_SOURCE_OPTIONS = [
   { id: "manual", label: "Manual / AI estimate" },
   { id: "supermarket", label: "Supermarket" },
+  { id: "da", label: "DA Daily Price" },
 ];
 
 type Tab ="all" | "usda" | "fnri" | "prices";

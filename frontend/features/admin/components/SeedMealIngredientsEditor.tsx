@@ -28,6 +28,7 @@ import { errorMessage } from "@/lib/errorMessage";
 import { useConfirmedIngredientUpdate } from "../hooks/useConfirmedIngredientUpdate";
 import { IngredientEditSheet } from "./IngredientEditSheet";
 import { ConfirmIngredientSheet } from "./ConfirmIngredientSheet";
+import { SeedIngredientPriceFinder } from "./SeedIngredientPriceFinder";
 import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
 
 export type { QuantityUnit };
@@ -617,6 +618,8 @@ function IngredientRowCard({
           Not yet linked to a real ingredient
         </AppText>
       )}
+
+      {linkedIngredient && <SeedIngredientPriceFinder ingredient={linkedIngredient} />}
 
       {createError && (
         <AppText variant="caption" className="text-like">
