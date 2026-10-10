@@ -42,19 +42,14 @@ module.exports = {
           // Categories section). Not general-purpose brand colors.
           breakfast: "#FEF1E6",
           "breakfast-border": "#FAEAD2",
-          // Selected-state border: 10% darker than the base border (see CategoryCard.tsx). Fill stays unchanged.
-          "breakfast-border-selected": "#E1D3BD",
           lunch: "#EEEFE2",
           "lunch-border": "#E5EDCA",
-          "lunch-border-selected": "#CED5B6",
           dinner: "#FDEFE0",
           "dinner-border": "#FFE2CF",
           "dinner-icon": "#F4A188",
-          "dinner-border-selected": "#E6CBBA",
           fastfood: "#FCEBE1",
           "fastfood-border": "#FFE2CF",
           "fastfood-icon": "#DF6969",
-          "fastfood-border-selected": "#E6CBBA",
         },
         macro: {
           // MacroBreakdown's per-macro accent colors (features/meals).

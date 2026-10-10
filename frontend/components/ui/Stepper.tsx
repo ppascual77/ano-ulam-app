@@ -4,45 +4,77 @@ import { colors } from "@/frontend/constants/theme";
 import { PulsePressable } from "./PulsePressable";
 import { RollingText } from "./RollingText";
 
-const BUTTON_SIZE = 30;
-const BUTTON_RADIUS = 5;
+// "md": inline (Home's Serving box). "lg": a standalone control (the Meal
+// Planner's "How many people?").
+const SIZES = {
+  md: { button: 30, icon: 14, gap: "gap-2", minWidth: 20 },
+  lg: { button: 40, icon: 16, gap: "gap-5", minWidth: 28 },
+} as const;
 
 type StepperProps = {
   value: number;
   onChange: (value: number) => void;
   min?: number;
   max?: number;
+  size?: keyof typeof SIZES;
+  /** Screen reader labels for the buttons. */
+  decrementLabel?: string;
+  incrementLabel?: string;
 };
 
-function StepButton({ onPress, disabled, children }: { onPress: () => void; disabled: boolean; children: React.ReactNode }) {
+function StepButton({
+  onPress,
+  disabled,
+  size,
+  label,
+  children,
+}: {
+  onPress: () => void;
+  disabled: boolean;
+  size: number;
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <PulsePressable
       onPress={onPress}
       disabled={disabled}
-      radius={BUTTON_RADIUS}
-      style={{ width: BUTTON_SIZE, height: BUTTON_SIZE, borderRadius: BUTTON_RADIUS }}
-      className={`items-center justify-center border border-ink-emphasis/10 ${disabled ? "opacity-30" : "active:bg-ink-emphasis/5"}`}
+      pulse="subtle"
+      accessibilityLabel={label}
+      style={{ width: size, height: size }}
+      className={`items-center justify-center rounded-full border border-ink-emphasis/15 bg-white ${
+        disabled ? "opacity-30" : "active:bg-ink-emphasis/5"
+      }`}
     >
       {children}
     </PulsePressable>
   );
 }
 
-export function Stepper({ value, onChange, min = 1, max }: StepperProps) {
+// Round − / + buttons around a bold number that rolls up on +, down on −.
+export function Stepper({
+  value,
+  onChange,
+  min = 1,
+  max,
+  size = "md",
+  decrementLabel = "Decrease",
+  incrementLabel = "Increase",
+}: StepperProps) {
+  const s = SIZES[size];
   const canDecrement = value > min;
   const canIncrement = max === undefined || value < max;
 
   return (
-    <View className="flex-row items-center gap-1.5">
-      <StepButton onPress={() => onChange(value - 1)} disabled={!canDecrement}>
-        <Minus color={colors.ink.normal} size={14} strokeWidth={2} />
+    <View className={`flex-row items-center ${s.gap}`}>
+      <StepButton onPress={() => onChange(value - 1)} disabled={!canDecrement} size={s.button} label={decrementLabel}>
+        <Minus color={colors.ink.emphasis} size={s.icon} strokeWidth={2.5} />
       </StepButton>
-      {/* Rolls up on +, down on −. Same look as AppText's bodyBold. */}
-      <View style={{ minWidth: 16 }} className="items-center">
-        <RollingText value={value} rank={value} className="text-center font-inter-bold text-body text-ink" />
+      <View style={{ minWidth: s.minWidth }} className="items-center">
+        <RollingText value={value} rank={value} className="text-center font-inter-extrabold text-subheading text-ink-emphasis" />
       </View>
-      <StepButton onPress={() => onChange(value + 1)} disabled={!canIncrement}>
-        <Plus color={colors.ink.normal} size={14} strokeWidth={2} />
+      <StepButton onPress={() => onChange(value + 1)} disabled={!canIncrement} size={s.button} label={incrementLabel}>
+        <Plus color={colors.ink.emphasis} size={s.icon} strokeWidth={2.5} />
       </StepButton>
     </View>
   );

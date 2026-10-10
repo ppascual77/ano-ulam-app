@@ -28,6 +28,9 @@ type TextFieldProps = TextInputProps & {
   /** Bump (e.g. a form's submit-attempt count) to shake the field again
    *  while it's still invalid. */
   shakeKey?: number;
+  /** Floating-label fields: the typed value in extra-bold, for a value
+   *  that's the point of the field (Home's "Magkano budget?" amount). */
+  strong?: boolean;
 };
 
 // Red-border fade + shake for an invalid field, shared by TextField and any
@@ -82,6 +85,7 @@ export function TextField({
   placeholder,
   error = false,
   shakeKey = 0,
+  strong = false,
   ...props
 }: TextFieldProps) {
   const { errorProgress, shakeStyle } = useFieldErrorAnimation(error, shakeKey);
@@ -205,7 +209,7 @@ export function TextField({
           multiline={multiline}
           numberOfLines={numberOfLines}
           textAlignVertical={multiline ? "top" : undefined}
-          className="font-inter-regular text-subheading text-ink-emphasis"
+          className={`${strong ? "font-inter-extrabold" : "font-inter-regular"} text-subheading text-ink-emphasis`}
           style={{ marginTop: isFloating ? 16 : 0, padding: 0 }}
           {...props}
         />

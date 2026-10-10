@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { Hamburger, Moon, Sun } from "lucide-react-native";
-import { LandingTitle, type LandingDot } from "@/frontend/components/ui";
+import { AppText, LandingTitle, type LandingDot } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { CategoryCard } from "./CategoryCard";
 
@@ -14,7 +15,6 @@ const CATEGORIES = [
     badgeColor: colors.accent,
     bgClassName: "bg-category-breakfast",
     borderClassName: "border-category-breakfast-border",
-    selectedBorderClassName: "border-category-breakfast-border-selected",
   },
   {
     id: "lunch",
@@ -24,7 +24,6 @@ const CATEGORIES = [
     badgeColor: colors.primary,
     bgClassName: "bg-category-lunch",
     borderClassName: "border-category-lunch-border",
-    selectedBorderClassName: "border-category-lunch-border-selected",
   },
   {
     id: "dinner",
@@ -34,7 +33,6 @@ const CATEGORIES = [
     badgeColor: colors.category.dinnerIcon,
     bgClassName: "bg-category-dinner",
     borderClassName: "border-category-dinner-border",
-    selectedBorderClassName: "border-category-dinner-border-selected",
   },
   {
     id: "fastfood",
@@ -44,7 +42,6 @@ const CATEGORIES = [
     badgeColor: colors.category.fastfoodIcon,
     bgClassName: "bg-category-fastfood",
     borderClassName: "border-category-fastfood-border",
-    selectedBorderClassName: "border-category-fastfood-border-selected",
   },
 ];
 
@@ -58,9 +55,19 @@ export function CategoriesSection({ landing }: CategoriesSectionProps) {
 
   return (
     <View className="gap-3">
-      <LandingTitle {...landing}>
-        Categories
-      </LandingTitle>
+      <View className="flex-row items-center justify-between">
+        <LandingTitle {...landing}>Categories</LandingTitle>
+        {/* Only while a category is picked: clears the pick. */}
+        {selected && (
+          <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(150)}>
+            <Pressable onPress={() => setSelected(null)} hitSlop={8} accessibilityLabel="Clear category">
+              <AppText variant="bodyMedium" className="text-primary">
+                Clear
+              </AppText>
+            </Pressable>
+          </Animated.View>
+        )}
+      </View>
       <View className="flex-row gap-3">
         {CATEGORIES.map((category) => (
           <CategoryCard

@@ -38,6 +38,7 @@ export function BudgetForm({ onSuggestMeals }: BudgetFormProps) {
             value={budget}
             onChangeText={setBudget}
             keyboardType="numeric"
+            strong
           />
         </View>
 
@@ -46,7 +47,13 @@ export function BudgetForm({ onSuggestMeals }: BudgetFormProps) {
           style={{ height: 55 }}
         >
           <AppText variant="bodyMedium">Serving</AppText>
-          <Stepper value={servings} onChange={setServings} min={1} />
+          <Stepper
+            value={servings}
+            onChange={setServings}
+            min={1}
+            decrementLabel="Fewer servings"
+            incrementLabel="More servings"
+          />
         </View>
       </View>
 
