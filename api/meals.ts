@@ -10,7 +10,7 @@ export type MealIngredientRow = Database["public"]["Tables"]["meal_ingredients"]
 // Only getMeal joins them; optional so ingredient rows built elsewhere fit.
 export type LinkedDaCommodity = Pick<
   DaCommodityRow,
-  "commodity" | "specification" | "unit" | "unit_size" | "latest_price" | "latest_price_date"
+  "id" | "commodity" | "specification" | "unit" | "unit_size" | "latest_price" | "latest_price_date"
 >;
 
 export type MealWithIngredients = MealRow & {
@@ -247,7 +247,7 @@ export async function getMeal(id: string): Promise<MealWithIngredients> {
   const { data, error } = await supabase
     .from("meals")
     .select(
-      "*, meal_ingredients(*, ingredient:ingredients(*, da_commodities(commodity, specification, unit, unit_size, latest_price, latest_price_date)))",
+      "*, meal_ingredients(*, ingredient:ingredients(*, da_commodities(id, commodity, specification, unit, unit_size, latest_price, latest_price_date)))",
     )
     .eq("id", id)
     .single();

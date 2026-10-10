@@ -1,6 +1,6 @@
 import { DimensionValue, Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Clock, TrendingDown } from "lucide-react-native";
+import { Clock } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { resolveMealImage } from "../../resolveMealImage";
 import type { MealType } from "../../mealTypes";
@@ -10,15 +10,11 @@ type RelatedMealCardProps = {
   onPress: () => void;
   /** Defaults to "48%" (a 2-column grid). Pass a fixed pixel width for a carousel. */
   width?: DimensionValue;
-  /** Shows a "cheaper this week" note flush at the bottom of the card, in
-   *  NoticeBanner's amber color theme (e.g. Home's "This week's best value
-   *  meals" carousel). Defaults to false. */
-  showValueNote?: boolean;
 };
 
 // Mobile-only, so just the web version's vertical layout — no
 // horizontal/desktop variant needed.
-export function RelatedMealCard({ meal, onPress, width = "48%", showValueNote = false }: RelatedMealCardProps) {
+export function RelatedMealCard({ meal, onPress, width = "48%" }: RelatedMealCardProps) {
   return (
     <Pressable
       onPress={onPress}
@@ -45,15 +41,6 @@ export function RelatedMealCard({ meal, onPress, width = "48%", showValueNote = 
           <Text className="font-inter-bold text-caption text-ink">{meal.calories} cal</Text>
         </View>
       </View>
-
-      {showValueNote && (
-        <View className="flex-row items-center gap-1 border-t border-notice-border bg-notice-bg px-2 py-1.5">
-          <TrendingDown color={colors.notice.icon} size={12} />
-          <Text className="flex-1 text-caption text-notice-text">
-            Some ingredients in this meal are cheaper this week
-          </Text>
-        </View>
-      )}
     </Pressable>
   );
 }

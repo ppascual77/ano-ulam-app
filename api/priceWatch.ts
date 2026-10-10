@@ -20,6 +20,21 @@ export async function getPriceWatchCommodities() {
   return data;
 }
 
+// Daily prices of just these commodities on or after `since` (YYYY-MM-DD),
+// oldest first: enough for a week-over-week change without loading every
+// commodity (see getDailyPricesSince).
+export async function getDailyPricesFor(commodityIds: string[], since: string) {
+  if (commodityIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("daily_prices")
+    .select("da_commodity_id, price, price_date")
+    .in("da_commodity_id", commodityIds)
+    .gte("price_date", since)
+    .order("price_date");
+  if (error) throw error;
+  return data;
+}
+
 // Every daily price on or after `since` (YYYY-MM-DD). ~200 rows per DA day,
 // so this pages past PostgREST's row cap.
 export async function getDailyPricesSince(since: string) {
@@ -41,12 +56,15 @@ export async function getDailyPricesSince(since: string) {
 // Approved, non-archived meals that use any of `ingredientIds`, with the
 // ingredient that matched. Through meal_ingredients (real links), not a
 // text search of ingredient names. Each meal comes with its own
-// ingredients, so Meal Details opens complete.
+// ingredients and their linked DA commodities (same join as api/meals.ts),
+// so Meal Details opens complete, DA price sources included.
 export async function getMealsUsingIngredientIds(ingredientIds: string[]) {
   if (ingredientIds.length === 0) return [];
   const { data, error } = await supabase
     .from("meal_ingredients")
-    .select("ingredient_id, meal:meals!inner(*, meal_ingredients(*, ingredient:ingredients(*)))")
+    .select(
+      "ingredient_id, meal:meals!inner(*, meal_ingredients(*, ingredient:ingredients(*, da_commodities(id, commodity, specification, unit, unit_size, latest_price, latest_price_date))))",
+    )
     .in("ingredient_id", ingredientIds)
     .eq("meal.status", "approved")
     .is("meal.archived_at", null);

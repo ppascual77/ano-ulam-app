@@ -93,6 +93,7 @@ function parseDaPriceSources(ingredient: MealWithIngredients["meal_ingredients"]
     if (!option) return [];
     return [
       {
+        commodityId: da.id,
         commodity: da.commodity,
         specification: da.specification,
         pricePerUnit: option.pricePerUnit,
@@ -120,16 +121,14 @@ function describeQuantity(
   return { qty: formatCount(count.amount, count.label), count };
 }
 
-function mealIngredientToIngredientType(
-  mi: MealWithIngredients["meal_ingredients"][number],
-): IngredientType & { sortOrder: number } {
-  // The detail sheet's "Show details" toggle expects each ingredient's OWN
-  // calories/price to be its actual contribution at the quantity used in
-  // this recipe (it later multiplies by a servings scale factor) — not the
-  // per-100g figure stored on the ingredient row. Same computation
-  // recomputeMealTotals itself uses, including the price_quantity_amount/
-  // unit override (e.g. bulk frying oil: macros from the absorbed amount,
-  // price from the full amount actually used).
+type MealIngredientRow = MealWithIngredients["meal_ingredients"][number];
+
+// One ingredient's OWN calories/price at the quantity used in this recipe
+// (not the per-100g figure stored on the ingredient row). Same computation
+// recomputeMealTotals itself uses, including the price_quantity_amount/unit
+// override (e.g. bulk frying oil: macros from the absorbed amount, price
+// from the full amount actually used).
+function mealIngredientTotals(mi: MealIngredientRow) {
   const conversion =
     mi.quantity_amount != null && mi.quantity_unit != null
       ? convertQuantityToBasis(mi.quantity_amount, mi.quantity_unit, mi.ingredient)
@@ -138,6 +137,20 @@ function mealIngredientToIngredientType(
     conversion?.ok && mi.quantity_amount != null && mi.quantity_unit != null
       ? computeItemTotals(mi.ingredient, mi.quantity_amount, mi.quantity_unit, mi.price_quantity_amount, mi.price_quantity_unit)
       : null;
+  return { conversion, totals };
+}
+
+/** What this ingredient line costs in the recipe, or null when its
+ *  quantity can't be priced. */
+export function mealIngredientLinePrice(mi: MealIngredientRow): number | null {
+  return mealIngredientTotals(mi).totals?.price ?? null;
+}
+
+function mealIngredientToIngredientType(mi: MealIngredientRow): IngredientType & { sortOrder: number } {
+  // The detail sheet's "Show details" toggle expects each ingredient's own
+  // contribution at the quantity used (it later multiplies by a servings
+  // scale factor), see mealIngredientTotals.
+  const { conversion, totals } = mealIngredientTotals(mi);
 
   // Micronutrients use the same per-basis scaling as the macros above.
   const microScale = conversion?.ok ? conversion.basisAmount / mi.ingredient.basis_amount : null;
