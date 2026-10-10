@@ -1,25 +1,23 @@
 import { ReactNode } from "react";
 import { Text, View, type LayoutChangeEvent } from "react-native";
-import type { LucideIcon } from "lucide-react-native";
-import { Toggle } from "@/frontend/components/ui";
-import { colors } from "@/frontend/constants/theme";
+import { AppText, Toggle } from "@/frontend/components/ui";
 
 type SettingsSectionProps = {
-  Icon: LucideIcon;
   title: string;
   children: ReactNode;
   onLayout?: (e: LayoutChangeEvent) => void;
 };
 
-// Bordered card with an icon + title head row (Privacy, Notifications, ...).
-export function SettingsSection({ Icon, title, children, onLayout }: SettingsSectionProps) {
+// A settings group: a dotted section title ("Privacy.") in the app's
+// section style, a notch under the page's "Settings.", over a bordered card
+// of rows.
+export function SettingsSection({ title, children, onLayout }: SettingsSectionProps) {
   return (
-    <View onLayout={onLayout} className="overflow-hidden rounded-2xl border border-web-divider">
-      <View className="flex-row items-center gap-2 border-b border-web-divider bg-web-divider/40 px-5 py-4">
-        <Icon color={colors.webInk.muted} size={15} />
-        <Text className="font-inter-semibold text-body text-web-ink-soft">{title}</Text>
-      </View>
-      <View className="gap-4 px-5 py-4">{children}</View>
+    <View onLayout={onLayout} className="gap-3">
+      <AppText variant="sectionSubtitle" dot>
+        {title}
+      </AppText>
+      <View className="gap-5 rounded-2xl border border-ink-emphasis/10 px-5 py-4">{children}</View>
     </View>
   );
 }
@@ -36,15 +34,25 @@ export function SettingsToggle({ label, description, value, onChange }: Settings
   return (
     <View className="flex-row items-center gap-4">
       <View className="flex-1">
-        <Text className="font-inter-medium text-body text-web-ink">{label}</Text>
-        <Text className="mt-0.5 font-inter-regular text-small text-web-ink-muted">{description}</Text>
+        <SettingsRowLabel>{label}</SettingsRowLabel>
+        <SettingsRowDescription>{description}</SettingsRowDescription>
       </View>
       <Toggle checked={value} onChange={onChange} />
     </View>
   );
 }
 
-// Small uppercase label above a group of controls ("DIETARY FOCUS").
+// A row's name ("Reduce motion").
+export function SettingsRowLabel({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <Text className={`font-inter-semibold text-body-lg text-ink-emphasis ${className}`}>{children}</Text>;
+}
+
+// What the row does, under its name.
+export function SettingsRowDescription({ children }: { children: ReactNode }) {
+  return <Text className="mt-1 font-inter-regular text-body leading-5 text-ink-subtle">{children}</Text>;
+}
+
+// Heading for a group of controls inside a section ("Dietary focus").
 export function SettingsLabel({ children }: { children: string }) {
-  return <Text className="font-inter-semibold text-sub uppercase tracking-widest text-web-ink-muted">{children}</Text>;
+  return <AppText variant="title">{children}</AppText>;
 }

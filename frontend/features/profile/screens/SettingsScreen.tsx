@@ -3,15 +3,21 @@ import { Linking, Platform, Pressable, ScrollView, Text, View, useWindowDimensio
 import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { Accessibility, ArrowLeft, Bell, ChevronRight, Eye, Info, LogOut, SlidersHorizontal, Trash2, UserRound } from "lucide-react-native";
-import { ChipSelect, ConfirmSheet, Screen, Spinner, Toast, type ToastState } from "@/frontend/components/ui";
+import { ArrowLeft, ChevronRight, LogOut, Trash2 } from "lucide-react-native";
+import { AppText, ChipSelect, ConfirmSheet, Screen, Spinner, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { parseUserPreferences, type UserPreferences } from "@/api/auth";
 import { useAuth, useDeleteAccount, useSignOut } from "@/frontend/features/auth/hooks/useAuth";
 import { useUpdateUserProfile, useUserProfile } from "@/frontend/features/auth/hooks/useUserProfile";
 import { ALLERGEN_OPTIONS, DIETARY_FOCUS_OPTIONS } from "@/frontend/core/preferences/options";
 import { useAccountSettings, useAccountSettingsActions } from "../hooks/useProfile";
-import { SettingsLabel, SettingsSection, SettingsToggle } from "../components/settings/SettingsSection";
+import {
+  SettingsLabel,
+  SettingsRowDescription,
+  SettingsRowLabel,
+  SettingsSection,
+  SettingsToggle,
+} from "../components/settings/SettingsSection";
 import { WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
 import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
 
@@ -22,9 +28,9 @@ const APP_VERSION = Constants.expoConfig?.version ?? "dev";
 // A tappable row inside a settings card (About links).
 function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} className="flex-row items-center justify-between">
-      <Text className="font-inter-medium text-body text-web-ink">{label}</Text>
-      <ChevronRight color={colors.webInk.muted} size={16} />
+    <Pressable onPress={onPress} className="flex-row items-center justify-between active:opacity-60">
+      <SettingsRowLabel>{label}</SettingsRowLabel>
+      <ChevronRight color={colors.ink.subtle} size={20} />
     </Pressable>
   );
 }
@@ -111,15 +117,17 @@ export default function SettingsScreen() {
     <Screen padded={false} edges={["top"]} dismissKeyboardOnTap={false}>
       <View className="flex-row items-center gap-3 px-5 pb-2 pt-4">
         <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Back">
-          <ArrowLeft color={colors.webInk.muted} size={20} />
+          <ArrowLeft color={colors.ink.emphasis} size={22} />
         </Pressable>
-        <Text className="font-inter-semibold text-subheading text-web-ink">Settings</Text>
+        <AppText variant="sectionTitle" dot>
+          Settings
+        </AppText>
       </View>
 
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
         {/* Bottom padding clears the home indicator (top-only safe area). */}
-        <View className="mt-2 gap-4 px-5" style={{ paddingBottom: insets.bottom + 40 }}>
-          <SettingsSection Icon={Eye} title="Privacy">
+        <View className="mt-4 gap-8 px-5" style={{ paddingBottom: insets.bottom + 40 }}>
+          <SettingsSection title="Privacy">
             <SettingsToggle
               label="Show saved meals on your profile"
               description="When enabled, visitors to your profile can see the meals you've saved."
@@ -129,12 +137,11 @@ export default function SettingsScreen() {
           </SettingsSection>
 
           <SettingsSection
-            Icon={Bell}
             title="Notifications"
             onLayout={(e) => setNewsletterLayout({ y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height })}
           >
             <SettingsToggle
-              label="Email Newsletter"
+              label="Email newsletter"
               description="Receive occasional emails about new meals, features, and food tips from AnoUlam."
               value={settings.data?.newsletter_subscribed ?? false}
               // Turning it off asks first; turning it on just saves.
@@ -142,9 +149,9 @@ export default function SettingsScreen() {
             />
           </SettingsSection>
 
-          <SettingsSection Icon={SlidersHorizontal} title="Preferences">
+          <SettingsSection title="Preferences">
             <View className="gap-3">
-              <SettingsLabel>Dietary Focus</SettingsLabel>
+              <SettingsLabel>Dietary focus</SettingsLabel>
               <ChipSelect
                 mode="single"
                 required
@@ -154,7 +161,7 @@ export default function SettingsScreen() {
               />
             </View>
             <View className="gap-3">
-              <SettingsLabel>Food Allergies</SettingsLabel>
+              <SettingsLabel>Food allergies</SettingsLabel>
               <ChipSelect
                 mode="multi"
                 options={ALLERGEN_OPTIONS}
@@ -164,7 +171,7 @@ export default function SettingsScreen() {
             </View>
           </SettingsSection>
 
-          <SettingsSection Icon={Accessibility} title="Accessibility">
+          <SettingsSection title="Accessibility">
             <SettingsToggle
               label="Reduce motion"
               description="Skips page intros and makes animations instant. Also turns on with your phone's own reduce motion setting."
@@ -173,36 +180,36 @@ export default function SettingsScreen() {
             />
           </SettingsSection>
 
-          <SettingsSection Icon={UserRound} title="Account">
+          <SettingsSection title="Account">
             <Pressable
               onPress={() =>
                 isSignedIn
                   ? setConfirmDelete(true)
                   : setToast({ id: Date.now(), message: "Sign in to delete your account.", tone: "error" })
               }
-              className="flex-row items-center gap-2"
+              className="active:opacity-60"
             >
-              <Trash2 color={colors.like} size={15} />
-              <Text className="font-inter-medium text-body text-like">Delete account</Text>
+              <View className="flex-row items-center gap-2">
+                <Trash2 color={colors.like} size={18} />
+                <SettingsRowLabel className="text-like">Delete account</SettingsRowLabel>
+              </View>
+              <SettingsRowDescription>Permanently deletes your account and the recipes you've published.</SettingsRowDescription>
             </Pressable>
-            <Text className="font-inter-regular text-small text-web-ink-muted">
-              Permanently deletes your account and the recipes you've published.
-            </Text>
           </SettingsSection>
 
-          <SettingsSection Icon={Info} title="About">
+          <SettingsSection title="About">
             <LinkRow label="Privacy Policy" onPress={() => void Linking.openURL(`${WEB_APP_URL}/privacy`)} />
             <LinkRow label="Terms of Service" onPress={() => void Linking.openURL(`${WEB_APP_URL}/terms`)} />
             <LinkRow label="Send feedback" onPress={sendFeedback} />
-            <Text className="font-inter-regular text-small text-web-ink-muted">Version {APP_VERSION}</Text>
+            <Text className="font-inter-regular text-body text-ink-subtle">Version {APP_VERSION}</Text>
           </SettingsSection>
 
           <Pressable
             onPress={logOut}
-            className="mt-2 flex-row items-center justify-center gap-2 rounded-2xl border border-like py-3.5 active:bg-like-soft"
+            className="flex-row items-center justify-center gap-2 rounded-2xl border border-like py-4 active:bg-like-soft"
           >
-            <LogOut color={colors.like} size={16} />
-            <Text className="font-inter-semibold text-body text-like">Log out</Text>
+            <LogOut color={colors.like} size={18} />
+            <Text className="font-inter-semibold text-body-lg text-like">Log out</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -237,8 +244,8 @@ export default function SettingsScreen() {
 
       {loggingOut && (
         <View className="absolute inset-0 items-center justify-center gap-3 bg-white">
-          <Spinner size={28} color={colors.brandGreen.DEFAULT} trackColor={colors.webDivider} />
-          <Text className="font-inter-medium text-body text-web-ink-muted">Logging out...</Text>
+          <Spinner size={28} color={colors.primary} trackColor={colors.webDivider} />
+          <Text className="font-inter-medium text-body-lg text-ink-subtle">Logging out...</Text>
         </View>
       )}
       <Toast toast={toast} onHide={() => setToast(null)} />
