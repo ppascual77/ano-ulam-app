@@ -31,6 +31,8 @@ export default function PriceWatchScreen() {
 
   const all = items.data ?? [];
   const picks = useMemo(() => pickFreshPicks(all, FRESH_PICKS_COUNT), [all]);
+  // Latest DA publish date across all commodities, for the source chip.
+  const asOf = useMemo(() => all.reduce<string | undefined>((max, i) => (!max || i.latestDate > max ? i.latestDate : max), undefined), [all]);
 
   const q = search.trim().toLowerCase();
   const listed = useMemo(() => {
@@ -76,7 +78,7 @@ export default function PriceWatchScreen() {
         </View>
 
         <View className="mt-4">
-          <PriceDisclaimer variant="banner" onOpenMarkets={() => setMarketsOpen(true)} />
+          <PriceDisclaimer variant="chip" asOf={asOf} onOpenMarkets={() => setMarketsOpen(true)} />
           {items.isError && (
             <AppText variant="caption" className="mt-2 text-like">
               Couldn&apos;t load prices. Pull to refresh.

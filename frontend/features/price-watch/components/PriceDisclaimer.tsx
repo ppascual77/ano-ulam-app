@@ -1,25 +1,51 @@
-import { Text } from "react-native";
-import { Info } from "lucide-react-native";
+import { Pressable, Text } from "react-native";
+import { ChevronRight, Store } from "lucide-react-native";
 import * as WebBrowser from "expo-web-browser";
-import { NoticeBanner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
+import { addDays, formatShortDate, toIsoDate } from "@/frontend/core/prices/utils/prices";
 import { DA_PRICE_PAGE, NCR_MARKETS } from "../constants/markets";
 
-const openDaPage = () => WebBrowser.openBrowserAsync(DA_PRICE_PAGE);
+export const openDaPage = () => WebBrowser.openBrowserAsync(DA_PRICE_PAGE);
 
-// "banner": the amber box at the top of Price Watch. "small": the plain
-// footnote at the bottom of the ingredient detail sheet.
-export function PriceDisclaimer({ variant, onOpenMarkets }: { variant: "banner" | "small"; onOpenMarkets: () => void }) {
-  const isBanner = variant === "banner";
-  const text = isBanner
-    ? "font-inter-regular text-small text-notice-text"
-    : "font-inter-regular text-sub leading-4 text-ink-subtle";
-  const link = isBanner ? "font-inter-semibold text-primary underline" : "font-inter-medium text-ink underline";
+// "Today", "Yesterday", or "Oct 9".
+function asOfLabel(iso: string) {
+  const today = toIsoDate(new Date());
+  if (iso === today) return "Today";
+  if (iso === addDays(today, -1)) return "Yesterday";
+  return formatShortDate(iso);
+}
 
-  const body = (
-    <Text className={text}>
+type PriceDisclaimerProps =
+  /** The one-line source chip at the top of Price Watch. Tapping it opens
+   *  the Markets sheet, which holds the full caveat and the DA link. */
+  | { variant: "chip"; asOf?: string; onOpenMarkets: () => void }
+  /** The plain footnote at the bottom of the ingredient detail sheet. */
+  | { variant: "small"; onOpenMarkets: () => void };
+
+export function PriceDisclaimer(props: PriceDisclaimerProps) {
+  if (props.variant === "chip") {
+    const parts = ["DA daily prices", `${NCR_MARKETS.length} NCR markets`, ...(props.asOf ? [asOfLabel(props.asOf)] : [])];
+    return (
+      <Pressable
+        onPress={props.onOpenMarkets}
+        accessibilityRole="button"
+        accessibilityLabel={`${parts.join(", ")}. About these prices`}
+        className="flex-row items-center gap-2 self-start rounded-full border border-ink-emphasis/10 bg-notice-positive-bg py-2 pl-3 pr-2"
+      >
+        <Store color={colors.primary} size={14} />
+        <Text numberOfLines={1} className="shrink font-inter-medium text-small text-ink-emphasis">
+          {parts.join(" · ")}
+        </Text>
+        <ChevronRight color={colors.ink.subtle} size={14} />
+      </Pressable>
+    );
+  }
+
+  const link = "font-inter-medium text-ink underline";
+  return (
+    <Text className="font-inter-regular text-sub leading-4 text-ink-subtle">
       Prices are daily averages across{" "}
-      <Text className={link} onPress={onOpenMarkets}>
+      <Text className={link} onPress={props.onOpenMarkets}>
         {NCR_MARKETS.length} NCR markets
       </Text>{" "}
       from DA reports. Prices may vary, so use them as a general guide for your grocery budget.{" "}
@@ -28,6 +54,4 @@ export function PriceDisclaimer({ variant, onOpenMarkets }: { variant: "banner" 
       </Text>
     </Text>
   );
-
-  return isBanner ? <NoticeBanner icon={<Info color={colors.notice.icon} size={15} />}>{body}</NoticeBanner> : body;
 }
