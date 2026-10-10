@@ -1,4 +1,6 @@
+import { useEffect, useRef } from "react";
 import { Pressable, Text, View } from "react-native";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { TrendingDown } from "lucide-react-native";
 import { AppText, SearchBar } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -6,6 +8,12 @@ import type { PriceItem } from "@/frontend/core/prices/utils/prices";
 import { PriceRow } from "./PriceRow";
 
 const SKELETON_ROWS = 8;
+// When the list switches (a new category, or searching): the title pops and
+// the rows fade and lift back in, so it's clear the results changed.
+const PULSE_MS = 420;
+const TITLE_POP = 0.08;
+const ROWS_DIM = 0.35;
+const ROWS_LIFT = 10;
 
 type PriceListSectionProps = {
   title: string;
@@ -28,10 +36,32 @@ export function PriceListSection({
   onToggleSort,
   onSelect,
 }: PriceListSectionProps) {
+  // 0 -> 1 over a pulse; 1 at rest. Not on first render.
+  const pulse = useSharedValue(1);
+  const mounted = useRef(false);
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    pulse.value = 0;
+    pulse.value = withTiming(1, { duration: PULSE_MS, easing: Easing.out(Easing.cubic) });
+  }, [title, pulse]);
+
+  const titleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + TITLE_POP * Math.sin(Math.PI * pulse.value) }],
+  }));
+  const rowsStyle = useAnimatedStyle(() => ({
+    opacity: ROWS_DIM + (1 - ROWS_DIM) * pulse.value,
+    transform: [{ translateY: ROWS_LIFT * (1 - pulse.value) }],
+  }));
+
   return (
     <View>
       <View className="mb-3 flex-row items-center justify-between">
-        <AppText variant="title">{title}</AppText>
+        <Animated.View style={[{ transformOrigin: "left" }, titleStyle]}>
+          <AppText variant="title">{title}</AppText>
+        </Animated.View>
         <Pressable
           onPress={onToggleSort}
           accessibilityRole="switch"
@@ -68,7 +98,11 @@ export function PriceListSection({
           No ingredients found.
         </AppText>
       ) : (
-        items.map((item) => <PriceRow key={item.id} item={item} onPress={() => onSelect(item)} />)
+        <Animated.View style={rowsStyle}>
+          {items.map((item) => (
+            <PriceRow key={item.id} item={item} onPress={() => onSelect(item)} />
+          ))}
+        </Animated.View>
       )}
     </View>
   );
