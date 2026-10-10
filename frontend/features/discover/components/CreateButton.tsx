@@ -14,8 +14,10 @@ import { BorderLap } from "./BorderLap";
 
 // Width of the "Create" label area when expanded (the + circle is separate).
 const LABEL_WIDTH = 64;
-// The + circle.
+// The + circle, border included: collapsed, the whole button is exactly
+// this circle, so the +, its border and the border lap share one center.
 const CIRCLE = 44;
+const BORDER = 1;
 // The intro's dot shrinks to this as the + takes it in.
 const LANDING_DOT = 4;
 // Absorbing the dot: a quick swell with an orange flush, then the border lap.
@@ -24,9 +26,10 @@ const FLUSH_MS = 450;
 const LAP_DELAY_MS = 250;
 
 // dark: glass over the Recipes reel. light: solid brand green on Community.
+// Both have the same 1px border (BORDER), so the geometry never changes.
 const variantClass = {
   dark: "border border-white/20 bg-white/15",
-  light: "bg-brand-green",
+  light: "border border-brand-green bg-brand-green",
 } as const;
 
 type CreateButtonProps = {
@@ -84,7 +87,8 @@ export function CreateButton({ expanded, onPress, variant, landingRef, highlight
             Create
           </Text>
         </Animated.View>
-        <View className="h-11 w-11 items-center justify-center">
+        {/* Inside the border, so with it the circle is exactly CIRCLE. */}
+        <View className="items-center justify-center" style={{ width: CIRCLE - 2 * BORDER, height: CIRCLE - 2 * BORDER }}>
           {/* The orange flush as the + takes in the dot (behind the +). */}
           <Animated.View pointerEvents="none" className="absolute inset-0 rounded-full bg-accent" style={flushStyle} />
           <Plus color={colors.white} size={20} />
