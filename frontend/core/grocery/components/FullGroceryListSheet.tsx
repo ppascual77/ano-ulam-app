@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { Info, MapPin } from "lucide-react-native";
+import { MapPin } from "lucide-react-native";
 import { AppText, BottomSheet, SegmentedSwitch, Toggle } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { pantryHas } from "@/frontend/core/pantry/hooks/usePantry";
@@ -100,10 +100,13 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
   const [includePantry, setIncludePantry] = useState(includePantrySession);
   const tab = tabs.find((t) => t.key === activeKey) ?? tabs[0];
   // Main ingredients, plus pantry staples when they're switched on.
-  const total = (tab?.items ?? []).reduce(
-    (sum, item) => (item.category === "main" || includePantry ? sum + item.price : sum),
-    0,
-  );
+  const counted = (tab?.items ?? []).filter((item) => item.category === "main" || includePantry);
+  const total = counted.reduce((sum, item) => sum + item.price, 0);
+  // What the meals use of it. Whole packs cost more than what a recipe
+  // uses, and the gap is what's left over in the pantry, which explains why
+  // this total is higher than the meals' own prices.
+  const used = counted.reduce((sum, item) => sum + item.usedPrice, 0);
+  const leftover = Math.round(total) - Math.round(used) >= 1;
   const shownTotal = useCountUp(total, tab?.key ?? "", visible);
 
   useEffect(() => {
@@ -157,14 +160,6 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
           </View>
         )}
 
-        <View className="mt-4 flex-row gap-2 rounded-xl border border-notice-border bg-notice-bg px-3 py-2.5">
-          <Info color={colors.notice.icon} size={14} />
-          <Text className="flex-1 font-inter-regular text-sub leading-4 text-notice-text">
-            Prices shown are for the exact quantities used across your meals. Some items may only be available as a whole
-            unit, so your actual spend may be higher.
-          </Text>
-        </View>
-
         {items.length === 0 && (
           <Text className="py-8 text-center font-inter-regular text-body text-web-ink-muted">{tab.emptyText}</Text>
         )}
@@ -217,6 +212,12 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
             </View>
             <Text className="font-inter-extrabold text-heading text-primary">₱{formatPeso(shownTotal, 0)}</Text>
           </View>
+        )}
+        {items.length > 0 && leftover && (
+          <Text className="mt-2 font-inter-regular text-small text-ink-subtle">
+            <Text className="font-inter-bold text-ink-emphasis">₱{formatPeso(used, 0)}</Text> goes into your meals. The
+            rest stays in your pantry.
+          </Text>
         )}
 
         {(anyHave || anyShared) && (
