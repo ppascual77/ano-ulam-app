@@ -20,6 +20,7 @@ import {
 } from "../components/settings/SettingsSection";
 import { WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
 import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 
 const LOG_OUT_DELAY_MS = 2000;
 const SUPPORT_EMAIL = "anoulam.app@gmail.com";
@@ -38,7 +39,7 @@ function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
 const SCROLL_TO_SECTION_DELAY_MS = 300;
 
 // /profile/settings, from the gear on your profile: privacy, newsletter,
-// dietary preferences, reduce motion, Delete account, About (legal links, feedback,
+// dietary preferences, Home's Surprise me tag, reduce motion, Delete account, About (legal links, feedback,
 // version), and Log out at the very end.
 export default function SettingsScreen() {
   const params = useLocalSearchParams<{ section?: string }>();
@@ -53,6 +54,8 @@ export default function SettingsScreen() {
   // Device-only (not account data): follows the phone's setting until set here.
   const reduceMotion = useReduceMotion();
   const setReduceMotion = useReduceMotionStore((s) => s.setReduceMotion);
+  const showSurpriseMe = useSurpriseMeStore((s) => s.show);
+  const setShowSurpriseMe = useSurpriseMeStore((s) => s.setShow);
 
   const settings = useAccountSettings();
   const settingsActions = useAccountSettingsActions();
@@ -169,6 +172,15 @@ export default function SettingsScreen() {
                 onChange={(value) => setPrefs({ ...prefs, allergens: value })}
               />
             </View>
+          </SettingsSection>
+
+          <SettingsSection title="Home">
+            <SettingsToggle
+              label="Surprise me"
+              description="The pull-down tag on Home that picks a random meal when you can't decide. Turn it off to hide it."
+              value={showSurpriseMe}
+              onChange={setShowSurpriseMe}
+            />
           </SettingsSection>
 
           <SettingsSection title="Accessibility">

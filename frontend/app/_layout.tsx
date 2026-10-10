@@ -26,6 +26,7 @@ import { queryClient } from "@/lib/queryClient";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/frontend/features/auth/store/useAuthStore";
 import { useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 
 // Required for the Google sign-in browser-redirect flow's web fallback path;
 // harmless no-op on native. https://supabase.com/docs/guides/auth/native-mobile-deep-linking
@@ -47,9 +48,12 @@ export default function RootLayout() {
   // Settings' "Reduce motion": loaded once here, then applied app-wide below.
   const reduceMotion = useReduceMotionStore((s) => s.override);
   const loadReduceMotion = useReduceMotionStore((s) => s.load);
+  // Settings' "Surprise me" (Home's pull-down tag), read by HomeScreen.
+  const loadSurpriseMe = useSurpriseMeStore((s) => s.load);
   useEffect(() => {
     void loadReduceMotion();
-  }, [loadReduceMotion]);
+    void loadSurpriseMe();
+  }, [loadReduceMotion, loadSurpriseMe]);
 
   const authLoading = useAuthStore((s) => s.loading);
   const setSession = useAuthStore((s) => s.setSession);
