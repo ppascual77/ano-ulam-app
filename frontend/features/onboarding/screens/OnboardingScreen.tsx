@@ -127,7 +127,7 @@ export default function OnboardingScreen() {
           goals: Array.from(goals),
         },
       });
-      router.replace("/home");
+      router.replace({ pathname: "/home", params: { intro: "1" } });
     } catch (err) {
       console.error("Google sign-in failed", err);
     }

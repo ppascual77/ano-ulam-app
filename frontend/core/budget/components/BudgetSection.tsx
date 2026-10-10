@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type RefObject, useState } from "react";
 import { View } from "react-native";
 import { BudgetForm } from "./BudgetForm";
 import { MealSuggestion } from "./MealSuggestion";
@@ -9,7 +9,13 @@ import { BestValueMealsSection } from "@/frontend/core/meals/components/BestValu
 
 // Everything Budget mode shows on Home, as one unit — HomeScreen just
 // renders this or PantrySection depending on the toggle, nothing more.
-export function BudgetSection() {
+type BudgetSectionProps = {
+  /** Passed to the "Categories." title (see CategoriesSection). */
+  categoriesDotRef?: RefObject<View | null>;
+  showCategoriesDot?: boolean;
+};
+
+export function BudgetSection({ categoriesDotRef, showCategoriesDot }: BudgetSectionProps) {
   const [suggestion, setSuggestion] = useState<{
     budget: string;
     servings: number;
@@ -23,7 +29,7 @@ export function BudgetSection() {
         <MealSuggestion budget={suggestion.budget} />
       ) : (
         <>
-          <CategoriesSection />
+          <CategoriesSection dotRef={categoriesDotRef} showDot={showCategoriesDot} />
           <RecommendationsSection />
           <CommunityFavoritesSection />
           <BestValueMealsSection />
