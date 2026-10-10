@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Text, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { Sparkles } from "lucide-react-native";
 import { BottomSheet, ConfirmSheet } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -8,12 +9,9 @@ import { MealDetailContent } from "./MealDetailContent";
 import { IngredientDetailSheet } from "./IngredientDetailSheet";
 import type { IngredientType, MealType } from "../../mealTypes";
 
-// Explicit (it's also BottomSheet's default) because the ingredient sheet's
-// max height is derived from it.
-const MEAL_SHEET_HEIGHT_PERCENT = 0.8;
-// The ingredient sheet tops out at 75% of the meal sheet, so it reads as a
-// smaller sheet on top rather than a second full-height one.
-const INGREDIENT_SHEET_HEIGHT_PERCENT = MEAL_SHEET_HEIGHT_PERCENT * 0.75;
+// The meal detail is full screen; the ingredient sheet tops out at 75% of
+// it, so it reads as a sheet on top rather than a second full screen.
+const INGREDIENT_SHEET_HEIGHT_PERCENT = 0.75;
 
 type MealDetailSheetProps = {
   /** null closes the sheet. */
@@ -73,7 +71,7 @@ export function MealDetailSheet({
   // button return to whatever the user originally opened.
   const [history, setHistory] = useState<MealType[]>([]);
   // Which way the content should slide in: "none" for the initial open
-  // (BottomSheet's own slide-up already covers that), "forward" for picking
+  // (the sheet's own slide-up already covers that), "forward" for picking
   // a related meal, "back" for the back button.
   const [direction, setDirection] = useState<"none" | "forward" | "back">("none");
   // The ingredient whose detail sheet is open on top of this one, already
@@ -134,13 +132,16 @@ export function MealDetailSheet({
     onClose();
   };
 
+  // The top-left arrow (and Android's back button) steps back through
+  // related meals first, and closes once it's back at the meal opened.
+  const handleBackOrClose = history.length > 0 ? handleBack : onClose;
+
   return (
     <BottomSheet
       visible={!!meal}
-      onClose={onClose}
-      heightPercent={MEAL_SHEET_HEIGHT_PERCENT}
+      onClose={handleBackOrClose}
       onClosed={onClosed}
-      handleClassName="bg-white/70"
+      fullScreen
       // The ingredient sheet goes in this sheet's own overlay, not a second
       // native Modal (see BottomSheet's `overlay`). A caller's overlay (e.g.
       // a confetti burst) still renders above it.
@@ -174,6 +175,10 @@ export function MealDetailSheet({
             onConfirm={confirmUpdate}
           />
           {overlay}
+          {/* White status bar over the photo while open. As an element (not
+              setStatusBarStyle) it restores whatever style was there before
+              on close, e.g. light again over Discover's reel. */}
+          {meal && <StatusBar style="light" />}
         </>
       }
     >
@@ -192,7 +197,7 @@ export function MealDetailSheet({
           }}
           recipeOwner={meal && renderedMeal.id === meal.id ? recipeOwner : undefined}
           onSelectMeal={handleSelectMeal}
-          onBack={history.length > 0 ? handleBack : undefined}
+          onBack={handleBackOrClose}
           direction={direction}
           onEdit={onEdit}
           onArchive={onArchive}
