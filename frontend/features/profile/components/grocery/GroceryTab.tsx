@@ -12,6 +12,7 @@ import { usePlannerStore } from "@/frontend/features/meal-planner/store/usePlann
 import { useCountUp } from "../../hooks/useCountUp";
 import { GroceryRow, formatPeso } from "@/frontend/core/grocery/components/GroceryRow";
 import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
+import { GrocerySectionHeader, splitGroceryItems } from "@/frontend/core/grocery/components/GrocerySection";
 
 const PREVIEW_LIMIT = 7;
 
@@ -40,7 +41,10 @@ export function GroceryTab({ userId }: { userId: string | null }) {
   const [infoOpen, setInfoOpen] = useState(false);
 
   const { items } = grocery;
-  const mainCount = items.filter((item) => item.category === "main").length;
+  const { mains, staples } = splitGroceryItems(items);
+  // The preview's first items (mains come first), split the same way. The
+  // headers count the whole list, not just what's previewed.
+  const preview = splitGroceryItems(items.slice(0, PREVIEW_LIMIT));
   // Only main ingredients count toward the total (pantry staples are
   // usually on hand).
   const { total } = grocery;
@@ -102,16 +106,26 @@ export function GroceryTab({ userId }: { userId: string | null }) {
             </Text>
           </View>
         ) : (
-          <View className="mt-3 px-3">
-            {items.slice(0, PREVIEW_LIMIT).map((item, i, shown) => (
-              <GroceryRow
-                key={item.id}
-                item={item}
-                checked={grocery.isChecked(item)}
-                onToggle={() => grocery.toggle(item)}
-                isLast={i === shown.length - 1}
-              />
-            ))}
+          <View className="mt-3 gap-4 px-3">
+            {[
+              { title: "To buy", rows: preview.mains, count: mains.length },
+              { title: "Pantry staples", rows: preview.staples, count: staples.length },
+            ]
+              .filter((section) => section.rows.length > 0)
+              .map((section) => (
+                <View key={section.title}>
+                  <GrocerySectionHeader title={section.title} count={section.count} />
+                  {section.rows.map((item, i) => (
+                    <GroceryRow
+                      key={item.id}
+                      item={item}
+                      checked={grocery.isChecked(item)}
+                      onToggle={() => grocery.toggle(item)}
+                      isLast={i === section.rows.length - 1}
+                    />
+                  ))}
+                </View>
+              ))}
           </View>
         )}
 
@@ -137,8 +151,8 @@ export function GroceryTab({ userId }: { userId: string | null }) {
                 <Text className="font-inter-regular text-small text-web-ink-muted">Estimated total for main ingredients</Text>
               </View>
               <View className="h-px bg-web-divider" />
-              <SummaryRow dotClassName="bg-brand-green" label="Main ingredients" count={mainCount} />
-              <SummaryRow dotClassName="bg-web-ink-faint" label="Pantry items" count={items.length - mainCount} />
+              <SummaryRow dotClassName="bg-brand-green" label="To buy" count={mains.length} />
+              <SummaryRow dotClassName="bg-web-ink-faint" label="Pantry staples" count={staples.length} />
             </View>
             <View className="rounded-2xl bg-notice-bg p-4">
               <View className="flex-row items-center gap-1.5">

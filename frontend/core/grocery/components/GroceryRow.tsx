@@ -19,7 +19,7 @@ type GroceryRowProps = {
   wrap?: boolean;
   /** Full list: the item is already in the user's pantry. */
   have?: boolean;
-  /** Price pantry basics too (the full list's "Include pantry basics"). */
+  /** Price pantry staples too (the full list's "Include in total"). */
   pricePantry?: boolean;
 };
 
@@ -87,8 +87,9 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
         )}
       </View>
 
-      {/* Pantry basics show a "Pantry" chip in the price's place, unless
-          they're counted in the total and have a price. */}
+      {/* Pantry staples show a "Staple" chip in the price's place, unless
+          they're counted in the total and have a price. ("Staple", not
+          "Pantry": "Have" already means it's in your pantry.) */}
       {(isMain || pricePantry) && item.price > 0 ? (
         <Text className={`font-inter-extrabold text-body text-ink-emphasis ${checked ? "opacity-40" : ""}`}>
           ₱{formatPeso(item.price, 0)}
@@ -96,7 +97,7 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
       ) : (
         !isMain && (
           <View className={`rounded-full border border-ink-emphasis/15 px-2.5 py-0.5 ${checked ? "opacity-40" : ""}`}>
-            <Text className="font-inter-extrabold text-small text-ink-subtle">Pantry</Text>
+            <Text className="font-inter-extrabold text-small text-ink-subtle">Staple</Text>
           </View>
         )
       )}

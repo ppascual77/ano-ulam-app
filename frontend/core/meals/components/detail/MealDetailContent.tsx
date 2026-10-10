@@ -138,10 +138,10 @@ function IngredientRow({ ingredient, onPress: onPressProp, dropPct }: Ingredient
             <Text className="shrink font-inter-semibold text-body leading-5 text-ink-subtle">{capitalize(ingredient.name)}</Text>
             <Text className="font-inter-light text-small text-ink-subtle">({ingredient.qty})</Text>
           </View>
-          {/* Main / Pantry chip under the name, sized to its label. */}
+          {/* Main / Staple chip under the name, sized to its label. */}
           <View className={`self-start rounded-full px-2 py-1 ${isMain ? "bg-primary/10" : "bg-ink-emphasis/5"}`}>
             <Text className={`font-inter-semibold text-sub ${isMain ? "text-primary" : "text-ink-subtle"}`}>
-              {isMain ? "Main" : "Pantry"}
+              {isMain ? "Main" : "Staple"}
             </Text>
           </View>
         </View>

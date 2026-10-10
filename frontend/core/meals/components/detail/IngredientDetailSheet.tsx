@@ -70,7 +70,7 @@ export function IngredientDetailSheet({ ingredient, onClose, maxHeightPercent }:
                   </Text>
                   <View className={`rounded-full px-2.5 py-1 ${isMain ? "bg-primary/10" : "bg-ink-emphasis/5"}`}>
                     <Text className={`font-inter-semibold text-small ${isMain ? "text-primary" : "text-ink-subtle"}`}>
-                      {isMain ? "Main" : "Pantry"}
+                      {isMain ? "Main" : "Staple"}
                     </Text>
                   </View>
                 </View>
