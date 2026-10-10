@@ -80,8 +80,8 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
         )}
       </View>
 
-      {/* Pantry staples left out of the total get a "Staple" chip in the
-          price's place. ("Staple", not "Pantry": "in pantry" already means
+      {/* Pantry staples left out of the total say "Staple" in the price's
+          place. ("Staple", not "Pantry": "in pantry" already means
           you have it.) */}
       {counted ? (
         item.price > 0 && (
@@ -91,9 +91,7 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
           </Text>
         )
       ) : (
-        <View className={`rounded-full border border-ink-emphasis/15 px-2.5 py-0.5 ${checked ? "opacity-40" : ""}`}>
-          <Text className="font-inter-extrabold text-small text-ink-subtle">Staple</Text>
-        </View>
+        <Text className={`font-inter-medium text-small text-ink-subtle ${checked ? "opacity-40" : ""}`}>Staple</Text>
       )}
     </Pressable>
   );
