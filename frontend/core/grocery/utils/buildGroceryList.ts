@@ -1,13 +1,24 @@
 import { formatCount } from "@/frontend/core/meals/utils/multiplyQty";
-import type { IngredientType, MealType } from "@/frontend/core/meals/mealTypes";
+import type { IngredientType, MealType, PriceSourceType } from "@/frontend/core/meals/mealTypes";
+
+// Whole packs to buy of a packaged item ("2 × 385 ml"), from its cheapest
+// supermarket listing for the amount the meals need.
+export type GroceryPack = { count: number; size: string; price: number };
 
 export type GroceryItem = {
   /** Lowercased name: the merge key, and what checkbox state is stored by. */
   id: string;
   name: string;
   qty: string;
-  /** ₱ for the combined quantity. */
+  /** ₱ to spend on it: whole packs for a packaged item (you can't buy a
+   *  teaspoon of soy sauce), the exact amount for one bought loose. */
   price: number;
+  /** Packaged items with a supermarket listing: what to pick up. `qty` is
+   *  then what the meals use from it ("for 2 tbsp"). */
+  pack?: GroceryPack;
+  /** A packaged item with no listing to size it by: `price` is just the
+   *  amount the meals use, so it's an estimate of the spend ("~"). */
+  estimate?: boolean;
   category: "main" | "pantry";
   /** How many of the meals use it (the list's "N meals" tag when > 1). */
   meals: number;
@@ -66,6 +77,59 @@ function formatParts(parts: QtyPart[]): string {
     .join(" + ");
 }
 
+// Bought loose at the market (wet market, produce, meat counter): you ask
+// for the exact amount, so it stays exact. Everything else (condiments,
+// oils, spices, canned goods, dairy, noodles…) comes in packs. Compared
+// lowercased: the table has "Root Vegetable" and "Root vegetable".
+const LOOSE_CATEGORIES = new Set([
+  "pork", "beef", "poultry", "meat",
+  "fish", "shellfish", "mollusk", "seafood",
+  "vegetable", "fruit", "leafy green", "leafy vegetable", "root vegetable", "gourd", "tomato", "mushroom", "leaf", "citrus fruit",
+  "aromatics", "allium", "herb", "herbs",
+  "egg", "eggs", "rice",
+]);
+
+const isLoose = (category: string | null | undefined) => !!category && LOOSE_CATEGORIES.has(category.trim().toLowerCase());
+
+// A listing's pack size in its own price unit (kg or L), or null when it
+// can't be compared (e.g. sold per piece).
+function packSizeInUnit(source: PriceSourceType): number | null {
+  const unit = source.unit.toLowerCase();
+  const packUnit = source.packUnit.toLowerCase();
+  if (packUnit === unit) return source.packSize;
+  if (unit === "kg" && packUnit === "g") return source.packSize / 1000;
+  if (unit === "l" && packUnit === "ml") return source.packSize / 1000;
+  return null;
+}
+
+const packLabel = (source: PriceSourceType) =>
+  `${source.packSize} ${source.packUnit === "piece" ? "pc" : source.packUnit}`;
+
+// The cheapest way to cover what the meals use with whole packs. How much
+// they use comes from the price they were already given: that was the
+// amount used x the ingredient's cheapest per-kg/L price (its stored
+// estimated price), so amount = price / that per-unit price. Saves
+// converting "2 tbsp" to ml to bottles.
+function wholePacks(usedPrice: number, ingredient: IngredientType): GroceryPack | null {
+  const listings = (ingredient.priceSources ?? []).filter((s) => s.pricePerUnit > 0 && s.packPrice > 0);
+  const perUnit = Math.min(
+    ...listings.map((s) => s.pricePerUnit),
+    ...(ingredient.daPriceSources ?? []).map((d) => d.pricePerUnit).filter((p) => p > 0),
+  );
+  if (!Number.isFinite(perUnit) || usedPrice <= 0) return null;
+  const needed = usedPrice / perUnit;
+  let best: GroceryPack | null = null;
+  for (const listing of listings) {
+    const size = packSizeInUnit(listing);
+    if (!size) continue;
+    // Tiny tolerance so an exact fit (500 ml in a 500 ml bottle) is one pack.
+    const count = Math.max(1, Math.ceil(needed / size - 1e-6));
+    const price = count * listing.packPrice;
+    if (!best || price < best.price) best = { count, size: packLabel(listing), price };
+  }
+  return best;
+}
+
 const sentenceCase = (name: string) => name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
 
 // Every ingredient of every home-cooked meal given (fast food is left out),
@@ -74,13 +138,24 @@ const sentenceCase = (name: string) => name.charAt(0).toUpperCase() + name.slice
 // the servings being cooked (saved meals are; the Meal Planner scales them).
 // Used by Profile's Grocery tab (saved meals) and the Meal Planner's plan.
 export function buildGroceryList(meals: Pick<MealType, "category" | "ingredients">[]): GroceryItem[] {
-  const groups = new Map<string, { name: string; parts: QtyPart[]; price: number; main: boolean; meals: Set<number> }>();
+  const groups = new Map<
+    string,
+    { name: string; parts: QtyPart[]; price: number; main: boolean; meals: Set<number>; ingredient: IngredientType }
+  >();
   meals.forEach((meal, mealIndex) => {
     if (meal.category === "fast_food") return;
     for (const ingredient of meal.ingredients ?? []) {
       const id = ingredient.name.trim().toLowerCase();
       if (!id) continue;
-      const group = groups.get(id) ?? { name: sentenceCase(ingredient.name.trim()), parts: [], price: 0, main: false, meals: new Set<number>() };
+      const group = groups.get(id) ?? {
+        name: sentenceCase(ingredient.name.trim()),
+        parts: [],
+        price: 0,
+        main: false,
+        meals: new Set<number>(),
+        // Same ingredient across meals: its category and listings are shared.
+        ingredient,
+      };
       group.meals.add(mealIndex);
       group.parts.push(parseQty(ingredient));
       group.price += ingredient.price ?? 0;
@@ -89,14 +164,21 @@ export function buildGroceryList(meals: Pick<MealType, "category" | "ingredients
     }
   });
   return [...groups.entries()]
-    .map(([id, group]) => ({
-      id,
-      name: group.name,
-      qty: formatParts(group.parts),
-      price: Math.round(group.price * 100) / 100,
-      category: group.main ? ("main" as const) : ("pantry" as const),
-      meals: group.meals.size,
-    }))
+    .map(([id, group]): GroceryItem => {
+      const usedPrice = Math.round(group.price * 100) / 100;
+      const loose = isLoose(group.ingredient.category);
+      const pack = loose ? null : wholePacks(usedPrice, group.ingredient);
+      return {
+        id,
+        name: group.name,
+        qty: formatParts(group.parts),
+        price: pack ? pack.price : usedPrice,
+        ...(pack ? { pack } : {}),
+        ...(!loose && !pack && usedPrice > 0 ? { estimate: true } : {}),
+        category: group.main ? "main" : "pantry",
+        meals: group.meals.size,
+      };
+    })
     // Main ingredients first, then by name.
     .sort((a, b) => (a.category === b.category ? a.name.localeCompare(b.name) : a.category === "main" ? -1 : 1));
 }
