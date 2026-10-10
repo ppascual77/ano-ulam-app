@@ -204,8 +204,9 @@ function WelcomeScene({ size, entry, onBang }: { size: IntroSize; entry?: Point;
         {/* Slot-machine window: one row visible, soft white fades top and
             bottom so the spin reads as a reel. */}
         <Animated.View
-          className="mt-2 self-stretch overflow-hidden"
-          style={[{ height: ROW_HEIGHT, marginVertical: REEL_GROWTH }, reelWindowStyle]}
+          className="self-stretch overflow-hidden"
+          // The usual 8px gap under the question, plus room for the scale-up.
+          style={[{ height: ROW_HEIGHT, marginTop: 8 + REEL_GROWTH, marginBottom: REEL_GROWTH }, reelWindowStyle]}
         >
           <Animated.View style={reelStyle}>
             {DISHES.map((dish, i) => (
