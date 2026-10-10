@@ -4,6 +4,7 @@ import { Check } from "lucide-react-native";
 import { AppText, Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import type { AccountPitchSlideData } from "../slides";
+import { HighlightedText } from "./HighlightedText";
 
 const heroColorClass = {
   primary: "text-primary",
@@ -35,9 +36,7 @@ export function AccountPitchSlide({ slide, width, onContinueWithGoogle, onContin
         ))}
       </Text>
 
-      <AppText variant="body" className="text-ink-subtle text-center mb-6">
-        {slide.subtitle}
-      </AppText>
+      <HighlightedText className="mb-6 text-center">{slide.subtitle}</HighlightedText>
 
       <View className="gap-3 mb-6">
         {slide.benefits.map((benefit) => (

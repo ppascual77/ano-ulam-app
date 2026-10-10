@@ -22,6 +22,7 @@ export type ContentSlideData = {
   type: "content";
   caption: string;
   hero: HeroSegment[];
+  /** Wrap key phrases in **double asterisks** to highlight them. */
   description: string;
   image?: number;
 };
@@ -52,6 +53,7 @@ export type PreferenceGroupsSlideData = {
   id: string;
   type: "preferenceGroups";
   title: string;
+  /** Wrap key phrases in **double asterisks** to highlight them. */
   subtitle: string;
   note: string;
   image?: number;
@@ -62,6 +64,7 @@ export type AccountPitchSlideData = {
   id: string;
   type: "accountPitch";
   hero: HeroSegment[];
+  /** Wrap key phrases in **double asterisks** to highlight them. */
   subtitle: string;
   benefits: string[];
   image?: number;
@@ -84,7 +87,7 @@ export const onboardingSlides: OnboardingSlideData[] = [
       { text: "cook" },
     ],
     description:
-      "Get an idea on what to cook based on your budget, preferences and nutrition goals. Recipes are gathered from publicly shared Filipino cooking.",
+      "Get an idea on what to cook based on your **budget, preferences and nutrition goals**. Recipes are gathered from **publicly shared Filipino cooking**.",
     image: require("@/assets/onboarding/slide-1.gif"),
   },
   {
@@ -96,7 +99,7 @@ export const onboardingSlides: OnboardingSlideData[] = [
       { text: "Smarter" },
     ],
     description:
-      "Keep an eye on ingredient prices with Price Watch, using the DA's daily market prices, so you can spot what's affordable before you shop.",
+      "Keep an eye on ingredient prices with **Price Watch**, using the **DA's daily market prices**, so you can spot what's affordable before you shop.",
     image: require("@/assets/onboarding/slide-2.gif"),
   },
   {
@@ -108,7 +111,7 @@ export const onboardingSlides: OnboardingSlideData[] = [
       { text: "what you use" },
     ],
     description:
-      "Meal costs only count the amount of each ingredient the recipe uses. If a meal uses 2 tbsp from a ₱120 liter of cooking oil, it counts as about ₱4, based on local market prices. You'll still buy the full bottle at the store, but it lasts for many meals.",
+      "Meal costs only count **the amount of each ingredient the recipe uses**. If a meal uses 2 tbsp from a ₱120 liter of cooking oil, it counts as **about ₱4**, based on local market prices. You'll still buy the full bottle at the store, but it lasts for many meals.",
     // TODO: illustration (placeholder renders until an image is set)
   },
   {
@@ -121,7 +124,7 @@ export const onboardingSlides: OnboardingSlideData[] = [
       { text: "meals" },
     ],
     description:
-      "Balance your macros and see what you need to buy, all in one place. Nutrition is based on FNRI and USDA food data whenever available.",
+      "**Balance your macros** and see **what you need to buy**, all in one place. Nutrition is based on **FNRI and USDA** food data whenever available.",
     image: require("@/assets/onboarding/slide-3.gif"),
   },
   {
@@ -147,7 +150,7 @@ export const onboardingSlides: OnboardingSlideData[] = [
     id: "6",
     type: "preferenceGroups",
     title: "Preferences",
-    subtitle: "Tell us a bit about how you eat. This is optional, and you can change it anytime.",
+    subtitle: "Tell us a bit about how you eat. This is **optional**, and you can **change it anytime**.",
     image: require("@/assets/onboarding/preferences-icon.gif"),
     note: "Your preferences are saved automatically. Update them anytime in Profile settings.",
     groups: [
@@ -190,7 +193,7 @@ export const onboardingSlides: OnboardingSlideData[] = [
       { text: "Ulam", color: "accent" },
       { text: " yours" },
     ],
-    subtitle: "Create a free account for the full AnoUlam experience.",
+    subtitle: "Create a **free account** for the full AnoUlam experience.",
     benefits: [
       "Save your favorite meals",
       "Track your pantry and grocery list",
