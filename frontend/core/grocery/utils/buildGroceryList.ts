@@ -89,7 +89,7 @@ const LOOSE_CATEGORIES = new Set([
   "egg", "eggs", "rice",
 ]);
 
-const isLoose = (category: string | null | undefined) => !!category && LOOSE_CATEGORIES.has(category.trim().toLowerCase());
+export const isLoose = (category: string | null | undefined) => !!category && LOOSE_CATEGORIES.has(category.trim().toLowerCase());
 
 // A listing's pack size in its own price unit (kg or L). Its per-unit price
 // is pack price / that size, so the size is pack price / per-unit price:
