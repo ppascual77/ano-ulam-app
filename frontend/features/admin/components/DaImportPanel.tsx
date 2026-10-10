@@ -1,25 +1,41 @@
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { View, Pressable, Linking } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
-import { ExternalLink } from "lucide-react-native";
+import { Check, ExternalLink } from "lucide-react-native";
 import { AppText, Button, ErrorState, LoadingState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import {
   commoditiesByIngredient,
   daCommodityKey,
   formatDaUnit,
+  getDaCommodities,
   ingredientPricePatch,
+  linkedDaPrices,
+  parseDaDailyPdf,
+  saveDaDailyPrices,
   type DaListedPdf,
   type DaParsedPdf,
 } from "@/api/daPrices";
+import { addDays } from "@/frontend/core/prices/utils/prices";
 import type { IngredientRow } from "@/api/ingredients";
 import { errorMessage } from "@/lib/errorMessage";
-import { useDaCommodities, useDaDailyPdfs, useParseDaDailyPdf, useSaveDaDailyPrices } from "../hooks/useDaPrices";
+import {
+  useDaCommodities,
+  useDaDailyPdfs,
+  useParseDaDailyPdf,
+  useSaveDaDailyPrices,
+  useSavedPriceDates,
+} from "../hooks/useDaPrices";
 import { useIngredients } from "../hooks/useIngredients";
 import { useConfirmedIngredientUpdate, type PendingIngredientChange } from "../hooks/useConfirmedIngredientUpdate";
 import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
 
 const DA_PRICE_PAGE = "https://www.da.gov.ph/price-monitoring/";
+// "Import last 7 days" goes back to the newest day minus this many days,
+// inclusive: Price Watch compares each price with the one on or before
+// that day, so it has to be saved too (Oct 9 is compared with Oct 2).
+const BACKFILL_DAYS = 7;
 
 const formatDate = (iso: string) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
@@ -39,6 +55,13 @@ export function DaImportPanel() {
   const [preview, setPreview] = useState<DaParsedPdf | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const listedDates = useMemo(() => (pdfs.data ?? []).map((p) => p.date), [pdfs.data]);
+  const savedDates = useSavedPriceDates(listedDates);
+  const [backfill, setBackfill] = useState<{ done: number; total: number } | null>(null);
+  // The confirm sheet after a backfill only updates ingredients: the
+  // prices are already saved by then.
+  const [backfillMessage, setBackfillMessage] = useState<string | null>(null);
 
   const commodityByKey = useMemo(() => new Map((commodities ?? []).map((c) => [daCommodityKey(c), c])), [commodities]);
   const ingredientById = useMemo(() => new Map((ingredients ?? []).map((i) => [i.id, i])), [ingredients]);
@@ -117,8 +140,83 @@ export function DaImportPanel() {
     }
   };
 
+  // Saves every DA day from the last week that isn't saved yet, oldest
+  // first, with no per-day preview (re-saving a day is harmless, so a bad
+  // parse can be redone from its chip). Then re-prices linked ingredients
+  // from the commodities' new latest prices, through the usual confirm.
+  const handleBackfill = async () => {
+    const all = pdfs.data ?? [];
+    if (all.length === 0) return;
+    setError(null);
+    setDone(null);
+    setPreview(null);
+    setPicked(null);
+    const since = addDays(all[0].date, -BACKFILL_DAYS);
+    const wanted = all.filter((p) => p.date >= since);
+    // DA skipped the comparison day itself: the newest older PDF stands in.
+    if (!wanted.some((p) => p.date === since)) {
+      const older = all.find((p) => p.date < since);
+      if (older) wanted.push(older);
+    }
+    const missing = wanted.filter((p) => !savedDates.data?.has(p.date)).reverse();
+    if (missing.length === 0) {
+      setDone("The last 7 days (and the day they're compared with) are already saved.");
+      return;
+    }
+
+    const imported: string[] = [];
+    const failed: string[] = [];
+    setBackfill({ done: 0, total: missing.length });
+    for (const pdf of missing) {
+      try {
+        const parsed = await parseDaDailyPdf(pdf.url);
+        await saveDaDailyPrices(parsed, pdf.url);
+        imported.push(formatDate(pdf.date));
+      } catch (err) {
+        failed.push(`${formatDate(pdf.date)} (${errorMessage(err)})`);
+      }
+      setBackfill((prev) => (prev ? { ...prev, done: prev.done + 1 } : prev));
+    }
+    setBackfill(null);
+    queryClient.invalidateQueries({ queryKey: ["admin", "da"] });
+    queryClient.invalidateQueries({ queryKey: ["prices"] });
+
+    let message = `Imported ${imported.length} day${imported.length === 1 ? "" : "s"}`;
+    if (failed.length > 0) message += `. Failed: ${failed.join(", ")}`;
+    try {
+      const fresh = await getDaCommodities();
+      const changes: PendingIngredientChange[] = [];
+      for (const [ingredientId, linked] of commoditiesByIngredient(fresh)) {
+        const ingredient = ingredientById.get(ingredientId);
+        const patch = ingredient ? ingredientPricePatch(ingredient, linkedDaPrices(linked)) : null;
+        if (ingredient && patch) changes.push({ id: ingredient.id, patch, name: ingredient.canonical_name });
+      }
+      if (changes.length === 0) {
+        setDone(message);
+        return;
+      }
+      setBackfillMessage(message);
+      await confirmedUpdate.requestUpdate(changes);
+    } catch (err) {
+      setDone(message);
+      setError(errorMessage(err));
+    }
+  };
+
   const handleConfirm = async () => {
     const updated = confirmedUpdate.pending?.length ?? 0;
+    if (backfillMessage) {
+      try {
+        await confirmedUpdate.confirm();
+        setDone(`${backfillMessage} · updated ${updated} ingredient price${updated === 1 ? "" : "s"}`);
+      } catch (err) {
+        confirmedUpdate.cancel();
+        setError(errorMessage(err));
+      } finally {
+        setBackfillMessage(null);
+      }
+      return;
+    }
     try {
       await saveAll();
       await confirmedUpdate.confirm();
@@ -149,21 +247,43 @@ export function DaImportPanel() {
       )}
 
       {pdfs.isLoading ? (
-        <LoadingState />
+        <LoadingState label="Reading DA's list of daily PDFs. Their site can take up to 20 seconds..." />
       ) : pdfs.isError ? (
-        <ErrorState />
+        <ErrorState message={errorMessage(pdfs.error)} onRetry={() => pdfs.refetch()} />
       ) : (
         <View className="flex-row flex-wrap gap-2 mb-4">
+          <View className="w-full mb-1">
+            <Button
+              label={
+                backfill
+                  ? `Importing ${backfill.done + 1} of ${backfill.total}...`
+                  : "Import last 7 days"
+              }
+              variant="outline"
+              disabled={!!backfill || parse.isPending || save.isPending || savedDates.isLoading}
+              onPress={handleBackfill}
+            />
+          </View>
+          <AppText variant="caption" className="w-full text-ink-subtle">
+            Green border with ✓ = prices for that day are already imported. Tap any day to preview it; saving an
+            imported day again just overwrites it.
+          </AppText>
           {(pdfs.data ?? []).map((pdf) => {
             const active = picked?.url === pdf.url;
+            // Imported = that day's prices are already in daily_prices. The
+            // PDF itself is never stored, only the prices read from it.
+            const imported = !!savedDates.data?.has(pdf.date);
             return (
               <Pressable
                 key={pdf.url}
                 onPress={() => handlePick(pdf)}
-                disabled={parse.isPending || save.isPending}
-                className={`rounded-full border px-3 py-2 ${active ? "border-primary bg-primary/10" : "border-ink-emphasis/10"}`}
+                disabled={parse.isPending || save.isPending || !!backfill}
+                className={`flex-row items-center gap-1 rounded-full border px-3 py-2 ${
+                  active ? "border-primary bg-primary/10" : imported ? "border-primary" : "border-ink-emphasis/10"
+                }`}
               >
-                <AppText variant="caption" className={active ? "text-primary" : "text-ink"}>
+                {imported && <Check color={colors.primary} size={12} />}
+                <AppText variant="caption" className={active || imported ? "text-primary" : "text-ink"}>
                   {formatDate(pdf.date)}
                   {pdf.revised ? " · Revised" : ""}
                 </AppText>
@@ -232,7 +352,11 @@ export function DaImportPanel() {
         loading={confirmedUpdate.loadingAffected}
         isSaving={confirmedUpdate.isSaving || save.isPending}
         onConfirm={handleConfirm}
-        onCancel={confirmedUpdate.cancel}
+        onCancel={() => {
+          confirmedUpdate.cancel();
+          if (backfillMessage) setDone(`${backfillMessage} · ingredient prices not updated`);
+          setBackfillMessage(null);
+        }}
       />
     </ScrollView>
   );

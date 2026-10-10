@@ -1,15 +1,69 @@
-import { ScrollView, Text, View } from "react-native";
-import { Info } from "lucide-react-native";
-import { AppText, Avatar, NoticeBanner, Screen } from "@/frontend/components/ui";
+import { useMemo, useState } from "react";
+import { RefreshControl, ScrollView, View } from "react-native";
+import { AppText, Avatar, Screen } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { FreshPicksSection } from "../components/FreshPicksSection";
-import { CategoryGrid } from "../components/CategoryGrid";
 import { BestValueMealsSection } from "@/frontend/core/meals/components/BestValueMealsSection";
+import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
+import type { MealType } from "@/frontend/core/meals/mealTypes";
+import { usePriceItems } from "@/frontend/core/prices/hooks/usePriceItems";
+import { pickFreshPicks, type PriceCategory, type PriceItem } from "@/frontend/core/prices/utils/prices";
+import { FRESH_PICKS_COUNT, FreshPicksSection } from "../components/FreshPicksSection";
+import { CategoryGrid } from "../components/CategoryGrid";
+import { PriceListSection } from "../components/PriceListSection";
+import { PriceDetailSheet } from "../components/PriceDetailSheet";
+import { PriceDisclaimer } from "../components/PriceDisclaimer";
+import { MarketsSheet } from "../components/MarketsSheet";
+import { priceWatchCategories } from "../constants/categories";
 
+// DA's daily prices (Admin → DA Daily Prices), compared week over week:
+// fresh picks, best value meals, and every commodity by category.
 export default function PriceWatchScreen() {
+  const items = usePriceItems();
+  const [category, setCategory] = useState<PriceCategory | null>("meat");
+  const [search, setSearch] = useState("");
+  const [sortByDrop, setSortByDrop] = useState(true);
+  const [selected, setSelected] = useState<PriceItem | null>(null);
+  const [marketsOpen, setMarketsOpen] = useState(false);
+  // Meal Details is its own Modal: opened only after the detail sheet has
+  // fully closed (see BottomSheet's onClosed), never on top of it.
+  const [pendingMeal, setPendingMeal] = useState<MealType | null>(null);
+  const [meal, setMeal] = useState<MealType | null>(null);
+
+  const all = items.data ?? [];
+  const picks = useMemo(() => pickFreshPicks(all, FRESH_PICKS_COUNT), [all]);
+
+  const q = search.trim().toLowerCase();
+  const listed = useMemo(() => {
+    const filtered = all.filter((i) =>
+      q ? `${i.name} ${i.specification}`.toLowerCase().includes(q) : !category || i.category === category,
+    );
+    // Biggest drop first; no change data counts as 0. Off: A–Z (query order).
+    return sortByDrop ? [...filtered].sort((a, b) => (a.pctChange ?? 0) - (b.pctChange ?? 0)) : filtered;
+  }, [all, q, category, sortByDrop]);
+
+  // Searching covers every category.
+  const handleSearch = (text: string) => {
+    setSearch(text);
+    if (text.trim()) setCategory(null);
+  };
+
+  const title = q || !category ? "All" : priceWatchCategories.find((c) => c.id === category)!.label;
+
   return (
-    <Screen edges={["top"]}>
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+    <Screen edges={["top"]} dismissKeyboardOnTap={false}>
+      {/* Edge to edge, with Screen's px-7 moved inside the content, so the
+          fresh picks arrows can sit half outside the cards without the
+          ScrollView clipping them. */}
+      <ScrollView
+        className="-mx-7 flex-1"
+        showsVerticalScrollIndicator={false}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 28 }}
+        refreshControl={
+          <RefreshControl refreshing={items.isRefetching} onRefresh={() => items.refetch()} tintColor={colors.primary} />
+        }
+      >
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-3">
             <AppText variant="title">Price Watch</AppText>
@@ -21,29 +75,57 @@ export default function PriceWatchScreen() {
           <Avatar name="Patrick" size={48} />
         </View>
 
-        {/* TEMP diagnostic: full-length wrapping copy restored, but no nested Text spans (no underline). */}
         <View className="mt-4">
-          <NoticeBanner icon={<Info color={colors.notice.icon} size={15} />}>
-            <AppText variant="caption" className="text-notice-text">
-              Prices are weekly averages across 30 NCR markets from DA reports. Prices may vary —
-              use as a general guide for your grocery budget. See DA price monitoring →
+          <PriceDisclaimer variant="banner" onOpenMarkets={() => setMarketsOpen(true)} />
+          {items.isError && (
+            <AppText variant="caption" className="mt-2 text-like">
+              Couldn&apos;t load prices. Pull to refresh.
             </AppText>
-          </NoticeBanner>
+          )}
         </View>
 
-        {/* TEMP diagnostic: FreshPicksSection disabled to isolate the NoticeBanner test. */}
         <View className="mt-6">
-          <FreshPicksSection />
+          <FreshPicksSection picks={picks} loading={items.isLoading} onSelect={setSelected} />
         </View>
 
-        <View className="mt-6 mb-6">
+        <View className="mt-6">
           <BestValueMealsSection />
         </View>
 
-        <View className="mb-6">
-          <CategoryGrid />
+        <View className="mt-6">
+          <CategoryGrid selected={category} onSelect={setCategory} />
+        </View>
+
+        <View className="mt-6">
+          <PriceListSection
+            title={title}
+            items={listed}
+            loading={items.isLoading}
+            search={search}
+            onSearch={handleSearch}
+            sortByDrop={sortByDrop}
+            onToggleSort={() => setSortByDrop((v) => !v)}
+            onSelect={setSelected}
+          />
         </View>
       </ScrollView>
+
+      <PriceDetailSheet
+        item={selected}
+        onClose={() => setSelected(null)}
+        onOpenMeal={(m) => {
+          setPendingMeal(m);
+          setSelected(null);
+        }}
+        onClosed={() => {
+          if (pendingMeal) {
+            setMeal(pendingMeal);
+            setPendingMeal(null);
+          }
+        }}
+      />
+      <MarketsSheet visible={marketsOpen} onClose={() => setMarketsOpen(false)} />
+      <MealDetailSheet meal={meal} onClose={() => setMeal(null)} />
     </Screen>
   );
 }

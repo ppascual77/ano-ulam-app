@@ -34,6 +34,8 @@ export const colors = {
     fastfoodIcon: "#DF6969",
   },
   like: "#EF4444",
+  // Same as tailwind.config.js's trend (icons take a color prop, not a class).
+  trend: { down: "#16A34A", up: "#EF4444", flat: "#EAB308" },
   macro: {
     // Per-macro accent colors (DonutChart stroke colors, MacroBreakdown).
     protein: "#006D4D",

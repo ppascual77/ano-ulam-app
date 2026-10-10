@@ -7,5 +7,5 @@ import { MealCarouselSection } from "./MealCarouselSection";
 // never flashes mock content that then gets swapped for real meals.
 export function RecommendationsSection() {
   const { meals, isLoading } = useRecommendedMeals();
-  return <MealCarouselSection title="Recommendations" meals={meals} loading={isLoading} />;
+  return <MealCarouselSection title="Recommendations" titleVariant="section" meals={meals} loading={isLoading} />;
 }

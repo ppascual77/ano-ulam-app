@@ -6,6 +6,7 @@ type Variant =
   | "display"
   | "heading"
   | "headingMedium"
+  | "section"
   | "title"
   | "body"
   | "bodyMedium"
@@ -23,6 +24,9 @@ const variantClasses: Record<Variant, string> = {
   // Same size as "heading", medium weight instead of bold.
   headingMedium: "font-inter-medium text-heading text-ink-emphasis",
   subhero: "font-inter-extrabold text-subhero text-ink-emphasis",
+  // Big section header (e.g. Price Watch's "This week's fresh picks").
+  // Usually paired with `dot` for the orange period, like the showreel.
+  section: "font-inter-extrabold text-heading tracking-tight text-ink-emphasis",
   title: "font-inter-semibold text-subheading text-ink-emphasis",
   body: "font-inter-regular text-body text-ink",
   bodyMedium: "font-inter-medium text-body text-ink",
@@ -42,14 +46,21 @@ const variantClasses: Record<Variant, string> = {
 type AppTextProps = TextProps & {
   variant?: Variant;
   className?: string;
+  /** Ends the text with an accent-orange period (the showreel's dot). */
+  dot?: boolean;
 };
 
 export function AppText({
   variant = "body",
   className = "",
+  dot = false,
+  children,
   ...props
 }: AppTextProps) {
   return (
-    <Text className={`${variantClasses[variant]} ${className}`} {...props} />
+    <Text className={`${variantClasses[variant]} ${className}`} {...props}>
+      {children}
+      {dot && <Text className="text-accent">.</Text>}
+    </Text>
   );
 }

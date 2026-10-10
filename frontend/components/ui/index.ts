@@ -27,4 +27,4 @@ export { Confetti, useBurstOnActivate } from "./Confetti";
 export { Spinner } from "./Spinner";
 export { SelectField } from "./SelectField";
 export { useFieldErrorAnimation } from "./TextField";
-export { BoilingDoodle, DOODLE_COLORS, DOODLE_LIST, drawBoilPair, type DoodleVersion } from "./doodles";
+export { BoilingDoodle, DOODLE_COLORS, DOODLE_LIST, TREND_DOODLES, drawBoilPair, type DoodleVersion } from "./doodles";
