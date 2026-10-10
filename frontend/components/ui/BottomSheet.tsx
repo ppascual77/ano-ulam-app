@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, View, useWindowDimensions } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -15,6 +16,12 @@ import { scheduleOnRN } from "react-native-worklets";
 // commits to closing instead of springing back open.
 const DISMISS_THRESHOLD = 0.25;
 const DISMISS_VELOCITY = 800;
+// How much the page behind an open sheet is blurred (expo-blur's 1-100
+// intensity), under the usual dim. iOS only: on Android, BlurView can only
+// blur a view it's handed (blurTarget), which a sheet in its own Modal
+// can't reach, so there it falls back to a faint tint and the dim does the
+// work as before.
+const BACKDROP_BLUR = 5;
 
 type BottomSheetProps = {
   visible: boolean;
@@ -131,8 +138,9 @@ export function BottomSheet({
 
   const sheet = (
     <View className={presentation === "inline" ? "absolute inset-0 justify-end" : "flex-1 justify-end"}>
-      <Animated.View style={backdropStyle} className="absolute inset-0 bg-ink-emphasis/50">
-        <Pressable className="flex-1" onPress={onClose} />
+      <Animated.View style={backdropStyle} className="absolute inset-0">
+        <BlurView intensity={BACKDROP_BLUR} tint="default" style={StyleSheet.absoluteFill} />
+        <Pressable className="flex-1 bg-ink-emphasis/50" onPress={onClose} />
       </Animated.View>
 
       <Animated.View
