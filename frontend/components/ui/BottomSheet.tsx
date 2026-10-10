@@ -131,7 +131,7 @@ export function BottomSheet({
 
   const sheet = (
     <View className={presentation === "inline" ? "absolute inset-0 justify-end" : "flex-1 justify-end"}>
-      <Animated.View style={backdropStyle} className="absolute inset-0 bg-ink-emphasis/50">
+      <Animated.View style={backdropStyle} className="absolute inset-0 bg-ink-emphasis/60">
         <Pressable className="flex-1" onPress={onClose} />
       </Animated.View>
 
