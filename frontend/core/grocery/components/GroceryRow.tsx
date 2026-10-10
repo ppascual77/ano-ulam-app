@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Pressable, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
-import { Check, Plus } from "lucide-react-native";
+import { Check, Plus, Undo2 } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import type { GroceryItem } from "../utils/buildGroceryList";
 
@@ -20,7 +20,7 @@ type GroceryRowProps = {
   /** Full list: the item is already in the user's pantry. */
   have?: boolean;
   /** Full list: moves a pantry staple to "To buy" (a "+ To buy" button),
-   *  or a moved one back ("Move back" under its price). */
+   *  or a moved one back (an undo icon under its price). */
   onMove?: () => void;
 };
 
@@ -57,20 +57,26 @@ function CheckBox({ checked }: { checked: boolean }) {
 export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have = false, onMove }: GroceryRowProps) {
   // Main ingredients and staples moved to "To buy" are priced and counted.
   const counted = item.category === "main";
+  // Only items on the shopping run show as checked off (a staple checked
+  // before staples lost their box shouldn't stay faded).
+  const done = counted && checked;
+  // A staple isn't on the shopping run, so there's nothing to check off: its
+  // one action is "+ To buy". A blank in the box's place keeps names lined up.
   return (
     <Pressable
-      onPress={onToggle}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked }}
+      onPress={counted ? onToggle : undefined}
+      disabled={!counted}
+      accessibilityRole={counted ? "checkbox" : undefined}
+      accessibilityState={counted ? { checked } : undefined}
       className={`flex-row items-center gap-3 px-2 py-3 ${isLast ? "" : "border-b border-ink-emphasis/10"}`}
     >
-      <CheckBox checked={checked} />
+      {counted ? <CheckBox checked={checked} /> : <View className="h-6 w-6" />}
 
-      <View className={`flex-1 gap-0.5 ${checked ? "opacity-40" : ""}`}>
+      <View className={`flex-1 gap-0.5 ${done ? "opacity-40" : ""}`}>
         <View className="flex-row flex-wrap items-center gap-1.5">
           <Text
             numberOfLines={wrap ? undefined : 1}
-            className={`flex-shrink font-inter-semibold text-body text-ink-emphasis ${checked ? "line-through" : ""}`}
+            className={`flex-shrink font-inter-semibold text-body text-ink-emphasis ${done ? "line-through" : ""}`}
           >
             {item.name}
           </Text>
@@ -89,11 +95,11 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
       </View>
 
       {/* Pantry staples aren't counted: a "+ To buy" button in the price's
-          place for when you're out of one (or "Staple" where it can't be
-          moved). ("Staple", not "Pantry": "In pantry" already means you
-          have it.) */}
+          place for when you're out of one, unless the pantry says you have
+          it ("Staple" where it can't be moved). ("Staple", not "Pantry":
+          "In pantry" already means you have it.) */}
       {counted ? (
-        <View className={`items-end gap-1 ${checked ? "opacity-40" : ""}`}>
+        <View className={`items-end gap-1 ${done ? "opacity-40" : ""}`}>
           {item.price > 0 && (
             <Text className="font-inter-extrabold text-body text-ink-emphasis">
               {/* "~": no store listing behind it (an AI pack or the used amount). */}
@@ -101,12 +107,12 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
             </Text>
           )}
           {item.movedFromStaples && onMove && (
-            <Pressable onPress={onMove} hitSlop={8} accessibilityLabel={`Move ${item.name} back to pantry staples`}>
-              <Text className="font-inter-medium text-small text-ink-subtle underline">Move back</Text>
+            <Pressable onPress={onMove} hitSlop={10} accessibilityLabel={`Move ${item.name} back to pantry staples`}>
+              <Undo2 color={colors.ink.subtle} size={16} strokeWidth={2.25} />
             </Pressable>
           )}
         </View>
-      ) : onMove ? (
+      ) : have ? null : onMove ? (
         <Pressable
           onPress={onMove}
           hitSlop={8}
@@ -117,7 +123,7 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
           <Text className="font-inter-semibold text-small text-primary">To buy</Text>
         </Pressable>
       ) : (
-        <Text className={`font-inter-medium text-small text-ink-subtle ${checked ? "opacity-40" : ""}`}>Staple</Text>
+        <Text className={`font-inter-medium text-small text-ink-subtle ${done ? "opacity-40" : ""}`}>Staple</Text>
       )}
     </Pressable>
   );
