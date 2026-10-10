@@ -84,7 +84,7 @@ export const onboardingSlides: OnboardingSlideData[] = [
       { text: "cook" },
     ],
     description:
-      "Get an idea on what to cook based on your budget, preferences and nutrition goals.",
+      "Get an idea on what to cook based on your budget, preferences and nutrition goals. Recipes are gathered from publicly shared Filipino cooking.",
     image: require("@/assets/onboarding/slide-1.gif"),
   },
   {
