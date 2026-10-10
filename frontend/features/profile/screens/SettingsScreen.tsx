@@ -3,7 +3,7 @@ import { Linking, Platform, Pressable, ScrollView, Text, View, useWindowDimensio
 import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { Accessibility, ArrowLeft, Bell, ChevronRight, Eye, Info, LogOut, SlidersHorizontal, Trash2, UserRound } from "lucide-react-native";
+import { Accessibility, ArrowLeft, Bell, ChevronRight, Eye, House, Info, LogOut, SlidersHorizontal, Trash2, UserRound } from "lucide-react-native";
 import { ChipSelect, ConfirmSheet, Screen, Spinner, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { parseUserPreferences, type UserPreferences } from "@/api/auth";
@@ -14,6 +14,7 @@ import { useAccountSettings, useAccountSettingsActions } from "../hooks/useProfi
 import { SettingsLabel, SettingsSection, SettingsToggle } from "../components/settings/SettingsSection";
 import { WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
 import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 
 const LOG_OUT_DELAY_MS = 2000;
 const SUPPORT_EMAIL = "anoulam.app@gmail.com";
@@ -32,7 +33,7 @@ function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
 const SCROLL_TO_SECTION_DELAY_MS = 300;
 
 // /profile/settings, from the gear on your profile: privacy, newsletter,
-// dietary preferences, reduce motion, Delete account, About (legal links, feedback,
+// dietary preferences, Home's Surprise me tag, reduce motion, Delete account, About (legal links, feedback,
 // version), and Log out at the very end.
 export default function SettingsScreen() {
   const params = useLocalSearchParams<{ section?: string }>();
@@ -47,6 +48,8 @@ export default function SettingsScreen() {
   // Device-only (not account data): follows the phone's setting until set here.
   const reduceMotion = useReduceMotion();
   const setReduceMotion = useReduceMotionStore((s) => s.setReduceMotion);
+  const showSurpriseMe = useSurpriseMeStore((s) => s.show);
+  const setShowSurpriseMe = useSurpriseMeStore((s) => s.setShow);
 
   const settings = useAccountSettings();
   const settingsActions = useAccountSettingsActions();
@@ -162,6 +165,15 @@ export default function SettingsScreen() {
                 onChange={(value) => setPrefs({ ...prefs, allergens: value })}
               />
             </View>
+          </SettingsSection>
+
+          <SettingsSection Icon={House} title="Home">
+            <SettingsToggle
+              label="Surprise me"
+              description="The pull-down tag on Home that picks a random meal when you can't decide. Turn it off to hide it."
+              value={showSurpriseMe}
+              onChange={setShowSurpriseMe}
+            />
           </SettingsSection>
 
           <SettingsSection Icon={Accessibility} title="Accessibility">

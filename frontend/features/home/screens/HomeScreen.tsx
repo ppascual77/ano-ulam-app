@@ -4,6 +4,7 @@ import { Screen, SegmentedSwitch } from "@/frontend/components/ui";
 import { Header } from "@/frontend/features/home/components/Header";
 import { RandomMealPuller } from "@/frontend/features/home/components/RandomMealPuller";
 import { PlanWeekCard } from "@/frontend/features/home/components/PlanWeekCard";
+import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 import { BudgetSection } from "@/frontend/core/budget/components/BudgetSection";
 import { PantrySection } from "@/frontend/core/pantry/components/PantrySection";
 
@@ -16,6 +17,8 @@ const MODE_OPTIONS: { value: Mode; label: string }[] = [
 
 export default function HomeScreen() {
   const [mode, setMode] = useState<Mode>("budget");
+  // Turned off in Settings > Home: no Surprise me tag at all.
+  const showSurpriseMe = useSurpriseMeStore((s) => s.show);
 
   return (
     <Screen edges={["top"]}>
@@ -33,7 +36,7 @@ export default function HomeScreen() {
         </View>
         {mode === "budget" ? <BudgetSection /> : <PantrySection />}
       </ScrollView>
-      <RandomMealPuller />
+      {showSurpriseMe && <RandomMealPuller />}
     </Screen>
   );
 }
