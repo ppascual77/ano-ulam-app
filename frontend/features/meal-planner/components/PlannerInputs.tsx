@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { ChartColumn, ChevronRight, Lightbulb, Minus, Plus, Users, Wallet, type LucideIcon } from "lucide-react-native";
-import { Toggle } from "@/frontend/components/ui";
+import { ChartColumn, ChevronRight, Lightbulb, Users, Wallet, type LucideIcon } from "lucide-react-native";
+import { Stepper, Toggle } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { GOAL_OPTIONS, type Goal, type MacroTargets } from "../utils/macros";
 
@@ -52,7 +52,7 @@ export function BudgetInput({ value, onChange }: { value: string; onChange: (val
           placeholderTextColor={colors.ink.placeholder}
           keyboardType="number-pad"
           returnKeyType="done"
-          className="flex-1 font-inter-semibold text-subheading text-web-ink"
+          className="flex-1 font-inter-extrabold text-subheading text-web-ink"
           style={{ padding: 0 }}
         />
       </View>
@@ -60,31 +60,21 @@ export function BudgetInput({ value, onChange }: { value: string; onChange: (val
   );
 }
 
-function StepButton({ onPress, disabled, children, label }: { onPress: () => void; disabled: boolean; children: ReactNode; label: string }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityLabel={label}
-      className={`h-10 w-10 items-center justify-center rounded-xl border border-web-divider bg-white ${disabled ? "opacity-40" : "active:bg-web-divider/50"}`}
-    >
-      {children}
-    </Pressable>
-  );
-}
-
 export function ServingStepper({ value, onChange }: { value: number; onChange: (value: number) => void }) {
   return (
     <SetupCard>
       <CardHead Icon={Users} title="How many people?" body="We'll adjust ingredient quantities for you." />
-      <View className="flex-row items-center gap-5 pl-[52px]">
-        <StepButton label="Fewer people" disabled={value <= 1} onPress={() => onChange(value - 1)}>
-          <Minus color={colors.webInk.soft} size={16} />
-        </StepButton>
-        <Text className="min-w-[24px] text-center font-inter-bold text-subheading text-web-ink">{value}</Text>
-        <StepButton label="More people" disabled={value >= MAX_SERVINGS} onPress={() => onChange(value + 1)}>
-          <Plus color={colors.webInk.soft} size={16} />
-        </StepButton>
+      {/* The same stepper as Home's Serving box, a size up. */}
+      <View className="pl-[52px]">
+        <Stepper
+          size="lg"
+          value={value}
+          onChange={onChange}
+          min={1}
+          max={MAX_SERVINGS}
+          decrementLabel="Fewer people"
+          incrementLabel="More people"
+        />
       </View>
     </SetupCard>
   );
