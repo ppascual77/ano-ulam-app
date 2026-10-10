@@ -61,7 +61,8 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
   // before staples lost their box shouldn't stay faded).
   const done = counted && checked;
   // A staple isn't on the shopping run, so there's nothing to check off: its
-  // one action is "+ To buy". A blank in the box's place keeps names lined up.
+  // one action is "+ To buy". No box and no blank in its place (a gap there
+  // looked like something was missing).
   return (
     <Pressable
       onPress={counted ? onToggle : undefined}
@@ -70,7 +71,7 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
       accessibilityState={counted ? { checked } : undefined}
       className={`flex-row items-center gap-3 px-2 py-3 ${isLast ? "" : "border-b border-ink-emphasis/10"}`}
     >
-      {counted ? <CheckBox checked={checked} /> : <View className="h-6 w-6" />}
+      {counted && <CheckBox checked={checked} />}
 
       <View className={`flex-1 gap-0.5 ${done ? "opacity-40" : ""}`}>
         <View className="flex-row flex-wrap items-center gap-1.5">
