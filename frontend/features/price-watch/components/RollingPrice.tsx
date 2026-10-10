@@ -12,10 +12,12 @@ const SIZES = {
 } as const;
 // Index 0 is blank (a digit that didn't exist last week rolls in from
 // nothing), then 0-9 twice, so every tile spins at least one full lap.
-// Drawn as ONE multi-line Text (a line per character, each exactly a tile
-// tall), not 21 Texts, to keep the view count down.
+// Each character is its own Text, exactly a tile tall. (One multi-line Text
+// was lighter, but its lines weren't reliably a tile tall each, with the
+// phone's text size turned up, or Android's first-line spacing, and the
+// error added up over ~20 lines, so tiles stopped on the wrong, cut-off
+// digit.)
 const ROLL_CHARS = [" ", ..."0123456789", ..."0123456789"];
-const ROLL_STRIP = ROLL_CHARS.join("\n");
 const ROLL_MS = 900;
 // Each digit starts a touch after the one to its left.
 const TILE_DELAY_MS = 60;
@@ -46,12 +48,19 @@ function RollingTile({ from, to, active, delay, size }: { from: string; to: stri
   return (
     <View className="overflow-hidden rounded-md bg-black/25" style={{ width: w, height: h }}>
       <Animated.View style={style}>
-        <Text
-          style={{ height: h * ROLL_CHARS.length, lineHeight: h, includeFontPadding: false }}
-          className={`text-center font-inter-extrabold text-white ${digit}`}
-        >
-          {ROLL_STRIP}
-        </Text>
+        {/* Only up to the furthest stop: nothing below it is ever shown. */}
+        {ROLL_CHARS.slice(0, Math.max(start, end) + 1).map((char, i) => (
+          <Text
+            key={i}
+            // Fixed-size tiles: the phone's text size would outgrow them.
+            allowFontScaling={false}
+            numberOfLines={1}
+            style={{ height: h, lineHeight: h, includeFontPadding: false, textAlignVertical: "center" }}
+            className={`text-center font-inter-extrabold text-white ${digit}`}
+          >
+            {char}
+          </Text>
+        ))}
       </Animated.View>
       {/* The flap's split line. */}
       <View className="absolute left-0 right-0 h-px bg-black/40" style={{ top: h / 2 }} />
