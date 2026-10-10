@@ -13,6 +13,9 @@ export type GroceryItem = {
   /** ₱ to spend on it: whole packs for a packaged item (you can't buy a
    *  teaspoon of soy sauce), the exact amount for one bought loose. */
   price: number;
+  /** ₱ of it the meals actually use: `price` for a loose item, less than
+   *  it when whole packs leave some over for the pantry. */
+  usedPrice: number;
   /** Packaged items with a supermarket listing: what to pick up. `qty` is
    *  then what the meals use from it ("for 2 tbsp"). */
   pack?: GroceryPack;
@@ -190,6 +193,7 @@ export function buildGroceryList(meals: Pick<MealType, "category" | "ingredients
         name: group.name,
         qty: formatParts(group.parts),
         price: pack ? pack.price : usedPrice,
+        usedPrice,
         ...(pack ? { pack } : {}),
         ...(estimate ? { estimate: true } : {}),
         category: group.main ? "main" : "pantry",
