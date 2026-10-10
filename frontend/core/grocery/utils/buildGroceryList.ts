@@ -16,8 +16,9 @@ export type GroceryItem = {
   /** Packaged items with a supermarket listing: what to pick up. `qty` is
    *  then what the meals use from it ("for 2 tbsp"). */
   pack?: GroceryPack;
-  /** A packaged item with no listing to size it by: `price` is just the
-   *  amount the meals use, so it's an estimate of the spend ("~"). */
+  /** A packaged item with no store listing: `price` is the AI-estimated
+   *  typical pack's, or just the amount the meals use when it has none, so
+   *  it's an estimate of the spend ("~"). */
   estimate?: boolean;
   category: "main" | "pantry";
   /** How many of the meals use it (the list's "N meals" tag when > 1). */
@@ -109,8 +110,12 @@ const packLabel = (source: PriceSourceType) =>
 // amount used x the ingredient's cheapest per-kg/L price (its stored
 // estimated price), so amount = price / that per-unit price. Saves
 // converting "2 tbsp" to ml to bottles.
+const storeListings = (ingredient: IngredientType) =>
+  (ingredient.priceSources ?? []).filter((s) => s.pricePerUnit > 0 && s.packPrice > 0);
+
 function wholePacks(usedPrice: number, ingredient: IngredientType): GroceryPack | null {
-  const listings = (ingredient.priceSources ?? []).filter((s) => s.pricePerUnit > 0 && s.packPrice > 0);
+  const listings = storeListings(ingredient);
+  if (listings.length === 0) return estimatedPacks(usedPrice, ingredient);
   const perUnit = Math.min(
     ...listings.map((s) => s.pricePerUnit),
     ...(ingredient.daPriceSources ?? []).map((d) => d.pricePerUnit).filter((p) => p > 0),
@@ -127,6 +132,16 @@ function wholePacks(usedPrice: number, ingredient: IngredientType): GroceryPack 
     if (!best || price < best.price) best = { count, size: packLabel(listing), price };
   }
   return best;
+}
+
+// No store listing: whole packs of the AI-estimated typical pack, priced
+// from the ingredient's own price, so the list shows it as an estimate.
+function estimatedPacks(usedPrice: number, ingredient: IngredientType): GroceryPack | null {
+  const estimate = ingredient.packEstimate;
+  if (!estimate || estimate.sizeInUnit <= 0 || estimate.price <= 0 || usedPrice <= 0) return null;
+  const needed = usedPrice / (estimate.price / estimate.sizeInUnit);
+  const count = Math.max(1, Math.ceil(needed / estimate.sizeInUnit - 1e-6));
+  return { count, size: estimate.size, price: count * estimate.price };
 }
 
 const sentenceCase = (name: string) => name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
@@ -167,13 +182,16 @@ export function buildGroceryList(meals: Pick<MealType, "category" | "ingredients
       const usedPrice = Math.round(group.price * 100) / 100;
       const loose = isLoose(group.ingredient.category);
       const pack = loose ? null : wholePacks(usedPrice, group.ingredient);
+      // An estimate unless real listings sized the packs: no pack at all
+      // (the used amount) or the AI's typical pack.
+      const estimate = !loose && usedPrice > 0 && (!pack || storeListings(group.ingredient).length === 0);
       return {
         id,
         name: group.name,
         qty: formatParts(group.parts),
         price: pack ? pack.price : usedPrice,
         ...(pack ? { pack } : {}),
-        ...(!loose && !pack && usedPrice > 0 ? { estimate: true } : {}),
+        ...(estimate ? { estimate: true } : {}),
         category: group.main ? "main" : "pantry",
         meals: group.meals.size,
       };

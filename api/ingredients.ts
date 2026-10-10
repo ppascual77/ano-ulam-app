@@ -194,11 +194,13 @@ export async function groundIngredientPrices(ingredients: IngredientRow[]) {
 // listing (price_sources) or the linked DA commodity's latest price.
 export type PriceOption = { source: "supermarket" | "da"; pricePerUnit: number; unit: "kg" | "L" };
 
-// price_sources is jsonb, so its shape isn't enforced by the DB.
+// price_sources is jsonb, so its shape isn't enforced by the DB. A pack
+// estimate (see PackEstimateSource) isn't a store price, so it's skipped:
+// it never sets estimated_price or gets "Best price".
 export function supermarketPriceOptions(priceSources: unknown): PriceOption[] {
   if (!Array.isArray(priceSources)) return [];
   return priceSources.flatMap((s) =>
-    s && typeof s.pricePerUnit === "number" && (s.unit === "kg" || s.unit === "L")
+    s && !isPackEstimate(s) && typeof s.pricePerUnit === "number" && (s.unit === "kg" || s.unit === "L")
       ? [{ source: "supermarket" as const, pricePerUnit: s.pricePerUnit, unit: s.unit }]
       : [],
   );
@@ -241,7 +243,8 @@ export function cheapestPricePatch(
 // with its link in price_sources, see migration
 // 20261003010000_ingredients_price_sources.sql) and re-picks the cheapest
 // price. `daOptions` are the linked DA commodities' prices, so a cheaper DA
-// price stays the ingredient's price.
+// price stays the ingredient's price. A pack estimate is dropped too: real
+// listings replace it.
 export function applyPriceMatch(
   ingredient: IngredientRow,
   candidates: PriceGroundingCandidate[],
@@ -264,6 +267,139 @@ export function applyPriceMatch(
     ...cheapestPricePatch(ingredient, options),
     price_last_updated_at: new Date().toISOString(),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Pack estimates: the typical retail pack of a packaged item with no store
+// listing ("385 ml bottle"), so the grocery list can show whole packs for
+// it. Stored as one more price_sources entry, same shape as a listing plus
+// `estimate: true`. The AI only picks the pack size; its price is this
+// ingredient's own per-kg/L price x that size, so the estimate never moves
+// the ingredient's price, price_source, or any real listing.
+
+export type PackEstimateSource = {
+  estimate: true;
+  estimatedBy: "ai";
+  estimatedAt: string;
+  store: null;
+  url: null;
+  /** "385 ml bottle" */
+  productTitle: string;
+  packSize: number;
+  packUnit: "g" | "ml";
+  /** "bottle", "pack", "jar"… */
+  container: string;
+  /** A common product at that size, for the admin's review only. */
+  example: string | null;
+  /** Snapshot at estimate time. Readers re-derive the price from the
+   *  ingredient's current price, see packEstimatePrice. */
+  packPrice: number;
+  pricePerUnit: number;
+  unit: "kg" | "L";
+};
+
+export function isPackEstimate(source: unknown): source is PackEstimateSource {
+  return !!source && typeof source === "object" && (source as { estimate?: unknown }).estimate === true;
+}
+
+export function packEstimateOf(priceSources: unknown): PackEstimateSource | null {
+  if (!Array.isArray(priceSources)) return null;
+  const found = priceSources.find(isPackEstimate);
+  return found && typeof found.packSize === "number" && found.packSize > 0 ? found : null;
+}
+
+type PricedIngredient = Pick<IngredientRow, "estimated_price" | "estimated_price_unit" | "grams_per_ml">;
+
+// The ingredient's own price in ₱ per kg or L, or null when it has none.
+export function ingredientPricePerUnit(ingredient: PricedIngredient): { pricePerUnit: number; unit: "kg" | "L" } | null {
+  const price = ingredient.estimated_price;
+  if (price == null || price <= 0) return null;
+  switch (ingredient.estimated_price_unit) {
+    case "g":
+      return { pricePerUnit: price * 1000, unit: "kg" };
+    case "kg":
+      return { pricePerUnit: price, unit: "kg" };
+    case "ml":
+      return { pricePerUnit: price * 1000, unit: "L" };
+    case "L":
+      return { pricePerUnit: price, unit: "L" };
+    default:
+      return null;
+  }
+}
+
+// A pack's size in kg or L. Weight to volume (a 470 ml jar of mayonnaise
+// priced per kg) goes through grams_per_ml, or water's density without one.
+export function packSizeInUnit(
+  packSize: number,
+  packUnit: "g" | "ml",
+  unit: "kg" | "L",
+  gramsPerMl: number | null,
+): number {
+  const density = gramsPerMl && gramsPerMl > 0 ? gramsPerMl : 1;
+  if (packUnit === "g") return unit === "kg" ? packSize / 1000 : packSize / density / 1000;
+  return unit === "L" ? packSize / 1000 : (packSize * density) / 1000;
+}
+
+// The estimate's pack price from the ingredient's current price, so it
+// follows any later correction to that price.
+export function packEstimatePrice(estimate: PackEstimateSource, ingredient: PricedIngredient): number | null {
+  const own = ingredientPricePerUnit(ingredient);
+  if (!own) return null;
+  return packSizeInUnit(estimate.packSize, estimate.packUnit, own.unit, ingredient.grams_per_ml) * own.pricePerUnit;
+}
+
+// What the estimate-pack-sizes edge function returns per ingredient.
+export type AiPackSize =
+  | { id: string; packSize: number; packUnit: "g" | "ml"; container: string; example: string | null }
+  | { id: string; error: string };
+
+// Mirrors estimate-pack-sizes's own MAX_PER_CALL.
+export const PACK_ESTIMATE_MAX_PER_CALL = 25;
+
+export async function estimatePackSizes(ingredients: IngredientRow[]): Promise<AiPackSize[]> {
+  const data = await invokeEdgeFunction<{ results: AiPackSize[] }>("estimate-pack-sizes", {
+    ingredients: ingredients.map((i) => ({
+      id: i.id,
+      name: i.canonical_name,
+      category: i.category,
+      priceUnit: ingredientPricePerUnit(i)?.unit ?? null,
+    })),
+  });
+  return data.results ?? [];
+}
+
+export function buildPackEstimate(
+  ingredient: IngredientRow,
+  pack: { packSize: number; packUnit: "g" | "ml"; container: string; example: string | null },
+): PackEstimateSource | null {
+  const own = ingredientPricePerUnit(ingredient);
+  if (!own) return null;
+  const size = packSizeInUnit(pack.packSize, pack.packUnit, own.unit, ingredient.grams_per_ml);
+  return {
+    estimate: true,
+    estimatedBy: "ai",
+    estimatedAt: new Date().toISOString(),
+    store: null,
+    url: null,
+    productTitle: `${pack.packSize} ${pack.packUnit} ${pack.container}`,
+    packSize: pack.packSize,
+    packUnit: pack.packUnit,
+    container: pack.container,
+    example: pack.example,
+    packPrice: Math.round(size * own.pricePerUnit * 100) / 100,
+    pricePerUnit: own.pricePerUnit,
+    unit: own.unit,
+  };
+}
+
+// Upserts the estimate: replaces an earlier one, keeps every other entry
+// (real listings) exactly as it was. Only price_sources is written.
+export function applyPackEstimate(ingredient: IngredientRow, estimate: PackEstimateSource): Partial<IngredientRow> {
+  const others = Array.isArray(ingredient.price_sources)
+    ? ingredient.price_sources.filter((s) => !isPackEstimate(s))
+    : [];
+  return { price_sources: [...others, estimate] };
 }
 
 export type AiIngredientEstimate = Partial<IngredientRow> & { canonical_name: string };

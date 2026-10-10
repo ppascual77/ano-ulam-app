@@ -5,7 +5,7 @@ import { Card, Chips } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { getUsdaSourceUrl } from "@/api/ingredients";
 import { useDaWeekChanges, type DaWeekChange } from "@/frontend/core/prices/hooks/useDaWeekChanges";
-import type { DaPriceSourceType, IngredientType, PriceSourceType } from "../../mealTypes";
+import type { DaPriceSourceType, IngredientType, PackEstimateType, PriceSourceType } from "../../mealTypes";
 import { MicronutrientList, hasMicronutrients } from "./MicronutrientList";
 
 // The three sections of IngredientDetailSheet: what this amount contains,
@@ -95,16 +95,19 @@ export function MicronutrientSection({ item }: { item: Pick<IngredientType, "fib
 
 // Amber box for anything still estimated (nutrition or price), so "not yet
 // verified" reads the same in both source sections.
-function EstimateBox({ title, description }: { title: string; description: string }) {
+// `quiet`: a short muted note under the title instead of a full sentence.
+function EstimateBox({ title, description, quiet }: { title: string; description: string; quiet?: boolean }) {
   return (
     <View className="rounded-2xl border border-notice-border bg-notice-bg px-4 py-3">
       <View className="flex-row items-center gap-2">
         <View className="rounded bg-accent/10 px-1.5 py-0.5">
           <Text className="font-inter-semibold text-small text-accent">ESTIMATE</Text>
         </View>
-        <Text className="font-inter-bold text-body text-ink-emphasis">{title}</Text>
+        <Text className="flex-shrink font-inter-bold text-body text-ink-emphasis">{title}</Text>
       </View>
-      <Text className="mt-2 font-inter-regular text-body text-ink-subtle">{description}</Text>
+      <Text className={`font-inter-regular text-ink-subtle ${quiet ? "mt-1 text-small" : "mt-2 text-body"}`}>
+        {description}
+      </Text>
     </View>
   );
 }
@@ -270,16 +273,38 @@ function DaPriceSourceCard({ source, isBest, change }: { source: DaPriceSourceTy
   );
 }
 
-export function PriceSourceSection({ item }: { item: Pick<IngredientType, "priceSources" | "daPriceSources"> }) {
+// A packaged item with no store listing: its AI-estimated typical pack,
+// "Typically ~₱38 per 385 ml bottle".
+function PackEstimateBox({ estimate }: { estimate: PackEstimateType }) {
+  return (
+    <EstimateBox
+      title={`Typically ~₱${Math.round(estimate.price)} per ${estimate.size} ${estimate.container}`}
+      description="Typical retail pack"
+      quiet
+    />
+  );
+}
+
+export function PriceSourceSection({
+  item,
+}: {
+  item: Pick<IngredientType, "priceSources" | "daPriceSources" | "packEstimate">;
+}) {
   const sources = item.priceSources ?? [];
   const da = item.daPriceSources ?? [];
   const weekChanges = useDaWeekChanges(da.flatMap((d) => (d.commodityId ? [d.commodityId] : [])));
   const prices = [...da.map((d) => d.pricePerUnit), ...sources.map((s) => s.pricePerUnit)];
+  // Real store listings always win over the estimate.
+  const packEstimate = sources.length === 0 ? item.packEstimate : undefined;
 
   if (prices.length === 0) {
     return (
       <Section title="Price source">
-        <EstimateBox title="Estimated price" description="Not yet checked against a market or supermarket price." />
+        {packEstimate ? (
+          <PackEstimateBox estimate={packEstimate} />
+        ) : (
+          <EstimateBox title="Estimated price" description="Not yet checked against a market or supermarket price." />
+        )}
       </Section>
     );
   }
@@ -305,6 +330,7 @@ export function PriceSourceSection({ item }: { item: Pick<IngredientType, "price
         {sources.map((source) => (
           <PriceSourceCard key={source.url} source={source} isBest={showBest && source.pricePerUnit === cheapest} />
         ))}
+        {packEstimate && <PackEstimateBox estimate={packEstimate} />}
       </View>
 
       {prices.length > 1 && (

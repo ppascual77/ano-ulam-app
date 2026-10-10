@@ -12,6 +12,7 @@ import { FilterPill } from "../components/FilterPill";
 import { UsdaGroundingPanel } from "../components/UsdaGroundingPanel";
 import { FnriGroundingPanel } from "../components/FnriGroundingPanel";
 import { PriceGroundingPanel } from "../components/PriceGroundingPanel";
+import { PackEstimatePanel } from "../components/PackEstimatePanel";
 import type { IngredientRow } from "@/api/ingredients";
 
 const ROLE_OPTIONS = [
@@ -32,7 +33,7 @@ const PRICE_SOURCE_OPTIONS = [
   { id: "da", label: "DA Daily Price" },
 ];
 
-type Tab ="all" | "usda" | "fnri" | "prices";
+type Tab = "all" | "usda" | "fnri" | "prices" | "packs";
 
 export default function ManageIngredientsScreen() {
   const [tab, setTab] = useState<Tab>("all");
@@ -83,30 +84,37 @@ export default function ManageIngredientsScreen() {
         </View>
       </View>
 
-      <View className="flex-row gap-5 px-5 border-b border-ink-emphasis/10 mb-4">
-        {(
-          [
-            { id: "all", label: "All Ingredients" },
-            { id: "usda", label: "Ground from USDA" },
-            { id: "fnri", label: "Ground from FNRI" },
-            { id: "prices", label: "Ground Prices" },
-          ] as const
-        ).map((t) => (
-          <Pressable key={t.id} onPress={() => setTab(t.id)} className="pb-3">
-            <AppText
-              variant={tab === t.id ? "bodyBold" : "body"}
-              className={tab === t.id ? "text-primary" : "text-ink-subtle"}
-            >
-              {t.label}
-            </AppText>
-          </Pressable>
-        ))}
+      <View className="border-b border-ink-emphasis/10 mb-4">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View className="flex-row gap-5 px-5">
+            {(
+              [
+                { id: "all", label: "All Ingredients" },
+                { id: "usda", label: "Ground from USDA" },
+                { id: "fnri", label: "Ground from FNRI" },
+                { id: "prices", label: "Ground Prices" },
+                { id: "packs", label: "Pack Estimates" },
+              ] as const
+            ).map((t) => (
+              <Pressable key={t.id} onPress={() => setTab(t.id)} className="pb-3">
+                <AppText
+                  variant={tab === t.id ? "bodyBold" : "body"}
+                  className={tab === t.id ? "text-primary" : "text-ink-subtle"}
+                >
+                  {t.label}
+                </AppText>
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
       </View>
 
       {tab === "usda" ? (
         <UsdaGroundingPanel />
       ) : tab === "prices" ? (
         <PriceGroundingPanel />
+      ) : tab === "packs" ? (
+        <PackEstimatePanel />
       ) : tab === "fnri" ? (
         <FnriGroundingPanel />
       ) : (

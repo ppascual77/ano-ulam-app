@@ -13,6 +13,17 @@ export type PriceSourceType = {
   unit: string;
 };
 
+// An AI-estimated typical retail pack ("385 ml bottle"), from the
+// ingredient's price_sources estimate entry. `sizeInUnit` is the pack in
+// the ingredient's price unit (kg or L) and `price` is that x the
+// ingredient's current per-kg/L price.
+export type PackEstimateType = {
+  size: string;
+  container: string;
+  sizeInUnit: number;
+  price: number;
+};
+
 // The DA Daily Price Index price of a commodity an ingredient is linked to
 // (ingredients ← da_commodities.ingredient_id, can be several, e.g. Bangus
 // ← "Bangus, Large" and "Bangus, Medium"): the average across NCR
@@ -74,6 +85,9 @@ export type IngredientType = {
   priceSource?: string | null;
   priceSources?: PriceSourceType[];
   daPriceSources?: DaPriceSourceType[];
+  // A packaged item with no store listing: its AI-estimated typical retail
+  // pack, priced from this ingredient's own price. Never a real listing.
+  packEstimate?: PackEstimateType;
   // Set when the recipe's quantity text was a bare number ("1") and `qty`
   // was generated from the stored amount + count label instead ("1 clove").
   // Kept separately so scaling servings can re-pluralize ("2 cloves")
