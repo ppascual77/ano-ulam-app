@@ -74,7 +74,7 @@ export function AccountPitchSlide({ slide, width, onContinueWithGoogle, isSignin
       <AppText
         variant="body"
         className="text-primary text-center mb-4"
-        onPress={() => router.replace("/home")}
+        onPress={() => router.replace({ pathname: "/home", params: { intro: "1" } })}
       >
         Continue without an account
       </AppText>

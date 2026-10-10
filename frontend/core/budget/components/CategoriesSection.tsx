@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { type RefObject, useState } from "react";
 import { View } from "react-native";
 import { Hamburger, Moon, Sun } from "lucide-react-native";
-import { AppText } from "@/frontend/components/ui";
+import { LandingTitle } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { CategoryCard } from "./CategoryCard";
 
-const CATEGORIES = [
+export const CATEGORIES = [
   {
     id: "breakfast",
     label: "Breakfast",
@@ -48,14 +48,21 @@ const CATEGORIES = [
   },
 ];
 
-export function CategoriesSection() {
+type CategoriesSectionProps = {
+  /** The title's period: Home's post-onboarding intro lands its dot here. */
+  dotRef?: RefObject<View | null>;
+  /** false hides the period until that dot has landed. */
+  showDot?: boolean;
+};
+
+export function CategoriesSection({ dotRef, showDot }: CategoriesSectionProps) {
   const [selected, setSelected] = useState<string | null>(null);
 
   return (
     <View className="gap-3">
-      <AppText variant="sectionTitle" dot>
+      <LandingTitle dotRef={dotRef} showDot={showDot}>
         Categories
-      </AppText>
+      </LandingTitle>
       <View className="flex-row gap-3">
         {CATEGORIES.map((category) => (
           <CategoryCard
