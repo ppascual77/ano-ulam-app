@@ -6,6 +6,7 @@ type Variant =
   | "display"
   | "heading"
   | "sectionTitle"
+  | "sectionSubtitle"
   | "headingMedium"
   | "title"
   | "body"
@@ -25,6 +26,9 @@ const variantClasses: Record<Variant, string> = {
   // in the show reel's style (meal detail's "Nutrition.", Price Watch's
   // "This week's fresh picks."). Pair with `dot` for the orange period.
   sectionTitle: "font-inter-extrabold text-heading tracking-display text-ink-emphasis",
+  // A notch under sectionTitle (2px smaller), for sections within one (the
+  // grocery list's "To buy."). Pair with `dot` too.
+  sectionSubtitle: "font-inter-extrabold text-heading-sm tracking-display text-ink-emphasis",
   // Same size as "heading", medium weight instead of bold.
   headingMedium: "font-inter-medium text-heading text-ink-emphasis",
   subhero: "font-inter-extrabold text-subhero text-ink-emphasis",

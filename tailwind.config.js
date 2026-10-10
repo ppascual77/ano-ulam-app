@@ -111,6 +111,9 @@ module.exports = {
         hero: ["70px", { lineHeight: "76px" }],
         subhero: ["55px", { lineHeight: "59px" }],
         heading: "24px",
+        // Sub-sections under a dotted section title (the grocery list's
+        // "To buy." / "Pantry staples."). Added 2026-10-10.
+        "heading-sm": "22px",
         // Big screen titles (e.g. the Meal Planner's "Planning your week...").
         "heading-lg": ["30px", { lineHeight: "36px" }],
         subheading: "18px",
