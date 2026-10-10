@@ -50,8 +50,8 @@ function CheckBox({ checked }: { checked: boolean }) {
   );
 }
 
-// Check box, the name with what to pick up under it and the "2 meals" /
-// "In pantry" chips on the same line, and the price on the right. Checked items fade
+// Check box, the name with the "2 meals" / "In pantry" chips beside it and
+// what to pick up under it, and the price on the right. Checked items fade
 // and get struck through.
 export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have = false, pricePantry = false }: GroceryRowProps) {
   // Main ingredients, and pantry staples once "Include in total" is on.
@@ -66,27 +66,25 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
       <CheckBox checked={checked} />
 
       <View className={`flex-1 gap-0.5 ${checked ? "opacity-40" : ""}`}>
-        <Text
-          numberOfLines={wrap ? undefined : 1}
-          className={`font-inter-semibold text-body text-ink-emphasis ${checked ? "line-through" : ""}`}
-        >
-          {item.name}
-        </Text>
-        {(!!item.buy || item.meals > 1 || have) && (
-          <View className="flex-row flex-wrap items-center gap-1.5">
-            {!!item.buy && <Text className="font-inter-regular text-small text-ink-subtle">{item.buy}</Text>}
-            {item.meals > 1 && (
-              <View className="rounded-full bg-category-breakfast px-2.5 py-0.5">
-                <Text className="font-inter-extrabold text-small text-accent">{item.meals} meals</Text>
-              </View>
-            )}
-            {have && (
-              <View className="rounded-full bg-tinted-bg px-2.5 py-0.5">
-                <Text className="font-inter-extrabold text-small text-primary">In pantry</Text>
-              </View>
-            )}
-          </View>
-        )}
+        <View className="flex-row flex-wrap items-center gap-1.5">
+          <Text
+            numberOfLines={wrap ? undefined : 1}
+            className={`flex-shrink font-inter-semibold text-body text-ink-emphasis ${checked ? "line-through" : ""}`}
+          >
+            {item.name}
+          </Text>
+          {item.meals > 1 && (
+            <View className="rounded-full bg-category-breakfast px-2.5 py-0.5">
+              <Text className="font-inter-extrabold text-small text-accent">{item.meals} meals</Text>
+            </View>
+          )}
+          {have && (
+            <View className="rounded-full bg-tinted-bg px-2.5 py-0.5">
+              <Text className="font-inter-extrabold text-small text-primary">In pantry</Text>
+            </View>
+          )}
+        </View>
+        {!!item.buy && <Text className="font-inter-regular text-small text-ink-subtle">{item.buy}</Text>}
       </View>
 
       {/* Pantry staples left out of the total say "Staple" in the price's
