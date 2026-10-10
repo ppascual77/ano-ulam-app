@@ -10,6 +10,7 @@ import { IngredientListItem } from "../components/IngredientListItem";
 import { IngredientEditSheet } from "../components/IngredientEditSheet";
 import { FilterPill } from "../components/FilterPill";
 import { UsdaGroundingPanel } from "../components/UsdaGroundingPanel";
+import { FnriGroundingPanel } from "../components/FnriGroundingPanel";
 import { PriceGroundingPanel } from "../components/PriceGroundingPanel";
 import type { IngredientRow } from "@/api/ingredients";
 
@@ -107,12 +108,7 @@ export default function ManageIngredientsScreen() {
       ) : tab === "prices" ? (
         <PriceGroundingPanel />
       ) : tab === "fnri" ? (
-        <View className="flex-1 items-center justify-center px-10">
-          <AppText variant="body" className="text-ink-subtle text-center">
-            Not built yet — FNRI import is future work (its existing data structure is more manual, see
-            docs/ingredient-data-architecture.md section 21).
-          </AppText>
-        </View>
+        <FnriGroundingPanel />
       ) : (
         <>
           <View className="px-5 mb-3">

@@ -336,6 +336,42 @@ export async function estimateIngredientGaps(
   };
 }
 
+// One hand-curated PhilFCT (DOST-FNRI) row, per 100 g edible portion.
+export type FnriMatch = {
+  fnriName: string | null;
+  calories: number;
+  protein: number | null;
+  carbohydrates: number | null;
+  fat: number | null;
+  fiber: number | null;
+  sugar: number | null;
+  sodium: number | null;
+};
+
+// FNRI grounding (Manage Ingredients > FNRI). Replaces every nutrition field,
+// null where PhilFCT doesn't report a nutrient, so no leftover value from
+// another source gets mixed in (docs/ingredient-data-architecture.md: never
+// merge FNRI and USDA). VERIFIED: every row was matched to its ingredient by
+// hand. FNRI has no public food IDs, so source_ref_id is cleared and the
+// PhilFCT food name is the citation.
+export function applyFnriMatch(food: FnriMatch): Partial<IngredientRow> {
+  return {
+    calories: food.calories,
+    protein: food.protein,
+    carbohydrates: food.carbohydrates,
+    fat: food.fat,
+    sugar: food.sugar,
+    fiber: food.fiber,
+    sodium: food.sodium,
+    source: "FNRI",
+    source_ref_id: null,
+    source_description: food.fnriName,
+    match_type: "exact",
+    verification_status: "VERIFIED",
+    last_verified_at: new Date().toISOString(),
+  };
+}
+
 export function applyUsdaMatch(matched: UsdaGroundingMatch, confidence: "HIGH" | "LOW"): Partial<IngredientRow> {
   return {
     calories: matched.calories,
