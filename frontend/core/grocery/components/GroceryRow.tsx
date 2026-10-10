@@ -67,10 +67,16 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
       <View className={`flex-1 gap-1 ${checked ? "opacity-40" : ""}`}>
         {/* Quantity right after the name, a size smaller and lighter (as in
             the meal detail's ingredient rows). */}
+        {/* Packaged: the packs to pick up, then what the meals use from them.
+            Loose: just the exact amount to ask for. */}
         <Text numberOfLines={wrap ? undefined : 1} className={checked ? "line-through" : ""}>
           <Text className="font-inter-semibold text-body text-ink-emphasis">{item.name}</Text>
-          <Text className="font-inter-light text-small text-ink-subtle"> ({item.qty})</Text>
+          <Text className="font-inter-light text-small text-ink-subtle">
+            {" "}
+            ({item.pack ? `${item.pack.count} × ${item.pack.size}` : item.qty})
+          </Text>
         </Text>
+        {item.pack && <Text className="font-inter-regular text-small text-ink-subtle">for {item.qty}</Text>}
         {(item.meals > 1 || have) && (
           <View className="flex-row flex-wrap items-center gap-1.5">
             {item.meals > 1 && (
@@ -92,7 +98,8 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
           "Pantry": "Have" already means it's in your pantry.) */}
       {(isMain || pricePantry) && item.price > 0 ? (
         <Text className={`font-inter-extrabold text-body text-ink-emphasis ${checked ? "opacity-40" : ""}`}>
-          ₱{formatPeso(item.price, 0)}
+          {/* "~": no listing to size the pack by, so it's the used amount. */}
+          {item.estimate ? "~" : ""}₱{formatPeso(item.price, 0)}
         </Text>
       ) : (
         !isMain && (
