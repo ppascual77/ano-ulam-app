@@ -1,7 +1,13 @@
+import { useEffect } from "react";
 import { ImageSourcePropType, Pressable, View } from "react-native";
 import { Image } from "expo-image";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import type { LucideIcon } from "lucide-react-native";
 import { AppText } from "@/frontend/components/ui";
+
+const RADIUS = 8;
+const BORDER = 2;
+const FADE = { duration: 220, easing: Easing.out(Easing.quad) };
 
 type Props = {
   label: string;
@@ -10,29 +16,37 @@ type Props = {
   badgeColor: string;
   bgClassName: string;
   borderClassName: string;
-  /** 10% darker than borderClassName, swapped in when selected. Fill never changes. */
-  selectedBorderClassName: string;
   selected: boolean;
   onPress: () => void;
 };
 
-export function CategoryCard({
-  label,
-  image,
-  badgeIcon: BadgeIcon,
-  badgeColor,
-  bgClassName,
-  borderClassName,
-  selectedBorderClassName,
-  selected,
-  onPress,
-}: Props) {
+export function CategoryCard({ label, image, badgeIcon: BadgeIcon, badgeColor, bgClassName, borderClassName, selected, onPress }: Props) {
+  // The selected outline is an accent border laid exactly over the card's
+  // own, faded in and out, so the color change is smooth (a border color
+  // class would just swap).
+  const active = useSharedValue(selected ? 1 : 0);
+  useEffect(() => {
+    active.value = withTiming(selected ? 1 : 0, FADE);
+  }, [selected, active]);
+  const outlineStyle = useAnimatedStyle(() => ({ opacity: active.value }));
+
   return (
     <Pressable
       onPress={onPress}
-      className={`flex-1 items-center border ${bgClassName} ${selected ? selectedBorderClassName : borderClassName}`}
-      style={{ borderRadius: 8, paddingVertical: 12, borderWidth: 2 }}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      className={`flex-1 items-center border ${bgClassName} ${borderClassName}`}
+      style={{ borderRadius: RADIUS, paddingVertical: 12, borderWidth: BORDER }}
     >
+      <Animated.View
+        pointerEvents="none"
+        className="border-accent"
+        style={[
+          { position: "absolute", top: -BORDER, left: -BORDER, right: -BORDER, bottom: -BORDER, borderRadius: RADIUS, borderWidth: BORDER },
+          outlineStyle,
+        ]}
+      />
+
       <View className="absolute" style={{ top: 8, right: 8, zIndex: 10 }}>
         <BadgeIcon color={badgeColor} size={16} strokeWidth={1} />
       </View>
