@@ -5,7 +5,7 @@ import { LandingTitle } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { CategoryCard } from "./CategoryCard";
 
-export const CATEGORIES = [
+const CATEGORIES = [
   {
     id: "breakfast",
     label: "Breakfast",
