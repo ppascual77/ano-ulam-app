@@ -208,7 +208,11 @@ export default function OnboardingScreen() {
         </ScrollView>
 
         <View className="flex-row items-center justify-between px-10 mb-6">
+          {/* The flat accent pill squeezes into a ball, hops to the next
+              page and flattens out again. */}
           <CarouselIndicator
+            variant="hop"
+            hopRest="pill"
             total={onboardingSlides.length}
             activeIndex={index}
           />
