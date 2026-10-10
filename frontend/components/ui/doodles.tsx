@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { View } from "react-native";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import Svg, { Circle, Path } from "react-native-svg";
 import { colors } from "@/frontend/constants/theme";
 
@@ -136,17 +136,26 @@ export function BoilingDoodle({
   size,
   color,
   strokeWidth,
+  paused = false,
 }: {
   versions: readonly [DoodleVersion, DoodleVersion];
   size: number;
   color: string;
   strokeWidth?: number;
+  /** Holds still on the first version (e.g. while off screen), so a doodle
+   *  nobody can see isn't animating forever. */
+  paused?: boolean;
 }) {
   const boil = useSharedValue(0);
 
   useEffect(() => {
+    if (paused) {
+      cancelAnimation(boil);
+      boil.value = 0;
+      return;
+    }
     boil.value = withRepeat(withTiming(2, { duration: 2 * BOIL_MS, easing: Easing.linear }), -1, false);
-  }, [boil]);
+  }, [boil, paused]);
 
   const firstStyle = useAnimatedStyle(() => ({ opacity: boil.value < 1 ? 1 : 0 }));
   const secondStyle = useAnimatedStyle(() => ({ opacity: boil.value < 1 ? 0 : 1 }));

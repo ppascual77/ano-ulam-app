@@ -12,7 +12,10 @@ const SIZES = {
 } as const;
 // Index 0 is blank (a digit that didn't exist last week rolls in from
 // nothing), then 0-9 twice, so every tile spins at least one full lap.
+// Drawn as ONE multi-line Text (a line per character, each exactly a tile
+// tall), not 21 Texts, to keep the view count down.
 const ROLL_CHARS = [" ", ..."0123456789", ..."0123456789"];
+const ROLL_STRIP = ROLL_CHARS.join("\n");
 const ROLL_MS = 900;
 // Each digit starts a touch after the one to its left.
 const TILE_DELAY_MS = 60;
@@ -43,11 +46,12 @@ function RollingTile({ from, to, active, delay, size }: { from: string; to: stri
   return (
     <View className="overflow-hidden rounded-md bg-black/25" style={{ width: w, height: h }}>
       <Animated.View style={style}>
-        {ROLL_CHARS.map((c, i) => (
-          <Text key={i} style={{ height: h, lineHeight: h }} className={`text-center font-inter-extrabold text-white ${digit}`}>
-            {c}
-          </Text>
-        ))}
+        <Text
+          style={{ height: h * ROLL_CHARS.length, lineHeight: h, includeFontPadding: false }}
+          className={`text-center font-inter-extrabold text-white ${digit}`}
+        >
+          {ROLL_STRIP}
+        </Text>
       </Animated.View>
       {/* The flap's split line. */}
       <View className="absolute left-0 right-0 h-px bg-black/40" style={{ top: h / 2 }} />
