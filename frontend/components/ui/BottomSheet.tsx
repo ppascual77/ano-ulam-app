@@ -54,6 +54,11 @@ type BottomSheetProps = {
    *  native Modals don't stack reliably (see `overlay` above). Android's
    *  back button isn't wired for inline sheets; it closes the parent. */
   presentation?: "modal" | "inline";
+  /** Covers the whole screen (e.g. meal detail): same slide-up/down and
+   *  overlay slot, but full height, square corners, no handle (so no drag to
+   *  dismiss) and no backdrop. Children run under the status bar, so they
+   *  handle the top safe area themselves and give the user a way to close. */
+  fullScreen?: boolean;
 };
 
 // Generic slide-up sheet — drag the handle down (or tap the backdrop) to
@@ -68,10 +73,11 @@ export function BottomSheet({
   overlay,
   presentation = "modal",
   fitContent = false,
+  fullScreen = false,
 }: BottomSheetProps) {
   const { height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const sheetHeight = screenHeight * heightPercent;
+  const sheetHeight = fullScreen ? screenHeight : screenHeight * heightPercent;
   // The panel's actual rendered height. Equal to sheetHeight for a fixed
   // sheet; smaller for a fitContent sheet with little content. Used for the
   // drag-to-dismiss threshold, so a short sheet doesn't need to be dragged
@@ -136,7 +142,7 @@ export function BottomSheet({
         onLayout={(e) => {
           panelHeight.value = e.nativeEvent.layout.height;
         }}
-        className="rounded-t-3xl bg-white overflow-hidden"
+        className={`bg-white overflow-hidden ${fullScreen ? "" : "rounded-t-3xl"}`}
       >
         {fitContent ? (
           // flexGrow 0 + flexShrink 1: as tall as the content, but shrinks
@@ -159,13 +165,15 @@ export function BottomSheet({
             height 100, which sat on top of (and completely blocked) any
             top-corner buttons content rendered there, like a meal detail
             sheet's Back/Edit actions. */}
-        <View pointerEvents="box-none" className="absolute left-0 right-0 top-0 items-center" style={{ height: 100 }}>
-          <GestureDetector gesture={dragGesture}>
-            <View className="items-center pt-3" style={{ width: 160, height: 56 }}>
-              <View className={`h-1.5 w-24 rounded-full ${handleClassName}`} />
-            </View>
-          </GestureDetector>
-        </View>
+        {!fullScreen && (
+          <View pointerEvents="box-none" className="absolute left-0 right-0 top-0 items-center" style={{ height: 100 }}>
+            <GestureDetector gesture={dragGesture}>
+              <View className="items-center pt-3" style={{ width: 160, height: 56 }}>
+                <View className={`h-1.5 w-24 rounded-full ${handleClassName}`} />
+              </View>
+            </GestureDetector>
+          </View>
+        )}
       </Animated.View>
 
       {overlay && (

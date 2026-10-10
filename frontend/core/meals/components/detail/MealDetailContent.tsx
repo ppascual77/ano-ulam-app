@@ -1,11 +1,14 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   FadeIn,
   SlideInLeft,
   SlideInRight,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withSequence,
   withSpring,
@@ -61,6 +64,24 @@ import type { IngredientType, MealType } from "../../mealTypes";
 // exactly what a target that size feels like rather than an actual bug.
 // hitSlop extends the tappable area without changing how the button looks.
 const ICON_HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
+
+// Roughly the top third of the screen, like the reference design.
+const HERO_HEIGHT = 320;
+// How far the rounded details card rides up over the bottom of the photo.
+const CARD_OVERLAP = 24;
+// The card's rounded top: its own strip, outside the scroll, so it can hold
+// still (round corners over the photo) while the details scroll under it.
+const CARD_CAP = 20;
+// The photo scrolls up with the card until this much of it is off screen,
+// then both stop and the card's contents scroll instead.
+const PHOTO_SCROLL_AWAY = 0.75;
+// Back/like buttons are visually 44px.
+const PHOTO_BUTTON_SIZE = 44;
+// After the lock, this much more scrolling hands the photo strip over from
+// the pills to the meal name (pills slide up and out, name slides up in).
+const TITLE_HANDOFF = 48;
+// How far each slides during the handoff.
+const HANDOFF_SLIDE = 16;
 
 function orderIngredients(ingredients: IngredientType[]) {
   const main = ingredients.filter((it) => it.type === "main");
@@ -176,12 +197,12 @@ type MealDetailContentProps = {
    *  meal's own serving_size. */
   initialServings?: number;
   onSelectMeal?: (meal: MealType) => void;
-  /** Present only when this meal was reached via "related meals" — lets the
-   *  user return to whatever they originally opened. */
+  /** The top-left arrow over the photo. MealDetailSheet steps back through
+   *  related meals with it, then closes. Omitted (no arrow) in preview. */
   onBack?: () => void;
   /** "forward" (picked a related meal) slides in from the left; "back"
    *  slides in from the right; "none" (initial open) plays no slide —
-   *  BottomSheet's own slide-up already covers that. Defaults to "none". */
+   *  the sheet's own slide-up already covers that. Defaults to "none". */
   direction?: "none" | "forward" | "back";
   /** Admin-only — omitted for every consumer-facing usage of this
    *  component, which renders nothing extra when they're absent. */
@@ -277,15 +298,9 @@ function ConsumerFooter({ meal, servings, saved, recipeOwner }: ConsumerFooterPr
   );
 }
 
-function ScrollBody({ children }: { children: ReactNode }) {
-  return <ScrollView showsVerticalScrollIndicator={false}>{children}</ScrollView>;
-}
-
-function PlainBody({ children }: { children: ReactNode }) {
-  return <View>{children}</View>;
-}
-
-// The scrollable body rendered inside a BottomSheet (see MealDetailSheet).
+// The scrollable body rendered inside a full-screen BottomSheet (see
+// MealDetailSheet): the photo at the very top, under the status bar, with a
+// rounded white card holding the details riding up over its bottom edge.
 // No backend yet — like/save are local UI state; servings scaling is pure
 // math, no rice add-on / pantry-match / price-drop tracking (those need
 // data this app doesn't have).
@@ -308,7 +323,46 @@ export function MealDetailContent({
   // Any admin context (manage or review): no consumer-only Save / related
   // meals / Published chip.
   const isAdmin = !!(onEdit || onArchive || onDelete || review);
-  const Body = preview ? PlainBody : ScrollBody;
+  // Full screen puts the photo under the status bar, so the buttons on it
+  // drop below that. The embedded preview isn't full screen.
+  const insets = useSafeAreaInsets();
+  const photoButtonsTop = preview ? 16 : insets.top + 8;
+  // How far the photo scrolls before stopping: 3/4 of it, but never so far
+  // the card's top would slide under the back/like buttons (on notched
+  // phones that wins, so a bit less of the photo scrolls away).
+  const cardRest = HERO_HEIGHT - CARD_OVERLAP;
+  const photoStop = Math.min(HERO_HEIGHT * PHOTO_SCROLL_AWAY, cardRest - (photoButtonsTop + PHOTO_BUTTON_SIZE + 8));
+  // Where the card's top ends up once stopped.
+  const cardPinTop = cardRest - photoStop;
+  const scrollY = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler((e) => {
+    scrollY.value = e.contentOffset.y;
+  });
+  // The photo and the card's cap: follow the scroll 1:1 up to photoStop,
+  // then hold. Not clamped at 0, so a pull-down bounce drags them along.
+  // 0 -> 1 over the TITLE_HANDOFF px of scrolling after the lock.
+  const handoff = useDerivedValue(() =>
+    Math.min(1, Math.max(0, (scrollY.value - photoStop) / TITLE_HANDOFF)),
+  );
+  const pillsStyle = useAnimatedStyle(() => ({
+    opacity: 1 - handoff.value,
+    transform: [{ translateY: -HANDOFF_SLIDE * handoff.value }],
+  }));
+  const titleStyle = useAnimatedStyle(() => ({
+    opacity: handoff.value,
+    transform: [{ translateY: HANDOFF_SLIDE * (1 - handoff.value) }],
+  }));
+  // Darkens the photo strip a little so the white name reads on any photo.
+  const scrimStyle = useAnimatedStyle(() => ({ opacity: 0.5 * handoff.value }));
+  // The name fits between the back button and the right-hand buttons
+  // (whose width varies: like count, Edit, Published), never under them.
+  const [rightButtonsWidth, setRightButtonsWidth] = useState(PHOTO_BUTTON_SIZE);
+  const titleLeft = 16 + (onBack ? PHOTO_BUTTON_SIZE + 12 : 0);
+  const titleRight = 16 + rightButtonsWidth + 12;
+
+  const pinnedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -Math.min(scrollY.value, photoStop) }],
+  }));
   const [isLiked, setIsLiked] = useState(meal.liked_by_me ?? false);
   const [likeCount, setLikeCount] = useState(meal.like_count ?? 0);
   const [servings, setServings] = useState(initialServings ?? meal.serving_size ?? 1);
@@ -383,6 +437,335 @@ export function MealDetailContent({
 
   const isFastFood = meal.category === "fast_food";
 
+  const heroPhoto = (
+    <View style={{ height: HERO_HEIGHT }}>
+      <Image source={resolveMealImage(meal)} style={{ width: "100%", height: HERO_HEIGHT }} contentFit="cover" />
+      <Animated.View pointerEvents="none" className="absolute inset-0 bg-ink-emphasis" style={scrimStyle} />
+
+      {/* Diet tags and the nutrition pills sit on the bottom of the photo,
+          just above where the details card overlaps it. Once the card locks,
+          they slide up and out to make way for the meal name. */}
+      <Animated.View
+        className="absolute left-4 right-4 flex-row flex-wrap items-center gap-1.5"
+        style={[{ bottom: CARD_OVERLAP + 12 }, pillsStyle]}
+      >
+        {meal.dietary_tags?.map((tag) => {
+          const Icon = DIETARY_ICONS[tag] ?? Leaf;
+          return (
+            <View key={tag} className="flex-row items-center gap-1 rounded-full bg-white/90 px-2 py-2">
+              <Icon color={colors.primary} size={11} />
+              <Text className="font-inter-medium text-caption text-primary">{capitalize(tag)}</Text>
+            </View>
+          );
+        })}
+        <MealInfoPill
+          meal={{
+            calories: displayCalories,
+            protein: displayProtein,
+            carbs: displayCarbs,
+            fats: displayFats,
+            total_time: meal.total_time,
+          }}
+        />
+      </Animated.View>
+    </View>
+  );
+
+  const topBar = (
+    <>
+      {/* Top bar over the photo: back on the left; Published / Edit /
+          like on the right. */}
+      {onBack && (
+        <View className="absolute left-4" style={{ top: photoButtonsTop }}>
+          <Pressable
+            onPress={onBack}
+            hitSlop={ICON_HIT_SLOP}
+            className="h-11 w-11 items-center justify-center rounded-full bg-ink-emphasis/40"
+          >
+            <ArrowLeft color={colors.white} size={22} />
+          </Pressable>
+        </View>
+      )}
+
+      <View
+        className="absolute right-4 flex-row items-center gap-2"
+        style={{ top: photoButtonsTop }}
+        onLayout={(e) => setRightButtonsWidth(e.nativeEvent.layout.width)}
+      >
+        {/* Only on the viewer's own recipe: every catalog meal is
+            approved, so on anything else the chip says nothing. Never in
+            admin context, where Edit sits here instead. */}
+        {meal.status === "approved" && recipeOwner && !isAdmin && (
+          <Chips label="Published" icon={<ShieldCheck color={colors.white} size={10} strokeWidth={2} />} />
+        )}
+
+        {onEdit && (
+          <Pressable
+            onPress={onEdit}
+            hitSlop={ICON_HIT_SLOP}
+            className="h-11 w-11 items-center justify-center rounded-full bg-ink-emphasis/40"
+          >
+            <Pencil color={colors.white} size={18} />
+          </Pressable>
+        )}
+
+        {/* Grows into a pill with the count once there are likes. */}
+        <Pressable
+          onPress={toggleLike}
+          hitSlop={ICON_HIT_SLOP}
+          className={`h-11 min-w-11 flex-row items-center justify-center gap-1 rounded-full px-3 ${
+            liked ? "bg-like" : "bg-ink-emphasis/40"
+          }`}
+        >
+          <Heart color={colors.white} size={20} fill={liked ? colors.white : "none"} />
+          {shownLikeCount > 0 && <Text className="font-inter-semibold text-body text-white">{shownLikeCount}</Text>}
+        </Pressable>
+      </View>
+    </>
+  );
+
+  // Meal name through the steps: the rounded details card's contents.
+  const cardBody = (
+    <>
+      <View className="flex-row items-start justify-between">
+        <View className="flex-1 pr-3">
+          <AppText variant="heading">{meal.name}</AppText>
+
+          <View className="mt-1.5 flex-row items-center gap-1.5 self-start">
+            {!isFastFood ? (
+              <>
+                <Pressable
+                  onPress={() => setServings((s) => Math.max(1, s - 1))}
+                  hitSlop={ICON_HIT_SLOP}
+                  className="h-8 w-8 items-center justify-center rounded-full border border-ink-emphasis/15"
+                >
+                  <Minus color={colors.ink.subtle} size={10} />
+                </Pressable>
+                <View
+                  className="flex-row items-center justify-center gap-1 rounded-full border border-primary/20 bg-primary/10 py-2"
+                  style={{ width: 120 }}
+                >
+                  {servings > 1 ? (
+                    <Users color={colors.primary} size={12} />
+                  ) : (
+                    <User2 color={colors.primary} size={12} />
+                  )}
+                  <Text className="font-inter-medium text-caption text-primary">
+                    {servings > 1 ? `${servings} Servings` : "Single Serve"}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => setServings((s) => Math.min(5, s + 1))}
+                  hitSlop={ICON_HIT_SLOP}
+                  className="h-8 w-8 items-center justify-center rounded-full border border-ink-emphasis/15"
+                >
+                  <Plus color={colors.ink.subtle} size={10} />
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <View className="flex-row items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-1">
+                  <User2 color={colors.primary} size={12} />
+                  <Text className="font-inter-medium text-sub text-primary">
+                    Single Serve
+                  </Text>
+                </View>
+                {meal.restaurant && (
+                  <Chips
+                    label={meal.restaurant}
+                    icon={
+                      <Store
+                        color={colors.white}
+                        size={10}
+                        strokeWidth={2}
+                      />
+                    }
+                    bgClassName="bg-accent"
+                  />
+                )}
+              </>
+            )}
+          </View>
+        </View>
+
+        <View className="items-end">
+          {/* Extra bold, like the ingredient prices. Plain Text so the
+              title variant's own semibold doesn't compete with it. */}
+          <Text className="font-inter-extrabold text-subheading text-primary">
+            ₱{displayPrice.toFixed(2)}
+            {displayBufferPrice ? ` – ₱${displayBufferPrice.toFixed(2)}` : ""}
+          </Text>
+          <AppText
+            variant="caption"
+            className="font-inter-light"
+            style={{ fontSize: 13 }}
+          >
+            Estimated Price
+          </AppText>
+        </View>
+      </View>
+
+      <AppText variant="caption" className="mt-3 leading-5">
+        {meal.description}
+      </AppText>
+
+      <View className="mt-4 flex-row gap-2">
+        {!isFastFood && meal.prep_time != null && (
+          <StatCard
+            icon={<Clock3 color={colors.primary} size={18} />}
+            value={`${meal.prep_time} min`}
+            label="Prep time"
+          />
+        )}
+        <StatCard
+          icon={<Flame color={colors.like} size={18} />}
+          value={`${displayCalories}`}
+          label="Calories"
+        />
+        {meal.difficulty && (
+          <StatCard
+            icon={<ChefHat color={colors.primary} size={18} />}
+            value={capitalize(meal.difficulty)}
+            label="Difficulty"
+          />
+        )}
+      </View>
+
+      <View className="mt-5">
+        <View className="flex-row items-center justify-between">
+          <AppText variant="title">Macros</AppText>
+          {servings > 1 && (
+            <SegmentedSwitch
+              options={[
+                { value: "all", label: `All ${servings}` },
+                { value: "perServing", label: "Per serving" },
+              ]}
+              value={perServingView ? "perServing" : "all"}
+              onChange={(v) => setPerServingView(v === "perServing")}
+            />
+          )}
+        </View>
+        <View className="mt-2 rounded-2xl border border-ink-emphasis/10 p-3">
+          <Animated.View style={macroPulseStyle}>
+            <MacroSection calories={shownCalories} protein={shownProtein} carbs={shownCarbs} fats={shownFats} />
+          </Animated.View>
+          {/* Optional micronutrients, tucked under the macros. Hidden
+              entirely when no ingredient has micronutrient data. */}
+          {hasMicronutrients(mealMicros) && (
+            <>
+              <Pressable
+                onPress={() => setShowMicros((v) => !v)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: showMicros }}
+                className="mt-3 flex-row items-center justify-center gap-1 border-t border-ink-emphasis/10 pt-3"
+              >
+                <Text className="font-inter-semibold text-body text-primary">
+                  {showMicros ? "Hide micronutrients" : "Show micronutrients"}
+                </Text>
+                {showMicros ? <ChevronUp color={colors.primary} size={16} /> : <ChevronDown color={colors.primary} size={16} />}
+              </Pressable>
+              {showMicros && (
+                <Animated.View entering={FadeIn.duration(200)} className="mt-3 px-1">
+                  {/* Same pop as the donut when All / Per serving switches. */}
+                  <Animated.View style={macroPulseStyle}>
+                    <Text className="mb-3 font-inter-regular text-small text-ink-subtle">
+                      {showPerServing || servings === 1 ? "% of daily value, per serving." : `Totals for ${servings} servings.`}
+                      {microIngredients.length < totalIngredients
+                        ? ` From ${microIngredients.length} of ${totalIngredients} ingredients.`
+                        : ""}
+                    </Text>
+                    <MicronutrientList
+                      values={shownMicros}
+                      shareOf={mealMicros}
+                      shareNote={showPerServing || servings === 1 ? undefined : "per serving"}
+                    />
+                  </Animated.View>
+                </Animated.View>
+              )}
+            </>
+          )}
+        </View>
+      </View>
+
+      {meal.ingredients && meal.ingredients.length > 0 && (
+        <View className="mt-5">
+          <View className="flex-row items-center justify-between">
+            <AppText variant="title">Ingredients</AppText>
+          </View>
+
+          <View className="my-3">
+            <NoticeBanner icon={<Info color={colors.notice.icon} size={15} />}>
+              <AppText variant="caption" className="text-notice-text">
+                Prices shown are for the exact quantities used in this recipe. Some items may only be available
+                as a whole unit, so your actual spend may be higher.
+              </AppText>
+            </NoticeBanner>
+          </View>
+
+          <View className="mt-2 gap-2">
+            {orderIngredients(meal.ingredients).map((ingredient, i) => {
+              const scaled = scaleIngredient(ingredient, scale);
+              return (
+                <IngredientRow
+                  key={i}
+                  ingredient={scaled}
+                  // Every ingredient has a sheet to show (at minimum its
+                  // price source), so every card is tappable.
+                  onPress={onSelectIngredient ? () => onSelectIngredient(scaled) : undefined}
+                />
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {meal.procedure && meal.procedure.length > 0 && (
+        <View className="mt-5">
+          <AppText variant="title">Steps</AppText>
+          {/* A numbered green circle per step, joined to the next one by a
+              line running down the left, like a timeline. */}
+          <View className="mt-3 rounded-2xl border border-ink-emphasis/10 px-4 pt-4 pb-1">
+            {meal.procedure.map((step, i) => {
+              const last = i === meal.procedure!.length - 1;
+              return (
+                <View key={i} className="flex-row gap-3">
+                  <View className="items-center">
+                    <View className="h-8 w-8 items-center justify-center rounded-full bg-primary">
+                      <Text className="font-inter-bold text-body text-white">{i + 1}</Text>
+                    </View>
+                    {!last && <View className="w-0.5 flex-1 bg-primary" />}
+                  </View>
+                  {/* Read mid-cook, so large and high-contrast. Plain Text, not
+                      AppText: a variant's own text-body would fight
+                      text-body-lg over the font size. */}
+                  <Text className={`flex-1 pt-1 font-inter-regular text-body-lg text-ink ${last ? "pb-3" : "pb-7"}`}>
+                    {step}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
+    </>
+  );
+
+  const related = (
+    <>
+      {/* RelatedMeals pulls from the mock catalog regardless of which
+          meal is actually open (no backend for real relations yet) —
+          meaningless in admin context, and tapping one would swap the
+          sheet to fake data while Edit/Archive/Delete stay bound to the
+          real meal being managed, a confusing mismatch. */}
+      {!isAdmin && !preview && (
+        <View className="mb-6">
+          <RelatedMeals meal={meal} onSelectMeal={onSelectMeal} />
+        </View>
+      )}
+    </>
+  );
+
   return (
     <Animated.View
       entering={
@@ -390,343 +773,62 @@ export function MealDetailContent({
       }
       className={preview ? "" : "flex-1"}
     >
-      <Body>
-        <View className="relative">
-          <Image
-            source={resolveMealImage(meal)}
-            style={{ width: "100%", height: 220 }}
-            contentFit="cover"
+      {preview ? (
+        <View>
+          <View className="relative">
+            {heroPhoto}
+            {topBar}
+          </View>
+          <View className="rounded-t-3xl bg-white px-6 pt-5" style={{ marginTop: -CARD_OVERLAP }}>
+            {cardBody}
+          </View>
+        </View>
+      ) : (
+        // Photo and card scroll up together until photoStop px have scrolled
+        // by (3/4 of the photo off screen), then both stop: the photo and the
+        // card's rounded cap are held there (pinnedStyle) while the details
+        // scroll on under the cap. The cap lives outside the scroll area,
+        // which starts right below where it stops: inside, the white content
+        // scrolling past would fill in its round corners.
+        <View className="flex-1">
+          <Animated.View className="absolute left-0 right-0 top-0" style={pinnedStyle}>
+            {heroPhoto}
+          </Animated.View>
+          <Animated.ScrollView
+            onScroll={onScroll}
+            scrollEventThrottle={16}
+            showsVerticalScrollIndicator={false}
+            style={{ position: "absolute", top: cardPinTop + CARD_CAP, left: 0, right: 0, bottom: 0 }}
+          >
+            {/* Transparent: the photo shows through until it's scrolled. */}
+            <View style={{ height: photoStop }} />
+            <View className="bg-white px-6">{cardBody}</View>
+            <View className="bg-white px-6">{related}</View>
+          </Animated.ScrollView>
+          <Animated.View
+            pointerEvents="none"
+            className="absolute left-0 right-0 rounded-t-3xl bg-white"
+            style={[{ top: cardRest, height: CARD_CAP }, pinnedStyle]}
           />
-
-          {onBack && (
-            <View className="absolute left-4 top-4">
-              <Pressable
-                onPress={onBack}
-                hitSlop={ICON_HIT_SLOP}
-                className="h-9 w-9 items-center justify-center rounded-full bg-primary/90"
-              >
-                <ArrowLeft color={colors.white} size={18} />
-              </Pressable>
-            </View>
-          )}
-
-          {/* Consumer-only affordance — in admin context (onEdit present)
-              this sat at the exact same top-right spot as the Edit button
-              below, overlapping it whenever a meal was already published
-              (the normal case for anything reaching Manage Meals), which is
-              what made Edit intermittently untappable. */}
-          {/* Only on the viewer's own recipe: every catalog meal is
-              approved, so on anything else the chip says nothing. */}
-          {meal.status === "approved" && recipeOwner && !isAdmin && (
-            <View className="absolute right-4 top-4">
-              <Chips
-                label="Published"
-                icon={
-                  <ShieldCheck color={colors.white} size={10} strokeWidth={2} />
-                }
-              />
-            </View>
-          )}
-
-          {onEdit && (
-            <View className="absolute right-4 top-4">
-              <Pressable
-                onPress={onEdit}
-                hitSlop={ICON_HIT_SLOP}
-                className="h-9 w-9 items-center justify-center rounded-full bg-ink-emphasis/50"
-              >
-                <Pencil color={colors.white} size={16} />
-              </Pressable>
-            </View>
-          )}
-
-          <View className="absolute bottom-3 right-3">
-            <Pressable onPress={toggleLike} hitSlop={ICON_HIT_SLOP} className="items-center gap-0.5">
-              <View
-                className={`h-9 w-9 items-center justify-center rounded-full border ${
-                  liked
-                    ? "border-like bg-like"
-                    : "border-white/20 bg-white/15"
-                }`}
-              >
-                <Heart
-                  color={colors.white}
-                  size={16}
-                  fill={liked ? colors.white : "none"}
-                />
-              </View>
-              <Text
-                className={`text-[10px] font-semibold leading-none text-white ${
-                  shownLikeCount > 0 ? "opacity-100" : "opacity-0"
-                }`}
-              >
-                {shownLikeCount}
-              </Text>
-            </Pressable>
-          </View>
+          {/* The meal name (and servings under it) on the photo strip once
+              the card locks, level with the buttons and between them. */}
+          <Animated.View
+            pointerEvents="none"
+            className="absolute justify-center"
+            style={[{ top: photoButtonsTop, left: titleLeft, right: titleRight, height: PHOTO_BUTTON_SIZE }, titleStyle]}
+          >
+            <Text numberOfLines={1} className="font-inter-bold text-subheading leading-tight text-white">
+              {meal.name}
+            </Text>
+            {/* The servings shown (follows the stepper), lighter and smaller. */}
+            <Text numberOfLines={1} className="font-inter-regular text-small text-white/80">
+              {servings > 1 ? `${servings} Servings` : "Single Serve"}
+            </Text>
+          </Animated.View>
+          {/* After the scroll so it stays on top and tappable. */}
+          {topBar}
         </View>
-
-        <View className="px-6 pt-4">
-          <View className="flex-row items-start justify-between">
-            <View className="flex-1 pr-3">
-              <AppText variant="title">{meal.name}</AppText>
-
-              <View className="mt-1.5 flex-row items-center gap-1.5 self-start">
-                {!isFastFood ? (
-                  <>
-                    <Pressable
-                      onPress={() => setServings((s) => Math.max(1, s - 1))}
-                      hitSlop={ICON_HIT_SLOP}
-                      className="h-8 w-8 items-center justify-center rounded-full border border-ink-emphasis/15"
-                    >
-                      <Minus color={colors.ink.subtle} size={10} />
-                    </Pressable>
-                    <View
-                      className="flex-row items-center justify-center gap-1 rounded-full border border-primary/20 bg-primary/10 py-2"
-                      style={{ width: 120 }}
-                    >
-                      {servings > 1 ? (
-                        <Users color={colors.primary} size={12} />
-                      ) : (
-                        <User2 color={colors.primary} size={12} />
-                      )}
-                      <Text className="font-inter-medium text-caption text-primary">
-                        {servings > 1 ? `${servings} Servings` : "Single Serve"}
-                      </Text>
-                    </View>
-                    <Pressable
-                      onPress={() => setServings((s) => Math.min(5, s + 1))}
-                      hitSlop={ICON_HIT_SLOP}
-                      className="h-8 w-8 items-center justify-center rounded-full border border-ink-emphasis/15"
-                    >
-                      <Plus color={colors.ink.subtle} size={10} />
-                    </Pressable>
-                  </>
-                ) : (
-                  <>
-                    <View className="flex-row items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-1">
-                      <User2 color={colors.primary} size={12} />
-                      <Text className="font-inter-medium text-sub text-primary">
-                        Single Serve
-                      </Text>
-                    </View>
-                    {meal.restaurant && (
-                      <Chips
-                        label={meal.restaurant}
-                        icon={
-                          <Store
-                            color={colors.white}
-                            size={10}
-                            strokeWidth={2}
-                          />
-                        }
-                        bgClassName="bg-accent"
-                      />
-                    )}
-                  </>
-                )}
-              </View>
-            </View>
-
-            <View className="items-end">
-              {/* Extra bold, like the ingredient prices. Plain Text so the
-                  title variant's own semibold doesn't compete with it. */}
-              <Text className="font-inter-extrabold text-subheading text-primary">
-                ₱{displayPrice.toFixed(2)}
-                {displayBufferPrice ? ` – ₱${displayBufferPrice.toFixed(2)}` : ""}
-              </Text>
-              <AppText
-                variant="caption"
-                className="font-inter-light"
-                style={{ fontSize: 13 }}
-              >
-                Estimated Price
-              </AppText>
-            </View>
-          </View>
-
-          <AppText variant="caption" className="mt-3 leading-5">
-            {meal.description}
-          </AppText>
-
-          <View className="mt-3 flex-row flex-wrap items-center gap-1.5">
-            {meal.dietary_tags?.map((tag) => {
-              const Icon = DIETARY_ICONS[tag] ?? Leaf;
-              return (
-                <View
-                  key={tag}
-                  className="flex-row items-center gap-1 rounded-full bg-primary/10 px-2 py-2"
-                >
-                  <Icon color={colors.primary} size={11} />
-                  <Text className="font-inter-medium text-caption text-primary">
-                    {capitalize(tag)}
-                  </Text>
-                </View>
-              );
-            })}
-            <MealInfoPill
-              meal={{
-                calories: displayCalories,
-                protein: displayProtein,
-                carbs: displayCarbs,
-                fats: displayFats,
-                total_time: meal.total_time,
-              }}
-            />
-          </View>
-
-          <View className="mt-4 flex-row gap-2">
-            {!isFastFood && meal.prep_time != null && (
-              <StatCard
-                icon={<Clock3 color={colors.primary} size={18} />}
-                value={`${meal.prep_time} min`}
-                label="Prep time"
-              />
-            )}
-            <StatCard
-              icon={<Flame color={colors.like} size={18} />}
-              value={`${displayCalories}`}
-              label="Calories"
-            />
-            {meal.difficulty && (
-              <StatCard
-                icon={<ChefHat color={colors.primary} size={18} />}
-                value={capitalize(meal.difficulty)}
-                label="Difficulty"
-              />
-            )}
-          </View>
-
-          <View className="mt-5">
-            <View className="flex-row items-center justify-between">
-              <AppText variant="title">Macros</AppText>
-              {servings > 1 && (
-                <SegmentedSwitch
-                  options={[
-                    { value: "all", label: `All ${servings}` },
-                    { value: "perServing", label: "Per serving" },
-                  ]}
-                  value={perServingView ? "perServing" : "all"}
-                  onChange={(v) => setPerServingView(v === "perServing")}
-                />
-              )}
-            </View>
-            <View className="mt-2 rounded-2xl border border-ink-emphasis/10 p-3">
-              <Animated.View style={macroPulseStyle}>
-                <MacroSection calories={shownCalories} protein={shownProtein} carbs={shownCarbs} fats={shownFats} />
-              </Animated.View>
-              {/* Optional micronutrients, tucked under the macros. Hidden
-                  entirely when no ingredient has micronutrient data. */}
-              {hasMicronutrients(mealMicros) && (
-                <>
-                  <Pressable
-                    onPress={() => setShowMicros((v) => !v)}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded: showMicros }}
-                    className="mt-3 flex-row items-center justify-center gap-1 border-t border-ink-emphasis/10 pt-3"
-                  >
-                    <Text className="font-inter-semibold text-body text-primary">
-                      {showMicros ? "Hide micronutrients" : "Show micronutrients"}
-                    </Text>
-                    {showMicros ? <ChevronUp color={colors.primary} size={16} /> : <ChevronDown color={colors.primary} size={16} />}
-                  </Pressable>
-                  {showMicros && (
-                    <Animated.View entering={FadeIn.duration(200)} className="mt-3 px-1">
-                      {/* Same pop as the donut when All / Per serving switches. */}
-                      <Animated.View style={macroPulseStyle}>
-                        <Text className="mb-3 font-inter-regular text-small text-ink-subtle">
-                          {showPerServing || servings === 1 ? "% of daily value, per serving." : `Totals for ${servings} servings.`}
-                          {microIngredients.length < totalIngredients
-                            ? ` From ${microIngredients.length} of ${totalIngredients} ingredients.`
-                            : ""}
-                        </Text>
-                        <MicronutrientList
-                          values={shownMicros}
-                          shareOf={mealMicros}
-                          shareNote={showPerServing || servings === 1 ? undefined : "per serving"}
-                        />
-                      </Animated.View>
-                    </Animated.View>
-                  )}
-                </>
-              )}
-            </View>
-          </View>
-
-          {meal.ingredients && meal.ingredients.length > 0 && (
-            <View className="mt-5">
-              <View className="flex-row items-center justify-between">
-                <AppText variant="title">Ingredients</AppText>
-              </View>
-
-              <View className="my-3">
-                <NoticeBanner icon={<Info color={colors.notice.icon} size={15} />}>
-                  <AppText variant="caption" className="text-notice-text">
-                    Prices shown are for the exact quantities used in this recipe. Some items may only be available
-                    as a whole unit, so your actual spend may be higher.
-                  </AppText>
-                </NoticeBanner>
-              </View>
-
-              <View className="mt-2 gap-2">
-                {orderIngredients(meal.ingredients).map((ingredient, i) => {
-                  const scaled = scaleIngredient(ingredient, scale);
-                  return (
-                    <IngredientRow
-                      key={i}
-                      ingredient={scaled}
-                      // Every ingredient has a sheet to show (at minimum its
-                      // price source), so every card is tappable.
-                      onPress={onSelectIngredient ? () => onSelectIngredient(scaled) : undefined}
-                    />
-                  );
-                })}
-              </View>
-            </View>
-          )}
-
-          {meal.procedure && meal.procedure.length > 0 && (
-            <View className="mt-5">
-              <AppText variant="title">Steps</AppText>
-              {/* A numbered green circle per step, joined to the next one by a
-                  line running down the left, like a timeline. */}
-              <View className="mt-3 rounded-2xl border border-ink-emphasis/10 px-4 pt-4 pb-1">
-                {meal.procedure.map((step, i) => {
-                  const last = i === meal.procedure!.length - 1;
-                  return (
-                    <View key={i} className="flex-row gap-3">
-                      <View className="items-center">
-                        <View className="h-8 w-8 items-center justify-center rounded-full bg-primary">
-                          <Text className="font-inter-bold text-body text-white">{i + 1}</Text>
-                        </View>
-                        {!last && <View className="w-0.5 flex-1 bg-primary" />}
-                      </View>
-                      {/* Read mid-cook, so large and high-contrast. Plain Text, not
-                          AppText: a variant's own text-body would fight
-                          text-body-lg over the font size. */}
-                      <Text className={`flex-1 pt-1 font-inter-regular text-body-lg text-ink ${last ? "pb-3" : "pb-7"}`}>
-                        {step}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-          )}
-
-          {/* RelatedMeals pulls from the mock catalog regardless of which
-              meal is actually open (no backend for real relations yet) —
-              meaningless in admin context, and tapping one would swap the
-              sheet to fake data while Edit/Archive/Delete stay bound to the
-              real meal being managed, a confusing mismatch. */}
-          {!isAdmin && !preview && (
-            <View className="mb-6">
-              <RelatedMeals meal={meal} onSelectMeal={onSelectMeal} />
-            </View>
-          )}
-        </View>
-      </Body>
+      )}
 
       {!preview && (
         <View className="border-t border-ink-emphasis/10 px-5 py-4 gap-2">

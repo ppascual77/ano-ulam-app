@@ -9,6 +9,8 @@ export type GroceryItem = {
   /** ₱ for the combined quantity. */
   price: number;
   category: "main" | "pantry";
+  /** How many of the meals use it (the list's "N meals" tag when > 1). */
+  meals: number;
 };
 
 // One ingredient's quantity, in a form that can be added to another of the
@@ -72,19 +74,20 @@ const sentenceCase = (name: string) => name.charAt(0).toUpperCase() + name.slice
 // the servings being cooked (saved meals are; the Meal Planner scales them).
 // Used by Profile's Grocery tab (saved meals) and the Meal Planner's plan.
 export function buildGroceryList(meals: Pick<MealType, "category" | "ingredients">[]): GroceryItem[] {
-  const groups = new Map<string, { name: string; parts: QtyPart[]; price: number; main: boolean }>();
-  for (const meal of meals) {
-    if (meal.category === "fast_food") continue;
+  const groups = new Map<string, { name: string; parts: QtyPart[]; price: number; main: boolean; meals: Set<number> }>();
+  meals.forEach((meal, mealIndex) => {
+    if (meal.category === "fast_food") return;
     for (const ingredient of meal.ingredients ?? []) {
       const id = ingredient.name.trim().toLowerCase();
       if (!id) continue;
-      const group = groups.get(id) ?? { name: sentenceCase(ingredient.name.trim()), parts: [], price: 0, main: false };
+      const group = groups.get(id) ?? { name: sentenceCase(ingredient.name.trim()), parts: [], price: 0, main: false, meals: new Set<number>() };
+      group.meals.add(mealIndex);
       group.parts.push(parseQty(ingredient));
       group.price += ingredient.price ?? 0;
       group.main ||= ingredient.type === "main";
       groups.set(id, group);
     }
-  }
+  });
   return [...groups.entries()]
     .map(([id, group]) => ({
       id,
@@ -92,6 +95,7 @@ export function buildGroceryList(meals: Pick<MealType, "category" | "ingredients
       qty: formatParts(group.parts),
       price: Math.round(group.price * 100) / 100,
       category: group.main ? ("main" as const) : ("pantry" as const),
+      meals: group.meals.size,
     }))
     // Main ingredients first, then by name.
     .sort((a, b) => (a.category === b.category ? a.name.localeCompare(b.name) : a.category === "main" ? -1 : 1));
