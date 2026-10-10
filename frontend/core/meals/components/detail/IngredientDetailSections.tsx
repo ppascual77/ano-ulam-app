@@ -1,9 +1,10 @@
 import { ReactNode } from "react";
 import { Linking, Pressable, Text, View } from "react-native";
-import { ChartColumn, Database, ExternalLink, ShoppingCart, Store } from "lucide-react-native";
+import { ChartColumn, Database, ExternalLink, Minus, ShoppingCart, Store, TrendingDown, TrendingUp } from "lucide-react-native";
 import { Card, Chips } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { getUsdaSourceUrl } from "@/api/ingredients";
+import { useDaWeekChanges, type DaWeekChange } from "@/frontend/core/prices/hooks/useDaWeekChanges";
 import type { DaPriceSourceType, IngredientType, PriceSourceType } from "../../mealTypes";
 import { MicronutrientList, hasMicronutrients } from "./MicronutrientList";
 
@@ -162,6 +163,7 @@ function SourceCard({
   lines,
   url,
   trailing,
+  extra,
   highlighted = false,
 }: {
   icon: ReactNode;
@@ -169,6 +171,8 @@ function SourceCard({
   lines: string[];
   url?: string;
   trailing?: ReactNode;
+  /** Under the lines (e.g. a DA price's change vs last week). */
+  extra?: ReactNode;
   highlighted?: boolean;
 }) {
   const card = (
@@ -185,6 +189,7 @@ function SourceCard({
               {line}
             </Text>
           ))}
+          {extra}
         </View>
 
         {trailing}
@@ -222,8 +227,32 @@ function PriceSourceCard({ source, isBest }: { source: PriceSourceType; isBest: 
   );
 }
 
-// One DA Daily Price Index price: the average across NCR wet markets.
-function DaPriceSourceCard({ source, isBest }: { source: DaPriceSourceType; isBest: boolean }) {
+const TREND_TEXT_CLASS = { down: "text-trend-down", up: "text-trend-up", flat: "text-trend-flat" } as const;
+
+// "Last week ₱286/kg ↘ −1.0%": last week's DA price in the card's own unit
+// (scaled by the same ratio as the raw DA prices) and the % change.
+function DaWeekChangeLine({ change, pricePerUnit, unit }: { change: DaWeekChange; pricePerUnit: number; unit: string }) {
+  const pct = change.pctChange;
+  const trend = pct < 0 ? "down" : pct > 0 ? "up" : "flat";
+  const Icon = trend === "down" ? TrendingDown : trend === "up" ? TrendingUp : Minus;
+  const lastWeek = (pricePerUnit * change.weekAgoPrice) / change.latestPrice;
+  return (
+    <View className="flex-row flex-wrap items-center gap-x-2">
+      <Text className="font-inter-regular text-small text-ink-subtle">Last week {formatPerUnit(lastWeek, unit)}</Text>
+      <View className="flex-row items-center gap-0.5">
+        <Icon color={colors.trend[trend]} size={12} strokeWidth={2.5} />
+        <Text className={`font-inter-bold text-small ${TREND_TEXT_CLASS[trend]}`}>
+          {pct > 0 ? "+" : ""}
+          {pct}%
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// One DA Daily Price Index price: the average across NCR wet markets, with
+// its change vs last week when DA has a price that old.
+function DaPriceSourceCard({ source, isBest, change }: { source: DaPriceSourceType; isBest: boolean; change?: DaWeekChange }) {
   const date = new Date(`${source.date}T00:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
   return (
     <SourceCard
@@ -235,6 +264,7 @@ function DaPriceSourceCard({ source, isBest }: { source: DaPriceSourceType; isBe
       ]}
       url={DA_PRICE_PAGE}
       highlighted={isBest}
+      extra={change && <DaWeekChangeLine change={change} pricePerUnit={source.pricePerUnit} unit={source.unit} />}
       trailing={<PriceTrailing price={source.pricePerUnit} unit={source.unit} isBest={isBest} />}
     />
   );
@@ -243,6 +273,7 @@ function DaPriceSourceCard({ source, isBest }: { source: DaPriceSourceType; isBe
 export function PriceSourceSection({ item }: { item: Pick<IngredientType, "priceSources" | "daPriceSources"> }) {
   const sources = item.priceSources ?? [];
   const da = item.daPriceSources ?? [];
+  const weekChanges = useDaWeekChanges(da.flatMap((d) => (d.commodityId ? [d.commodityId] : [])));
   const prices = [...da.map((d) => d.pricePerUnit), ...sources.map((s) => s.pricePerUnit)];
 
   if (prices.length === 0) {
@@ -268,6 +299,7 @@ export function PriceSourceSection({ item }: { item: Pick<IngredientType, "price
             key={`${d.commodity}|${d.specification}`}
             source={d}
             isBest={showBest && d.pricePerUnit === cheapest}
+            change={d.commodityId ? weekChanges.data?.get(d.commodityId) : undefined}
           />
         ))}
         {sources.map((source) => (

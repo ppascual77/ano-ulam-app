@@ -19,6 +19,8 @@ export type PriceSourceType = {
 // wet markets. pricePerUnit is converted to ₱ per `unit` (kg or L) so it
 // compares directly with the supermarket listings.
 export type DaPriceSourceType = {
+  /** da_commodities.id, for its week-over-week change. Absent on mocks. */
+  commodityId?: string;
   commodity: string;
   specification: string;
   pricePerUnit: number;

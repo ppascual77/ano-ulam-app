@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -35,6 +35,7 @@ import {
   Info,
   ArrowLeft,
   Trash2,
+  TrendingDown,
 } from "lucide-react-native";
 import {
   AppText,
@@ -57,6 +58,7 @@ import { ingredientCategoryIcon } from "../../ingredientCategory";
 import { scaleIngredient } from "../../utils/scaleMeal";
 import { DIETARY_ICONS, capitalize } from "../../utils/dietary";
 import type { IngredientType, MealType } from "../../mealTypes";
+import { useDaWeekChanges, type DaWeekChange } from "@/frontend/core/prices/hooks/useDaWeekChanges";
 
 // Small circular icon buttons (back/edit/like) and the servings +/- steppers
 // are visually ~32-36px, under the ~44pt minimum recommended touch target —
@@ -95,13 +97,26 @@ type IngredientRowProps = {
   ingredient: IngredientType;
   /** Omitted when there's nothing to show in the detail sheet. */
   onPress?: () => void;
+  /** % its DA price dropped vs last week (negative); omitted otherwise. */
+  dropPct?: number;
 };
+
+// An ingredient's DA price change vs last week: the mean of its linked DA
+// commodities' (e.g. Bangus Large and Medium), same as best value meals.
+// Undefined when none of them has a price from a week back.
+function ingredientWeekChange(ingredient: IngredientType, changes: Map<string, DaWeekChange> | undefined) {
+  const pcts = (ingredient.daPriceSources ?? []).flatMap((d) => {
+    const change = d.commodityId ? changes?.get(d.commodityId) : undefined;
+    return change ? [change.pctChange] : [];
+  });
+  return pcts.length > 0 ? pcts.reduce((a, b) => a + b, 0) / pcts.length : undefined;
+}
 
 // Plain water ("Water", "hot water", "tubig", ...): free and nothing to look
 // up, so its row shows no price/N/A and isn't tappable. Not "coconut water".
 const PLAIN_WATER = /^((hot|cold|warm|boiling|tap|mainit na|malamig na)\s+)?(water|tubig)$/i;
 
-function IngredientRow({ ingredient, onPress: onPressProp }: IngredientRowProps) {
+function IngredientRow({ ingredient, onPress: onPressProp, dropPct }: IngredientRowProps) {
   const isMain = ingredient.type === "main";
   const isWater = PLAIN_WATER.test(ingredient.name.trim());
   const onPress = isWater ? undefined : onPressProp;
@@ -141,6 +156,13 @@ function IngredientRow({ ingredient, onPress: onPressProp }: IngredientRowProps)
             <View className="flex-row items-center gap-0.5">
               <Info color={colors.ink.subtle} size={9} />
               <Text className="text-sub text-ink-subtle">N/A</Text>
+            </View>
+          )}
+          {/* Cheaper at DA markets than last week. */}
+          {dropPct != null && (
+            <View className="mt-1 flex-row items-center gap-0.5 rounded-full bg-trend-down/10 px-1.5 py-0.5">
+              <TrendingDown color={colors.trend.down} size={10} strokeWidth={2.5} />
+              <Text className="font-inter-bold text-sub text-trend-down">{Math.max(1, Math.round(-dropPct))}%</Text>
             </View>
           )}
         </View>
@@ -378,6 +400,13 @@ export function MealDetailContent({
   const [isLiked, setIsLiked] = useState(meal.liked_by_me ?? false);
   const [likeCount, setLikeCount] = useState(meal.like_count ?? 0);
   const [servings, setServings] = useState(initialServings ?? meal.serving_size ?? 1);
+  // DA week-over-week changes for every ingredient's linked commodities, for
+  // the "price went down" indicator on the ingredient rows.
+  const daCommodityIds = useMemo(
+    () => (meal.ingredients ?? []).flatMap((it) => (it.daPriceSources ?? []).flatMap((d) => (d.commodityId ? [d.commodityId] : []))),
+    [meal.ingredients],
+  );
+  const weekChanges = useDaWeekChanges(daCommodityIds);
 
   const toggleLocalLike = () => {
     setIsLiked((prev) => !prev);
@@ -718,10 +747,12 @@ export function MealDetailContent({
           <View className="mt-2 gap-2">
             {orderIngredients(meal.ingredients).map((ingredient, i) => {
               const scaled = scaleIngredient(ingredient, scale);
+              const change = ingredientWeekChange(ingredient, weekChanges.data);
               return (
                 <IngredientRow
                   key={i}
                   ingredient={scaled}
+                  dropPct={change != null && change < 0 ? change : undefined}
                   // Every ingredient has a sheet to show (at minimum its
                   // price source), so every card is tappable.
                   onPress={onSelectIngredient ? () => onSelectIngredient(scaled) : undefined}

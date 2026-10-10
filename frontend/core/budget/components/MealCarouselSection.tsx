@@ -4,12 +4,10 @@ import { router } from "expo-router";
 import { AppText, Carousel } from "@/frontend/components/ui";
 import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
 import { MealCardSkeleton } from "@/frontend/core/meals/components/card/MealCardSkeleton";
-import { RelatedMealCard } from "@/frontend/core/meals/components/detail/RelatedMealCard";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { mockMeals } from "@/frontend/core/meals/mocks/meals";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 
-const RELATED_CARD_WIDTH = 200;
 const SKELETON_COUNT = 3;
 
 type MealCarouselSectionProps = {
@@ -25,11 +23,11 @@ type MealCarouselSectionProps = {
   meals?: MealType[];
   /** Shown as a "Budget: X" chip on the See All screen, when this group came from a budget suggestion. */
   budgetLabel?: string;
-  /** "card" (default): MealCard, full detail. "related": RelatedMealCard,
-   *  compact — e.g. Home's "This week's best value meals". */
-  cardVariant?: "card" | "related";
-  /** Only applies with cardVariant="related" — shows the amber "cheaper this week" note. */
-  showValueNote?: boolean;
+  /** Custom card per meal (e.g. "This week's best value meals"); defaults to
+   *  MealCard. `open` shows the meal's detail sheet. */
+  renderCard?: (meal: MealType, index: number, open: () => void) => ReactNode;
+  /** The custom card's width, so the loading skeletons match it. */
+  cardWidth?: number;
   /** Shows MealCardSkeleton placeholders instead of `meals` — for a real
    *  backend fetch still in flight (e.g. Home's Recommendations). Mock-data
    *  callers never need this, since mockMeals is already synchronous. */
@@ -47,8 +45,8 @@ export function MealCarouselSection({
   showSeeAll = true,
   meals = mockMeals,
   budgetLabel,
-  cardVariant = "card",
-  showValueNote = false,
+  renderCard,
+  cardWidth,
   loading = false,
 }: MealCarouselSectionProps) {
   const [selectedMeal, setSelectedMeal] = useState<MealType | null>(null);
@@ -89,18 +87,10 @@ export function MealCarouselSection({
 
       <Carousel>
         {loading
-          ? Array.from({ length: SKELETON_COUNT }).map((_, i) => (
-              <MealCardSkeleton key={i} width={cardVariant === "related" ? RELATED_CARD_WIDTH : undefined} />
-            ))
-          : meals.map((meal) =>
-              cardVariant === "related" ? (
-                <RelatedMealCard
-                  key={meal.id}
-                  meal={meal}
-                  width={RELATED_CARD_WIDTH}
-                  showValueNote={showValueNote}
-                  onPress={() => setSelectedMeal(meal)}
-                />
+          ? Array.from({ length: SKELETON_COUNT }).map((_, i) => <MealCardSkeleton key={i} width={cardWidth} />)
+          : meals.map((meal, i) =>
+              renderCard ? (
+                <View key={meal.id}>{renderCard(meal, i, () => setSelectedMeal(meal))}</View>
               ) : (
                 <MealCard key={meal.id} meal={meal} onPress={() => setSelectedMeal(meal)} />
               ),
