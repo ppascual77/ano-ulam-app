@@ -7,7 +7,8 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronUp } from "lucide-react-native";
-import { Spinner, Toast, type ToastState } from "@/frontend/components/ui";
+import { Spinner, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
+import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { colors } from "@/frontend/constants/theme";
 import { getMeal } from "@/api/meals";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
@@ -24,6 +25,7 @@ import { GuestEndCard } from "../components/GuestEndCard";
 import { LoginGateSheet, type LoginGateReason } from "@/frontend/features/auth/components/LoginGateSheet";
 import { CommunityFeed } from "../components/CommunityFeed";
 import { CreateButton } from "../components/CreateButton";
+import { DiscoverIntro } from "../components/DiscoverIntro";
 import { CreateSheet, type CreateChoice } from "@/frontend/core/posts/components/CreateSheet";
 import { CreatePostSheet } from "@/frontend/core/posts/components/CreatePostSheet";
 import { openProfile } from "@/frontend/core/users/openProfile";
@@ -56,6 +58,11 @@ const CREATE_BUTTON_SPACE = 72;
 // is reliable; the reel's guest/login behavior is unaffected.
 const DEV_FORCE_COMMUNITY_SIGNED_IN = __DEV__;
 
+// Plays the "your turn, share it" intro on moving to Discover.
+// TODO: gate this behind a first-time-user flag (the auto tour), e.g. a
+// stored "seen" flag, instead of always.
+const SHOW_INTRO = true;
+
 type Page = { kind: "meal"; meal: MealType } | { kind: "end" };
 
 // A guest's like/save is remembered while they sign in, then replayed with
@@ -87,15 +94,26 @@ export default function DiscoverScreen() {
   const [gate, setGate] = useState<LoginGateReason | null>(null);
   const pending = useRef<PendingAction | null>(null);
 
+  // The intro, replayed on every visit to the tab (see usePageIntro): its
+  // dot lands on the Create button and laps it once.
+  const reduceMotion = useReduceMotion();
+  const intro = usePageIntro({ enabled: SHOW_INTRO && !reduceMotion });
+  const [createHighlight, setCreateHighlight] = useState(0);
+  const finishIntro = () => {
+    intro.finish();
+    setCreateHighlight((n) => n + 1);
+  };
+
   // Status bar follows the tab while Discover is focused (light over the
   // dark reel, dark over Community's white), and goes back to dark when
   // leaving: tab screens stay mounted, so a <StatusBar> element here would
   // leak its style onto the other tabs.
+  // Light over the intro's black cover too, whichever tab is showing.
   useFocusEffect(
     useCallback(() => {
-      setStatusBarStyle(tab === "recipes" ? "light" : "dark");
+      setStatusBarStyle(tab === "recipes" || intro.showing ? "light" : "dark");
       return () => setStatusBarStyle("dark");
-    }, [tab]),
+    }, [tab, intro.showing]),
   );
 
   const pages: Page[] = useMemo(() => {
@@ -439,7 +457,13 @@ export default function DiscoverScreen() {
       </View>
 
       <View className="absolute right-4" style={{ top: insets.top + TABS_TOP_OFFSET - 6 }}>
-        <CreateButton expanded={createExpanded} onPress={pressCreate} variant={tab === "recipes" ? "dark" : "light"} />
+        <CreateButton
+          expanded={createExpanded}
+          onPress={pressCreate}
+          variant={tab === "recipes" ? "dark" : "light"}
+          landingRef={intro.targetRef}
+          highlightId={createHighlight}
+        />
       </View>
 
       {__DEV__ && isSignedIn && (
@@ -489,6 +513,8 @@ export default function DiscoverScreen() {
       />
 
       <Toast toast={toast} onHide={() => setToast(null)} />
+
+      {intro.showing && <DiscoverIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={finishIntro} />}
     </View>
   );
 }
