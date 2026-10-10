@@ -23,11 +23,11 @@ const GRADIENTS: [string, string][] = [
 
 // Big faint hand-drawn trend arrow in the corner, with the same two-version
 // "line boil" as the confetti doodles. Purely decorative.
-function TrendScribble({ trend }: { trend: Trend }) {
+function TrendScribble({ trend, paused }: { trend: Trend; paused: boolean }) {
   const [versions] = useState(() => drawBoilPair(TREND_DOODLES[trend]));
   return (
     <View pointerEvents="none" className="absolute right-4 top-4 opacity-20">
-      <BoilingDoodle versions={versions} size={76} color={colors.white} strokeWidth={2} />
+      <BoilingDoodle versions={versions} size={76} color={colors.white} strokeWidth={2} paused={paused} />
     </View>
   );
 }
@@ -72,7 +72,8 @@ export function FreshPickCard({ item, index, width, active, onPress }: FreshPick
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
-      <TrendScribble key={trend} trend={trend} />
+      {/* Only the shown slide boils; the others hold still. */}
+      <TrendScribble key={trend} trend={trend} paused={!active} />
 
       <View className="flex-1 justify-between p-5">
         <View className="flex-row items-center gap-1 self-start rounded-full border border-white/20 bg-white/15 px-2.5 py-1">

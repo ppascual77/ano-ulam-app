@@ -14,6 +14,7 @@ import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
 import { useAuth, useSignInWithGoogle } from "@/frontend/features/auth/hooks/useAuth";
 import { LoginGateSheet, type LoginGateReason } from "@/frontend/features/auth/components/LoginGateSheet";
+import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useBrowseSearch } from "../hooks/useBrowseSearch";
 import { countFilters } from "../utils/filters";
 import { FilterButton } from "../components/FilterButton";
@@ -52,7 +53,9 @@ export default function BrowseScreen() {
   // dot lands as the dot of the header's logo "?". Leaving the tab puts the
   // header back at the top, ready for the next landing.
   const scrollRef = useRef<ScrollView>(null);
-  const intro = usePageIntro({ enabled: SHOW_INTRO, onArm: () => scrollRef.current?.scrollTo({ y: 0, animated: false }) });
+  // Never with Reduce motion on (Settings, or the phone's own setting).
+  const reduceMotion = useReduceMotion();
+  const intro = usePageIntro({ enabled: SHOW_INTRO && !reduceMotion, onArm: () => scrollRef.current?.scrollTo({ y: 0, animated: false }) });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState<MealType | null>(null);
   const detail = useMealDetail();

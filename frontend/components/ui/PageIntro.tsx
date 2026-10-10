@@ -51,6 +51,10 @@ export function usePageIntro({ enabled, onArm }: { enabled: boolean; onArm?: () 
     }, [enabled]),
   );
   const finish = useCallback(() => setState("done"), []);
+  // Turned off (e.g. Reduce motion switched on): drop the cover right away.
+  useEffect(() => {
+    if (!enabled) setState("done");
+  }, [enabled]);
 
   return {
     /** Render the PageIntro while this is true. */
