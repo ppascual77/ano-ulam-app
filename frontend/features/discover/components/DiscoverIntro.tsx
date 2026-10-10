@@ -23,8 +23,9 @@ import { colors } from "@/frontend/constants/theme";
 //          like it, save it
 //   2.7s   that slides away; "Your turn." fades in
 //   3.3s   "Share it." slams in, in orange; its period is the dot
-//   4.0s   everything collapses into that dot, which arcs up to the Create
-//          (+) button (see PageIntro) and laps it once (OrbitHighlight)
+//   4.0s   everything collapses into that dot, which arcs up into the
+//          Create (+) button (see PageIntro); the + takes it in with a pulse
+//          and an orange flush, then its border runs one lap (CreateButton)
 const SWIPE_AT = 500;
 const SWIPE_MS = 260;
 const SWIPE_GAP_MS = 60;

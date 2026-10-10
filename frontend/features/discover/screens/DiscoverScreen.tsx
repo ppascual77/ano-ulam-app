@@ -95,7 +95,8 @@ export default function DiscoverScreen() {
   const pending = useRef<PendingAction | null>(null);
 
   // The intro, replayed on every visit to the tab (see usePageIntro): its
-  // dot lands on the Create button and laps it once.
+  // dot flies into the Create button, which pulses and runs a lap of its
+  // border.
   const reduceMotion = useReduceMotion();
   const intro = usePageIntro({ enabled: SHOW_INTRO && !reduceMotion });
   const [createHighlight, setCreateHighlight] = useState(0);
