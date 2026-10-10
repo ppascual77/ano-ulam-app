@@ -16,6 +16,8 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const LAP_MS = 750;
 const FADE_MS = 300;
+// Covers the button's 1px border line (and 1px inside it), so it reads as
+// that border lighting up rather than a ring beside it.
 const STROKE = 2;
 
 type BorderLapProps = {
@@ -28,7 +30,8 @@ type BorderLapProps = {
 };
 
 // One lap of orange along a round button's border, drawn from the top,
-// clockwise, then faded out.
+// clockwise, then faded out. Render it over the button, in a box exactly the
+// button's outer size.
 export function BorderLap({ size, runId, delay = 0 }: BorderLapProps) {
   const radius = (size - STROKE) / 2;
   const circumference = 2 * Math.PI * radius;
