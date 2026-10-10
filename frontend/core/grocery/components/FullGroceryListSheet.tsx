@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
+import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
 import { Info, MapPin } from "lucide-react-native";
 import { AppText, BottomSheet, SegmentedSwitch } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -9,6 +10,12 @@ import type { GroceryItem } from "../utils/buildGroceryList";
 import { GroceryRow, formatPeso } from "./GroceryRow";
 import { GrocerySectionHeader, splitGroceryItems } from "./GrocerySection";
 import { useStaplesToBuyStore } from "../store/useStaplesToBuyStore";
+import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
+
+// Moving a staple to "To buy" (or back): the row fades and drops into its
+// new section while the rows around it slide to close the gap.
+const MOVE_IN = FadeInDown.duration(280);
+const MOVE_LAYOUT = LinearTransition.duration(260);
 
 // One list in the sheet: saved meals, or the meal plan.
 export type GroceryListTab = {
@@ -87,6 +94,14 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
     // Reset to the caller's tab on each open.
   }, [visible]);
   const moveStaple = useStaplesToBuyStore((s) => s.toggle);
+  const reduceMotion = useReduceMotion();
+  // Only the row just moved animates in, not every row when the sheet opens,
+  // the list loads, or the tab changes.
+  const [justMoved, setJustMoved] = useState<string | null>(null);
+  const handleMove = (id: string) => {
+    setJustMoved(id);
+    moveStaple(id);
+  };
   const tab = tabs.find((t) => t.key === activeKey) ?? tabs[0];
   // "To buy": main ingredients and any staples moved there.
   const counted = (tab?.items ?? []).filter((item) => item.category === "main");
@@ -111,20 +126,34 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
 
   if (!tab) return null;
   const { items, isChecked, onToggle } = tab;
-  const { mains, staples } = splitGroceryItems(items);
+  // Within each section, what's already in the pantry sinks to the bottom:
+  // what's left to deal with comes first. (Stable, so the rest keep their
+  // order.)
+  const pantryLast = (rows: GroceryItem[]) =>
+    [...rows].sort((x, y) => Number(pantryHas(pantry, x.name)) - Number(pantryHas(pantry, y.name)));
+  const split = splitGroceryItems(items);
+  const mains = pantryLast(split.mains);
+  const staples = pantryLast(split.staples);
 
+  // Keyed per tab too, so switching tabs remounts rows instead of sliding
+  // ones the two lists share.
   const renderRows = (rows: typeof items) =>
     rows.map((item, i) => (
-      <GroceryRow
-        key={item.id}
-        item={item}
-        checked={isChecked(item)}
-        onToggle={() => onToggle(item)}
-        isLast={i === rows.length - 1}
-        wrap
-        have={pantryHas(pantry, item.name)}
-        onMove={item.category === "pantry" || item.movedFromStaples ? () => moveStaple(item.id) : undefined}
-      />
+      <Animated.View
+        key={`${tab.key}:${item.id}`}
+        entering={!reduceMotion && item.id === justMoved ? MOVE_IN : undefined}
+        layout={reduceMotion ? undefined : MOVE_LAYOUT}
+      >
+        <GroceryRow
+          item={item}
+          checked={isChecked(item)}
+          onToggle={() => onToggle(item)}
+          isLast={i === rows.length - 1}
+          wrap
+          have={pantryHas(pantry, item.name)}
+          onMove={item.category === "pantry" || item.movedFromStaples ? () => handleMove(item.id) : undefined}
+        />
+      </Animated.View>
     ));
 
   return (
