@@ -50,13 +50,12 @@ function CheckBox({ checked }: { checked: boolean }) {
   );
 }
 
-// Check box, the name with one muted line under it (what to pick up, then
-// "2 meals" / "in pantry"), and the price on the right. Checked items fade
+// Check box, the name with what to pick up under it, then "2 meals" /
+// "In pantry" chips, and the price on the right. Checked items fade
 // and get struck through.
 export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have = false, pricePantry = false }: GroceryRowProps) {
   // Main ingredients, and pantry staples once "Include in total" is on.
   const counted = item.category === "main" || pricePantry;
-  const detail = [item.buy, item.meals > 1 && `${item.meals} meals`, have && "in pantry"].filter(Boolean).join(" · ");
   return (
     <Pressable
       onPress={onToggle}
@@ -73,15 +72,29 @@ export function GroceryRow({ item, checked, onToggle, isLast, wrap = false, have
         >
           {item.name}
         </Text>
-        {!!detail && (
+        {!!item.buy && (
           <Text numberOfLines={wrap ? undefined : 1} className="font-inter-regular text-small text-ink-subtle">
-            {detail}
+            {item.buy}
           </Text>
+        )}
+        {(item.meals > 1 || have) && (
+          <View className="mt-1 flex-row flex-wrap items-center gap-1.5">
+            {item.meals > 1 && (
+              <View className="rounded-full bg-category-breakfast px-2.5 py-0.5">
+                <Text className="font-inter-extrabold text-small text-accent">{item.meals} meals</Text>
+              </View>
+            )}
+            {have && (
+              <View className="rounded-full bg-tinted-bg px-2.5 py-0.5">
+                <Text className="font-inter-extrabold text-small text-primary">In pantry</Text>
+              </View>
+            )}
+          </View>
         )}
       </View>
 
       {/* Pantry staples left out of the total say "Staple" in the price's
-          place. ("Staple", not "Pantry": "in pantry" already means
+          place. ("Staple", not "Pantry": "In pantry" already means
           you have it.) */}
       {counted ? (
         item.price > 0 && (
