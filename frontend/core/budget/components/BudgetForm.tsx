@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { PhilippinePeso, Utensils } from "lucide-react-native";
 import { AppText, Button, Stepper, TextField } from "@/frontend/components/ui";
@@ -8,9 +8,25 @@ type BudgetFormProps = {
   onSuggestMeals?: (params: { budget: string; servings: number }) => void;
 };
 
+// Forced "thinking" time before suggestions show, so the button's wave
+// loading state actually gets seen (the suggestion itself is instant).
+const SUGGEST_DELAY_MS = 2000;
+
 export function BudgetForm({ onSuggestMeals }: BudgetFormProps) {
   const [budget, setBudget] = useState("");
   const [servings, setServings] = useState(1);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const timeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => () => clearTimeout(timeout.current), []);
+
+  const handleSuggest = () => {
+    setIsSuggesting(true);
+    timeout.current = setTimeout(() => {
+      setIsSuggesting(false);
+      onSuggestMeals?.({ budget, servings });
+    }, SUGGEST_DELAY_MS);
+  };
 
   return (
     <View className="gap-4">
@@ -38,7 +54,8 @@ export function BudgetForm({ onSuggestMeals }: BudgetFormProps) {
         label="Suggest Meals"
         icon={<Utensils color={colors.white} size={20} strokeWidth={2} />}
         iconPosition="right"
-        onPress={() => onSuggestMeals?.({ budget, servings })}
+        loading={isSuggesting}
+        onPress={handleSuggest}
       />
     </View>
   );
