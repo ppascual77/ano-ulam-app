@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Text, View } from "react-native";
+import { AppText } from "@/frontend/components/ui";
 import type { GroceryItem } from "../utils/buildGroceryList";
 
 // A grocery list splits into what to buy (main ingredients) and pantry
@@ -19,13 +20,17 @@ type GrocerySectionHeaderProps = {
   className?: string;
 };
 
-// "TO BUY · 8" over a section of grocery rows.
+// "To buy." (in the dotted section-title style, a notch under the list's
+// own title) and its item count, over a section of grocery rows.
 export function GrocerySectionHeader({ title, count, right, className = "" }: GrocerySectionHeaderProps) {
   return (
     <View className={`flex-row items-center justify-between gap-3 px-2 ${className}`}>
-      <Text className="font-inter-bold text-small uppercase text-ink-subtle">
-        {title} · {count}
-      </Text>
+      <View className="flex-row items-baseline gap-1.5">
+        <AppText variant="sectionSubtitle" dot>
+          {title}
+        </AppText>
+        <Text className="font-inter-semibold text-body text-ink-subtle">{count}</Text>
+      </View>
       {right}
     </View>
   );
