@@ -1,21 +1,26 @@
 import { useMemo, useState } from "react";
 import { View, Pressable, Linking } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
-import { Check, ExternalLink } from "lucide-react-native";
+import { ExternalLink } from "lucide-react-native";
 import { AppText, Button, LoadingState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import {
   applyPriceMatch,
-  averagePrice,
+  cheapestPriceOption,
+  supermarketPriceOptions,
   PRICE_GROUNDING_MAX_PER_CALL,
   type IngredientRow,
   type PriceGroundingCandidate,
   type PriceGroundingResult,
+  type PriceOption,
 } from "@/api/ingredients";
+import { commoditiesByIngredient, daPriceOption, linkedDaPrices } from "@/api/daPrices";
 import { errorMessage } from "@/lib/errorMessage";
 import { useGroundIngredientPrices, useIngredients, useMarkPriceGroundingAttempted } from "../hooks/useIngredients";
+import { useDaCommodities } from "../hooks/useDaPrices";
 import { useConfirmedIngredientUpdate, type PendingIngredientChange } from "../hooks/useConfirmedIngredientUpdate";
 import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
+import { Checkbox } from "./Checkbox";
 
 // Each lookup is paid (one or more web searches), so runs are capped rather
 // than "check all ~500": the admin sees real cost and quality on a small
@@ -49,16 +54,6 @@ function chunk<T>(items: T[], size: number): T[][] {
   return out;
 }
 
-function Checkbox({ checked }: { checked: boolean }) {
-  return (
-    <View
-      className={`w-6 h-6 mt-0.5 rounded-md items-center justify-center ${checked ? "bg-primary" : "border border-primary/20"}`}
-    >
-      {checked && <Check color={colors.white} size={14} />}
-    </View>
-  );
-}
-
 export function PriceGroundingPanel() {
   const { data: ingredients, isLoading } = useIngredients({ showArchived: false });
   const neverChecked = useMemo(
@@ -71,7 +66,7 @@ export function PriceGroundingPanel() {
 
   const [results, setResults] = useState<PriceGroundingResult[]>([]);
   // Ingredient id → indexes of its checked candidates (sources). The price
-  // written is the average of whichever sources are checked.
+  // written is the cheapest of the checked sources (and the linked DA price).
   const [selected, setSelected] = useState<Map<string, Set<number>>>(new Map());
   const [running, setRunning] = useState<{ done: number; total: number } | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
@@ -88,6 +83,17 @@ export function PriceGroundingPanel() {
     for (const i of ingredients ?? []) map.set(i.id, i);
     return map;
   }, [ingredients]);
+
+  // Linked DA commodities: their prices stay among the ingredient's
+  // sources, so a cheaper DA price isn't overwritten by a supermarket one.
+  const { data: daCommodities } = useDaCommodities();
+  const daByIngredient = useMemo(() => commoditiesByIngredient(daCommodities ?? []), [daCommodities]);
+  const daOptionsFor = (ingredient: IngredientRow | undefined): PriceOption[] => {
+    if (!ingredient) return [];
+    return linkedDaPrices(daByIngredient.get(ingredient.id) ?? []).flatMap(
+      ({ commodity, price }) => daPriceOption(commodity, price, ingredient) ?? [],
+    );
+  };
 
   const handleRun = async () => {
     // Skip rows already showing and awaiting review, so "already checked"
@@ -168,8 +174,13 @@ export function PriceGroundingPanel() {
     const changes: PendingIngredientChange[] = [];
     for (const r of results) {
       const picked = checkedCandidates(r);
-      if (picked.length === 0) continue;
-      changes.push({ id: r.id, patch: applyPriceMatch(picked), name: byId.get(r.id)?.canonical_name ?? r.id });
+      const ingredient = byId.get(r.id);
+      if (picked.length === 0 || !ingredient) continue;
+      changes.push({
+        id: r.id,
+        patch: applyPriceMatch(ingredient, picked, daOptionsFor(ingredient)),
+        name: ingredient.canonical_name,
+      });
     }
     await confirmedUpdate.requestUpdate(changes);
   };
@@ -263,10 +274,15 @@ export function PriceGroundingPanel() {
             const candidates = r.confidence === "HIGH" || r.confidence === "LOW" ? r.candidates ?? [] : [];
             const picked = checkedCandidates(r);
             const current = currentPricePerUnit(ingredient);
-            // Preview what would be written: the average of the checked
-            // sources, or the best source while nothing is checked.
-            const preview = picked.length > 0 ? averagePrice(picked) : candidates[0]?.pricePerUnit ?? null;
-            const unit = candidates[0]?.unit;
+            // Preview what would be written: the cheapest of the checked
+            // sources and the linked DA price, or the best source while
+            // nothing is checked.
+            const best = cheapestPriceOption([
+              ...supermarketPriceOptions(picked.length > 0 ? picked : candidates.slice(0, 1)),
+              ...daOptionsFor(ingredient),
+            ]);
+            const preview = best?.pricePerUnit ?? null;
+            const unit = best?.unit;
             const ratio = preview != null && current ? preview / current : null;
             const isBigChange = ratio != null && (ratio > BIG_CHANGE_RATIO || ratio < 1 / BIG_CHANGE_RATIO);
 
@@ -290,7 +306,7 @@ export function PriceGroundingPanel() {
                   <AppText variant="body">
                     {current != null ? `₱${Math.round(current)}/${unit}` : "No price"} → ₱{Math.round(preview)}/{unit}
                     {ratio != null && ` (${ratio >= 1 ? "+" : ""}${Math.round((ratio - 1) * 100)}%)`}
-                    {picked.length > 1 && ` · average of ${picked.length}`}
+                    {best?.source === "da" && " · DA is cheaper"}
                     {picked.length === 0 && " · nothing selected"}
                   </AppText>
                 )}

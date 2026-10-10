@@ -13,6 +13,19 @@ export type PriceSourceType = {
   unit: string;
 };
 
+// The DA Daily Price Index price of a commodity an ingredient is linked to
+// (ingredients ← da_commodities.ingredient_id, can be several, e.g. Bangus
+// ← "Bangus, Large" and "Bangus, Medium"): the average across NCR
+// wet markets. pricePerUnit is converted to ₱ per `unit` (kg or L) so it
+// compares directly with the supermarket listings.
+export type DaPriceSourceType = {
+  commodity: string;
+  specification: string;
+  pricePerUnit: number;
+  unit: string;
+  date: string;
+};
+
 export type IngredientType = {
   qty: string;
   name: string;
@@ -51,13 +64,14 @@ export type IngredientType = {
   // row's category icon (see core/meals/ingredientCategory.ts). Undefined for
   // mock meals, which fall back to a guess from the name.
   category?: string | null;
-  // Where the ingredient's price came from. "supermarket" with
-  // priceSources = averaged from those real listings (Ground Prices);
+  // Where the ingredient's price came from: the cheapest of its sources,
+  // "supermarket" (priceSources, from Ground Prices) or "da" (daPriceSources);
   // "manual" = an estimate. Shown to every viewer in IngredientDetailSheet's
   // price source section. Populated only from joined ingredient rows, same
   // as `source` above.
   priceSource?: string | null;
   priceSources?: PriceSourceType[];
+  daPriceSources?: DaPriceSourceType[];
   // Set when the recipe's quantity text was a bare number ("1") and `qty`
   // was generated from the stored amount + count label instead ("1 clove").
   // Kept separately so scaling servings can re-pluralize ("2 cloves")

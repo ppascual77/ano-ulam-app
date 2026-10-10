@@ -1,5 +1,12 @@
-import { computeItemTotals, convertQuantityToBasis, type MealRow, type MealWithIngredients } from "@/api/meals";
-import type { IngredientType, MealType, PriceSourceType } from "@/frontend/core/meals/mealTypes";
+import {
+  computeItemTotals,
+  convertQuantityToBasis,
+  type LinkedDaCommodity,
+  type MealRow,
+  type MealWithIngredients,
+} from "@/api/meals";
+import { daPriceOption } from "@/api/daPrices";
+import type { DaPriceSourceType, IngredientType, MealType, PriceSourceType } from "@/frontend/core/meals/mealTypes";
 import { formatCount } from "./multiplyQty";
 
 // Real computed totals carry long floating-point tails (e.g. summing many
@@ -72,6 +79,30 @@ function parsePriceSources(value: unknown): PriceSourceType[] {
   );
 }
 
+// Each linked DA commodity's latest price, converted to ₱/kg or ₱/L like
+// the supermarket listings. Skips ones never priced or not convertible
+// (eggs with no size).
+function parseDaPriceSources(ingredient: MealWithIngredients["meal_ingredients"][number]["ingredient"]): DaPriceSourceType[] {
+  // An array once an ingredient can have several commodities
+  // (20261010020000); a lone object before that migration is applied.
+  const linked = ingredient.da_commodities;
+  const list = Array.isArray(linked) ? linked : linked ? [linked as LinkedDaCommodity] : [];
+  return list.flatMap((da) => {
+    if (da.latest_price == null || !da.latest_price_date) return [];
+    const option = daPriceOption(da, da.latest_price, ingredient);
+    if (!option) return [];
+    return [
+      {
+        commodity: da.commodity,
+        specification: da.specification,
+        pricePerUnit: option.pricePerUnit,
+        unit: option.unit,
+        date: da.latest_price_date,
+      },
+    ];
+  });
+}
+
 // A recipe's display_text is usually a full quantity ("2 cloves, minced"),
 // but sometimes just a number ("1"), which reads as "1 what?". In that case
 // the quantity is rebuilt from the stored amount and unit: a count gets the
@@ -141,5 +172,6 @@ function mealIngredientToIngredientType(
     category: mi.ingredient.category,
     priceSource: mi.ingredient.price_source,
     priceSources: parsePriceSources(mi.ingredient.price_sources),
+    daPriceSources: parseDaPriceSources(mi.ingredient),
   };
 }

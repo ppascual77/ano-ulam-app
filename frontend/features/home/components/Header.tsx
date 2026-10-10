@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { Lock, Users, Utensils, Carrot, Sprout, User, ClipboardCheck } from "lucide-react-native";
+import { Lock, Users, Utensils, Carrot, Sprout, User, ClipboardCheck, Landmark } from "lucide-react-native";
 import { AppText, Avatar, Dropdown } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 
@@ -61,6 +61,11 @@ export function Header({ name, avatarUrl }: HeaderProps) {
               label: "Manage Ingredients",
               icon: <Carrot color={colors.ink.subtle} size={18} />,
               onPress: () => router.push("/manage-ingredients"),
+            },
+            {
+              label: "DA Daily Prices",
+              icon: <Landmark color={colors.ink.subtle} size={18} />,
+              onPress: () => router.push("/da-prices"),
             },
             {
               label: "Seed Meal",

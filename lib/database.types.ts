@@ -21,6 +21,88 @@ export type Database = {
   }
   public: {
     Tables: {
+      da_commodities: {
+        Row: {
+          commodity: string
+          created_at: string
+          id: string
+          ingredient_id: string | null
+          latest_price: number | null
+          latest_price_date: string | null
+          section: string | null
+          specification: string
+          unit: string
+          unit_size: number | null
+        }
+        Insert: {
+          commodity: string
+          created_at?: string
+          id?: string
+          ingredient_id?: string | null
+          latest_price?: number | null
+          latest_price_date?: string | null
+          section?: string | null
+          specification?: string
+          unit: string
+          unit_size?: number | null
+        }
+        Update: {
+          commodity?: string
+          created_at?: string
+          id?: string
+          ingredient_id?: string | null
+          latest_price?: number | null
+          latest_price_date?: string | null
+          section?: string | null
+          specification?: string
+          unit?: string
+          unit_size?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "da_commodities_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_prices: {
+        Row: {
+          created_at: string
+          da_commodity_id: string
+          id: string
+          price: number
+          price_date: string
+          source_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          da_commodity_id: string
+          id?: string
+          price: number
+          price_date: string
+          source_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          da_commodity_id?: string
+          id?: string
+          price?: number
+          price_date?: string
+          source_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_prices_da_commodity_id_fkey"
+            columns: ["da_commodity_id"]
+            isOneToOne: false
+            referencedRelation: "da_commodities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingredients: {
         Row: {
           aliases: string[]
