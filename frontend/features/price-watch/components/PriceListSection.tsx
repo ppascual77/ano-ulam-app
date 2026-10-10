@@ -16,6 +16,8 @@ type PriceListSectionProps = {
   sortByDrop: boolean;
   onToggleSort: () => void;
   onSelect: (item: PriceItem) => void;
+  onSearchFocus?: () => void;
+  onSearchBlur?: () => void;
 };
 
 export function PriceListSection({
@@ -27,6 +29,8 @@ export function PriceListSection({
   sortByDrop,
   onToggleSort,
   onSelect,
+  onSearchFocus,
+  onSearchBlur,
 }: PriceListSectionProps) {
   return (
     <View>
@@ -54,6 +58,8 @@ export function PriceListSection({
           value={search}
           onChangeText={onSearch}
           onClear={() => onSearch("")}
+          onFocus={onSearchFocus}
+          onBlur={onSearchBlur}
           autoCorrect={false}
           returnKeyType="search"
         />
