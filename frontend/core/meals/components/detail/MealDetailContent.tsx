@@ -44,6 +44,8 @@ import {
   Chips,
   Confetti,
   NoticeBanner,
+  PulsePressable,
+  RollingText,
   SegmentedSwitch,
   Spinner,
   useBurstOnActivate,
@@ -575,13 +577,13 @@ export function MealDetailContent({
           <View className="mt-1.5 flex-row items-center gap-1.5 self-start">
             {!isFastFood ? (
               <>
-                <Pressable
+                <PulsePressable
                   onPress={() => setServings((s) => Math.max(1, s - 1))}
                   hitSlop={ICON_HIT_SLOP}
                   className="h-8 w-8 items-center justify-center rounded-full border border-ink-emphasis/15"
                 >
                   <Minus color={colors.ink.subtle} size={10} />
-                </Pressable>
+                </PulsePressable>
                 <View
                   className="flex-row items-center justify-center gap-1 rounded-full border border-primary/20 bg-primary/10 py-2"
                   style={{ width: 120 }}
@@ -591,17 +593,20 @@ export function MealDetailContent({
                   ) : (
                     <User2 color={colors.primary} size={12} />
                   )}
-                  <Text className="font-inter-medium text-caption text-primary">
-                    {servings > 1 ? `${servings} Servings` : "Single Serve"}
-                  </Text>
+                  {/* Rolls up as servings go up, down as they go down. */}
+                  <RollingText
+                    value={servings > 1 ? `${servings} Servings` : "Single Serve"}
+                    rank={servings}
+                    className="font-inter-medium text-caption text-primary"
+                  />
                 </View>
-                <Pressable
+                <PulsePressable
                   onPress={() => setServings((s) => Math.min(5, s + 1))}
                   hitSlop={ICON_HIT_SLOP}
                   className="h-8 w-8 items-center justify-center rounded-full border border-ink-emphasis/15"
                 >
                   <Plus color={colors.ink.subtle} size={10} />
-                </Pressable>
+                </PulsePressable>
               </>
             ) : (
               <>
