@@ -13,6 +13,9 @@ import type { IngredientType, MealType } from "../../mealTypes";
 // it, so it reads as a sheet on top rather than a second full screen.
 const INGREDIENT_SHEET_HEIGHT_PERCENT = 0.75;
 
+// Shortest time the Save/Unsave button shows its spinner.
+const MIN_BUSY_MS = 500;
+
 type MealDetailSheetProps = {
   /** null closes the sheet. */
   meal: MealType | null;
@@ -111,11 +114,14 @@ export function MealDetailSheet({
   };
 
   // The meal whose save/unsave request is still in flight, so its button
-  // shows a spinner (the bookmark flips optimistically before that).
+  // shows a spinner (the bookmark flips optimistically before that). Held
+  // for at least MIN_BUSY_MS so the spinner (and the confetti after it)
+  // reads as a real save even when the request is instant.
   const [busyMeal, setBusyMeal] = useState<MealType | null>(null);
   const track = (target: MealType, request: Promise<string | null>) => {
     setBusyMeal(target);
-    void request.then((error) => {
+    const minBusy = new Promise((resolve) => setTimeout(resolve, MIN_BUSY_MS));
+    void Promise.all([request, minBusy]).then(([error]) => {
       setBusyMeal((current) => (current === target ? null : current));
       notify(error);
     });

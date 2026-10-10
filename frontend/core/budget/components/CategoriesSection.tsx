@@ -53,7 +53,7 @@ export function CategoriesSection() {
 
   return (
     <View className="gap-3">
-      <AppText variant="section" dot>
+      <AppText variant="sectionTitle" dot>
         Categories
       </AppText>
       <View className="flex-row gap-3">

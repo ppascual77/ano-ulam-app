@@ -13,7 +13,7 @@ export function BestValueMealsSection() {
   return (
     <MealCarouselSection
       title="This week's best value meals"
-      titleVariant="section"
+      titleVariant="sectionTitle"
       subtitle="Featuring ingredients that cost less this week"
       cardVariant="related"
       showValueNote

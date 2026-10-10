@@ -118,7 +118,7 @@ export function FreshPicksSection({ picks, loading, onSelect }: FreshPicksSectio
   return (
     <View className="gap-3">
       <View>
-        <AppText variant="section" dot>
+        <AppText variant="sectionTitle" dot>
           This week&apos;s fresh picks
         </AppText>
         <AppText variant="caption">Biggest price drops this week</AppText>

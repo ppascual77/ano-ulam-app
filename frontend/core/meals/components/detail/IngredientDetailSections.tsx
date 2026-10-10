@@ -49,7 +49,7 @@ export function NutritionSection({ item }: { item: NutritionItem }) {
   return (
     <Section
       title="Nutrition in this amount"
-      description="What this ingredient adds to your meal at the quantity used, adjusted to your servings."
+      description="What this ingredient adds to your meal at the quantity used."
     >
       {item.calories != null ? (
         <View className="flex-row gap-2">

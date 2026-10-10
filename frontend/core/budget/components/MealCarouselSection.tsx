@@ -14,9 +14,9 @@ const SKELETON_COUNT = 3;
 
 type MealCarouselSectionProps = {
   title: string;
-  /** "title" (default): the regular carousel header. "section": the big
+  /** "title" (default): the regular carousel header. "sectionTitle": the big
    *  bold header with an orange dot (e.g. "This week's best value meals"). */
-  titleVariant?: "title" | "section";
+  titleVariant?: "title" | "sectionTitle";
   /** e.g. the trending-down icon on Home's "This week's best value meals". */
   titleIcon?: ReactNode;
   subtitle?: string;
@@ -71,7 +71,7 @@ export function MealCarouselSection({
       <View>
         <View className="flex-row items-center justify-between">
           <View className="flex-1 flex-row items-center gap-1.5 pr-2">
-            <AppText variant={titleVariant} dot={titleVariant === "section"}>
+            <AppText variant={titleVariant} dot={titleVariant === "sectionTitle"}>
               {title}
             </AppText>
             {titleIcon}

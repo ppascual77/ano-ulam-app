@@ -5,8 +5,8 @@ import { Text, TextProps } from "react-native";
 type Variant =
   | "display"
   | "heading"
+  | "sectionTitle"
   | "headingMedium"
-  | "section"
   | "title"
   | "body"
   | "bodyMedium"
@@ -21,12 +21,13 @@ const variantClasses: Record<Variant, string> = {
   // nested <Text> spans for per-word color, not used as a single flat color.
   display: "font-inter-extrabold text-hero text-ink-emphasis",
   heading: "font-inter-bold text-heading text-ink-emphasis",
+  // Same size as "heading", extrabold with tight tracking: section titles
+  // in the show reel's style (meal detail's "Nutrition.", Price Watch's
+  // "This week's fresh picks."). Pair with `dot` for the orange period.
+  sectionTitle: "font-inter-extrabold text-heading tracking-display text-ink-emphasis",
   // Same size as "heading", medium weight instead of bold.
   headingMedium: "font-inter-medium text-heading text-ink-emphasis",
   subhero: "font-inter-extrabold text-subhero text-ink-emphasis",
-  // Big section header (e.g. Price Watch's "This week's fresh picks").
-  // Usually paired with `dot` for the orange period, like the showreel.
-  section: "font-inter-extrabold text-heading tracking-tight text-ink-emphasis",
   title: "font-inter-semibold text-subheading text-ink-emphasis",
   body: "font-inter-regular text-body text-ink",
   bodyMedium: "font-inter-medium text-body text-ink",
