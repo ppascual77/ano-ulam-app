@@ -68,12 +68,12 @@ export function UsdaGroundingPanel() {
           setResults(data);
           setSelected(new Set(data.filter((r) => r.confidence === "HIGH").map((r) => r.id)));
           setCandidateChoice(new Map());
-          // Mark every ingredient in this run as checked, regardless of
-          // outcome — a NONE/ERROR/unticked result still means "we looked,
-          // don't surface this by default next time." Applying a match
-          // separately flips `source` off 'manual' anyway, so this is
-          // mainly what keeps NONE/ERROR/skipped rows from resurfacing.
-          markAttempted.mutate(batch.map((i) => i.id));
+          // Mark what USDA actually answered as checked (a match, NONE, or
+          // an unticked result means "we looked, don't surface this by
+          // default next time"). Not ERROR: that's usually USDA's rate
+          // limit, not "USDA has nothing", and marking it buried ~200
+          // ingredients as checked that were never really looked up.
+          markAttempted.mutate(data.filter((r) => r.confidence !== "ERROR").map((r) => r.id));
         },
       },
     );

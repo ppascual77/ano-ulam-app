@@ -49,6 +49,8 @@ const LOW_SCORE_THRESHOLD = 50;
 // so this is deliberately small. Revisit if/when grounding scales past a
 // handful of ingredients per run (see rate-limit note near the bottom).
 const MAX_CANDIDATES = 3;
+// Ingredients looked up at once within one call.
+const INGREDIENT_CONCURRENCY = 4;
 // Excludes "Branded" (specific commercial products) — a canonical
 // ingredient should match a generic reference food, not one brand's SKU.
 // NOTE: "Survey (FNDDS)" was tried here too, but its parentheses trip a 400
@@ -68,18 +70,97 @@ const STOPWORDS = new Set([
   "for", "includes", "program", "distribution", "usda's", "a", "in", "with",
 ]);
 
+// Singular base form, so our names match USDA's plurals — confirmed
+// necessary: "Apple, raw" was rejected outright because every USDA record
+// says "Apples", and "Strawberry, raw" was offered "Guavas, strawberry"
+// because the real "Strawberries, raw" failed the exact-word check.
+function stem(word: string): string {
+  if (word.length > 4 && word.endsWith("ies")) return `${word.slice(0, -3)}y`; // berries -> berry
+  if (word.length > 4 && /(oes|ches|shes|xes|sses)$/.test(word)) return word.slice(0, -2); // tomatoes, peaches
+  if (word.length > 3 && word.endsWith("s") && !word.endsWith("ss")) return word.slice(0, -1); // apples, lentils
+  return word;
+}
+
 function significantWords(text: string): string[] {
   return text
     .toLowerCase()
     .split(/[^a-z0-9]+/)
-    .filter((w) => w.length > 2 && !STOPWORDS.has(w));
+    .filter((w) => w.length > 2 && !STOPWORDS.has(w))
+    .map(stem);
+}
+
+// Brand and restaurant records (SR Legacy has plenty: "DENNY'S, spaghetti
+// and meatballs" outranked "Pasta, dry, enriched, spaghetti") spell the
+// brand in ALL CAPS; generic records are sentence case. A canonical
+// ingredient should never ground to one brand's product.
+const BRAND_WORD = /\b[A-Z][A-Z'\u2019]{2,}\b/;
+
+// Preparation state, read from both names. "raw"/"cooked"/"dried" are
+// stopwords for the word overlap above (too common to prove a match), but
+// they still decide WHICH record is right — confirmed necessary:
+// "Spaghetti, dried" picked "Spaghetti, spinach, cooked" and "Kidney
+// beans, dried" picked "Beans, liquid from stewed kidney beans", both HIGH.
+const STATES: Record<string, string> = {
+  raw: "raw", fresh: "raw",
+  cooked: "cooked", boiled: "cooked", stewed: "cooked", steamed: "cooked", baked: "cooked",
+  roasted: "cooked", fried: "cooked", grilled: "cooked", braised: "cooked", simmered: "cooked",
+  dried: "dried", dry: "dried", dehydrated: "dried",
+  canned: "canned",
+};
+// A different FORM of the food than asked for ("liquid from" beans, juice
+// instead of fruit, flour instead of grain) whenever ours doesn't name it.
+const FORM_WORDS = ["liquid", "juice", "sprouted", "powder", "flour", "oil", "sauce", "frozen", "concentrate", "paste", "seasoned"];
+
+function statesIn(text: string): Set<string> {
+  const out = new Set<string>();
+  for (const w of text.toLowerCase().split(/[^a-z]+/)) if (STATES[w]) out.add(STATES[w]);
+  return out;
+}
+
+function hasConflict(query: string, description: string): boolean {
+  const q = statesIn(query);
+  const d = statesIn(description);
+  // Dry-uncooked counts as raw: USDA calls dried beans and lentils "mature
+  // seeds, raw" ("Lentils, raw" is dry lentils), so our "dried" accepts its
+  // "raw", but never "cooked".
+  if (q.has("dried")) q.add("raw");
+  if (q.size > 0 && d.size > 0 && ![...q].some((st) => d.has(st))) return true;
+  const qText = query.toLowerCase();
+  const dText = description.toLowerCase();
+  return FORM_WORDS.some((w) => dText.includes(w) && !qText.includes(w));
+}
+
+type Relevance = {
+  /** The USDA description's lead word (its food: "Beans" in "Beans,
+   *  kidney") is one of ours, so it's the same food rather than one that
+   *  merely mentions ours ("Guavas, strawberry" for strawberries). Not
+   *  "our first word leads": USDA inverts names ("Beans, kidney" for our
+   *  "Kidney beans"). */
+  headMatch: boolean;
+  /** Share of our significant words found in the description. */
+  coverage: number;
+  /** Description words beyond ours: fewer = the generic record. */
+  extraWords: number;
+  /** A different preparation state or form than ours (see hasConflict). */
+  conflict: boolean;
+};
+
+function relevance(query: string, description: string): Relevance {
+  const queryWords = significantWords(query);
+  const descWords = significantWords(description);
+  const descSet = new Set(descWords);
+  const found = queryWords.filter((w) => descSet.has(w)).length;
+  return {
+    headMatch: descWords.length > 0 && queryWords.includes(descWords[0]),
+    coverage: queryWords.length === 0 ? 1 : found / queryWords.length,
+    extraWords: descWords.filter((w) => !queryWords.includes(w)).length,
+    conflict: hasConflict(query, description),
+  };
 }
 
 function hasWordOverlap(query: string, description: string): boolean {
-  const queryWords = significantWords(query);
-  if (queryWords.length === 0) return true; // nothing meaningful left to check
-  const descWords = new Set(significantWords(description));
-  return queryWords.some((w) => descWords.has(w));
+  if (significantWords(query).length === 0) return true; // nothing meaningful left to check
+  return relevance(query, description).coverage > 0;
 }
 
 type UsdaSearchFood = { fdcId: number; description: string; dataType: string; score: number };
@@ -156,9 +237,28 @@ async function fetchUsdaFoodDetail(fdcId: number): Promise<UsdaDetailNutrient[]>
   return (data.foodNutrients ?? []) as UsdaDetailNutrient[];
 }
 
-function classifyConfidence(score: number): "HIGH" | "LOW" {
-  return score >= HIGH_SCORE_THRESHOLD ? "HIGH" : "LOW";
+// HIGH needs USDA's score AND the same food: its lead word is ours, and
+// every one of our words is present. A high score alone trusted "Guavas,
+// strawberry" for strawberries; half the words would trust "Vinegar,
+// cider" for "Vinegar, cane".
+// Also no state/form conflict and at most MAX_EXTRA_WORDS beyond ours:
+// HIGH is pre-ticked in the panel, so it has to be the right record, not
+// just a related one. Everything else is offered as LOW to pick from.
+const MAX_EXTRA_WORDS = 2;
+function classifyConfidence(score: number, rel: Relevance): "HIGH" | "LOW" {
+  return score >= HIGH_SCORE_THRESHOLD &&
+    rel.headMatch &&
+    rel.coverage === 1 &&
+    !rel.conflict &&
+    rel.extraWords <= MAX_EXTRA_WORDS
+    ? "HIGH"
+    : "LOW";
 }
+
+// How far down the ranked list to look for MAX_CANDIDATES records that
+// actually carry nutrients ("Mayonnaise, Regular" comes back with every
+// macro empty, so the top 3 alone can all be unusable).
+const MAX_DETAIL_LOOKUPS = 8;
 
 // This score-only classification only means something if the candidate
 // actually HAS usable nutrition data — confirmed necessary after
@@ -182,34 +282,58 @@ type GroundingResult =
 async function groundOne(id: string, canonicalName: string): Promise<GroundingResult> {
   try {
     const foods = await searchUsda(canonicalName);
-    const eligible = foods
-      .filter((f) => f.score >= LOW_SCORE_THRESHOLD && hasWordOverlap(canonicalName, f.description))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, MAX_CANDIDATES);
+    // Same food first (lead word is ours), then same state/form, then more
+    // of our words, then the generic record (fewest extra words), then
+    // USDA's own score.
+    const ranked = foods
+      .filter(
+        (f) =>
+          f.score >= LOW_SCORE_THRESHOLD &&
+          !BRAND_WORD.test(f.description) &&
+          hasWordOverlap(canonicalName, f.description),
+      )
+      .map((f) => ({ food: f, rel: relevance(canonicalName, f.description) }))
+      .sort(
+        (a, b) =>
+          Number(b.rel.headMatch) - Number(a.rel.headMatch) ||
+          Number(a.rel.conflict) - Number(b.rel.conflict) ||
+          b.rel.coverage - a.rel.coverage ||
+          a.rel.extraWords - b.rel.extraWords ||
+          b.food.score - a.food.score,
+      )
+      .slice(0, MAX_DETAIL_LOOKUPS);
 
-    if (eligible.length === 0) {
+    if (ranked.length === 0) {
       return { id, confidence: "NONE" };
     }
 
-    const fetched: Candidate[] = await Promise.all(
-      eligible.map(async (f) => {
-        const nutrients = await fetchUsdaFoodDetail(f.fdcId);
-        return {
+    // In rank order, a couple at a time, until MAX_CANDIDATES usable ones:
+    // skips past records with no nutrients without paying for all 8.
+    const candidates: (Candidate & { rel: Relevance })[] = [];
+    for (let i = 0; i < ranked.length && candidates.length < MAX_CANDIDATES; i += 2) {
+      const fetched = await Promise.all(
+        ranked.slice(i, i + 2).map(async ({ food: f, rel }) => ({
           fdcId: f.fdcId,
           description: f.description,
           dataType: f.dataType,
           score: f.score,
-          ...extractNutrients(nutrients),
-        };
-      }),
-    );
-    const candidates = fetched.filter(hasUsableNutrients);
+          rel,
+          ...extractNutrients(await fetchUsdaFoodDetail(f.fdcId)),
+        })),
+      );
+      candidates.push(...fetched.filter(hasUsableNutrients));
+    }
 
     if (candidates.length === 0) {
       return { id, confidence: "NONE" };
     }
 
-    return { id, confidence: classifyConfidence(candidates[0].score), candidates };
+    const top = candidates.slice(0, MAX_CANDIDATES);
+    return {
+      id,
+      confidence: classifyConfidence(top[0].score, top[0].rel),
+      candidates: top.map(({ rel: _rel, ...c }) => c),
+    };
   } catch (err) {
     return { id, confidence: "ERROR", error: err instanceof Error ? err.message : String(err) };
   }
@@ -229,13 +353,20 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: "ingredients must be an array" }), { status: 400 });
   }
 
-  // Each ingredient now costs up to MAX_CANDIDATES+1 USDA requests instead
-  // of 2 — still fine run concurrently at admin-triggered batch sizes (tens
-  // of ingredients); revisit if grounding ever scales to hundreds at once
-  // and starts hitting USDA's rate limit.
-  const results = await Promise.all(
-    ingredients.map(({ id, canonicalName }) => groundOne(id, canonicalName)),
-  );
+  // A few ingredients at a time, not all at once: each costs ~4 USDA
+  // requests, and a 250-ingredient burst (~1,000 requests) hit USDA's
+  // hourly key limit, coming back as ERROR. The client also sends small
+  // batches (api/ingredients.ts groundIngredientsUsda).
+  const results: GroundingResult[] = [];
+  for (let i = 0; i < ingredients.length; i += INGREDIENT_CONCURRENCY) {
+    results.push(
+      ...(await Promise.all(
+        ingredients
+          .slice(i, i + INGREDIENT_CONCURRENCY)
+          .map(({ id, canonicalName }) => groundOne(id, canonicalName)),
+      )),
+    );
+  }
 
   return new Response(JSON.stringify({ results }), {
     headers: { "Content-Type": "application/json" },

@@ -108,14 +108,24 @@ export type UsdaGroundingResult =
   | { id: string; confidence: "ERROR"; error: string }
   | { id: string; confidence: "HIGH" | "LOW"; candidates: UsdaGroundingMatch[] };
 
+// Sent USDA_BATCH_SIZE at a time, one call after another, rather than the
+// whole list in one call: ~4 USDA requests per ingredient meant a run over
+// a couple hundred ingredients hit USDA's hourly key limit and came back
+// as ERROR. Smaller calls also stay well inside the edge function's time
+// limit.
+const USDA_BATCH_SIZE = 10;
+
 export async function groundIngredientsUsda(
   ingredients: { id: string; canonicalName: string }[],
 ) {
-  const data = await invokeEdgeFunction<{ results: UsdaGroundingResult[] }>(
-    "ground-ingredients-usda",
-    { ingredients },
-  );
-  return data.results ?? [];
+  const results: UsdaGroundingResult[] = [];
+  for (let i = 0; i < ingredients.length; i += USDA_BATCH_SIZE) {
+    const data = await invokeEdgeFunction<{ results: UsdaGroundingResult[] }>("ground-ingredients-usda", {
+      ingredients: ingredients.slice(i, i + USDA_BATCH_SIZE),
+    });
+    results.push(...(data.results ?? []));
+  }
+  return results;
 }
 
 // Mirrors ground-ingredients-usda's own HIGH_SCORE_THRESHOLD (300) so a
