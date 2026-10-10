@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 import { View } from "react-native";
 import Animated, {
   Easing,
@@ -50,6 +50,11 @@ const FLATTEN_SPRING = { damping: 11, stiffness: 240, mass: 0.6 };
 const HOP_ARC = 10;
 
 export type HopRest = keyof typeof HOP_STEP;
+// The resting marker's size: a ball, or a pill as thin as the faint dots.
+export const HOP_MARKER_SIZE = {
+  dot: { width: HOP_BALL, height: HOP_BALL },
+  pill: { width: HOP_PILL, height: HOP_DOT },
+} as const;
 
 // The showreel's dot: one accent marker that jumps between the faint dots in
 // an arc, stretching mid-air and squashing when it lands.
@@ -58,11 +63,13 @@ function HopIndicator({
   activeIndex,
   rest,
   color,
+  markerRef,
 }: {
   total: number;
   activeIndex: number;
   rest: HopRest;
   color: string;
+  markerRef?: RefObject<View | null>;
 }) {
   const step = HOP_STEP[rest];
   const restWidth = rest === "pill" ? HOP_PILL : HOP_BALL;
@@ -144,6 +151,16 @@ function HopIndicator({
         />
       ))}
       <Animated.View style={[{ position: "absolute", left: 0, top: 0, backgroundColor: color }, markerStyle]} />
+      {/* A still 1px spot at the active page's center (the marker itself
+          moves by transform, which measuring doesn't reliably include). */}
+      {markerRef && (
+        <View
+          ref={markerRef}
+          collapsable={false}
+          pointerEvents="none"
+          style={{ position: "absolute", left: centerOf(activeIndex) - 0.5, top: HOP_BALL / 2 - 0.5, width: 1, height: 1 }}
+        />
+      )}
     </View>
   );
 }
@@ -160,10 +177,22 @@ type Props = {
   hopRest?: HopRest;
   /** "hop" only. The marker's color. Defaults to the accent. */
   hopColor?: string;
+  /** "hop" only. Measure this for where the marker rests (its center), e.g.
+   *  to hand the marker off to another screen's animation. */
+  hopMarkerRef?: RefObject<View | null>;
 };
 
-export function CarouselIndicator({ total, activeIndex, variant = "pill", hopRest = "dot", hopColor = colors.accent }: Props) {
-  if (variant === "hop") return <HopIndicator total={total} activeIndex={activeIndex} rest={hopRest} color={hopColor} />;
+export function CarouselIndicator({
+  total,
+  activeIndex,
+  variant = "pill",
+  hopRest = "dot",
+  hopColor = colors.accent,
+  hopMarkerRef,
+}: Props) {
+  if (variant === "hop") {
+    return <HopIndicator total={total} activeIndex={activeIndex} rest={hopRest} color={hopColor} markerRef={hopMarkerRef} />;
+  }
   return (
     <View className="flex-row gap-2">
       {Array.from({ length: total }).map((_, i) => (

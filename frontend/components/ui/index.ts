@@ -3,7 +3,7 @@ export { AppText } from "./AppText";
 export { Button } from "./Button";
 export { Card } from "./Card";
 export { Avatar, getAvatarFallback } from "./Avatar";
-export { CarouselIndicator } from "./CarouselIndicator";
+export { CarouselIndicator, HOP_MARKER_SIZE } from "./CarouselIndicator";
 export { ChipSelect } from "./ChipSelect";
 export type { ChipOption } from "./ChipSelect";
 export { TextField } from "./TextField";
@@ -31,4 +31,4 @@ export { BoilingDoodle, DOODLE_COLORS, DOODLE_LIST, TREND_DOODLES, drawBoilPair,
 export { PulsePressable } from "./PulsePressable";
 export { RollingText } from "./RollingText";
 export { PageIntro, usePageIntro, type IntroSize } from "./PageIntro";
-export { LandingTitle } from "./LandingTitle";
+export { LandingTitle, type LandingDot } from "./LandingTitle";

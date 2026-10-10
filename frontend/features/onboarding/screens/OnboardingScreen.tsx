@@ -34,6 +34,7 @@ type SlideCallbacks = {
   groupSelections: Record<string, string[]>;
   onGroupChange: (groupId: string, value: string[]) => void;
   onContinueWithGoogle: () => void;
+  onContinueWithoutAccount: () => void;
   isSigningIn: boolean;
 };
 
@@ -66,6 +67,7 @@ function renderSlide(slide: OnboardingSlideData, width: number, callbacks: Slide
           slide={slide}
           width={width}
           onContinueWithGoogle={callbacks.onContinueWithGoogle}
+          onContinueWithoutAccount={callbacks.onContinueWithoutAccount}
           isSigningIn={callbacks.isSigningIn}
         />
       );
@@ -79,6 +81,7 @@ export default function OnboardingScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const topBlobRef = useRef<RotatingBlobHandle>(null);
   const bottomBlobRef = useRef<RotatingBlobHandle>(null);
+  const indicatorDotRef = useRef<View>(null);
   const [index, setIndex] = useState(0);
   const isLast = index === onboardingSlides.length - 1;
 
@@ -116,6 +119,23 @@ export default function OnboardingScreen() {
     setGroupSelections((prev) => ({ ...prev, [groupId]: value }));
   };
 
+  // Off to Home's welcome intro, which picks the indicator's dot up from
+  // exactly where it is now (Home fades in over this screen, see
+  // app/_layout.tsx) and hops it into "Hey, welcome!".
+  const goHome = () => {
+    const dot = indicatorDotRef.current;
+    if (!dot) {
+      router.replace({ pathname: "/home", params: { intro: "1" } });
+      return;
+    }
+    dot.measureInWindow((x, y, w, h) => {
+      router.replace({
+        pathname: "/home",
+        params: { intro: "1", dotX: String(x + w / 2), dotY: String(y + h / 2) },
+      });
+    });
+  };
+
   const handleGoogleSignIn = async () => {
     try {
       const session = await signInWithGoogle.mutateAsync();
@@ -127,7 +147,7 @@ export default function OnboardingScreen() {
           goals: Array.from(goals),
         },
       });
-      router.replace({ pathname: "/home", params: { intro: "1" } });
+      goHome();
     } catch (err) {
       console.error("Google sign-in failed", err);
     }
@@ -202,6 +222,7 @@ export default function OnboardingScreen() {
               groupSelections,
               onGroupChange: handleGroupChange,
               onContinueWithGoogle: handleGoogleSignIn,
+              onContinueWithoutAccount: goHome,
               isSigningIn: signInWithGoogle.isPending,
             }),
           )}
@@ -215,6 +236,7 @@ export default function OnboardingScreen() {
             hopRest="pill"
             total={onboardingSlides.length}
             activeIndex={index}
+            hopMarkerRef={indicatorDotRef}
           />
           <Button
             icon={

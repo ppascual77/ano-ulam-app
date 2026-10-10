@@ -6,7 +6,6 @@ import Animated, {
   interpolateColor,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withSequence,
   withSpring,
   withTiming,
@@ -81,7 +80,7 @@ type PageIntroProps = {
   /** The scene, mounted (and so started) when `active` turns true. It
    *  fades out as the dot takes off. */
   children: (size: IntroSize) => ReactNode;
-  /** Where the dot appears, in the overlay's coordinates. */
+  /** Where the dot appears, in the overlay's coordinates. Read at `dotAt`. */
   dotStart: (size: IntroSize) => { x: number; y: number };
   /** When the dot pops in at dotStart, ms after the scene starts. */
   dotAt: number;
@@ -119,8 +118,12 @@ export function PageIntro({
 
   useEffect(() => {
     if (!size || !active) return;
-    start.value = dotStart(size);
-    dot.value = withDelay(dotAt, withSequence(withSpring(1.25, { damping: 6, stiffness: 300 }), withSpring(1)));
+    // dotStart is read when the dot pops in (not up front), so a scene can
+    // hand over a spot it only measures once it's on screen.
+    const popTimer = setTimeout(() => {
+      start.value = dotStart(size);
+      dot.value = withSequence(withSpring(1.25, { damping: 6, stiffness: 300 }), withSpring(1));
+    }, dotAt);
 
     // Measure the landing spot just before the flight (the page has laid
     // out by then), then fly there.
@@ -142,7 +145,10 @@ export function PageIntro({
         });
       });
     }, flyAt);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(popTimer);
+      clearTimeout(timer);
+    };
     // Once it's active and sized; the rest are stable for a run.
   }, [size, active]);
 

@@ -1,6 +1,5 @@
 import { View, Text } from "react-native";
 import { Image } from "expo-image";
-import { router } from "expo-router";
 import { Check } from "lucide-react-native";
 import { AppText, Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -15,10 +14,11 @@ type Props = {
   slide: AccountPitchSlideData;
   width: number;
   onContinueWithGoogle: () => void;
+  onContinueWithoutAccount: () => void;
   isSigningIn: boolean;
 };
 
-export function AccountPitchSlide({ slide, width, onContinueWithGoogle, isSigningIn }: Props) {
+export function AccountPitchSlide({ slide, width, onContinueWithGoogle, onContinueWithoutAccount, isSigningIn }: Props) {
   return (
     <View style={{ width }} className="flex-1 px-10 justify-center">
       <View className="w-full items-center mt-4">
@@ -74,7 +74,7 @@ export function AccountPitchSlide({ slide, width, onContinueWithGoogle, isSignin
       <AppText
         variant="body"
         className="text-primary text-center mb-4"
-        onPress={() => router.replace({ pathname: "/home", params: { intro: "1" } })}
+        onPress={onContinueWithoutAccount}
       >
         Continue without an account
       </AppText>

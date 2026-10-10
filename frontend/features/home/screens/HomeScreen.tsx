@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
+import * as Haptics from "expo-haptics";
 import { Screen, SegmentedSwitch, usePageIntro } from "@/frontend/components/ui";
 import { Header } from "@/frontend/features/home/components/Header";
 import { RandomMealPuller } from "@/frontend/features/home/components/RandomMealPuller";
@@ -21,15 +22,21 @@ export default function HomeScreen() {
   const [mode, setMode] = useState<Mode>("budget");
 
   // The welcome intro plays once, right after onboarding (which lands here
-  // with ?intro=1), not on every visit like the other tabs' intros. Its dot
-  // lands as the period of "Categories.".
-  const params = useLocalSearchParams<{ intro?: string }>();
+  // with ?intro=1 and where its page indicator's dot was), not on every
+  // visit like the other tabs' intros. Its dot lands as the period of
+  // "Categories." with a burst of confetti.
+  const params = useLocalSearchParams<{ intro?: string; dotX?: string; dotY?: string }>();
   const [introPending, setIntroPending] = useState(params.intro === "1");
   const reduceMotion = useReduceMotion();
   const intro = usePageIntro({ enabled: introPending && !reduceMotion });
+  const [landingBurst, setLandingBurst] = useState(0);
+  const entry =
+    params.dotX && params.dotY ? { x: Number(params.dotX), y: Number(params.dotY) } : undefined;
   const finishIntro = () => {
     intro.finish();
     setIntroPending(false);
+    setLandingBurst((n) => n + 1);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   return (
@@ -47,13 +54,17 @@ export default function HomeScreen() {
           <SegmentedSwitch size="lg" options={MODE_OPTIONS} value={mode} onChange={setMode} />
         </View>
         {mode === "budget" ? (
-          <BudgetSection categoriesDotRef={intro.targetRef} showCategoriesDot={intro.landed} />
+          <BudgetSection
+            categoriesLanding={{ dotRef: intro.targetRef, showDot: intro.landed, burstId: landingBurst }}
+          />
         ) : (
           <PantrySection />
         )}
       </ScrollView>
       <RandomMealPuller />
-      {intro.showing && <HomeIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={finishIntro} />}
+      {intro.showing && (
+        <HomeIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={finishIntro} entry={entry} />
+      )}
     </Screen>
   );
 }
