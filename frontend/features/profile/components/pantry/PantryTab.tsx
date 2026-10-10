@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
-import { Plus, Utensils } from "lucide-react-native";
+import { Plus, Utensils, X } from "lucide-react-native";
+import { AppText, Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { usePantry, usePantryActions } from "@/frontend/core/pantry/hooks/usePantry";
 import { PANTRY_MIN_FOR_SUGGESTIONS } from "@/frontend/core/pantry/mock/api";
@@ -38,41 +39,59 @@ export function PantryTab() {
   };
 
   return (
-    <View className="gap-4 pb-6">
+    <View className="gap-5 pb-6">
       <View>
-        <Text className="font-inter-semibold text-body text-web-ink">Your Pantry</Text>
-        <Text className="mt-0.5 font-inter-regular text-small text-web-ink-muted">{PANTRY_SUBTITLE}</Text>
+        <View className="flex-row items-baseline gap-1.5">
+          <AppText variant="sectionSubtitle" dot>
+            Your pantry
+          </AppText>
+          {pantry.length > 0 && <Text className="font-inter-semibold text-body text-ink-subtle">{pantry.length}</Text>}
+        </View>
+        <Text className="mt-1 font-inter-regular text-body text-ink-subtle">{PANTRY_SUBTITLE}</Text>
       </View>
 
       <Pressable
-        onPress={findMeals}
-        disabled={!canSuggest}
-        className={`h-12 flex-row items-center justify-center gap-2 rounded-2xl bg-brand-green ${canSuggest ? "" : "opacity-30"}`}
-      >
-        <Text className="font-inter-semibold text-body text-white">Find Meals I Can Cook</Text>
-        <Utensils color={colors.white} size={15} />
-      </Pressable>
-
-      <Pressable
         onPress={() => setSheetOpen(true)}
-        className="flex-row items-center gap-2 rounded-xl border border-dashed border-web-ink-faint px-4 py-3.5 active:border-brand-green"
+        className="flex-row items-center gap-3 rounded-2xl border border-dashed border-ink-emphasis/25 px-4 py-3.5 active:border-primary active:bg-primary/5"
       >
-        <Plus color={colors.webInk.body} size={15} />
-        <Text className="font-inter-regular text-body text-web-ink-body">{addLabel(pantry.length)}</Text>
+        <View className="h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+          <Plus color={colors.primary} size={18} strokeWidth={2.5} />
+        </View>
+        <Text className="flex-1 font-inter-medium text-body-lg text-ink">{addLabel(pantry.length)}</Text>
       </Pressable>
 
       {pantry.length > 0 && (
         <View className="flex-row flex-wrap gap-2">
           {pantry.map((item) => (
-            <View key={item.id} className="flex-row items-center gap-1.5 rounded-full border border-brand-green px-2.5 py-1">
-              <Text className="font-inter-regular text-small text-brand-green">{item.name}</Text>
-              <Pressable onPress={() => actions.remove(item.id)} hitSlop={8} accessibilityLabel={`Remove ${item.name}`}>
-                <Text className="font-inter-regular text-small text-brand-green/60">×</Text>
+            <View key={item.id} className="flex-row items-center gap-1.5 rounded-full bg-primary/10 py-1.5 pl-3.5 pr-2">
+              <Text className="font-inter-semibold text-body text-primary">{item.name}</Text>
+              <Pressable
+                onPress={() => actions.remove(item.id)}
+                hitSlop={8}
+                accessibilityLabel={`Remove ${item.name}`}
+                className="h-5 w-5 items-center justify-center rounded-full active:bg-primary/15"
+              >
+                <X color={colors.primary} size={14} strokeWidth={2.5} />
               </Pressable>
             </View>
           ))}
         </View>
       )}
+
+      <View className="gap-2">
+        <Button
+          label="Find meals I can cook"
+          icon={<Utensils color={colors.white} size={18} />}
+          iconPosition="right"
+          onPress={findMeals}
+          disabled={!canSuggest}
+        />
+        {!canSuggest && (
+          <Text className="text-center font-inter-regular text-small text-ink-subtle">
+            Add at least {PANTRY_MIN_FOR_SUGGESTIONS} ingredients to find meals.
+          </Text>
+        )}
+      </View>
 
       <PantrySheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
     </View>
