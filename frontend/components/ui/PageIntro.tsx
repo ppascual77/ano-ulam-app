@@ -90,6 +90,8 @@ type PageIntroProps = {
   dotSize?: number;
   /** The dot turns this color as it lands (e.g. a logo's green). */
   landColor?: string;
+  /** "dark": a black cover, for a dark page (Discover's reel). */
+  tone?: "light" | "dark";
   accessibilityLabel: string;
 };
 
@@ -103,6 +105,7 @@ export function PageIntro({
   flyAt,
   dotSize = 22,
   landColor = colors.accent,
+  tone = "light",
   accessibilityLabel,
 }: PageIntroProps) {
   const rootRef = useRef<View>(null);
@@ -186,12 +189,20 @@ export function PageIntro({
           setSize((prev) => (prev && prev.w === w && prev.h === h ? prev : { w, h }));
         }}
       >
-        <Animated.View pointerEvents="none" className="absolute bottom-0 left-0 right-0 top-0 bg-white" style={backdropStyle} />
+        <Animated.View
+          pointerEvents="none"
+          className={`absolute bottom-0 left-0 right-0 top-0 ${tone === "dark" ? "bg-black" : "bg-white"}`}
+          style={backdropStyle}
+        />
 
         {size && active && (
           <Animated.View pointerEvents="none" className="flex-1" style={contentStyle}>
             {children(size)}
-            <Text className="absolute bottom-6 left-0 right-0 text-center font-inter-regular text-small text-ink-placeholder">
+            <Text
+              className={`absolute bottom-6 left-0 right-0 text-center font-inter-regular text-small ${
+                tone === "dark" ? "text-white/50" : "text-ink-placeholder"
+              }`}
+            >
               Tap to skip
             </Text>
           </Animated.View>
