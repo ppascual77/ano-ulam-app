@@ -53,7 +53,9 @@ export function CategoriesSection() {
 
   return (
     <View className="gap-3">
-      <AppText variant="title">Categories</AppText>
+      <AppText variant="section" dot>
+        Categories
+      </AppText>
       <View className="flex-row gap-3">
         {CATEGORIES.map((category) => (
           <CategoryCard

@@ -62,6 +62,15 @@ export const DOODLES = {
 } satisfies Record<string, Doodle>;
 
 export const DOODLE_LIST: Doodle[] = Object.values(DOODLES);
+
+// Hand-drawn trend arrows (Price Watch's fresh pick cards): down = cheaper,
+// up = pricier, flat = stable. Kept out of DOODLES so they never show up as
+// confetti.
+export const TREND_DOODLES = {
+  down: { strokes: [{ points: [[2, 6], [8, 11.5], [12, 8.5], [21, 17]] }, { points: [[14.5, 17.5], [21, 17], [20.5, 10.5]] }] },
+  up: { strokes: [{ points: [[2, 18], [8, 12.5], [12, 15.5], [21, 7]] }, { points: [[14.5, 6.5], [21, 7], [20.5, 13.5]] }] },
+  flat: { strokes: [{ points: [[2, 12], [7, 9.5], [12, 13], [16, 10.5], [21, 12]] }, { points: [[17.5, 8.5], [21, 12], [17.5, 15.5]] }] },
+} satisfies Record<string, Doodle>;
 // Confetti alternates between these, like the intro's green/orange.
 export const DOODLE_COLORS = [colors.primary, colors.accent];
 

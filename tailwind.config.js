@@ -62,6 +62,9 @@ module.exports = {
           carbs: "#FB923C",
           fats: "#F46767",
         },
+        // Price change direction (Price Watch rows, chips, change lines).
+        // Cheaper is good, so green; never stock-ticker colors.
+        trend: { down: "#16A34A", up: "#EF4444", flat: "#EAB308" },
         // Liked-heart red (MealCard). Not a general-purpose brand color.
         // soft: destructive icon tile behind a red icon (Delete Recipe confirm).
         like: { DEFAULT: "#EF4444", soft: "#FEE2E2" },

@@ -1,8 +1,8 @@
-import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { AppText } from "@/frontend/components/ui";
+import type { PriceCategory } from "@/frontend/core/prices/utils/prices";
 import { CategoryTile } from "./CategoryTile";
-import { priceWatchCategories } from "../mocks/categories";
+import { priceWatchCategories } from "../constants/categories";
 
 const COLUMNS = 4;
 
@@ -14,21 +14,27 @@ function chunk<T>(items: T[], size: number): T[][] {
   return rows;
 }
 
-// Selecting a category is wired up (visual state only) — the ingredient
-// price list for the selected category isn't built yet.
-export function CategoryGrid() {
-  const [selectedId, setSelectedId] = useState(priceWatchCategories[0].id);
+type CategoryGridProps = {
+  /** null = All. */
+  selected: PriceCategory | null;
+  onSelect: (category: PriceCategory | null) => void;
+};
+
+// Tapping the selected tile again (or "See all") goes back to All.
+export function CategoryGrid({ selected, onSelect }: CategoryGridProps) {
   const rows = chunk(priceWatchCategories, COLUMNS);
 
   return (
     <View className="gap-3">
       <View className="flex-row items-center justify-between">
         <AppText variant="title">Check by Category</AppText>
-        <Pressable>
-          <AppText variant="bodyMedium" className="text-primary">
-            See all
-          </AppText>
-        </Pressable>
+        {selected && (
+          <Pressable onPress={() => onSelect(null)} hitSlop={8}>
+            <AppText variant="bodyMedium" className="text-primary">
+              See all
+            </AppText>
+          </Pressable>
+        )}
       </View>
 
       <View className="gap-3">
@@ -38,8 +44,8 @@ export function CategoryGrid() {
               <CategoryTile
                 key={category.id}
                 category={category}
-                selected={category.id === selectedId}
-                onPress={() => setSelectedId(category.id)}
+                selected={category.id === selected}
+                onPress={() => onSelect(category.id === selected ? null : category.id)}
               />
             ))}
           </View>

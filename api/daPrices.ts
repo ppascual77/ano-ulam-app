@@ -1,3 +1,4 @@
+import * as FileSystem from "expo-file-system/legacy";
 import { supabase, invokeEdgeFunction } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
 import { cheapestPricePatch, supermarketPriceOptions, type IngredientRow, type PriceOption } from "@/api/ingredients";
@@ -22,10 +23,35 @@ export async function listDaDailyPdfs() {
   return data.pdfs ?? [];
 }
 
+// DA's site throttles or blocks Supabase's server IPs on PDF downloads
+// (they time out there while loading instantly from a phone or home
+// network), so the PDF is downloaded here, on the device, and only its
+// bytes go to the edge function to be parsed.
+const PDF_DOWNLOAD_TIMEOUT_MS = 60_000;
+
+async function downloadPdfBase64(url: string): Promise<string> {
+  const path = `${FileSystem.cacheDirectory}da-${Date.now()}.pdf`;
+  const download = FileSystem.downloadAsync(url, path, { headers: { "User-Agent": "Mozilla/5.0 (AnoUlam admin)" } });
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(
+      () => reject(new Error("DA's site didn't send the PDF within 60s. It's often slow, try again in a minute.")),
+      PDF_DOWNLOAD_TIMEOUT_MS,
+    ),
+  );
+  try {
+    const result = await Promise.race([download, timeout]);
+    if (result.status !== 200) throw new Error(`DA's site returned ${result.status} for the PDF`);
+    return await FileSystem.readAsStringAsync(path, { encoding: FileSystem.EncodingType.Base64 });
+  } finally {
+    FileSystem.deleteAsync(path, { idempotent: true }).catch(() => {});
+  }
+}
+
 // Reads one PDF; writes nothing (saveDaDailyPrices does, after the admin
 // confirms the preview).
 export async function parseDaDailyPdf(url: string) {
-  return invokeEdgeFunction<DaParsedPdf>("ingest-da-daily-prices", { action: "parse", url });
+  const pdfBase64 = await downloadPdfBase64(url);
+  return invokeEdgeFunction<DaParsedPdf>("ingest-da-daily-prices", { action: "parse", pdfBase64 });
 }
 
 export const daCommodityKey = (c: { commodity: string; specification: string }) =>
@@ -71,6 +97,22 @@ export async function saveDaDailyPrices(parsed: DaParsedPdf, sourceUrl: string) 
   );
   if (priceError) throw priceError;
   return { saved: priced.length };
+}
+
+// Which of `dates` (YYYY-MM-DD) already have prices saved. One head-only
+// count per date: ~200 rows a day would hit PostgREST's row cap otherwise.
+export async function getSavedPriceDates(dates: string[]) {
+  const counts = await Promise.all(
+    dates.map(async (date) => {
+      const { count, error } = await supabase
+        .from("daily_prices")
+        .select("id", { count: "exact", head: true })
+        .eq("price_date", date);
+      if (error) throw error;
+      return [date, count ?? 0] as const;
+    }),
+  );
+  return new Set(counts.filter(([, count]) => count > 0).map(([date]) => date));
 }
 
 // A commodity prices at most one ingredient; an ingredient can have several

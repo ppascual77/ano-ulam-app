@@ -1,8 +1,9 @@
 import type { ImageSourcePropType } from "react-native";
 import { INGREDIENT_CATEGORY_ICONS as ICONS } from "@/frontend/core/meals/ingredientCategory";
+import type { PriceCategory } from "@/frontend/core/prices/utils/prices";
 
 export type PriceWatchCategory = {
-  id: string;
+  id: PriceCategory;
   label: string;
   icon: ImageSourcePropType;
 };
