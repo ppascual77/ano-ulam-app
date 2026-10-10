@@ -1,7 +1,11 @@
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { Minus, Plus } from "lucide-react-native";
-import { AppText } from "./AppText";
 import { colors } from "@/frontend/constants/theme";
+import { PulsePressable } from "./PulsePressable";
+import { RollingText } from "./RollingText";
+
+const BUTTON_SIZE = 30;
+const BUTTON_RADIUS = 5;
 
 type StepperProps = {
   value: number;
@@ -12,14 +16,15 @@ type StepperProps = {
 
 function StepButton({ onPress, disabled, children }: { onPress: () => void; disabled: boolean; children: React.ReactNode }) {
   return (
-    <Pressable
+    <PulsePressable
       onPress={onPress}
       disabled={disabled}
-      style={{ width: 30, height: 30, borderRadius: 5 }}
+      radius={BUTTON_RADIUS}
+      style={{ width: BUTTON_SIZE, height: BUTTON_SIZE, borderRadius: BUTTON_RADIUS }}
       className={`items-center justify-center border border-ink-emphasis/10 ${disabled ? "opacity-30" : "active:bg-ink-emphasis/5"}`}
     >
       {children}
-    </Pressable>
+    </PulsePressable>
   );
 }
 
@@ -32,9 +37,10 @@ export function Stepper({ value, onChange, min = 1, max }: StepperProps) {
       <StepButton onPress={() => onChange(value - 1)} disabled={!canDecrement}>
         <Minus color={colors.ink.normal} size={14} strokeWidth={2} />
       </StepButton>
-      <AppText variant="bodyBold" className="text-center" style={{ minWidth: 16 }}>
-        {value}
-      </AppText>
+      {/* Rolls up on +, down on −. Same look as AppText's bodyBold. */}
+      <View style={{ minWidth: 16 }} className="items-center">
+        <RollingText value={value} rank={value} className="text-center font-inter-bold text-body text-ink" />
+      </View>
       <StepButton onPress={() => onChange(value + 1)} disabled={!canIncrement}>
         <Plus color={colors.ink.normal} size={14} strokeWidth={2} />
       </StepButton>
