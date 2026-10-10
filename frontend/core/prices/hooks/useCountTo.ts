@@ -5,8 +5,11 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 // smooth for a number ticking over.
 const FRAME_MS = 33;
 
-// A number counting from `from` to `to` (ease-out) after `delayMs`, e.g. a
-// price rolling from last week's to today's. Re-runs when any input changes.
+// A number counting from `from` to `to` after `delayMs`, e.g. a price
+// rolling from last week's to today's. Ease-in-out, so it eases off the
+// start instead of jumping (ease-out lurched most of the way in the first
+// frames), then settles. Re-runs when any input changes. Show it with
+// tabular digits (fontVariant: ["tabular-nums"]) so it doesn't wobble.
 // With Reduce motion on it's just `to`.
 export function useCountTo(from: number, to: number, delayMs: number, durationMs = 800) {
   const reduceMotion = useReduceMotion();
@@ -26,7 +29,8 @@ export function useCountTo(from: number, to: number, delayMs: number, durationMs
       // Throttled, but the final value always lands.
       if (u === 1 || t - lastShown >= FRAME_MS) {
         lastShown = t;
-        setValue(from + (to - from) * (1 - Math.pow(1 - u, 3)));
+        const eased = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+        setValue(from + (to - from) * eased);
       }
       if (u < 1) raf = requestAnimationFrame(tick);
     };

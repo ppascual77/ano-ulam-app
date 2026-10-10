@@ -1,24 +1,14 @@
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { Image } from "expo-image";
-import { router } from "expo-router";
-import { Lock, Users, Utensils, Carrot, Sprout, User, ClipboardCheck, Landmark } from "lucide-react-native";
-import { AppText, Avatar, Dropdown } from "@/frontend/components/ui";
-import { colors } from "@/frontend/constants/theme";
-
-// TODO: replace with a real check (e.g. profile.tier === "admin") once the
-// backend session is reliably testable — hardcoded true for now so the admin
-// menu can be built/tested ahead of that.
-const isAdmin = true;
+import { AppText } from "@/frontend/components/ui";
 
 type HeaderProps = {
   /** Undefined/guest shows "Hello" only, no name. */
   name?: string;
-  avatarUrl?: string;
 };
 
-// Avatar lives here (scrolls with the rest of Home's content) rather than
-// as fixed chrome, so it isn't sticky while scrolling.
-export function Header({ name, avatarUrl }: HeaderProps) {
+// The avatar (and the admin menu) moved to the bottom nav's Profile tab.
+export function Header({ name }: HeaderProps) {
   return (
     <View className="ml-2 flex-row items-center justify-between">
       <View>
@@ -40,55 +30,6 @@ export function Header({ name, avatarUrl }: HeaderProps) {
           />
         </View>
       </View>
-      {isAdmin ? (
-        <Dropdown
-          trigger={<Avatar name={name ?? "Guest"} imageUri={avatarUrl} size={48} />}
-          headerLabel="Admin"
-          headerIcon={<Lock color={colors.ink.subtle} size={16} />}
-          items={[
-            {
-              label: "Manage Users",
-              icon: <Users color={colors.ink.subtle} size={18} />,
-              // TODO: no admin screens built yet — wire up once needed.
-              onPress: () => console.log("TODO: Manage Users"),
-            },
-            {
-              label: "Manage Meals",
-              icon: <Utensils color={colors.ink.subtle} size={18} />,
-              onPress: () => router.push("/manage-meals"),
-            },
-            {
-              label: "Manage Ingredients",
-              icon: <Carrot color={colors.ink.subtle} size={18} />,
-              onPress: () => router.push("/manage-ingredients"),
-            },
-            {
-              label: "DA Daily Prices",
-              icon: <Landmark color={colors.ink.subtle} size={18} />,
-              onPress: () => router.push("/da-prices"),
-            },
-            {
-              label: "Seed Meal",
-              icon: <Sprout color={colors.ink.subtle} size={18} />,
-              onPress: () => router.push("/seed-meal"),
-            },
-            {
-              label: "Review Recipes",
-              icon: <ClipboardCheck color={colors.ink.subtle} size={18} />,
-              onPress: () => router.push("/review-recipes"),
-            },
-            {
-              label: "Visit Profile",
-              icon: <User color={colors.ink.subtle} size={18} />,
-              onPress: () => router.push("/profile"),
-            },
-          ]}
-        />
-      ) : (
-        <Pressable onPress={() => router.push("/profile")}>
-          <Avatar name={name ?? "Guest"} imageUri={avatarUrl} size={48} />
-        </Pressable>
-      )}
     </View>
   );
 }

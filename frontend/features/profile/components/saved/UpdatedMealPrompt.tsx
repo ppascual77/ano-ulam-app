@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Pressable, Text, View } from "react-native";
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { BookmarkX, PenLine, RefreshCw } from "lucide-react-native";
-import { BottomSheet } from "@/frontend/components/ui";
+import { AppText, BottomSheet } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useLastDefined } from "../../hooks/useLastDefined";
 
@@ -46,7 +46,7 @@ export function UpdatedMealPrompt({ name, syncing, onClose, onClosed, onSync, on
           <PenLine color={colors.info} size={22} />
         </View>
         <View className="items-center">
-          <Text className="font-inter-bold text-subheading text-web-ink">This meal was updated</Text>
+          <AppText variant="sectionTitle" dot>This meal was updated</AppText>
           <Text className="mt-1 max-w-[260px] text-center font-inter-regular text-body text-web-ink-muted">
             The creator of <Text className="font-inter-medium text-web-ink-soft">{shownName}</Text> has made changes to this
             recipe. You can sync to get the latest version, or unsave it from your list.

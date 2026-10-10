@@ -89,7 +89,9 @@ export function BestValueMealCard({ value, index, onPress }: BestValueMealCardPr
               />
             )}
           </View>
-          <Text className="font-inter-extrabold text-heading tracking-display text-primary">{peso(shown)}</Text>
+          <Text style={{ fontVariant: ["tabular-nums"] }} className="font-inter-extrabold text-heading tracking-display text-primary">
+            {peso(shown)}
+          </Text>
         </View>
 
         <View className="mt-1 flex-row items-center">

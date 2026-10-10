@@ -1,6 +1,6 @@
 import { Text, View } from "react-native";
 import { Image } from "expo-image";
-import { BottomSheet, Button } from "@/frontend/components/ui";
+import { AppText, BottomSheet, Button } from "@/frontend/components/ui";
 
 export type LoginGateReason = "save" | "like" | "create";
 
@@ -63,10 +63,11 @@ export function LoginGateSheet({
       fitContent
     >
       <View className="px-10 pb-10 pt-12">
-        <Text className="font-inter-bold text-heading text-web-ink">
+        {/* The highlight ends in "!" or "?", so no orange dot after it. */}
+        <AppText variant="sectionTitle">
           {copy.title}
           <Text className={copy.tone}>{copy.highlight}</Text>
-        </Text>
+        </AppText>
         <Text className="mt-3 font-inter-regular text-body text-web-ink-muted">{copy.description}</Text>
         <View className="mt-8">
           <Button

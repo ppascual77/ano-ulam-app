@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import Animated, { FadeIn, FadeInRight, FadeInUp } from "react-native-reanimated";
-import { Pencil, RefreshCw } from "lucide-react-native";
-import { AppText, Avatar, Button, ConfirmSheet, Screen, Toast, type ToastState } from "@/frontend/components/ui";
+import { ArrowLeft, Pencil, RefreshCw } from "lucide-react-native";
+import { AppText, Button, ConfirmSheet, LandingTitle, Screen, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
@@ -20,6 +21,8 @@ import type { MealSlot } from "../mock/plannerMeals";
 import { BudgetInput, MacroGoalCard, ServingStepper, parseBudget } from "../components/PlannerInputs";
 import { MacroGoalSheet } from "../components/MacroGoalSheet";
 import { GeneratingView } from "../components/GeneratingView";
+import { MealPlannerIntro } from "../components/MealPlannerIntro";
+import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { DateSelector, DayActions, GroceryListButton, HeroCarousel, MealListRow, SummaryRow, useMeasuredWidth } from "../components/PlanParts";
 import { LockedDaySheet, SwapMealSheet } from "../components/PlannerSheets";
 
@@ -31,6 +34,11 @@ import { LockedDaySheet, SwapMealSheet } from "../components/PlannerSheets";
 // No Grocery List yet.
 const MOCK_NAME = "Patrick";
 
+// Plays the "one budget, seven days" intro on opening the planner (setup
+// stage only: that's where the "Let's plan your week." header is).
+// TODO: gate this behind a first-time-user flag (the auto tour).
+const SHOW_INTRO = true;
+
 
 export default function MealPlannerScreen() {
   const store = usePlannerStore();
@@ -41,7 +49,10 @@ export default function MealPlannerScreen() {
   // same mock name Home's header uses.
   const fullName = (meta.full_name as string | undefined) ?? (meta.name as string | undefined) ?? MOCK_NAME;
   const firstName = fullName.split(" ")[0];
-  const avatarUrl = (meta.avatar_url as string | undefined) ?? (meta.picture as string | undefined);
+  // The intro's dot lands as the period of "Let's plan your week.".
+  // Never with Reduce motion on (Settings, or the phone's own setting).
+  const reduceMotion = useReduceMotion();
+  const intro = usePageIntro({ enabled: SHOW_INTRO && !reduceMotion && store.stage === "setup" });
 
   const [macroSheetOpen, setMacroSheetOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState(0);
@@ -110,22 +121,26 @@ export default function MealPlannerScreen() {
 
   return (
     <Screen edges={["top"]} padded={false} dismissKeyboardOnTap={false}>
+      {/* Opened from Home's "Plan your week" card (no longer a tab). */}
+      <View className="px-5 pt-2">
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Back" className="h-9 w-9 justify-center">
+          <ArrowLeft color={colors.webInk.DEFAULT} size={20} />
+        </Pressable>
+      </View>
       {store.stage === "setup" && (
         <Animated.View key="setup" entering={FadeInUp.duration(250)} className="flex-1">
           <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false} contentContainerClassName="gap-4 px-9 pb-10 pt-2">
-            {/* Same type and spacing as Home's header (features/home/components/Header):
-                36px from the left like Home's (28 + ml-2), and -mr-2 keeps the avatar
-                28px from the right, where Home's sits, outside the cards' wider padding. */}
-            <View className="-mr-2 flex-row items-center justify-between">
-              <View>
-                <AppText variant="title">
-                  Hello, <Text className="font-inter-bold text-primary">{firstName}</Text>
-                </AppText>
-                <AppText variant="heading">Let's plan your week</AppText>
-              </View>
-              <View className="flex-row items-center gap-2">
-                <Avatar name={fullName} imageUri={avatarUrl} size={48} />
-              </View>
+            {/* Same title style as "Price Watch." and "Browse." (28px from
+                the edge like theirs, so -ml-2 past the cards' wider padding);
+                its period is where the intro's dot lands. */}
+            <View className="-ml-2">
+              <LandingTitle dotRef={intro.targetRef} showDot={intro.landed}>
+                Let&apos;s plan your week
+              </LandingTitle>
+              <AppText variant="caption">
+                Hello, <Text className="font-inter-semibold text-primary">{firstName}</Text>! Meals and a grocery list for 7
+                days, built around your budget.
+              </AppText>
             </View>
 
             <View className="items-center gap-3 py-2">
@@ -340,6 +355,7 @@ export default function MealPlannerScreen() {
       <MealDetailSheet meal={detail.meal} onClose={detail.close} />
 
       <Toast toast={toast} onHide={() => setToast(null)} />
+      {intro.showing && <MealPlannerIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={intro.finish} />}
     </Screen>
   );
 }

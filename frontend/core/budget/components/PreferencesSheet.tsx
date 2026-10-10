@@ -35,7 +35,7 @@ export function PreferencesSheet({
     <BottomSheet visible={visible} onClose={onClose} heightPercent={0.6}>
       <View className="flex-1 px-8 pt-4 mt-6">
         <View className="gap-3 mb-4">
-          <AppText variant="headingMedium" className="mb-5">
+<AppText variant="sectionTitle" dot className="mb-5">
             Dietary Focus
           </AppText>
           <ChipSelect
@@ -47,7 +47,7 @@ export function PreferencesSheet({
         </View>
 
         <View className="mt-6 gap-3">
-          <AppText variant="headingMedium" className="mb-5">
+<AppText variant="sectionTitle" dot className="mb-5">
             Allergens
           </AppText>
           <ChipSelect

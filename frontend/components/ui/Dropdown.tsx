@@ -25,6 +25,9 @@ type DropdownProps = {
    *  trigger near the right edge (e.g. an avatar menu); "left" suits one
    *  near the left, where a right-aligned menu would run off-screen. */
   align?: "left" | "right";
+  /** "below" (default) opens under the trigger; "above" opens over it, for
+   *  a trigger near the bottom of the screen (e.g. the bottom nav). */
+  placement?: "below" | "above";
 };
 
 // Menus without matchTriggerWidth are at least this wide (min-w-[200px]).
@@ -34,20 +37,21 @@ const SCREEN_MARGIN = 16;
 
 // Generic anchored menu — measures the trigger's on-screen position so the
 // menu opens right below/aligned to it, rather than a full-screen sheet.
-export function Dropdown({ trigger, items, headerLabel, headerIcon, matchTriggerWidth, align = "right" }: DropdownProps) {
+export function Dropdown({ trigger, items, headerLabel, headerIcon, matchTriggerWidth, align = "right", placement = "below" }: DropdownProps) {
   const [visible, setVisible] = useState(false);
-  const [position, setPosition] = useState({ top: 0, right: 0, left: 0, width: 0, maxHeight: 400 });
+  const [position, setPosition] = useState({ top: 0, bottom: 0, right: 0, left: 0, width: 0, maxHeight: 400 });
   const triggerRef = useRef<View>(null);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
   const open = () => {
     triggerRef.current?.measureInWindow((x, y, width, height) => {
       const top = y + height + 8;
-      // Clamp to the space actually left below the trigger so a long list
-      // scrolls internally instead of rendering past the bottom of the
-      // screen where it can't be read or tapped.
-      const maxHeight = Math.max(120, screenHeight - top - SCREEN_MARGIN);
-      setPosition({ top, right: screenWidth - (x + width), left: x, width, maxHeight });
+      const bottom = screenHeight - y + 8;
+      // Clamp to the space actually left below (or above) the trigger so a
+      // long list scrolls internally instead of running off the screen
+      // where it can't be read or tapped.
+      const maxHeight = Math.max(120, placement === "above" ? y - 8 - SCREEN_MARGIN : screenHeight - top - SCREEN_MARGIN);
+      setPosition({ top, bottom, right: screenWidth - (x + width), left: x, width, maxHeight });
       setVisible(true);
     });
   };
@@ -68,7 +72,9 @@ export function Dropdown({ trigger, items, headerLabel, headerIcon, matchTrigger
           <Pressable
             onPress={() => {}}
             style={[
-              { position: "absolute", top: position.top, maxHeight: position.maxHeight },
+              placement === "above"
+                ? { position: "absolute", bottom: position.bottom, maxHeight: position.maxHeight }
+                : { position: "absolute", top: position.top, maxHeight: position.maxHeight },
               matchTriggerWidth
                 ? { left: position.left, width: position.width }
                 : align === "left"

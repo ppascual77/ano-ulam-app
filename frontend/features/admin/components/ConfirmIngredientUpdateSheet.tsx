@@ -21,7 +21,7 @@ export function ConfirmIngredientUpdateSheet({ pending, affectedMeals, loading, 
   return (
     <BottomSheet visible={visible} onClose={onCancel} heightPercent={0.6}>
       <View className="flex-1 px-8 pt-10">
-        <AppText variant="heading" className="mb-1">
+<AppText variant="sectionTitle" dot className="mb-1">
           {names.length <= 1 ? `Update ${names[0] ?? "ingredient"}?` : `Update ${names.length} ingredients?`}
         </AppText>
         <AppText variant="caption" className="text-ink-subtle mb-4">

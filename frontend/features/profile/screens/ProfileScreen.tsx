@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Settings, Sparkles } from "lucide-react-native";
-import { Screen, Toast, type ToastState } from "@/frontend/components/ui";
+import { Settings, Sparkles } from "lucide-react-native";
+import { AppText, Screen, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { RECIPE_LIMIT } from "@/api/recipes";
 import { useAuth, useSignInWithGoogle } from "@/frontend/features/auth/hooks/useAuth";
@@ -91,16 +91,31 @@ export default function ProfileScreen() {
     [],
   );
 
+  // Profile is a bottom nav tab (pre-mounted at launch with the others), so
+  // the tour waits until the tab is actually showing, or it would pop up
+  // over Home. Leaving mid-tour closes it; it starts fresh next visit.
+  const [focused, setFocused] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => {
+        setFocused(false);
+        setTourOpen(false);
+        tourAutoStarted.current = false;
+      };
+    }, []),
+  );
+
   // Once per account, after the completed-tours list is known.
   const toursCompleted = accountSettings.data?.tours_completed;
   useEffect(() => {
-    if (isGuest || isOfficial || !toursCompleted || tourAutoStarted.current) return;
+    if (!focused || isGuest || isOfficial || !toursCompleted || tourAutoStarted.current) return;
     if (toursCompleted.includes(PROFILE_TOUR_ID)) return;
     tourAutoStarted.current = true;
     // Let the tab bar lay out before measuring it.
     const timer = setTimeout(() => setTourOpen(true), 600);
     return () => clearTimeout(timer);
-  }, [isGuest, isOfficial, toursCompleted]);
+  }, [focused, isGuest, isOfficial, toursCompleted]);
 
   const finishTour = () => {
     setTourOpen(false);
@@ -180,9 +195,10 @@ export default function ProfileScreen() {
   return (
     <Screen padded={false} edges={["top"]} dismissKeyboardOnTap={false}>
       <View className="flex-row items-center justify-between px-5 py-2">
-        <Pressable onPress={() => router.back()} hitSlop={10} className="h-9 w-9 justify-center">
-          <ArrowLeft color={colors.webInk.DEFAULT} size={20} />
-        </Pressable>
+        {/* A bottom nav tab now, so a title instead of a back arrow. */}
+        <AppText variant="sectionTitle" dot>
+          Profile
+        </AppText>
         <View className="flex-row items-center gap-3">
           {__DEV__ && (
             <Pressable onPress={() => setDevAccount((prev) => NEXT_DEV_ACCOUNT[prev])} className="rounded-full bg-web-ink/80 px-2 py-1">

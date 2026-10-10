@@ -44,10 +44,23 @@ const variantClasses: Record<Variant, string> = {
   navLabel: "font-inter-medium text-sub text-ink",
 };
 
+// The dot only follows a word: a title already ending in "?", "!", "." or an
+// emoji keeps its own ending (no "?."). Non-text endings (e.g. a highlighted
+// span) count as a word, so the caller decides by passing `dot` or not.
+function endsInWord(children: React.ReactNode): boolean {
+  const last = Array.isArray(children) ? children[children.length - 1] : children;
+  if (typeof last === "number") return true;
+  if (typeof last !== "string") return true;
+  // Latin letters (incl. accented, e.g. ñ) and digits; no \p{} escapes,
+  // which not every Hermes version supports.
+  return /[A-Za-z0-9\u00C0-\u024F]\s*$/.test(last);
+}
+
 type AppTextProps = TextProps & {
   variant?: Variant;
   className?: string;
-  /** Ends the text with an accent-orange period (the showreel's dot). */
+  /** Ends the text with an accent-orange period (the showreel's dot),
+   *  unless it already ends in punctuation or an emoji. */
   dot?: boolean;
 };
 
@@ -61,7 +74,7 @@ export function AppText({
   return (
     <Text className={`${variantClasses[variant]} ${className}`} {...props}>
       {children}
-      {dot && <Text className="text-accent">.</Text>}
+      {dot && endsInWord(children) && <Text className="text-accent">.</Text>}
     </Text>
   );
 }

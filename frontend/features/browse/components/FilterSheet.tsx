@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { BottomSheet } from "@/frontend/components/ui";
+import { AppText, BottomSheet } from "@/frontend/components/ui";
 import {
   DIETARY_OPTIONS,
   EMPTY_FILTERS,
@@ -98,7 +98,7 @@ export function FilterSheet({ visible, onClose, applied, onApply }: FilterSheetP
     <BottomSheet visible={visible} onClose={onClose} heightPercent={0.9} fitContent>
       <View className="gap-5 px-6 pb-8 pt-10">
         <View className="flex-row items-center justify-between">
-          <Text className="font-inter-semibold text-body text-web-ink-soft">Filters</Text>
+          <AppText variant="sectionTitle" dot>Filters</AppText>
           {count > 0 && (
             <Pressable
               onPress={() => {
