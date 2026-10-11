@@ -2,15 +2,15 @@ import { useEffect } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Image, type ImageProps } from "expo-image";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { FadeInDown, FadeOutUp, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { Easing, FadeInDown, FadeOutUp, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CircleAlert, CircleCheck } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 
 const AUTO_HIDE_MS = 3500;
-// Drops in from above on a soft spring, leaves upward quicker than it came.
-const ENTER = FadeInDown.springify().damping(18).stiffness(220);
+// Eases down into place (no spring overshoot), leaves upward quicker.
+const ENTER = FadeInDown.duration(240).easing(Easing.out(Easing.cubic));
 const EXIT = FadeOutUp.duration(180);
 // An upward flick past this (or fast enough) dismisses it.
 const DISMISS_DISTANCE = 24;
