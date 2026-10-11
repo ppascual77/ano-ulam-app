@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { View, Pressable } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { AppText, BottomSheet, SearchBar } from "@/frontend/components/ui";
 import { matchIngredientCandidates } from "@/api/meals";
 import type { IngredientRow } from "@/api/ingredients";
 import type { DaCommodityRow } from "@/api/daPrices";
+import { StatusChip } from "./AdminUi";
 
 type Props = {
   commodity: DaCommodityRow | null;
@@ -60,7 +61,7 @@ export function LinkDaCommoditySheet({ commodity, ingredients, linkedTo, onPick,
         </View>
 
         {!search && (
-          <AppText variant="caption" className="text-ink-subtle mb-1">
+          <AppText variant="eyebrow" className="mb-1">
             {results.length > 0 ? "Suggested" : "No name match. Search for the ingredient instead."}
           </AppText>
         )}
@@ -75,18 +76,16 @@ export function LinkDaCommoditySheet({ commodity, ingredients, linkedTo, onPick,
                   setSearch("");
                   onPick(ingredient);
                 }}
-                className="border-b border-ink-emphasis/10 py-3 active:bg-primary/5"
+                className="gap-1 border-b border-ink-emphasis/10 py-3 active:bg-primary/5"
               >
-                <AppText variant="bodyMedium">{ingredient.canonical_name}</AppText>
+                <Text className="font-inter-semibold text-body-lg text-ink-emphasis">{ingredient.canonical_name}</Text>
                 <AppText variant="caption" className="text-ink-subtle">
                   {ingredient.estimated_price != null
                     ? `₱${ingredient.estimated_price}/${ingredient.estimated_price_unit} · ${ingredient.price_source}`
                     : "No price yet"}
                 </AppText>
                 {alsoLinked.length > 0 && (
-                  <AppText variant="caption" className="text-primary">
-                    Also priced by DA: {alsoLinked.map((c) => c.commodity).join(", ")}
-                  </AppText>
+                  <StatusChip label={`Also priced by DA: ${alsoLinked.map((c) => c.commodity).join(", ")}`} tone="success" icon={null} />
                 )}
               </Pressable>
             );

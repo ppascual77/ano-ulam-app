@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, View } from "react-native";
+import { Linking, Pressable, Text, View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
-import { ExternalLink } from "lucide-react-native";
+import { ExternalLink, Landmark, ShoppingCart } from "lucide-react-native";
 import { AppText, Button, TextField } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import {
@@ -26,6 +26,7 @@ import { useGroundIngredientPrices, useMarkPriceGroundingAttempted } from "../ho
 import { useConfirmedIngredientUpdate } from "../hooks/useConfirmedIngredientUpdate";
 import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
 import { Checkbox } from "./Checkbox";
+import { ActionChip, InlineError, StatusChip } from "./AdminUi";
 
 const DA_SUGGESTIONS = 6;
 const SOURCE_LABEL: Record<string, string> = {
@@ -197,43 +198,41 @@ export function SeedIngredientPriceFinder({ ingredient }: { ingredient: Ingredie
   };
 
   return (
-    <View className="gap-2 rounded-xl border border-ink-emphasis/10 px-3 py-2">
-      <AppText variant="caption" className="text-ink-subtle">
-        Price: {ingredient.estimated_price != null ? `₱${ingredient.estimated_price}/${ingredient.estimated_price_unit}` : "none"} ·{" "}
-        {SOURCE_LABEL[ingredient.price_source] ?? ingredient.price_source}
-      </AppText>
+    <View className="gap-3 rounded-xl bg-ink-emphasis/5 p-3">
+      {/* The ingredient's current price, then the ways to find a better one. */}
+      <View className="flex-row items-center justify-between gap-2">
+        <View>
+          <Text className="font-inter-medium text-small text-ink-subtle">Ingredient price</Text>
+          <Text className="font-inter-bold text-body-lg text-ink-emphasis">
+            {ingredient.estimated_price != null ? `₱${ingredient.estimated_price}/${ingredient.estimated_price_unit}` : "None yet"}
+          </Text>
+        </View>
+        <StatusChip label={SOURCE_LABEL[ingredient.price_source] ?? ingredient.price_source} icon={null} />
+      </View>
 
-      {notice && (
-        <AppText variant="caption" className="text-primary">
-          {notice}
-        </AppText>
-      )}
+      {notice && <StatusChip label={notice} tone="success" />}
 
-      <View className="flex-row flex-wrap gap-4">
-        <Pressable onPress={() => setDaOpen((v) => !v)} hitSlop={6}>
-          <AppText variant="caption" className="text-primary">
-            {daOpen ? "Hide DA prices" : "Find DA price"}
-          </AppText>
-        </Pressable>
-        <Pressable
+      <View className="flex-row flex-wrap gap-2">
+        <ActionChip
+          label={daOpen ? "Hide DA prices" : "Find DA price"}
+          icon={<Landmark color={colors.primary} size={15} />}
+          tone={daOpen ? "neutral" : "primary"}
+          onPress={() => setDaOpen((v) => !v)}
+        />
+        <ActionChip
+          label={groundPrices.isPending ? "Searching supermarkets (10-30s)..." : "Search supermarkets (~3¢)"}
+          icon={<ShoppingCart color={colors.primary} size={15} />}
+          loading={groundPrices.isPending}
           onPress={handleSearchSupermarkets}
-          disabled={groundPrices.isPending}
-          hitSlop={6}
-          className="flex-row items-center gap-2"
-        >
-          {groundPrices.isPending && <ActivityIndicator size="small" color={colors.primary} />}
-          <AppText variant="caption" className="text-primary">
-            {groundPrices.isPending ? "Searching supermarkets (10-30s)..." : "Search supermarkets (~3¢)"}
-          </AppText>
-        </Pressable>
+        />
       </View>
 
       {daOpen && (
         <View className="gap-1">
           {alreadyLinked.length > 0 && (
-            <AppText variant="caption" className="text-primary">
+            <Text className="font-inter-medium text-body text-primary">
               Already linked: {alreadyLinked.map((c) => c.commodity).join(", ")}
-            </AppText>
+            </Text>
           )}
           <TextField label="Search DA commodities" value={daSearch} onChangeText={setDaSearch} />
           {daResults.length === 0 && (
@@ -257,11 +256,7 @@ export function SeedIngredientPriceFinder({ ingredient }: { ingredient: Ingredie
           No supermarket listing found: {supermarket.reason}
         </AppText>
       )}
-      {supermarket?.confidence === "ERROR" && (
-        <AppText variant="caption" className="text-like">
-          Supermarket search failed: {supermarket.error}
-        </AppText>
-      )}
+      {supermarket?.confidence === "ERROR" && <InlineError>Supermarket search failed: {supermarket.error}</InlineError>}
       {marketCandidates.map((c, i) => (
         <Pressable key={c.url} onPress={() => toggleMarket(i)} className="flex-row items-start gap-3">
           <Checkbox checked={marketPicked.has(i)} />
@@ -283,11 +278,7 @@ export function SeedIngredientPriceFinder({ ingredient }: { ingredient: Ingredie
         </Pressable>
       ))}
 
-      {error && (
-        <AppText variant="caption" className="text-like">
-          {error}
-        </AppText>
-      )}
+      {error && <InlineError>{error}</InlineError>}
 
       {picking > 0 && (
         <Button

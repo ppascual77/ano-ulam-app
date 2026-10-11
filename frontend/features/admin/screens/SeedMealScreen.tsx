@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { router } from "expo-router";
-import { Link2 } from "lucide-react-native";
+import { ClipboardCheck, Link2 } from "lucide-react-native";
 import { AppText, Button, ErrorState, LoadingState, Screen, TextField } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { parseQuantityText, type ImportedMealDraft } from "@/api/meals";
@@ -17,6 +17,7 @@ import { MealFormFields, type MealFormState } from "../components/MealFormFields
 import { MealVerifyPanel } from "../components/MealVerifyPanel";
 import type { PendingMealIngredient } from "../components/SeedMealIngredientsEditor";
 import { AdminHeader } from "../components/AdminHeader";
+import { Checklist, InlineError } from "../components/AdminUi";
 
 function draftIngredientsToPending(draft: ImportedMealDraft): PendingMealIngredient[] {
   return draft.ingredients.map((ing, i) => {
@@ -143,29 +144,38 @@ export default function SeedMealScreen() {
       <AdminHeader title="Seed Meal" />
 
       {!draft || !form ? (
-        <View className="px-5 gap-3">
-          <AppText variant="body" className="text-ink-subtle">
-            Paste a link to a recipe page. It will be rewritten and re-priced for the catalog —
-            Home-cooked (Luto) only.
-          </AppText>
-          <TextField
-            label="Recipe URL"
-            value={url}
-            onChangeText={setUrl}
-            autoCapitalize="none"
-            keyboardType="url"
-          />
-          <Button
-            label={importMeal.isPending ? "Importing..." : "Import Recipe"}
-            disabled={importMeal.isPending || url.trim() === ""}
-            icon={<Link2 color={colors.white} size={16} />}
-            onPress={handleImport}
-          />
-          {importMeal.isError && (
-            <AppText variant="body" className="text-like">
-              {importMeal.error instanceof Error ? importMeal.error.message : "Import failed"}
-            </AppText>
-          )}
+        <View className="px-5">
+          {/* Step 1: the link. */}
+          <View className="gap-4 rounded-2xl border border-ink-emphasis/10 p-5">
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+              <Link2 color={colors.primary} size={22} />
+            </View>
+            <View className="gap-1">
+              <AppText variant="sectionSubtitle" dot>
+                Import a recipe
+              </AppText>
+              <Text className="font-inter-regular text-body-lg text-ink">
+                Paste a link to a recipe page. It will be rewritten and re-priced for the catalog —
+                <Text className="font-inter-semibold"> Home-cooked (Luto) only.</Text>
+              </Text>
+            </View>
+            <TextField
+              label="Recipe URL"
+              value={url}
+              onChangeText={setUrl}
+              autoCapitalize="none"
+              keyboardType="url"
+            />
+            <Button
+              label={importMeal.isPending ? "Importing..." : "Import Recipe"}
+              disabled={importMeal.isPending || url.trim() === ""}
+              icon={<Link2 color={colors.white} size={16} />}
+              onPress={handleImport}
+            />
+            {importMeal.isError && (
+              <InlineError>{importMeal.error instanceof Error ? importMeal.error.message : "Import failed"}</InlineError>
+            )}
+          </View>
         </View>
       ) : ingredientsLoading ? (
         <LoadingState />
@@ -173,6 +183,19 @@ export default function SeedMealScreen() {
         <ErrorState />
       ) : (
         <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 40 }}>
+          {/* Step 2: review what was imported, section by section. */}
+          <View className="mb-6 flex-row items-center gap-3 rounded-2xl bg-primary/5 p-4">
+            <View className="h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+              <ClipboardCheck color={colors.primary} size={20} />
+            </View>
+            <View className="flex-1">
+              <Text className="font-inter-semibold text-body-lg text-ink-emphasis">Review the imported recipe</Text>
+              <Text className="font-inter-regular text-body text-ink-subtle">
+                Check each section, link every ingredient, verify, then save.
+              </Text>
+            </View>
+          </View>
+
           <MealFormFields value={form} onChange={updateForm} allIngredients={allIngredients} />
 
           {allResolved && (
@@ -187,25 +210,36 @@ export default function SeedMealScreen() {
             />
           )}
 
-          <Button
-            label={
-              createMeal.isPending || addMealIngredient.isPending || recomputeMealTotals.isPending
-                ? "Saving..."
-                : "Confirm Seed"
-            }
-            disabled={!canSave}
-            onPress={handleSave}
-          />
-          {!allResolved && trimmedIngredients.length > 0 && (
-            <AppText variant="caption" className="text-like text-center mt-2">
-              Every ingredient needs to be linked to a real ingredient record before saving.
+          {/* Step 3: what's left before saving, then save. */}
+          <View className="gap-4 rounded-2xl border border-ink-emphasis/10 p-5">
+            <AppText variant="sectionSubtitle" dot>
+              Ready to save
             </AppText>
-          )}
-          {allResolved && !hasVerified && (
-            <AppText variant="caption" className="text-like text-center mt-2">
-              Run Verify with AI above before saving.
-            </AppText>
-          )}
+            <Checklist
+              items={[
+                { label: "Meal has a name", done: form.name.trim() !== "" },
+                {
+                  label: "Every ingredient is linked",
+                  done: allResolved,
+                  detail: `${trimmedIngredients.filter((i) => i.ingredientId).length} of ${trimmedIngredients.length} linked to a real ingredient record`,
+                },
+                {
+                  label: "Verified with AI",
+                  done: hasVerified,
+                  detail: hasVerified ? undefined : "Run Verify with AI above (appears once every ingredient is linked).",
+                },
+              ]}
+            />
+            <Button
+              label={
+                createMeal.isPending || addMealIngredient.isPending || recomputeMealTotals.isPending
+                  ? "Saving..."
+                  : "Confirm Seed"
+              }
+              disabled={!canSave}
+              onPress={handleSave}
+            />
+          </View>
         </ScrollView>
       )}
     </Screen>

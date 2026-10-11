@@ -1,20 +1,14 @@
 import { useMemo, useState } from "react";
-import { View, Pressable, Linking } from "react-native";
+import { Linking, Pressable, Text, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
-import { Check, ExternalLink } from "lucide-react-native";
+import { ExternalLink } from "lucide-react-native";
 import { AppText, Button, LoadingState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { applyUsdaMatch, getUsdaSourceUrl, type IngredientRow, type UsdaGroundingResult } from "@/api/ingredients";
 import { useGroundIngredientsUsda, useIngredients, useMarkUsdaGroundingAttempted } from "../hooks/useIngredients";
 import { useConfirmedIngredientUpdate, type PendingIngredientChange } from "../hooks/useConfirmedIngredientUpdate";
 import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
-
-const CONFIDENCE_TONE: Record<string, string> = {
-  HIGH: "text-primary",
-  LOW: "text-accent",
-  NONE: "text-ink-subtle",
-  ERROR: "text-like",
-};
+import { ConfidenceChip, InlineError, SelectBox, StatTiles } from "./AdminUi";
 
 export function UsdaGroundingPanel() {
   const { data: ingredients, isLoading } = useIngredients({ showArchived: false });
@@ -122,23 +116,26 @@ export function UsdaGroundingPanel() {
 
   return (
     <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 40 }}>
-      <AppText variant="body" className="text-ink-subtle mb-2">
-        {neverAttempted.length} ingredient{neverAttempted.length === 1 ? "" : "s"} never checked against USDA.
-        Already USDA/FNRI-sourced ingredients are never re-ground here automatically — use "Fetch from
-        USDA" in Edit for a deliberate one-off re-run.
-      </AppText>
+      <View className="mb-4 gap-1">
+        <AppText variant="sectionSubtitle" dot>
+          Ground from USDA
+        </AppText>
+        <Text className="font-inter-regular text-body-lg text-ink">
+          <Text className="font-inter-semibold">
+            {neverAttempted.length} ingredient{neverAttempted.length === 1 ? "" : "s"}
+          </Text>{" "}
+          never checked against USDA. Already USDA/FNRI-sourced ingredients are never re-ground here automatically —
+          use "Fetch from USDA" in Edit for a deliberate one-off re-run.
+        </Text>
+      </View>
 
       {alreadyCheckedCount > 0 && (
         <Pressable
           onPress={() => setIncludeAlreadyChecked((prev) => !prev)}
           className="flex-row items-center gap-3 mb-4"
         >
-          <View
-            className={`w-6 h-6 rounded-md items-center justify-center ${includeAlreadyChecked ? "bg-primary" : "border border-primary/20"}`}
-          >
-            {includeAlreadyChecked && <Check color={colors.white} size={14} />}
-          </View>
-          <AppText variant="caption" className="text-ink-subtle flex-1">
+          <SelectBox checked={includeAlreadyChecked} />
+          <AppText variant="caption" className="flex-1 text-ink">
             Also include {alreadyCheckedCount} already-checked manual ingredient
             {alreadyCheckedCount === 1 ? "" : "s"} (safety net, in case something was missed)
           </AppText>
@@ -152,19 +149,26 @@ export function UsdaGroundingPanel() {
       />
 
       {ground.isError && (
-        <AppText variant="body" className="text-like mt-3">
-          Grounding failed: {String(ground.error)}
-        </AppText>
+        <View className="mt-3">
+          <InlineError>Grounding failed: {String(ground.error)}</InlineError>
+        </View>
       )}
 
       {results && (
-        <View className="mt-5 gap-2">
-          <AppText variant="bodyBold" className="mb-2">
-            {results.filter((r) => r.confidence === "HIGH").length} high confidence ·{" "}
-            {results.filter((r) => r.confidence === "LOW").length} low confidence ·{" "}
-            {results.filter((r) => r.confidence === "NONE").length} no match ·{" "}
-            {results.filter((r) => r.confidence === "ERROR").length} errored
+        <View className="mt-6 gap-3 border-t border-ink-emphasis/10 pt-6">
+          <AppText variant="sectionSubtitle" dot>
+            Results
           </AppText>
+          <View className="rounded-2xl bg-primary/5 p-2">
+            <StatTiles
+              stats={[
+                { label: "High", value: String(results.filter((r) => r.confidence === "HIGH").length), emphasis: true },
+                { label: "Low", value: String(results.filter((r) => r.confidence === "LOW").length) },
+                { label: "No match", value: String(results.filter((r) => r.confidence === "NONE").length) },
+                { label: "Errored", value: String(results.filter((r) => r.confidence === "ERROR").length) },
+              ]}
+            />
+          </View>
 
           <Button
             label={confirmedUpdate.isSaving ? "Applying..." : `Confirm ${selected.size} selected`}
@@ -185,25 +189,13 @@ export function UsdaGroundingPanel() {
                   onPress={() => canSelect && toggle(r.id)}
                   className="flex-row items-center gap-3"
                 >
-                  {canSelect && (
-                    <View
-                      className={`w-6 h-6 rounded-md items-center justify-center ${isSelected ? "bg-primary" : "border border-primary/20"}`}
-                    >
-                      {isSelected && <Check color={colors.white} size={14} />}
+                  {canSelect && <SelectBox checked={isSelected} />}
+                  <View className="flex-1 gap-1">
+                    <View className="flex-row flex-wrap items-center gap-2">
+                      <Text className="font-inter-semibold text-body-lg text-ink-emphasis">{ingredient?.canonical_name ?? r.id}</Text>
+                      <ConfidenceChip confidence={r.confidence} />
                     </View>
-                  )}
-                  <View className="flex-1">
-                    <View className="flex-row items-center gap-2">
-                      <AppText variant="bodyBold">{ingredient?.canonical_name ?? r.id}</AppText>
-                      <AppText variant="caption" className={CONFIDENCE_TONE[r.confidence]}>
-                        {r.confidence}
-                      </AppText>
-                    </View>
-                    {r.confidence === "ERROR" && (
-                      <AppText variant="caption" className="text-like">
-                        {r.error}
-                      </AppText>
-                    )}
+                    {r.confidence === "ERROR" && <InlineError>{r.error}</InlineError>}
                     {r.confidence === "NONE" && (
                       <AppText variant="caption" className="text-ink-subtle">
                         No confident USDA match — resolve manually via Edit, or leave for FNRI.
@@ -214,7 +206,7 @@ export function UsdaGroundingPanel() {
                         onPress={() => Linking.openURL(getUsdaSourceUrl(activeCandidate.fdcId))}
                         className="flex-row items-center gap-1"
                       >
-                        <AppText variant="caption" className="text-ink-subtle">
+                        <AppText variant="caption" className="text-ink">
                           → {activeCandidate.description} ({activeCandidate.calories ?? "?"} cal/100g)
                         </AppText>
                         <ExternalLink color={colors.ink.subtle} size={12} />

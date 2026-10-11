@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { View, Pressable, Linking } from "react-native";
+import { Linking, Pressable, Text, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { ExternalLink } from "lucide-react-native";
 import { AppText, Button, LoadingState } from "@/frontend/components/ui";
@@ -21,6 +21,7 @@ import { useDaCommodities } from "../hooks/useDaPrices";
 import { useConfirmedIngredientUpdate, type PendingIngredientChange } from "../hooks/useConfirmedIngredientUpdate";
 import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
 import { Checkbox } from "./Checkbox";
+import { ConfidenceChip, InlineError, StatTiles, StatusChip } from "./AdminUi";
 
 // Each lookup is paid (one or more web searches), so runs are capped rather
 // than "check all ~500": the admin sees real cost and quality on a small
@@ -30,13 +31,6 @@ const RUN_SIZE = 5;
 // A found price this far off the current one (either direction) is worth a
 // second look before accepting, e.g. a per-piece price read as per-kg.
 const BIG_CHANGE_RATIO = 3;
-
-const CONFIDENCE_TONE: Record<string, string> = {
-  HIGH: "text-primary",
-  LOW: "text-accent",
-  NONE: "text-ink-subtle",
-  ERROR: "text-like",
-};
 
 // Current price expressed in the candidate's kg/L unit, so the two compare
 // directly ("₱0.16/g" vs "₱238/kg" isn't readable at a glance).
@@ -209,16 +203,24 @@ export function PriceGroundingPanel() {
 
   return (
     <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 40 }}>
-      <AppText variant="body" className="text-ink-subtle mb-2">
-        {neverChecked.length} ingredient{neverChecked.length === 1 ? "" : "s"} never price-checked. Each check
-        searches only these supermarkets' online stores: SM Markets, GoRobinsons, WalterMart, MetroMart, Landers,
-        and S&R. It is a paid web search; the real cost of each run shows below. Nothing is saved until you confirm.
-      </AppText>
+      <View className="mb-4 gap-1">
+        <AppText variant="sectionSubtitle" dot>
+          Ground prices
+        </AppText>
+        <Text className="font-inter-regular text-body-lg text-ink">
+          <Text className="font-inter-semibold">
+            {neverChecked.length} ingredient{neverChecked.length === 1 ? "" : "s"}
+          </Text>{" "}
+          never price-checked. Each check searches only these supermarkets' online stores: SM Markets, GoRobinsons,
+          WalterMart, MetroMart, Landers, and S&R. It is a paid web search; the real cost of each run shows below.{" "}
+          <Text className="font-inter-semibold">Nothing is saved until you confirm.</Text>
+        </Text>
+      </View>
 
       {alreadyCheckedCount > 0 && (
         <Pressable onPress={() => setIncludeAlreadyChecked((prev) => !prev)} className="flex-row items-center gap-3 mb-4">
           <Checkbox checked={includeAlreadyChecked} />
-          <AppText variant="caption" className="text-ink-subtle flex-1">
+          <AppText variant="caption" className="flex-1 text-ink">
             Also include {alreadyCheckedCount} already-checked ingredient{alreadyCheckedCount === 1 ? "" : "s"} (to
             refresh old prices)
           </AppText>
@@ -236,7 +238,7 @@ export function PriceGroundingPanel() {
       />
 
       {spend.lookups > 0 && (
-        <AppText variant="caption" className="text-ink-subtle mt-2">
+        <AppText variant="caption" className="mt-2 text-center text-ink-subtle">
           This session: {spend.lookups} lookup{spend.lookups === 1 ? "" : "s"} · {spend.searchCalls} web search
           {spend.searchCalls === 1 ? "" : "es"} · ~${spend.costUsd.toFixed(2)} (~$
           {(spend.costUsd / spend.lookups).toFixed(3)} per ingredient)
@@ -244,28 +246,33 @@ export function PriceGroundingPanel() {
       )}
 
       {runError && (
-        <AppText variant="body" className="text-like mt-3">
-          Price check failed: {runError}
-        </AppText>
+        <View className="mt-3">
+          <InlineError>Price check failed: {runError}</InlineError>
+        </View>
       )}
 
       {results.length > 0 && (
-        <View className="mt-5 gap-2">
-          <AppText variant="bodyBold" className="mb-2">
-            {counts.HIGH} high confidence · {counts.LOW} low confidence · {counts.NONE} not found · {counts.ERROR}{" "}
-            errored
+        <View className="mt-6 gap-3 border-t border-ink-emphasis/10 pt-6">
+          <AppText variant="sectionSubtitle" dot>
+            Results
           </AppText>
+          <View className="rounded-2xl bg-primary/5 p-2">
+            <StatTiles
+              stats={[
+                { label: "High", value: String(counts.HIGH), emphasis: true },
+                { label: "Low", value: String(counts.LOW) },
+                { label: "Not found", value: String(counts.NONE) },
+                { label: "Errored", value: String(counts.ERROR) },
+              ]}
+            />
+          </View>
 
           <Button
             label={confirmedUpdate.isSaving ? "Applying..." : `Confirm ${selected.size} ingredient${selected.size === 1 ? "" : "s"}`}
             disabled={confirmedUpdate.isSaving || selected.size === 0}
             onPress={handleRequestConfirm}
           />
-          {applyError && (
-            <AppText variant="caption" className="text-like">
-              {applyError}
-            </AppText>
-          )}
+          {applyError && <InlineError>{applyError}</InlineError>}
 
           {results.map((r) => {
             const ingredient = byId.get(r.id);
@@ -287,40 +294,44 @@ export function PriceGroundingPanel() {
             const isBigChange = ratio != null && (ratio > BIG_CHANGE_RATIO || ratio < 1 / BIG_CHANGE_RATIO);
 
             return (
-              <View key={r.id} className="border-b border-ink-emphasis/10 py-3 gap-1">
-                <View className="flex-row items-center flex-wrap gap-2">
-                  <AppText variant="bodyBold">{ingredient?.canonical_name ?? r.id}</AppText>
-                  <AppText variant="caption" className={CONFIDENCE_TONE[r.confidence]}>
-                    {r.confidence}
-                  </AppText>
-                  {isBigChange && (
-                    <View className="rounded-full px-2 py-0.5 border border-notice-border bg-notice-bg">
-                      <AppText variant="caption" className="text-notice-text">
-                        Big change, double-check
-                      </AppText>
-                    </View>
-                  )}
+              <View key={r.id} className="gap-2 border-b border-ink-emphasis/10 py-4">
+                <View className="flex-row flex-wrap items-center gap-2">
+                  <Text className="font-inter-semibold text-body-lg text-ink-emphasis">{ingredient?.canonical_name ?? r.id}</Text>
+                  <ConfidenceChip confidence={r.confidence} />
+                  {isBigChange && <StatusChip label="Big change, double-check" tone="notice" />}
                 </View>
 
                 {preview != null && unit && (
-                  <AppText variant="body">
-                    {current != null ? `₱${Math.round(current)}/${unit}` : "No price"} → ₱{Math.round(preview)}/{unit}
-                    {ratio != null && ` (${ratio >= 1 ? "+" : ""}${Math.round((ratio - 1) * 100)}%)`}
-                    {best?.source === "da" && " · DA is cheaper"}
-                    {picked.length === 0 && " · nothing selected"}
-                  </AppText>
+                  // Current → what would be written.
+                  <View className="flex-row flex-wrap items-center gap-2 rounded-xl bg-ink-emphasis/5 px-3 py-2">
+                    <Text className="font-inter-medium text-body text-ink-subtle">
+                      {current != null ? `₱${Math.round(current)}/${unit}` : "No price"}
+                    </Text>
+                    <Text className="font-inter-medium text-body text-ink-subtle">→</Text>
+                    <Text className="font-inter-bold text-body-lg text-primary">
+                      ₱{Math.round(preview)}/{unit}
+                    </Text>
+                    {ratio != null && (
+                      <Text className="font-inter-semibold text-body text-ink">
+                        ({ratio >= 1 ? "+" : ""}
+                        {Math.round((ratio - 1) * 100)}%)
+                      </Text>
+                    )}
+                    {best?.source === "da" && <StatusChip label="DA is cheaper" tone="success" icon={null} />}
+                    {picked.length === 0 && <StatusChip label="nothing selected" icon={null} />}
+                  </View>
                 )}
 
                 {candidates.map((c, i) => (
                   <Pressable key={c.url} onPress={() => toggle(r.id, i)} className="flex-row items-start gap-3 mt-1">
                     <Checkbox checked={!!selected.get(r.id)?.has(i)} />
                     <View className="flex-1 gap-0.5">
-                      <AppText variant="body">
-                        {c.store} · ₱{Math.round(c.pricePerUnit)}/{c.unit}{" "}
-                        <AppText variant="caption" className={CONFIDENCE_TONE[c.confidence]}>
-                          {c.confidence}
-                        </AppText>
-                      </AppText>
+                      <View className="flex-row flex-wrap items-center gap-2">
+                        <Text className="font-inter-semibold text-body text-ink-emphasis">
+                          {c.store} · ₱{Math.round(c.pricePerUnit)}/{c.unit}
+                        </Text>
+                        <ConfidenceChip confidence={c.confidence} />
+                      </View>
                       <Pressable onPress={() => Linking.openURL(c.url)} className="flex-row items-center gap-1">
                         <AppText variant="caption" className="text-ink-subtle flex-shrink">
                           {c.productTitle} · ₱{c.packPrice} / {c.packSize}
@@ -342,11 +353,7 @@ export function PriceGroundingPanel() {
                     {r.reason}
                   </AppText>
                 )}
-                {r.confidence === "ERROR" && (
-                  <AppText variant="caption" className="text-like">
-                    {r.error}
-                  </AppText>
-                )}
+                {r.confidence === "ERROR" && <InlineError>{r.error}</InlineError>}
               </View>
             );
           })}
