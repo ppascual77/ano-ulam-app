@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import Animated, { FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
-import { ChevronDown, Info, MapPin } from "lucide-react-native";
+import { ChevronDown, Info } from "lucide-react-native";
 import { AppText, BottomSheet, SegmentedSwitch } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { pantryHas } from "@/frontend/core/pantry/hooks/usePantry";
@@ -277,13 +277,7 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
         {items.length > 0 && (
           <View className="mt-4 flex-row items-center gap-3 pt-5">
             <DashedRule />
-            <View className="flex-1 gap-1">
-              <Text className="font-inter-bold text-body-lg text-ink-emphasis">Estimated total</Text>
-              <View className="flex-row items-center gap-1">
-                <MapPin color={colors.accent} size={13} />
-                <Text className="font-inter-medium text-small text-ink-subtle">Prices from local market data</Text>
-              </View>
-            </View>
+            <Text className="flex-1 font-inter-bold text-body-lg text-ink-emphasis">Estimated total</Text>
             <Text className="font-inter-extrabold text-heading text-primary">₱{formatPeso(shownTotal, 0)}</Text>
           </View>
         )}
