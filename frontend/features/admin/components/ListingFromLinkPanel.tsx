@@ -3,7 +3,7 @@ import { Pressable, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { AppText, Button, LoadingState, SegmentedSwitch, TextField } from "@/frontend/components/ui";
 import { IngredientSearch } from "@/frontend/core/meals/components/IngredientSearch";
-import { ingredientPricePerUnit, type IngredientRow, type PriceOption } from "@/api/ingredients";
+import { ingredientPricePerUnit, packEstimateOf, type IngredientRow, type PriceOption } from "@/api/ingredients";
 import {
   ListingNeedsInput,
   addListingPatch,
@@ -31,6 +31,14 @@ const PACK_UNITS: { value: StoreListing["packUnit"]; label: string }[] = [
   { value: "L", label: "L" },
 ];
 
+// Dishes and water: nothing to look up in a store.
+const NOT_IN_STORES = new Set(["dessert", "street food", "water"]);
+
+// Still to check: priced by hand or AI (price_source "manual"), the ones
+// worth finding a real store price for. "packs": just those with an AI pack
+// estimate (the grocery list's "~" items).
+type ToCheckFilter = "all" | "packs";
+
 // The manual form's fields, as typed.
 type ManualForm = { store: string; productTitle: string; price: string; size: string; unit: StoreListing["packUnit"] };
 
@@ -55,6 +63,16 @@ export function ListingFromLinkPanel() {
   const [listing, setListing] = useState<FetchedListing | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [toCheckFilter, setToCheckFilter] = useState<ToCheckFilter>("all");
+  const toCheck = useMemo(
+    () =>
+      (ingredients ?? [])
+        .filter((i) => (i.price_source ?? "manual") === "manual" && !NOT_IN_STORES.has(i.category?.trim().toLowerCase() ?? ""))
+        .sort((a, b) => a.canonical_name.localeCompare(b.canonical_name)),
+    [ingredients],
+  );
+  const packEstimates = useMemo(() => toCheck.filter((i) => packEstimateOf(i.price_sources)), [toCheck]);
+  const toCheckShown = toCheckFilter === "packs" ? packEstimates : toCheck;
   const [manual, setManual] = useState<ManualForm | null>(null);
   // Why the manual form opened (informational, not an error).
   const [manualReason, setManualReason] = useState<string | null>(null);
@@ -199,6 +217,46 @@ export function ListingFromLinkPanel() {
               setSaved(null);
             }}
           />
+
+          {/* What still has no real price: tap one to add its store price. */}
+          <View className="mt-6 gap-3">
+            <AppText variant="bodyBold">Still priced by hand or AI ({toCheck.length})</AppText>
+            <SegmentedSwitch<ToCheckFilter>
+              options={[
+                { value: "all", label: `All (${toCheck.length})` },
+                { value: "packs", label: `Pack estimates (${packEstimates.length})` },
+              ]}
+              value={toCheckFilter}
+              onChange={setToCheckFilter}
+            />
+          </View>
+          <View className="mt-2">
+            {toCheckShown.map((row) => {
+              const own = ingredientPricePerUnit(row);
+              const pack = packEstimateOf(row.price_sources);
+              return (
+                <Pressable
+                  key={row.id}
+                  onPress={() => {
+                    setIngredientId(row.id);
+                    setSaved(null);
+                  }}
+                  className="flex-row items-center gap-3 border-b border-ink-emphasis/10 py-3 active:opacity-60"
+                >
+                  <View className="flex-1">
+                    <AppText variant="body">{row.canonical_name}</AppText>
+                    <AppText variant="caption" className="text-ink-subtle">
+                      {row.category ?? "No category"}
+                      {pack ? ` · AI pack: ${pack.productTitle}` : ""}
+                    </AppText>
+                  </View>
+                  <AppText variant="caption" className="text-ink-subtle">
+                    {own ? `${peso(own.pricePerUnit)}/${own.unit}` : "No price"}
+                  </AppText>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       )}
 
