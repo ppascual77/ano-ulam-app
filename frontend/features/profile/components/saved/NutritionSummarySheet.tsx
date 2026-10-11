@@ -1,134 +1,144 @@
-import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Text, View } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { Image } from "expo-image";
-import { Droplets, Dumbbell, Target, Wheat, type LucideIcon } from "lucide-react-native";
-import { AppText, BottomSheet, Button } from "@/frontend/components/ui";
+import { Target } from "lucide-react-native";
+import { AppText, BottomSheet, Button, DotLabel, NoticeBanner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MacroSection } from "@/frontend/core/meals/components/detail/MacroSection";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
+import { useCountTo } from "@/frontend/core/prices/hooks/useCountTo";
+import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import type { SavedMeal } from "@/frontend/core/saved/types";
+import { MACROS, leaderFor, macroSplit, round1, sumSaved, type MacroKey } from "./nutritionTotals";
 
-type MacroKey = "protein" | "fats" | "carbs";
+// The opening sequence, the same rhythm as Price Watch's detail sheet and
+// replayed on every open:
+//   0ms     blocks rise in one after another (STAGGER_MS apart)
+//   250ms   the donut's calories count up from 0 to the total
+//   ~200ms  inside the leaders card, each row follows its card in
+const STAGGER_MS = 90;
+const ENTER_MS = 420;
+const COUNT_DELAY_MS = 250;
+const COUNT_MS = 900;
+const ROW_STAGGER_MS = 70;
 
-const INSIGHTS: { key: MacroKey; title: string; description: string; Icon: LucideIcon; color: string; textClassName: string }[] = [
-  {
-    key: "protein",
-    title: "Protein Powerhouse",
-    description: "The meal carrying the most protein across your saved list.",
-    Icon: Dumbbell,
-    color: colors.macro.protein,
-    textClassName: "text-macro-protein",
-  },
-  {
-    key: "fats",
-    title: "Fat-Dense Pick",
-    description: "Highest fat content among all your saved meals.",
-    Icon: Droplets,
-    color: colors.macro.fats,
-    textClassName: "text-macro-fats",
-  },
-  {
-    key: "carbs",
-    title: "Carb Leader",
-    description: "The meal contributing the most carbohydrates to your total.",
-    Icon: Wheat,
-    color: colors.macro.carbs,
-    textClassName: "text-macro-carbs",
-  },
-];
+const CARD = "rounded-3xl border border-ink-emphasis/10 bg-white p-4";
 
-const round1 = (n: number) => Math.round(n * 10) / 10;
+const LEADER_LABEL: Record<MacroKey, string> = { protein: "Most protein", fats: "Most fat", carbs: "Most carbs" };
 
-// Combined macros of every saved meal (at its saved servings), a donut of
-// the totals, and which meal leads each macro. "Set Goals" is coming soon.
-// (The web also adds rice servings; saved meals here don't carry rice yet.)
-export function NutritionSummarySheet({ visible, onClose, saved }: { visible: boolean; onClose: () => void; saved: SavedMeal[] }) {
-  const [goalsOpen, setGoalsOpen] = useState(false);
+// One plain sentence on the mix, so the donut has a takeaway, not just
+// numbers. Only for a clear lead; a near-even mix just says so.
+function mixTakeaway(split: Record<MacroKey, number>): string {
+  const [first, second] = [...MACROS].sort((a, b) => split[b.key] - split[a.key]);
+  if (split[first.key] - split[second.key] < 5) return "A fairly even mix across protein, fat and carbs.";
+  const verb = first.key === "carbs" ? "bring" : "brings";
+  return `${first.label} ${verb} the most calories, at ${split[first.key]}% of the total.`;
+}
 
-  const totals = saved.reduce(
-    (sum, meal) => ({
-      calories: sum.calories + meal.calories,
-      protein: sum.protein + meal.protein,
-      carbs: sum.carbs + meal.carbs,
-      fats: sum.fats + meal.fats,
-    }),
-    { calories: 0, protein: 0, carbs: 0, fats: 0 },
-  );
-  const top = (key: MacroKey) => saved.reduce<SavedMeal | null>((best, meal) => (!best || meal[key] > best[key] ? meal : best), null);
+type BodyProps = { saved: SavedMeal[]; onClose: () => void };
+
+// The sheet's content. Keyed per open by NutritionSummarySheet, so mounting
+// it plays the opening sequence again.
+function SummaryBody({ saved, onClose }: BodyProps) {
+  const reduceMotion = useReduceMotion();
+  const enter = (step: number, extraMs = 0) =>
+    reduceMotion ? undefined : FadeInDown.delay(step * STAGGER_MS + extraMs).duration(ENTER_MS);
+
+  const totals = sumSaved(saved);
+  const split = macroSplit(totals);
+  const calories = Math.round(totals.calories);
+  const shownCalories = Math.round(useCountTo(0, calories, COUNT_DELAY_MS, COUNT_MS));
+  const count = saved.length;
+  const leaders = MACROS.flatMap((m) => {
+    const meal = leaderFor(saved, m.key);
+    return meal ? [{ ...m, meal }] : [];
+  });
 
   return (
-    <BottomSheet
-      visible={visible}
-      onClose={onClose}
-      heightPercent={0.85}
-      fitContent
-      overlay={
-        <BottomSheet visible={goalsOpen} onClose={() => setGoalsOpen(false)} presentation="inline" fitContent heightPercent={0.6}>
-          <View className="items-center gap-3 px-6 pb-8 pt-10">
-            <Text className="text-heading">🎯</Text>
-            <AppText variant="sectionTitle" dot className="text-center">
-              Goal setting is <Text className="text-brand-orange">coming soon</Text>
-            </AppText>
-            <Text className="text-center font-inter-regular text-body text-web-ink-muted">
-              We're working on letting you set your own calorie and macro targets, so suggestions can be tailored to your actual
-              goal, whether that's building muscle, losing weight, or just eating better.
-            </Text>
-            <Text className="text-center font-inter-regular text-small text-web-ink-muted">
-              For now, AnoUlam uses general dietary guidelines to spot macro gaps in your saved meals.
-            </Text>
-            <View className="mt-2 w-full">
-              <Button label="Got it" onPress={() => setGoalsOpen(false)} />
-            </View>
-          </View>
-        </BottomSheet>
-      }
-    >
-      <View className="gap-4 px-4 pb-6 pt-10">
-        <View>
-          <Text className="font-inter-semibold text-body text-web-ink">Macro Summary</Text>
-          <Text className="mt-0.5 font-inter-light text-small text-web-ink-muted">Total combined macros from all your saved meals.</Text>
-        </View>
+    <View className="gap-4 px-5 pb-8 pt-6">
+      {/* What this is. */}
+      <Animated.View entering={enter(0)} className="mb-1">
+        <DotLabel className="mb-1">{`${count} saved ${count === 1 ? "meal" : "meals"}`}</DotLabel>
+        <AppText variant="sectionTitle" dot>
+          Your macro mix
+        </AppText>
+        <AppText variant="caption">Everything you&apos;ve saved, added up at the servings you saved it with.</AppText>
+      </Animated.View>
 
-        {saved.length === 0 ? (
-          <Text className="font-inter-regular text-body text-web-ink-muted">Save meals to see your combined macro summary.</Text>
+      {/* The total, and what it's made of. */}
+      <Animated.View entering={enter(1)} className={CARD}>
+        <DotLabel className="mb-3">Combined total</DotLabel>
+        <MacroSection calories={shownCalories} protein={Math.round(totals.protein)} carbs={Math.round(totals.carbs)} fats={round1(totals.fats)} />
+        <Text className="mt-3 border-t border-ink-emphasis/10 pt-3 font-inter-regular text-small text-ink-subtle">
+          {mixTakeaway(split)}
+        </Text>
+      </Animated.View>
+
+      {/* Which meal tips each macro. Needs two meals to mean anything. */}
+      <Animated.View entering={enter(2)} className={CARD}>
+        <DotLabel>Top meal per macro</DotLabel>
+        {count < 2 || leaders.length === 0 ? (
+          <Text className="mt-2 font-inter-regular text-small text-ink-subtle">
+            Save one more meal to see which one leads in protein, fat and carbs.
+          </Text>
         ) : (
-          <>
-            <MacroSection
-              calories={Math.round(totals.calories)}
-              protein={Math.round(totals.protein)}
-              carbs={Math.round(totals.carbs)}
-              fats={round1(totals.fats)}
-            />
-
-            <Text className="font-inter-semibold text-sub uppercase text-web-ink-muted">Insights</Text>
-            {INSIGHTS.map((insight) => {
-              const meal = top(insight.key);
-              if (!meal) return null;
-              return (
-                <View key={insight.key} className="gap-2.5 rounded-xl border border-web-divider p-3">
-                  <View className="flex-row items-center gap-1.5">
-                    <insight.Icon color={insight.color} size={13} />
-                    <Text className="font-inter-semibold text-small text-web-ink">{insight.title}</Text>
-                  </View>
-                  <Text className="font-inter-light text-sub text-web-ink-muted">{insight.description}</Text>
-                  <View className="flex-row items-center gap-2.5">
-                    <Image source={resolveMealImage(meal)} style={{ width: 40, height: 40, borderRadius: 8 }} contentFit="cover" />
-                    <Text numberOfLines={1} className="flex-1 font-inter-medium text-small text-web-ink">
-                      {meal.name}
-                    </Text>
-                    <Text className={`font-inter-bold text-small ${insight.textClassName}`}>{round1(meal[insight.key])}g</Text>
-                  </View>
+          <View className="mt-1">
+            {leaders.map((leader, i) => (
+              <Animated.View
+                key={leader.key}
+                entering={enter(2, (i + 1) * ROW_STAGGER_MS)}
+                className={`flex-row items-center gap-3 py-3 ${i > 0 ? "border-t border-ink-emphasis/10" : ""}`}
+              >
+                <Image source={resolveMealImage(leader.meal)} style={{ width: 44, height: 44, borderRadius: 12 }} contentFit="cover" />
+                <View className="flex-1">
+                  <Text className={`font-inter-semibold text-sub uppercase ${leader.textClassName}`}>{LEADER_LABEL[leader.key]}</Text>
+                  <Text numberOfLines={1} className="mt-1 font-inter-medium text-body text-ink-emphasis">
+                    {leader.meal.name}
+                  </Text>
                 </View>
-              );
-            })}
-
-            <Pressable onPress={() => setGoalsOpen(true)} hitSlop={6} className="flex-row items-center gap-1 self-end">
-              <Target color={colors.brandGreen.DEFAULT} size={12} />
-              <Text className="font-inter-regular text-sub text-brand-green underline">Set Goals</Text>
-            </Pressable>
-          </>
+                <Text style={{ fontVariant: ["tabular-nums"] }} className={`font-inter-bold text-body ${leader.textClassName}`}>
+                  {round1(leader.meal[leader.key])}g
+                </Text>
+              </Animated.View>
+            ))}
+          </View>
         )}
-      </View>
+      </Animated.View>
+
+      {/* Honest about what's missing: no targets yet, so no judgement. */}
+      <Animated.View entering={enter(3)}>
+        <NoticeBanner tone="positive" compact icon={<Target color={colors.primary} size={16} />}>
+          <Text className="font-inter-semibold text-small text-ink-emphasis">Personal goals are on the way</Text>
+          <Text className="font-inter-regular text-small text-ink-subtle">
+            Soon you&apos;ll set calorie and macro targets and see how your saved meals measure up. For now, treat these totals as a
+            guide.
+          </Text>
+        </NoticeBanner>
+      </Animated.View>
+
+      <Animated.View entering={enter(4)} className="mt-2">
+        <Button label="Done" onPress={onClose} />
+      </Animated.View>
+    </View>
+  );
+}
+
+type NutritionSummarySheetProps = { visible: boolean; onClose: () => void; saved: SavedMeal[] };
+
+// Combined macros of every saved meal (at its saved servings), what the mix
+// leans toward, and which meal leads each macro. Opened from the Saved
+// tab's NutritionSummaryCard.
+export function NutritionSummarySheet({ visible, onClose, saved }: NutritionSummarySheetProps) {
+  // Bumped on every open, so reopening replays the opening sequence.
+  const [openCount, setOpenCount] = useState(0);
+  useEffect(() => {
+    if (visible) setOpenCount((n) => n + 1);
+  }, [visible]);
+
+  return (
+    <BottomSheet visible={visible} onClose={onClose} fitContent heightPercent={0.85}>
+      <SummaryBody key={openCount} saved={saved} onClose={onClose} />
     </BottomSheet>
   );
 }
