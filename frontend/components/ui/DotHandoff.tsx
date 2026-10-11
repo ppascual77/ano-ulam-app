@@ -5,7 +5,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "
 import { scheduleOnRN } from "react-native-worklets";
 import { create } from "zustand";
 import { colors } from "@/frontend/constants/theme";
-import { DOT_FLY_EASING, DOT_FLY_MS, dotFlightTransform, landSquash } from "./dotMotion";
+import { landSquash, squashStretch } from "./dotMotion";
 
 // The landing dot handoff: moving between screens, the title dot of the
 // screen you leave ("Categories.") flies over and lands as the title dot of
@@ -25,11 +25,15 @@ type Flight = { id: number; from: Spot; to: Spot };
 // The dot takes off right away toward where it predicts the new title's dot
 // is, then corrects course once the tab's shift transition has settled
 // enough to measure it.
-// The flight itself (time, arc, swell, squash and stretch) is shared with
-// the page intros' landing dot, see dotMotion.
 const SETTLE_MS = 200;
+// Flight and landing copied from the page intros' landing dot (PageIntro's
+// FLY_MS / FLY_ARC, no swell; same squash and stretch, see dotMotion), so a
+// tab switch lands the dot exactly like an intro does.
+const FLY_MS = 650;
 // How long a course correction blends in (well inside the flight).
 const CORRECT_MS = 220;
+// How high the dot arcs on its way (PageIntro's FLY_ARC).
+const ARC = 120;
 // A dot left longer ago than this isn't where this screen came from (e.g.
 // via Discover, which has no title dot).
 const FRESH_MS = 800;
@@ -168,7 +172,7 @@ export function DotHandoffOverlay({ enabled }: { enabled: boolean }) {
       shown.value = 1;
       land.value = 0;
       fly.value = 0;
-      fly.value = withTiming(1, { duration: DOT_FLY_MS, easing: DOT_FLY_EASING }, (done) => {
+      fly.value = withTiming(1, { duration: FLY_MS, easing: Easing.inOut(Easing.cubic) }, (done) => {
         if (!done) return;
         // Squash on landing, then the real dot takes over.
         landSquash(land, () => scheduleOnRN(finishFlight, flight.id));
@@ -179,10 +183,18 @@ export function DotHandoffOverlay({ enabled }: { enabled: boolean }) {
   const dotStyle = useAnimatedStyle(() => {
     const f = fly.value;
     const a = from.value;
+    const x = a.x + (toX.value - a.x) * f;
+    const y = a.y + (toY.value - a.y) * f - ARC * 4 * f * (1 - f);
     const size = a.size + (toSize.value - a.size) * f;
+    const scale = size / DOT;
     return {
       opacity: shown.value,
-      transform: dotFlightTransform(a, { x: toX.value, y: toY.value }, f, land.value, DOT, size),
+      transform: [
+        { translateX: x - DOT / 2 },
+        { translateY: y - DOT / 2 },
+        { scale },
+        ...squashStretch(a.x, a.y, toX.value, toY.value, ARC, f, land.value),
+      ],
     };
   });
 
