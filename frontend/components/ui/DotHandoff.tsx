@@ -26,14 +26,13 @@ type Flight = { id: number; from: Spot; to: Spot };
 // is, then corrects course once the tab's shift transition has settled
 // enough to measure it.
 const SETTLE_MS = 200;
-// Flight and landing copied from the page intros' landing dot (PageIntro's
-// FLY_MS / FLY_ARC, no swell; same squash and stretch, see dotMotion), so a
-// tab switch lands the dot exactly like an intro does.
 const FLY_MS = 650;
 // How long a course correction blends in (well inside the flight).
 const CORRECT_MS = 220;
-// How high the dot arcs on its way (PageIntro's FLY_ARC).
-const ARC = 120;
+// How high the dot arcs between the two titles (they're often level).
+const ARC = 70;
+// How much the dot swells mid-flight, so it reads as a dot on the move.
+const SWELL = 1.2;
 // A dot left longer ago than this isn't where this screen came from (e.g.
 // via Discover, which has no title dot).
 const FRESH_MS = 800;
@@ -186,7 +185,7 @@ export function DotHandoffOverlay({ enabled }: { enabled: boolean }) {
     const x = a.x + (toX.value - a.x) * f;
     const y = a.y + (toY.value - a.y) * f - ARC * 4 * f * (1 - f);
     const size = a.size + (toSize.value - a.size) * f;
-    const scale = size / DOT;
+    const scale = (size / DOT) * (1 + (SWELL - 1) * Math.sin(Math.PI * f));
     return {
       opacity: shown.value,
       transform: [
