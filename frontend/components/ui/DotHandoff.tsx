@@ -17,12 +17,17 @@ import { colors } from "@/frontend/constants/theme";
 // dot), when either dot is off screen, and with Reduce motion on.
 
 type Spot = { x: number; y: number; size: number };
-type Flight = { id: number; from: Spot; to: Spot | null };
+// `to` starts as a prediction and is corrected (same id) once the new
+// screen has settled and its dot can be measured for real.
+type Flight = { id: number; from: Spot; to: Spot };
 
-// Let the tab's shift transition settle before measuring where the new
-// screen's dot is.
+// The dot takes off right away toward where it predicts the new title's dot
+// is, then corrects course once the tab's shift transition has settled
+// enough to measure it.
 const SETTLE_MS = 200;
-const FLY_MS = 600;
+const FLY_MS = 650;
+// How long a course correction blends in (well inside the flight).
+const CORRECT_MS = 220;
 // How high the dot arcs between the two titles (they're often level).
 const ARC = 70;
 // How much the dot swells mid-flight, so it reads as a dot on the move.
@@ -44,6 +49,9 @@ const useHandoffStore = create<HandoffState>(() => ({ enabled: true, hidden: [],
 
 let departed: { at: number; node: View; spot: Promise<Spot | null> } | null = null;
 let flightCount = 0;
+// Where each title dot was the last time it was seen on screen: the
+// prediction for the next flight to it.
+const lastSpot = new WeakMap<View, Spot>();
 
 // A dot's center and size in window coordinates, or null when it isn't on
 // screen (scrolled away) or can't be measured (already unmounted).
@@ -60,7 +68,9 @@ function measureSpot(node: View): Promise<Spot | null> {
 }
 
 function depart(node: View) {
-  departed = { at: Date.now(), node, spot: measureSpot(node) };
+  const spot = measureSpot(node);
+  spot.then((s) => s && lastSpot.set(node, s));
+  departed = { at: Date.now(), node, spot };
 }
 
 function finishFlight(id: number) {
@@ -75,17 +85,21 @@ async function arrive(node: View, canLand: () => boolean) {
   const from = await last.spot;
   if (!from) return;
 
-  // The flying dot takes over from both real ones right away: it holds the
-  // old dot's spot while the old screen slides off, then flies.
+  // Predict where it lands: where this dot was last seen. First time, the
+  // dot as it is now, mid-slide: its height is already right (tabs slide
+  // sideways), and titles all start at the same left edge, so the old
+  // dot's x is the best guess for now.
+  const now = lastSpot.get(node) ? null : await measureSpot(node);
+  const predicted = lastSpot.get(node) ?? (now ? { ...now, x: from.x } : from);
+
+  // The flying dot takes over from both real ones and sets off right away.
   const id = ++flightCount;
-  useHandoffStore.setState({ hidden: [last.node, node], flight: { id, from, to: null } });
+  useHandoffStore.setState({ hidden: [last.node, node], flight: { id, from, to: predicted } });
   await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
   if (useHandoffStore.getState().flight?.id !== id) return;
   const to = await measureSpot(node);
-  if (!to) {
-    finishFlight(id);
-    return;
-  }
+  if (!to) return; // Off screen: it finishes at the prediction.
+  lastSpot.set(node, to);
   useHandoffStore.setState({ flight: { id, from, to } });
 }
 
@@ -123,25 +137,36 @@ export function DotHandoffOverlay({ enabled }: { enabled: boolean }) {
   const fly = useSharedValue(0);
   const shown = useSharedValue(0);
   const from = useSharedValue<Spot>({ x: 0, y: 0, size: DOT });
-  const to = useSharedValue<Spot>({ x: 0, y: 0, size: DOT });
+  const toX = useSharedValue(0);
+  const toY = useSharedValue(0);
+  const toSize = useSharedValue(DOT);
+  const flyingId = useRef<number | null>(null);
 
   useEffect(() => {
     if (!flight) {
       shown.value = 0;
+      flyingId.current = null;
       return;
     }
     // Window coordinates, made relative to this overlay (the app can be
     // letterboxed on iPad).
     rootRef.current?.measureInWindow((ox, oy) => {
-      const local = (s: Spot) => ({ x: s.x - ox, y: s.y - oy, size: s.size });
-      from.value = local(flight.from);
-      shown.value = 1;
-      if (!flight.to) {
-        to.value = local(flight.from);
-        fly.value = 0;
+      const tx = flight.to.x - ox;
+      const ty = flight.to.y - oy;
+      if (flyingId.current === flight.id) {
+        // A course correction: blend toward the measured spot mid-flight.
+        const blend = { duration: CORRECT_MS, easing: Easing.out(Easing.cubic) };
+        toX.value = withTiming(tx, blend);
+        toY.value = withTiming(ty, blend);
+        toSize.value = withTiming(flight.to.size, blend);
         return;
       }
-      to.value = local(flight.to);
+      flyingId.current = flight.id;
+      from.value = { x: flight.from.x - ox, y: flight.from.y - oy, size: flight.from.size };
+      toX.value = tx;
+      toY.value = ty;
+      toSize.value = flight.to.size;
+      shown.value = 1;
       fly.value = 0;
       fly.value = withTiming(1, { duration: FLY_MS, easing: Easing.inOut(Easing.cubic) }, (done) => {
         if (done) scheduleOnRN(finishFlight, flight.id);
@@ -152,10 +177,9 @@ export function DotHandoffOverlay({ enabled }: { enabled: boolean }) {
   const dotStyle = useAnimatedStyle(() => {
     const f = fly.value;
     const a = from.value;
-    const b = to.value;
-    const x = a.x + (b.x - a.x) * f;
-    const y = a.y + (b.y - a.y) * f - ARC * 4 * f * (1 - f);
-    const size = a.size + (b.size - a.size) * f;
+    const x = a.x + (toX.value - a.x) * f;
+    const y = a.y + (toY.value - a.y) * f - ARC * 4 * f * (1 - f);
+    const size = a.size + (toSize.value - a.size) * f;
     const scale = (size / DOT) * (1 + (SWELL - 1) * Math.sin(Math.PI * f));
     return {
       opacity: shown.value,
