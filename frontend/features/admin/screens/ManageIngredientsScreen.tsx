@@ -7,7 +7,9 @@ import { IngredientListItem } from "../components/IngredientListItem";
 import { IngredientEditSheet } from "../components/IngredientEditSheet";
 import { FilterPill } from "../components/FilterPill";
 import { UsdaGroundingPanel } from "../components/UsdaGroundingPanel";
+import { FnriGroundingPanel } from "../components/FnriGroundingPanel";
 import { PriceGroundingPanel } from "../components/PriceGroundingPanel";
+import { PackEstimatePanel } from "../components/PackEstimatePanel";
 import type { IngredientRow } from "@/api/ingredients";
 import { AdminHeader } from "../components/AdminHeader";
 
@@ -29,7 +31,7 @@ const PRICE_SOURCE_OPTIONS = [
   { id: "da", label: "DA Daily Price" },
 ];
 
-type Tab ="all" | "usda" | "fnri" | "prices";
+type Tab = "all" | "usda" | "fnri" | "prices" | "packs";
 
 export default function ManageIngredientsScreen() {
   const [tab, setTab] = useState<Tab>("all");
@@ -69,21 +71,32 @@ export default function ManageIngredientsScreen() {
     <Screen padded={false}>
       <AdminHeader title="Manage Ingredients" subtitle={`${ingredients?.length ?? 0} ingredients`} />
 
-      <View className="mb-4 items-start px-5">
-        <SegmentedSwitch<Tab> size="md" options={[{ value: "all", label: "All" }, { value: "usda", label: "USDA" }, { value: "fnri", label: "FNRI" }, { value: "prices", label: "Prices" }]} value={tab} onChange={setTab} />
+      <View className="mb-4">
+        {/* Five tabs: scrolls sideways on narrow phones rather than squeezing. */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
+          <SegmentedSwitch<Tab>
+            size="md"
+            options={[
+              { value: "all", label: "All" },
+              { value: "usda", label: "USDA" },
+              { value: "fnri", label: "FNRI" },
+              { value: "prices", label: "Prices" },
+              { value: "packs", label: "Packs" },
+            ]}
+            value={tab}
+            onChange={setTab}
+          />
+        </ScrollView>
       </View>
 
       {tab === "usda" ? (
         <UsdaGroundingPanel />
       ) : tab === "prices" ? (
         <PriceGroundingPanel />
+      ) : tab === "packs" ? (
+        <PackEstimatePanel />
       ) : tab === "fnri" ? (
-        <View className="flex-1 items-center justify-center px-10">
-          <AppText variant="body" className="text-ink-subtle text-center">
-            Not built yet — FNRI import is future work (its existing data structure is more manual, see
-            docs/ingredient-data-architecture.md section 21).
-          </AppText>
-        </View>
+        <FnriGroundingPanel />
       ) : (
         <>
           <View className="px-5 mb-3">

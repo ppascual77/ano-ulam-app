@@ -25,7 +25,10 @@ import { Caveat_700Bold } from "@expo-google-fonts/caveat";
 import { queryClient } from "@/lib/queryClient";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/frontend/features/auth/store/useAuthStore";
-import { useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenIntrosStore";
+import { DotHandoffOverlay } from "@/frontend/components/ui";
+import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 
 // Required for the Google sign-in browser-redirect flow's web fallback path;
 // harmless no-op on native. https://supabase.com/docs/guides/auth/native-mobile-deep-linking
@@ -44,12 +47,20 @@ export default function RootLayout() {
     Caveat_700Bold,
   });
 
-  // Settings' "Reduce motion": loaded once here, then applied app-wide below.
-  const reduceMotion = useReduceMotionStore((s) => s.override);
+  // Settings' "Reduce motion": loaded once here, read by each animation
+  // that it shortens (useReduceMotion).
   const loadReduceMotion = useReduceMotionStore((s) => s.load);
+  // The user's choice, else the phone's: what the dot handoff follows.
+  const reduceMotionOn = useReduceMotion();
+  // Settings' "Surprise me" (Home's pull-down tag), read by HomeScreen.
+  const loadSurpriseMe = useSurpriseMeStore((s) => s.load);
+  // Which page intros have played (each plays once).
+  const loadSeenIntros = useSeenIntrosStore((s) => s.load);
   useEffect(() => {
     void loadReduceMotion();
-  }, [loadReduceMotion]);
+    void loadSurpriseMe();
+    void loadSeenIntros();
+  }, [loadReduceMotion, loadSurpriseMe, loadSeenIntros]);
 
   const authLoading = useAuthStore((s) => s.loading);
   const setSession = useAuthStore((s) => s.setSession);
@@ -91,11 +102,12 @@ export default function RootLayout() {
     <View style={{ flex: 1, backgroundColor: "black", alignItems: "center", justifyContent: "center" }}>
       <View style={{ width: "100%", maxWidth: 430, height: "100%", maxHeight: 932 }}>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          {/* Every Reanimated animation jumps straight to its end when
-              reduced: the user's choice, else the phone's setting. */}
-          <ReducedMotionConfig
-            mode={reduceMotion == null ? ReduceMotion.System : reduceMotion ? ReduceMotion.Always : ReduceMotion.Never}
-          />
+          {/* Reanimated never blanket-skips animations, even with the
+              phone's reduce motion on: that froze everything (fades, skeleton
+              pulses, nudges). Reduce motion is handled per animation instead
+              (useReduceMotion): the big moves (page intros, the tab slide,
+              numbers rolling) go, the small ones stay. */}
+          <ReducedMotionConfig mode={ReduceMotion.Never} />
           <SafeAreaProvider>
             <QueryClientProvider client={queryClient}>
               <Stack screenOptions={{ headerShown: false }}>
@@ -104,6 +116,8 @@ export default function RootLayout() {
                     intro takes it over. */}
                 <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
               </Stack>
+              {/* Above every screen: a title dot flying to the next screen's. */}
+              <DotHandoffOverlay enabled={!reduceMotionOn} />
             </QueryClientProvider>
           </SafeAreaProvider>
         </GestureHandlerRootView>

@@ -9,7 +9,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { PageIntro, type IntroSize } from "@/frontend/components/ui";
+import { INTRO_DOT_REST_MS, PageIntro, type IntroSize } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useCountTo } from "@/frontend/core/prices/hooks/useCountTo";
 
@@ -20,7 +20,7 @@ import { useCountTo } from "@/frontend/core/prices/hooks/useCountTo";
 //   0.7s   three meal dots drop into each day, column by column
 //   1.55s  "grocery list included!" (handwritten) pops in
 //   2.3s   everything collapses into one dot
-//   2.7s   the cover fades to the planner as the dot arcs up and lands as
+//   3.02s  (once the dot has settled) the cover fades to the planner as the dot arcs up and lands as
 //          the period of "Let's plan your week." (see PageIntro)
 const BUDGET_AT = 300;
 const BUDGET_MS = 1300;
@@ -34,7 +34,7 @@ const NOTE_AT = 1550;
 const COLLAPSE_AT = 2300;
 const COLLAPSE_MS = 380;
 const DOT_AT = COLLAPSE_AT + 60;
-const FLY_AT = 2700;
+const FLY_AT = DOT_AT + INTRO_DOT_REST_MS;
 
 // An example weekly budget for the counter (not the user's).
 const SAMPLE_BUDGET = 1500;

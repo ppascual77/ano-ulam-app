@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSavedMeals } from "@/frontend/core/saved/hooks/useSavedMeals";
 import { flushGroceryChecks, getGroceryChecks } from "../mock/checks";
 import { buildGroceryList, type GroceryItem } from "../utils/buildGroceryList";
+import { applyStaplesToBuy, useStaplesToBuy } from "../store/useStaplesToBuyStore";
 
 const checksKey = ["grocery", "checks"] as const;
 type Pending = Record<string, string | null>;
@@ -19,7 +20,11 @@ export function useSavedGroceryList(userId: string | null) {
   const queryClient = useQueryClient();
   const saved = useSavedMeals();
   const checks = useQuery({ queryKey: checksKey, queryFn: getGroceryChecks });
-  const items = useMemo(() => buildGroceryList(saved.data ?? []), [saved.data]);
+  const staplesToBuy = useStaplesToBuy();
+  const items = useMemo(
+    () => applyStaplesToBuy(buildGroceryList(saved.data ?? []), staplesToBuy),
+    [saved.data, staplesToBuy],
+  );
 
   const storageKey = `grocery_checked_${userId ?? "dev"}`;
   const [pending, setPending] = useState<Pending>({});

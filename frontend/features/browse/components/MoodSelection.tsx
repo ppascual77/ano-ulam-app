@@ -47,7 +47,7 @@ export function MoodSelection({ onSelectMeal }: MoodSelectionProps) {
 
   return (
     <View className="rounded-2xl bg-mood-bg p-4">
-      <AppText variant="title" className="mb-3">
+      <AppText variant="sectionTitle" dot className="mb-3">
         What&apos;s your ulam mood?
       </AppText>
 

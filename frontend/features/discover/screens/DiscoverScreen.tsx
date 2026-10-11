@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronUp } from "lucide-react-native";
 import { Spinner, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { colors } from "@/frontend/constants/theme";
 import { getMeal } from "@/api/meals";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
@@ -98,7 +99,8 @@ export default function DiscoverScreen() {
   // dot flies into the Create button, which pulses and runs a lap of its
   // border.
   const reduceMotion = useReduceMotion();
-  const intro = usePageIntro({ enabled: SHOW_INTRO && !reduceMotion });
+  const introOnce = useIntroOnce("discover");
+  const intro = usePageIntro({ enabled: SHOW_INTRO && !reduceMotion && introOnce.due, onFinish: introOnce.markSeen });
   const [createHighlight, setCreateHighlight] = useState(0);
   const finishIntro = () => {
     intro.finish();

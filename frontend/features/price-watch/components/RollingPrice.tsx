@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Text, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
+import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 
 // Split-flap price for the fresh picks slides: each digit rolls from last
 // week's price to today's whenever its slide becomes the active one.
@@ -28,7 +29,9 @@ const RESET_DELAY_MS = 450;
 
 type Size = keyof typeof SIZES;
 
-function RollingTile({ from, to, active, delay, size }: { from: string; to: string; active: boolean; delay: number; size: Size }) {
+type RollingTileProps = { from: string; to: string; active: boolean; delay: number; size: Size; reduceMotion: boolean };
+
+function RollingTile({ from, to, active, delay, size, reduceMotion }: RollingTileProps) {
   const { w, h, digit } = SIZES[size];
   const start = from === " " ? 0 : 1 + Number(from);
   const end = to === " " ? 0 : 11 + Number(to);
@@ -37,11 +40,13 @@ function RollingTile({ from, to, active, delay, size }: { from: string; to: stri
   useEffect(() => {
     if (active) {
       y.value = -start * h;
-      y.value = withDelay(delay, withTiming(-end * h, { duration: ROLL_MS, easing: ROLL_EASING }));
+      // Reduce motion: no spin, last week's digit just flips to today's at
+      // the same moment.
+      y.value = withDelay(delay, withTiming(-end * h, { duration: reduceMotion ? 0 : ROLL_MS, easing: ROLL_EASING }));
     } else {
       y.value = withDelay(RESET_DELAY_MS, withTiming(-start * h, { duration: 0 }));
     }
-  }, [active, y, start, end, delay, h]);
+  }, [active, y, start, end, delay, h, reduceMotion]);
 
   const style = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
 
@@ -91,6 +96,7 @@ type RollingPriceProps = {
 
 export function RollingPrice({ from, to, active, delay = 0, size = "md" }: RollingPriceProps) {
   const { symbol } = SIZES[size];
+  const reduceMotion = useReduceMotion();
   let digit = 0;
   return (
     <View className="flex-row items-center gap-0.5" importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
@@ -108,6 +114,7 @@ export function RollingPrice({ from, to, active, delay = 0, size = "md" }: Rolli
             active={active}
             delay={delay + digit++ * TILE_DELAY_MS}
             size={size}
+            reduceMotion={reduceMotion}
           />
         ),
       )}

@@ -15,6 +15,7 @@ import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
 import { useAuth, useSignInWithGoogle } from "@/frontend/features/auth/hooks/useAuth";
 import { LoginGateSheet, type LoginGateReason } from "@/frontend/features/auth/components/LoginGateSheet";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { useBrowseSearch } from "../hooks/useBrowseSearch";
 import { countFilters } from "../utils/filters";
 import { FilterButton } from "../components/FilterButton";
@@ -54,7 +55,12 @@ export default function BrowseScreen() {
   const scrollRef = useRef<ScrollView>(null);
   // Never with Reduce motion on (Settings, or the phone's own setting).
   const reduceMotion = useReduceMotion();
-  const intro = usePageIntro({ enabled: SHOW_INTRO && !reduceMotion, onArm: () => scrollRef.current?.scrollTo({ y: 0, animated: false }) });
+  const introOnce = useIntroOnce("browse");
+  const intro = usePageIntro({
+    enabled: SHOW_INTRO && !reduceMotion && introOnce.due,
+    onArm: () => scrollRef.current?.scrollTo({ y: 0, animated: false }),
+    onFinish: introOnce.markSeen,
+  });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState<MealType | null>(null);
   const detail = useMealDetail();
@@ -215,7 +221,7 @@ export default function BrowseScreen() {
           <>
             {todaysPick && (
               <View className="mb-6 mt-6">
-                <AppText variant="title" className="mb-3">
+                <AppText variant="sectionTitle" dot className="mb-3">
                   Today&apos;s pick
                 </AppText>
                 <TodaysPickCard meal={todaysPick} onPress={() => setSelectedMeal(todaysPick)} />

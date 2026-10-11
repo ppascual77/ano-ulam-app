@@ -20,9 +20,17 @@ import { colors } from "@/frontend/constants/theme";
 
 const FADE_MS = 450;
 const CONTENT_FADE_MS = 250;
-const FLY_MS = 650;
+// Exported so the tab-switch dot (DotHandoff) flies exactly the same way.
+export const INTRO_DOT_FLY_MS = 650;
 // How high the dot arcs on its way to the header.
-const FLY_ARC = 120;
+export const INTRO_DOT_FLY_ARC = 120;
+const FLY_MS = INTRO_DOT_FLY_MS;
+const FLY_ARC = INTRO_DOT_FLY_ARC;
+
+// How long the dot sits still between popping in (dotAt) and taking off
+// (flyAt), so its pop has settled and the flight starts from rest. Price
+// Watch's timing, the smoothest landing; every intro uses it.
+export const INTRO_DOT_REST_MS = 660;
 
 export type IntroSize = { w: number; h: number };
 export type IntroState = "armed" | "playing" | "done";
@@ -30,12 +38,23 @@ export type IntroState = "armed" | "playing" | "done";
 // Arms the intro before the page is ever shown (first render, and again
 // whenever the tab is left), so the page never flashes before it; focusing
 // the page plays it.
-export function usePageIntro({ enabled, onArm }: { enabled: boolean; onArm?: () => void }) {
+export function usePageIntro({
+  enabled,
+  onArm,
+  onFinish,
+}: {
+  enabled: boolean;
+  onArm?: () => void;
+  /** Landed or skipped (e.g. to remember it's been seen). */
+  onFinish?: () => void;
+}) {
   const [state, setState] = useState<IntroState>(enabled ? "armed" : "done");
   const [run, setRun] = useState(0);
   const targetRef = useRef<View>(null);
   const onArmRef = useRef(onArm);
   onArmRef.current = onArm;
+  const onFinishRef = useRef(onFinish);
+  onFinishRef.current = onFinish;
 
   useFocusEffect(
     useCallback(() => {
@@ -49,10 +68,15 @@ export function usePageIntro({ enabled, onArm }: { enabled: boolean; onArm?: () 
       };
     }, [enabled]),
   );
-  const finish = useCallback(() => setState("done"), []);
+  const finish = useCallback(() => {
+    setState("done");
+    onFinishRef.current?.();
+  }, []);
   // Turned off (e.g. Reduce motion switched on): drop the cover right away.
+  // Turned on later (e.g. once "seen intros" has loaded, after the page
+  // first rendered): arm, so the page doesn't show before it plays.
   useEffect(() => {
-    if (!enabled) setState("done");
+    setState((prev) => (!enabled ? "done" : prev === "done" ? "armed" : prev));
   }, [enabled]);
 
   return {

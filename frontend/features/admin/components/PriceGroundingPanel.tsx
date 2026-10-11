@@ -21,6 +21,7 @@ import { useDaCommodities } from "../hooks/useDaPrices";
 import { useConfirmedIngredientUpdate, type PendingIngredientChange } from "../hooks/useConfirmedIngredientUpdate";
 import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
 import { Checkbox } from "./Checkbox";
+import { isLoose } from "@/frontend/core/grocery/utils/buildGroceryList";
 import { ConfidenceChip, InlineError, StatTiles, StatusChip } from "./AdminUi";
 
 // Each lookup is paid (one or more web searches), so runs are capped rather
@@ -55,7 +56,17 @@ export function PriceGroundingPanel() {
     [ingredients],
   );
   const [includeAlreadyChecked, setIncludeAlreadyChecked] = useState(false);
-  const pool = includeAlreadyChecked ? ingredients ?? [] : neverChecked;
+  // Packaged items (condiments, oils, spices, canned goods…) with no
+  // supermarket listing: the grocery list can't size their packs, so it
+  // shows a "~" estimate. Loose foods (meat, fish, produce) are left out on
+  // purpose: they're bought by weight and priced by DA, so searching them
+  // would only cost money. Re-checks them even if checked before.
+  const missingStorePrice = useMemo(
+    () => (ingredients ?? []).filter((i) => !isLoose(i.category) && supermarketPriceOptions(i.price_sources).length === 0),
+    [ingredients],
+  );
+  const [missingOnly, setMissingOnly] = useState(false);
+  const pool = missingOnly ? missingStorePrice : includeAlreadyChecked ? ingredients ?? [] : neverChecked;
   const alreadyCheckedCount = (ingredients?.length ?? 0) - neverChecked.length;
 
   const [results, setResults] = useState<PriceGroundingResult[]>([]);
@@ -217,7 +228,17 @@ export function PriceGroundingPanel() {
         </Text>
       </View>
 
-      {alreadyCheckedCount > 0 && (
+      {missingStorePrice.length > 0 && (
+        <Pressable onPress={() => setMissingOnly((prev) => !prev)} className="flex-row items-center gap-3 mb-3">
+          <Checkbox checked={missingOnly} />
+          <AppText variant="caption" className="text-ink-subtle flex-1">
+            Only packaged items with no store price ({missingStorePrice.length}): condiments, oils, spices and the like
+            whose grocery-list packs show &quot;~&quot;
+          </AppText>
+        </Pressable>
+      )}
+
+      {alreadyCheckedCount > 0 && !missingOnly && (
         <Pressable onPress={() => setIncludeAlreadyChecked((prev) => !prev)} className="flex-row items-center gap-3 mb-4">
           <Checkbox checked={includeAlreadyChecked} />
           <AppText variant="caption" className="flex-1 text-ink">

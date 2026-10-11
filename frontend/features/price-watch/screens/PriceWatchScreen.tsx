@@ -7,6 +7,7 @@ import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDet
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { usePriceItems } from "@/frontend/core/prices/hooks/usePriceItems";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { pickFreshPicks, type PriceCategory, type PriceItem } from "@/frontend/core/prices/utils/prices";
 import { FRESH_PICKS_COUNT, FreshPicksSection } from "../components/FreshPicksSection";
 import { CategoryGrid } from "../components/CategoryGrid";
@@ -36,7 +37,12 @@ export default function PriceWatchScreen() {
   // tab puts the header back at the top, ready for the next landing.
   // Never with Reduce motion on (Settings, or the phone's own setting).
   const reduceMotion = useReduceMotion();
-  const intro = usePageIntro({ enabled: SHOW_INTRO && !reduceMotion, onArm: () => scrollRef.current?.scrollTo({ y: 0, animated: false }) });
+  const introOnce = useIntroOnce("price-watch");
+  const intro = usePageIntro({
+    enabled: SHOW_INTRO && !reduceMotion && introOnce.due,
+    onArm: () => scrollRef.current?.scrollTo({ y: 0, animated: false }),
+    onFinish: introOnce.markSeen,
+  });
   const [searchFocused, setSearchFocused] = useState(false);
   const searching = searchFocused || search.trim() !== "";
   const scrollRef = useRef<ScrollView>(null);

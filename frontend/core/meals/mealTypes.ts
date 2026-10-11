@@ -13,6 +13,17 @@ export type PriceSourceType = {
   unit: string;
 };
 
+// An AI-estimated typical retail pack ("385 ml bottle"), from the
+// ingredient's price_sources estimate entry. `sizeInUnit` is the pack in
+// the ingredient's price unit (kg or L) and `price` is that x the
+// ingredient's current per-kg/L price.
+export type PackEstimateType = {
+  size: string;
+  container: string;
+  sizeInUnit: number;
+  price: number;
+};
+
 // The DA Daily Price Index price of a commodity an ingredient is linked to
 // (ingredients ← da_commodities.ingredient_id, can be several, e.g. Bangus
 // ← "Bangus, Large" and "Bangus, Medium"): the average across NCR
@@ -31,6 +42,10 @@ export type DaPriceSourceType = {
 export type IngredientType = {
   qty: string;
   name: string;
+  // The ingredients table's display_name: a friendlier name where the
+  // catalog name reads like data ("Bell pepper, green, raw"). Used by the
+  // grocery list.
+  displayName?: string | null;
   type: "main" | "pantry";
   calories?: number;
   protein?: number;
@@ -74,6 +89,12 @@ export type IngredientType = {
   priceSource?: string | null;
   priceSources?: PriceSourceType[];
   daPriceSources?: DaPriceSourceType[];
+  // A packaged item with no store listing: its AI-estimated typical retail
+  // pack, priced from this ingredient's own price. Never a real listing.
+  packEstimate?: PackEstimateType;
+  // The ingredient's own price in ₱ per kg or L (its stored estimated
+  // price), so the grocery list can turn a used price back into a weight.
+  pricePerUnit?: { pricePerUnit: number; unit: "kg" | "L" };
   // Set when the recipe's quantity text was a bare number ("1") and `qty`
   // was generated from the stored amount + count label instead ("1 clove").
   // Kept separately so scaling servings can re-pluralize ("2 cloves")

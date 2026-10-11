@@ -12,7 +12,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { HOP_MARKER_SIZE, PageIntro, type IntroSize } from "@/frontend/components/ui";
+import { HOP_MARKER_SIZE, INTRO_DOT_REST_MS, PageIntro, type IntroSize } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 
 // The welcome right after onboarding. Onboarding's page indicator dot comes
@@ -24,7 +24,8 @@ import { colors } from "@/frontend/constants/theme";
 //   1.8s   a reel of dishes spins and stops on "Ask AnoUlam."
 //   3.0s   "We'll figure it out together." fades in
 //   3.6s   "Tara, kain!" (handwritten) pops in
-//   4.2s   everything collapses into the "!"'s dot, which then arcs up and
+//   4.2s   everything collapses into the "!"'s dot, which settles, then at
+//   4.92s  arcs up and
 //          lands as the period of "Categories." (see PageIntro), where
 //          HomeScreen bursts confetti
 const ENTRY_MS = 500;
@@ -38,7 +39,7 @@ const NOTE_AT = 3600;
 const COLLAPSE_AT = 4200;
 const COLLAPSE_MS = 380;
 const DOT_AT = COLLAPSE_AT + 60;
-const FLY_AT = 4500;
+const FLY_AT = DOT_AT + INTRO_DOT_REST_MS;
 
 // The "!" is drawn (stem + dot) instead of typed, so its dot can be the one
 // that flies in. Sized for text-subhero (55px extrabold).

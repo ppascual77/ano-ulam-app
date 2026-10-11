@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   archiveIngredient,
+  estimatePackSizes,
   getIngredients,
   groundIngredientPrices,
   groundIngredientsUsda,
@@ -51,6 +52,12 @@ export function useGroundIngredientsUsda() {
   return useMutation({
     mutationFn: (ingredients: { id: string; canonicalName: string }[]) =>
       groundIngredientsUsda(ingredients),
+  });
+}
+
+export function useEstimatePackSizes() {
+  return useMutation({
+    mutationFn: (ingredients: IngredientRow[]) => estimatePackSizes(ingredients),
   });
 }
 

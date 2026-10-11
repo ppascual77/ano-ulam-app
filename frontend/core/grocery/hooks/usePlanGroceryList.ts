@@ -6,6 +6,7 @@ import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 import { scaleMeal } from "@/frontend/core/meals/utils/scaleMeal";
 import { buildGroceryList, type GroceryItem } from "../utils/buildGroceryList";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
+import { applyStaplesToBuy, useStaplesToBuy } from "../store/useStaplesToBuyStore";
 
 // Just what the list needs from a meal plan (the Meal Planner's MealPlan
 // fits), so core doesn't depend on the feature.
@@ -56,13 +57,14 @@ export function usePlanGroceryList(plan: GroceryPlan | null, dayIndexes: number[
     // Re-derive when any fetch lands.
   }, [ids, queries.map((q) => q.dataUpdatedAt).join(",")]);
 
+  const staplesToBuy = useStaplesToBuy();
   const items: GroceryItem[] = useMemo(() => {
     if (!plan) return [];
     const cooked = days.flatMap((day) =>
       day.meals.map(({ meal }) => scaleMeal(fullById.get(meal.id as string) ?? meal, plan.servings)),
     );
-    return buildGroceryList(cooked);
-  }, [days, fullById, plan]);
+    return applyStaplesToBuy(buildGroceryList(cooked), staplesToBuy);
+  }, [days, fullById, plan, staplesToBuy]);
 
   const checked = usePlanChecks((st) => st.checked);
   const toggleChecked = usePlanChecks((st) => st.toggle);

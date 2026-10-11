@@ -15,7 +15,7 @@ export function splitGroceryItems(items: GroceryItem[]) {
 type GrocerySectionHeaderProps = {
   title: string;
   count: number;
-  /** Shown on the right, e.g. the staples' "Include in total" toggle. */
+  /** Shown on the right of the header. */
   right?: ReactNode;
   className?: string;
 };

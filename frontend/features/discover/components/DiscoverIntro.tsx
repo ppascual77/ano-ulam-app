@@ -12,7 +12,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Bookmark, ChevronUp, Heart } from "lucide-react-native";
-import { Confetti, PageIntro, type IntroSize } from "@/frontend/components/ui";
+import { Confetti, INTRO_DOT_REST_MS, PageIntro, type IntroSize } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 
 // A quick glance at Discover, on black like its reel:
@@ -23,7 +23,8 @@ import { colors } from "@/frontend/constants/theme";
 //          like it, save it
 //   2.7s   that slides away; "Your turn." fades in
 //   3.3s   "Share it." slams in, in orange; its period is the dot
-//   4.0s   everything collapses into that dot, which arcs up into the
+//   4.0s   everything collapses into that dot, which settles, then at
+//   4.72s  arcs up into the
 //          Create (+) button (see PageIntro); the + takes it in with a pulse
 //          and an orange flush, then its border runs one lap (CreateButton)
 const SWIPE_AT = 500;
@@ -37,7 +38,7 @@ const SHARE_AT = 3300;
 const COLLAPSE_AT = 4000;
 const COLLAPSE_MS = 380;
 const DOT_AT = COLLAPSE_AT + 60;
-const FLY_AT = 4300;
+const FLY_AT = DOT_AT + INTRO_DOT_REST_MS;
 
 // Swiped through top to bottom, stopping on the last.
 const DISHES = ["Sinigang", "Sisig", "Kare-Kare", "Bulalo", "Adobo"];

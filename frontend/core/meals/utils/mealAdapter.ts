@@ -6,7 +6,14 @@ import {
   type MealWithIngredients,
 } from "@/api/meals";
 import { daPriceOption } from "@/api/daPrices";
-import type { DaPriceSourceType, IngredientType, MealType, PriceSourceType } from "@/frontend/core/meals/mealTypes";
+import { ingredientPricePerUnit, isPackEstimate, packEstimateOf, packSizeInUnit } from "@/api/ingredients";
+import type {
+  DaPriceSourceType,
+  IngredientType,
+  MealType,
+  PackEstimateType,
+  PriceSourceType,
+} from "@/frontend/core/meals/mealTypes";
 import { formatCount } from "./multiplyQty";
 
 // Real computed totals carry long floating-point tails (e.g. summing many
@@ -75,8 +82,28 @@ function parsePriceSources(value: unknown): PriceSourceType[] {
   if (!Array.isArray(value)) return [];
   return value.filter(
     (s): s is PriceSourceType =>
-      !!s && typeof s === "object" && typeof s.store === "string" && typeof s.url === "string" && typeof s.pricePerUnit === "number",
+      !!s &&
+      typeof s === "object" &&
+      !isPackEstimate(s) &&
+      typeof s.store === "string" &&
+      typeof s.url === "string" &&
+      typeof s.pricePerUnit === "number",
   );
+}
+
+// The AI pack estimate, priced from the ingredient's current price (not the
+// snapshot stored with it), so a later price correction carries through.
+function parsePackEstimate(ingredient: MealWithIngredients["meal_ingredients"][number]["ingredient"]): PackEstimateType | undefined {
+  const estimate = packEstimateOf(ingredient.price_sources);
+  const own = ingredientPricePerUnit(ingredient);
+  if (!estimate || !own) return undefined;
+  const sizeInUnit = packSizeInUnit(estimate.packSize, estimate.packUnit, own.unit, ingredient.grams_per_ml);
+  return {
+    size: `${estimate.packSize} ${estimate.packUnit}`,
+    container: estimate.container,
+    sizeInUnit,
+    price: sizeInUnit * own.pricePerUnit,
+  };
 }
 
 // Each linked DA commodity's latest price, converted to ₱/kg or ₱/L like
@@ -167,6 +194,7 @@ function mealIngredientToIngredientType(mi: MealIngredientRow): IngredientType &
     sortOrder: mi.sort_order,
     ...describeQuantity(mi),
     name: mi.ingredient.canonical_name,
+    displayName: mi.ingredient.display_name,
     type: (mi.ingredient.role as "main" | "pantry") ?? "pantry",
     calories: totals?.calories != null ? roundCalories(totals.calories) : undefined,
     protein: totals?.protein != null ? roundMacro(totals.protein) : undefined,
@@ -186,5 +214,7 @@ function mealIngredientToIngredientType(mi: MealIngredientRow): IngredientType &
     priceSource: mi.ingredient.price_source,
     priceSources: parsePriceSources(mi.ingredient.price_sources),
     daPriceSources: parseDaPriceSources(mi.ingredient),
+    packEstimate: parsePackEstimate(mi.ingredient),
+    pricePerUnit: ingredientPricePerUnit(mi.ingredient) ?? undefined,
   };
 }

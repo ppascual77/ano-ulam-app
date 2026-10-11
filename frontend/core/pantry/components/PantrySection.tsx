@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Plus } from "lucide-react-native";
-import { AppText } from "@/frontend/components/ui";
+import { LandingTitle, LoadingState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { usePantry, usePantryActions } from "../hooks/usePantry";
+import { PANTRY_LOADING_LABEL, usePantry, usePantryActions } from "../hooks/usePantry";
 import { PantryEmptyState } from "./PantryEmptyState";
 import { PantryIngredientTabs } from "./PantryIngredientTabs";
 import { PantryMatchCard } from "./PantryMatchCard";
@@ -13,14 +13,14 @@ import { PantrySheet } from "./PantrySheet";
 // Ingredient button, then the empty state, or "What can you make?" with the
 // pantry as tabs of chips; and the Add Ingredients sheet both open.
 export function PantrySection() {
-  const { data: pantry = [] } = usePantry();
+  const { data: pantry = [], isPending } = usePantry();
   const actions = usePantryActions();
   const [sheetOpen, setSheetOpen] = useState(false);
 
   return (
     <View className="gap-4">
       <View className="flex-row items-center justify-between">
-        <AppText variant="title">Your Pantry</AppText>
+        <LandingTitle>Your pantry</LandingTitle>
         <Pressable
           onPress={() => setSheetOpen(true)}
           accessibilityRole="button"
@@ -31,7 +31,10 @@ export function PantrySection() {
         </Pressable>
       </View>
 
-      {pantry.length === 0 ? (
+      {/* Loading first, so an empty pantry never flashes before the real one. */}
+      {isPending ? (
+        <LoadingState variant="spiral" label={PANTRY_LOADING_LABEL} />
+      ) : pantry.length === 0 ? (
         <PantryEmptyState onAddIngredients={() => setSheetOpen(true)} />
       ) : (
         <>
