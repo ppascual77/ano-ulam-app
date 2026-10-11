@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
+import type { ScrollView as RNScrollView } from "react-native";
 import { AppText, Button, LoadingState, SegmentedSwitch, TextField } from "@/frontend/components/ui";
 import { IngredientSearch } from "@/frontend/core/meals/components/IngredientSearch";
 import { ingredientPricePerUnit, packEstimateOf, type IngredientRow, type PriceOption } from "@/api/ingredients";
@@ -91,6 +92,7 @@ export function ListingFromLinkPanel() {
   // Why it switched from SM to the form (informational, not an error).
   const [switchedReason, setSwitchedReason] = useState<string | null>(null);
   const confirmedUpdate = useConfirmedIngredientUpdate();
+  const scrollRef = useRef<RNScrollView>(null);
 
   // Linked DA prices stay among its sources, so a cheaper DA price isn't
   // overwritten by a store one.
@@ -182,6 +184,9 @@ export function ListingFromLinkPanel() {
       await confirmedUpdate.confirm();
       reset();
       setSaved(name);
+      // Back to the list (it no longer has this one), from the top.
+      setIngredientId(null);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
     } catch (err) {
       confirmedUpdate.cancel();
       setError(errorMessage(err));
@@ -206,6 +211,7 @@ export function ListingFromLinkPanel() {
     // Insets follow the keyboard, so the field being typed in scrolls up
     // above it instead of being covered (same as MacroGoalSheet).
     <ScrollView
+      ref={scrollRef}
       className="flex-1 px-5"
       contentContainerStyle={{ paddingBottom: 40 }}
       keyboardShouldPersistTaps="handled"
@@ -215,6 +221,14 @@ export function ListingFromLinkPanel() {
         Add a real store price to an ingredient. It takes the cheapest of its real prices, and its AI pack estimate is
         removed. Nothing is saved until you confirm.
       </AppText>
+
+      {saved && (
+        <View className="mb-4 rounded-xl bg-primary/5 px-4 py-3">
+          <AppText variant="body" className="text-primary">
+            Saved {saved}&apos;s new store price.
+          </AppText>
+        </View>
+      )}
 
       {ingredient ? (
         <View className="mb-4 flex-row items-center justify-between rounded-2xl border border-ink-emphasis/10 px-4 py-3">
@@ -368,11 +382,6 @@ export function ListingFromLinkPanel() {
       {error && (
         <AppText variant="body" className="mt-3 text-like">
           {error}
-        </AppText>
-      )}
-      {saved && (
-        <AppText variant="body" className="mt-3 text-primary">
-          Saved {saved}&apos;s new store price.
         </AppText>
       )}
 
