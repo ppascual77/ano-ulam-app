@@ -10,6 +10,7 @@ import { UsdaGroundingPanel } from "../components/UsdaGroundingPanel";
 import { FnriGroundingPanel } from "../components/FnriGroundingPanel";
 import { PriceGroundingPanel } from "../components/PriceGroundingPanel";
 import { PackEstimatePanel } from "../components/PackEstimatePanel";
+import { ListingFromLinkPanel } from "../components/ListingFromLinkPanel";
 import type { IngredientRow } from "@/api/ingredients";
 import { AdminHeader } from "../components/AdminHeader";
 
@@ -31,7 +32,7 @@ const PRICE_SOURCE_OPTIONS = [
   { id: "da", label: "DA Daily Price" },
 ];
 
-type Tab = "all" | "usda" | "fnri" | "prices" | "packs";
+type Tab = "all" | "usda" | "fnri" | "prices" | "link" | "packs";
 
 export default function ManageIngredientsScreen() {
   const [tab, setTab] = useState<Tab>("all");
@@ -72,7 +73,7 @@ export default function ManageIngredientsScreen() {
       <AdminHeader title="Manage Ingredients" subtitle={`${ingredients?.length ?? 0} ingredients`} />
 
       <View className="mb-4">
-        {/* Five tabs: scrolls sideways on narrow phones rather than squeezing. */}
+        {/* Six tabs: scrolls sideways on narrow phones rather than squeezing. */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
           <SegmentedSwitch<Tab>
             size="md"
@@ -81,6 +82,7 @@ export default function ManageIngredientsScreen() {
               { value: "usda", label: "USDA" },
               { value: "fnri", label: "FNRI" },
               { value: "prices", label: "Prices" },
+              { value: "link", label: "Link" },
               { value: "packs", label: "Packs" },
             ]}
             value={tab}
@@ -93,6 +95,8 @@ export default function ManageIngredientsScreen() {
         <UsdaGroundingPanel />
       ) : tab === "prices" ? (
         <PriceGroundingPanel />
+      ) : tab === "link" ? (
+        <ListingFromLinkPanel />
       ) : tab === "packs" ? (
         <PackEstimatePanel />
       ) : tab === "fnri" ? (
