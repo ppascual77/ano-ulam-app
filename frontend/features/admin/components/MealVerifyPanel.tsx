@@ -313,8 +313,10 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
 
   return (
     <View className="gap-3 mb-6">
-      <AppText variant="bodyBold">Verify</AppText>
-      <AppText variant="caption" className="text-ink-subtle -mt-2">
+      <AppText variant="sectionSubtitle" dot>
+        Verify
+      </AppText>
+      <AppText variant="caption" className="text-ink-subtle -mt-1">
         Once every ingredient above is linked, run an AI check on the totals, individual macros/price, and bridges —
         catches things like a canned ingredient linked to its raw variant, or a bridge value that looks off. Nothing
         is changed unless you accept a suggestion below.

@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { View, Pressable } from "react-native";
+import { View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { router } from "expo-router";
-import { ArrowLeft, Link2 } from "lucide-react-native";
+import { Link2 } from "lucide-react-native";
 import { AppText, Button, ErrorState, LoadingState, Screen, TextField } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { parseQuantityText, type ImportedMealDraft } from "@/api/meals";
@@ -16,6 +16,7 @@ import {
 import { MealFormFields, type MealFormState } from "../components/MealFormFields";
 import { MealVerifyPanel } from "../components/MealVerifyPanel";
 import type { PendingMealIngredient } from "../components/SeedMealIngredientsEditor";
+import { AdminHeader } from "../components/AdminHeader";
 
 function draftIngredientsToPending(draft: ImportedMealDraft): PendingMealIngredient[] {
   return draft.ingredients.map((ing, i) => {
@@ -139,15 +140,7 @@ export default function SeedMealScreen() {
 
   return (
     <Screen padded={false}>
-      <View className="px-5 pt-2 pb-4 flex-row items-center gap-2">
-        <Pressable onPress={() => router.back()} className="h-9 w-9 items-center justify-center">
-          <ArrowLeft color={colors.ink.emphasis} size={18} />
-        </Pressable>
-        <View>
-          <AppText variant="eyebrow">Admin</AppText>
-          <AppText variant="heading">Seed Meal</AppText>
-        </View>
-      </View>
+      <AdminHeader title="Seed Meal" />
 
       {!draft || !form ? (
         <View className="px-5 gap-3">

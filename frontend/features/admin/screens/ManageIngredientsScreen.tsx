@@ -1,10 +1,7 @@
 import { useMemo, useState } from "react";
 import { View, Pressable } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
-import { router } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
-import { AppText, ErrorState, LoadingState, Screen, SearchBar, Toggle } from "@/frontend/components/ui";
-import { colors } from "@/frontend/constants/theme";
+import { AppText, SegmentedSwitch, ErrorState, LoadingState, Screen, SearchBar, Toggle } from "@/frontend/components/ui";
 import { useArchiveIngredient, useIngredients, useUpdateIngredient } from "../hooks/useIngredients";
 import { IngredientListItem } from "../components/IngredientListItem";
 import { IngredientEditSheet } from "../components/IngredientEditSheet";
@@ -12,10 +9,11 @@ import { FilterPill } from "../components/FilterPill";
 import { UsdaGroundingPanel } from "../components/UsdaGroundingPanel";
 import { PriceGroundingPanel } from "../components/PriceGroundingPanel";
 import type { IngredientRow } from "@/api/ingredients";
+import { AdminHeader } from "../components/AdminHeader";
 
 const ROLE_OPTIONS = [
   { id: "main", label: "Main" },
-  { id: "pantry", label: "Pantry" },
+  { id: "pantry", label: "Staple" },
 ];
 const SOURCE_OPTIONS = [
   { id: "FNRI", label: "FNRI" },
@@ -69,37 +67,10 @@ export default function ManageIngredientsScreen() {
 
   return (
     <Screen padded={false}>
-      <View className="px-5 pt-2 pb-4 flex-row items-center gap-2">
-        <Pressable onPress={() => router.back()} className="h-9 w-9 items-center justify-center">
-          <ArrowLeft color={colors.ink.emphasis} size={18} />
-        </Pressable>
-        <View>
-          <AppText variant="eyebrow">Admin</AppText>
-          <AppText variant="heading">Manage Ingredients</AppText>
-          <AppText variant="caption" className="text-ink-subtle">
-            {ingredients?.length ?? 0} ingredients
-          </AppText>
-        </View>
-      </View>
+      <AdminHeader title="Manage Ingredients" subtitle={`${ingredients?.length ?? 0} ingredients`} />
 
-      <View className="flex-row gap-5 px-5 border-b border-ink-emphasis/10 mb-4">
-        {(
-          [
-            { id: "all", label: "All Ingredients" },
-            { id: "usda", label: "Ground from USDA" },
-            { id: "fnri", label: "Ground from FNRI" },
-            { id: "prices", label: "Ground Prices" },
-          ] as const
-        ).map((t) => (
-          <Pressable key={t.id} onPress={() => setTab(t.id)} className="pb-3">
-            <AppText
-              variant={tab === t.id ? "bodyBold" : "body"}
-              className={tab === t.id ? "text-primary" : "text-ink-subtle"}
-            >
-              {t.label}
-            </AppText>
-          </Pressable>
-        ))}
+      <View className="mb-4 items-start px-5">
+        <SegmentedSwitch<Tab> size="md" options={[{ value: "all", label: "All" }, { value: "usda", label: "USDA" }, { value: "fnri", label: "FNRI" }, { value: "prices", label: "Prices" }]} value={tab} onChange={setTab} />
       </View>
 
       {tab === "usda" ? (

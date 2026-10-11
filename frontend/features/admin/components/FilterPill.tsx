@@ -18,9 +18,16 @@ export function FilterPill({ label, value, options, onChange }: Props) {
   return (
     <Dropdown
       trigger={
-        <View className="flex-row items-center gap-1 rounded-full border border-ink-emphasis/10 px-3 py-2">
-          <AppText variant="caption">{selectedLabel}</AppText>
-          <ChevronDown color={colors.ink.subtle} size={14} />
+        // Tinted green while a filter is set, like the app's selected chips.
+        <View
+          className={`flex-row items-center gap-1 rounded-full border px-3 py-2 ${
+            value ? "border-primary/30 bg-primary/10" : "border-ink-emphasis/10"
+          }`}
+        >
+          <AppText variant="caption" className={value ? "font-inter-semibold text-primary" : ""}>
+            {selectedLabel}
+          </AppText>
+          <ChevronDown color={value ? colors.primary : colors.ink.subtle} size={14} />
         </View>
       }
       items={[
