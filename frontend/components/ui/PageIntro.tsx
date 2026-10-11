@@ -24,6 +24,11 @@ const FLY_MS = 650;
 // How high the dot arcs on its way to the header.
 const FLY_ARC = 120;
 
+// How long the dot sits still between popping in (dotAt) and taking off
+// (flyAt), so its pop has settled and the flight starts from rest. Price
+// Watch's timing, the smoothest landing; every intro uses it.
+export const INTRO_DOT_REST_MS = 660;
+
 export type IntroSize = { w: number; h: number };
 export type IntroState = "armed" | "playing" | "done";
 

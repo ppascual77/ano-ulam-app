@@ -30,6 +30,6 @@ export { useFieldErrorAnimation } from "./TextField";
 export { BoilingDoodle, DOODLE_COLORS, DOODLE_LIST, TREND_DOODLES, drawBoilPair, type DoodleVersion } from "./doodles";
 export { PulsePressable } from "./PulsePressable";
 export { RollingText } from "./RollingText";
-export { PageIntro, usePageIntro, type IntroSize } from "./PageIntro";
+export { INTRO_DOT_REST_MS, PageIntro, usePageIntro, type IntroSize } from "./PageIntro";
 export { LandingTitle, type LandingDot } from "./LandingTitle";
 export { DotHandoffOverlay } from "./DotHandoff";
