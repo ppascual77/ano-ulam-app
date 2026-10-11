@@ -10,7 +10,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { PageIntro, type IntroSize } from "@/frontend/components/ui";
+import { INTRO_DOT_REST_MS, PageIntro, type IntroSize } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useCountTo } from "@/frontend/core/prices/hooks/useCountTo";
 import { NCR_MARKETS } from "../constants/markets";
@@ -27,7 +27,9 @@ const DOT_STAGGER_MS = 22;
 const MERGE_AT = 1500;
 const MERGE_MS = 450;
 const NOTE_AT = MERGE_AT + MERGE_MS;
-const FLY_AT = 2550;
+const DOT_AT = NOTE_AT - 60;
+// Same rest as every intro (this one's timing is where it came from).
+const FLY_AT = DOT_AT + INTRO_DOT_REST_MS;
 
 const MARKET_DOT = 10;
 const MERGED_DOT = 22;
@@ -151,7 +153,7 @@ export function PriceWatchIntro({ active, targetRef, onDone }: PriceWatchIntroPr
       targetRef={targetRef}
       onDone={onDone}
       dotStart={cloudCenter}
-      dotAt={NOTE_AT - 60}
+      dotAt={DOT_AT}
       flyAt={FLY_AT}
       dotSize={MERGED_DOT}
       accessibilityLabel="Price Watch: prices straight from the DA, a daily average of 35 NCR markets."

@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { BicepsFlexed, PiggyBank, Timer, type LucideIcon } from "lucide-react-native";
-import { PageIntro, type IntroSize } from "@/frontend/components/ui";
+import { INTRO_DOT_REST_MS, PageIntro, type IntroSize } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 
 // A quick glance at what Browse is:
@@ -20,7 +20,7 @@ import { colors } from "@/frontend/constants/theme";
 //   1.55s  "sounds good today!" (handwritten) pops under it
 //   1.75s  the three ulam moods pop in: Tipid, High Protein, Quick & Easy
 //   2.35s  everything collapses into one dot
-//   2.75s  the cover fades to the real page as the dot arcs up and lands as
+//   3.07s  (once the dot has settled) the cover fades to the real page as the dot arcs up and lands as
 //          the period of the "Browse." header (see PageIntro)
 const SPIN_AT = 200;
 const SPIN_MS = 1300;
@@ -30,7 +30,7 @@ const MOOD_STAGGER_MS = 110;
 const COLLAPSE_AT = 2350;
 const COLLAPSE_MS = 380;
 const DOT_AT = COLLAPSE_AT + 60;
-const FLY_AT = 2750;
+const FLY_AT = DOT_AT + INTRO_DOT_REST_MS;
 
 // The reel: spins through these (twice, for speed), landing on the last.
 const DISHES = ["Adobo", "Sisig", "Tinola", "Kare-Kare", "Laing", "Pancit", "Lechon", "Bulalo"];

@@ -20,9 +20,17 @@ import { colors } from "@/frontend/constants/theme";
 
 const FADE_MS = 450;
 const CONTENT_FADE_MS = 250;
-const FLY_MS = 650;
+// Exported so the tab-switch dot (DotHandoff) flies exactly the same way.
+export const INTRO_DOT_FLY_MS = 650;
 // How high the dot arcs on its way to the header.
-const FLY_ARC = 120;
+export const INTRO_DOT_FLY_ARC = 120;
+const FLY_MS = INTRO_DOT_FLY_MS;
+const FLY_ARC = INTRO_DOT_FLY_ARC;
+
+// How long the dot sits still between popping in (dotAt) and taking off
+// (flyAt), so its pop has settled and the flight starts from rest. Price
+// Watch's timing, the smoothest landing; every intro uses it.
+export const INTRO_DOT_REST_MS = 660;
 
 export type IntroSize = { w: number; h: number };
 export type IntroState = "armed" | "playing" | "done";
