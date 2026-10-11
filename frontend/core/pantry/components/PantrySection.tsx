@@ -20,7 +20,9 @@ export function PantrySection() {
   return (
     <View className="gap-4">
       <View className="flex-row items-center justify-between">
-        <AppText variant="title">Your Pantry</AppText>
+        <AppText variant="sectionTitle" dot>
+          Your pantry
+        </AppText>
         <Pressable
           onPress={() => setSheetOpen(true)}
           accessibilityRole="button"
