@@ -5,7 +5,6 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "
 import { scheduleOnRN } from "react-native-worklets";
 import { create } from "zustand";
 import { colors } from "@/frontend/constants/theme";
-import { INTRO_DOT_FLY_ARC, INTRO_DOT_FLY_MS } from "./PageIntro";
 
 // The landing dot handoff: moving between screens, the title dot of the
 // screen you leave ("Categories.") flies over and lands as the title dot of
@@ -28,11 +27,12 @@ type Flight = { id: number; from: Spot; to: Spot };
 const SETTLE_MS = 200;
 // How long a course correction blends in (well inside the flight).
 const CORRECT_MS = 220;
-// The flight and landing are the page intros' landing dot's, exactly: same
-// time, ease and arc, shrinking/growing straight to the landing spot's
-// size, no extra squash or stretch.
-const FLY_MS = INTRO_DOT_FLY_MS;
-const ARC = INTRO_DOT_FLY_ARC;
+// A short hop, not the page intros' big arc: between tabs the title dots sit
+// at about the same height, so the intros' 120px leap read as a jump. Same
+// ease, shrinking/growing straight to the landing spot's size, no extra
+// squash or stretch.
+const FLY_MS = 450;
+const ARC = 24;
 // A dot left longer ago than this isn't where this screen came from (e.g.
 // via Discover, which has no title dot).
 const FRESH_MS = 800;
