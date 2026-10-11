@@ -68,8 +68,10 @@ const ALLERGEN_OPTIONS = [
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <View className="gap-3 mb-6">
-      <AppText variant="bodyBold">{title}</AppText>
+    <View className="gap-3 mb-8">
+      <AppText variant="sectionSubtitle" dot>
+        {title}
+      </AppText>
       {children}
     </View>
   );
@@ -99,12 +101,12 @@ export function MealFormFields({ value, onChange, allIngredients }: Props) {
 
   return (
     <View>
-      <Section title="Basic Info">
+      <Section title="Basic info">
         <TextField label="Meal name" value={value.name} onChangeText={(v) => set("name", v)} />
         <TextField label="Description" value={value.description} onChangeText={(v) => set("description", v)} multiline />
       </Section>
 
-      <Section title="Timing & Details">
+      <Section title="Timing & details">
         <TextField label="Prep time (min)" value={value.prepTime} onChangeText={(v) => set("prepTime", v)} keyboardType="numeric" />
         <TextField label="Total time (min)" value={value.totalTime} onChangeText={(v) => set("totalTime", v)} keyboardType="numeric" />
         <TextField label="Serving size" value={value.servingSize} onChangeText={(v) => set("servingSize", v)} keyboardType="numeric" />
@@ -113,7 +115,7 @@ export function MealFormFields({ value, onChange, allIngredients }: Props) {
         <ChipSelect mode="single" options={DIFFICULTY_OPTIONS} value={value.difficulty} onChange={(v) => set("difficulty", v)} />
       </Section>
 
-      <Section title="Source & Pricing">
+      <Section title="Source & pricing">
         <TextField label="Restaurant (fast food only)" value={value.restaurant} onChangeText={(v) => set("restaurant", v)} />
         <TextField label="Source URL" value={value.source} onChangeText={(v) => set("source", v)} autoCapitalize="none" />
         <TextField label="Budget range (e.g. 100-150)" value={value.budgetRange} onChangeText={(v) => set("budgetRange", v)} />
@@ -144,7 +146,7 @@ export function MealFormFields({ value, onChange, allIngredients }: Props) {
         <SeedMealIngredientsEditor items={value.ingredients} allIngredients={allIngredients} onChange={(v) => set("ingredients", v)} />
       </Section>
 
-      <Section title="Tags & Dietary">
+      <Section title="Tags & dietary">
         <AppText variant="caption">Dietary tags</AppText>
         <ChipSelect mode="multi" options={DIETARY_TAG_OPTIONS} value={value.dietaryTags} onChange={(v) => set("dietaryTags", v)} />
 

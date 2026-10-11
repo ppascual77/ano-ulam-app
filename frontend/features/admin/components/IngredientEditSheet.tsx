@@ -35,7 +35,7 @@ type Props = {
 
 const ROLE_OPTIONS = [
   { id: "main", label: "Main" },
-  { id: "pantry", label: "Pantry" },
+  { id: "pantry", label: "Staple" },
 ];
 const STATE_OPTIONS = [
   { id: "raw", label: "Raw" },
@@ -213,8 +213,10 @@ function buildPatch(form: FormState): Partial<IngredientRow> {
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <View className="gap-3 mb-6">
-      <AppText variant="bodyBold">{title}</AppText>
+    <View className="gap-3 mb-8">
+      <AppText variant="sectionSubtitle" dot>
+        {title}
+      </AppText>
       {children}
     </View>
   );

@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
-import { View, Pressable } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
 import { AppText, Button, ErrorState, LoadingState, Screen } from "@/frontend/components/ui";
-import { colors } from "@/frontend/constants/theme";
 import type { MealWithIngredients, QuantityUnit } from "@/api/meals";
 import {
   useIngredientsForMatching,
@@ -15,6 +12,7 @@ import {
 } from "../hooks/useMeals";
 import { MealFormFields, type MealFormState } from "../components/MealFormFields";
 import { MealImageEditor } from "../components/MealImageEditor";
+import { AdminHeader } from "../components/AdminHeader";
 
 const UNIT_VALUES: QuantityUnit[] = ["g", "kg", "ml", "L", "piece"];
 
@@ -128,15 +126,7 @@ export default function EditMealScreen() {
 
   return (
     <Screen padded={false}>
-      <View className="px-5 pt-2 pb-4 flex-row items-center gap-2">
-        <Pressable onPress={() => router.back()} className="h-9 w-9 items-center justify-center">
-          <ArrowLeft color={colors.ink.emphasis} size={18} />
-        </Pressable>
-        <View>
-          <AppText variant="eyebrow">Admin</AppText>
-          <AppText variant="heading">Edit Meal</AppText>
-        </View>
-      </View>
+      <AdminHeader title="Edit Meal" />
 
       {isLoading || ingredientsLoading ? (
         <LoadingState />

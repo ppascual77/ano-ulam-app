@@ -1,16 +1,14 @@
 import { useState } from "react";
-import { Alert, Pressable, View, useWindowDimensions } from "react-native";
+import { Alert, View, useWindowDimensions } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
-import { router } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
 import { AppText, BottomSheet, Button, ErrorState, Screen, TextField } from "@/frontend/components/ui";
-import { colors } from "@/frontend/constants/theme";
 import { errorMessage } from "@/lib/errorMessage";
 import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
 import { MealCardSkeleton } from "@/frontend/core/meals/components/card/MealCardSkeleton";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 import { useApproveRecipe, usePendingRecipes, useRecipeForReview, useRejectRecipe } from "../hooks/useRecipeReview";
+import { AdminHeader } from "../components/AdminHeader";
 
 // Same grid as Manage Meals.
 const SCREEN_PADDING = 40;
@@ -59,16 +57,7 @@ export default function ReviewRecipesScreen() {
 
   return (
     <Screen padded={false}>
-      <View className="flex-row items-center gap-2 px-5 pb-4 pt-2">
-        <Pressable onPress={() => router.back()} className="h-9 w-9 items-center justify-center">
-          <ArrowLeft color={colors.ink.emphasis} size={18} />
-        </Pressable>
-        <View>
-          <AppText variant="eyebrow">Admin</AppText>
-          <AppText variant="heading">Review Recipes</AppText>
-          <AppText variant="caption">{recipes?.length ?? 0} waiting for review</AppText>
-        </View>
-      </View>
+      <AdminHeader title="Review Recipes" subtitle={`${recipes?.length ?? 0} waiting for review`} />
 
       {isError ? (
         <ErrorState onRetry={refetch} />
@@ -110,7 +99,7 @@ export default function ReviewRecipesScreen() {
             fitContent
           >
             <View className="gap-4 px-5 pb-6 pt-12">
-              <AppText variant="title">Reject this recipe?</AppText>
+              <AppText variant="sectionSubtitle">Reject this recipe?</AppText>
               <TextField
                 label="Reason"
                 labelPosition="outside"
