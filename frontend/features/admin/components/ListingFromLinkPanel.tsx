@@ -260,10 +260,12 @@ export function ListingFromLinkPanel() {
         </View>
       )}
 
-      {ingredient && (
+      {/* The link field and Get price; the manual form takes over (with its
+          own link field) once it's open. */}
+      {ingredient && !manual && (
         <View className="gap-3">
           <TextField
-            label="SM Markets product link"
+            label="Product link (any store)"
             value={link}
             onChangeText={(text) => {
               setLink(text);
@@ -277,23 +279,49 @@ export function ListingFromLinkPanel() {
             keyboardType="url"
           />
           <Button label="Get price" loading={fetching} disabled={!link.trim() || fetching} onPress={handleFetch} />
-          {!manual && (
-            <Pressable onPress={() => openManual()} hitSlop={8} className="self-center">
-              <AppText variant="caption" className="text-primary">
-                Enter by hand instead (no link, or another store)
-              </AppText>
-            </Pressable>
-          )}
+          <Pressable onPress={() => openManual()} hitSlop={8} className="self-center">
+            <AppText variant="caption" className="text-primary">
+              Enter by hand instead (no link, or another store)
+            </AppText>
+          </Pressable>
         </View>
       )}
 
       {ingredient && manual && (
-        <View className="mt-5 gap-3 rounded-2xl border border-ink-emphasis/10 p-4">
+        <View className="gap-3 rounded-2xl border border-ink-emphasis/10 p-4">
+          <View className="flex-row items-center justify-between">
+            <AppText variant="bodyBold">Enter by hand</AppText>
+            <Pressable
+              onPress={() => {
+                setManual(null);
+                setManualReason(null);
+                setListing(null);
+              }}
+              hitSlop={8}
+            >
+              <AppText variant="caption" className="text-primary">
+                Back
+              </AppText>
+            </Pressable>
+          </View>
           {manualReason && (
             <AppText variant="caption" className="text-ink-subtle">
               {manualReason}
             </AppText>
           )}
+          {/* The link saved with it (the one above, editable here without
+              clearing the form); empty for a price with no product page. */}
+          <TextField
+            label="Link (optional)"
+            value={link}
+            onChangeText={(text) => {
+              setLink(text);
+              setListing(null);
+            }}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+          />
           <TextField
             label="Store"
             value={manual.store}
