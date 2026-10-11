@@ -1,16 +1,19 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Image, type ImageProps } from "expo-image";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { FadeInDown, FadeOutUp, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { Easing, FadeOutUp, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CircleAlert, CircleCheck } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 
 const AUTO_HIDE_MS = 3500;
-// Drops in from above on a soft spring, leaves upward quicker than it came.
-const ENTER = FadeInDown.springify().damping(18).stiffness(220);
+// Slides down 12px into place on a plain ease-out (no spring, no
+// overshoot), driven by our own timing rather than an entering preset.
+// Leaves upward a little quicker.
+const ENTER_MS = 220;
+const ENTER_OFFSET = 12;
 const EXIT = FadeOutUp.duration(180);
 // An upward flick past this (or fast enough) dismisses it.
 const DISMISS_DISTANCE = 24;
@@ -46,10 +49,17 @@ type ToastProps = {
 export function Toast({ toast, onHide }: ToastProps) {
   const insets = useSafeAreaInsets();
   const dragY = useSharedValue(0);
+  const shown = useSharedValue(0);
+
+  // Before paint, so a new toast never shows a frame at full opacity.
+  useLayoutEffect(() => {
+    dragY.value = 0;
+    shown.value = 0;
+    if (toast) shown.value = withTiming(1, { duration: ENTER_MS, easing: Easing.out(Easing.cubic) });
+  }, [toast?.id]);
 
   useEffect(() => {
     if (!toast) return;
-    dragY.value = 0;
     const timer = setTimeout(onHide, AUTO_HIDE_MS);
     return () => clearTimeout(timer);
     // Keyed on the toast's id only: a new toast restarts the timer.
@@ -66,8 +76,8 @@ export function Toast({ toast, onHide }: ToastProps) {
       else dragY.value = withTiming(0, { duration: 180 });
     });
   const dragStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: dragY.value }],
-    opacity: 1 + Math.min(dragY.value, 0) / 80,
+    transform: [{ translateY: dragY.value - (1 - shown.value) * ENTER_OFFSET }],
+    opacity: shown.value * (1 + Math.min(dragY.value, 0) / 80),
   }));
 
   if (!toast) return null;
@@ -76,7 +86,6 @@ export function Toast({ toast, onHide }: ToastProps) {
   return (
     <Animated.View
       key={toast.id}
-      entering={ENTER}
       exiting={EXIT}
       pointerEvents="box-none"
       className="absolute left-0 right-0 items-center px-4"
