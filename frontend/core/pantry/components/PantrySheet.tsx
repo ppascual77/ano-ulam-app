@@ -2,13 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
 import Animated, { SlideInLeft, SlideInRight, SlideOutLeft, SlideOutRight } from "react-native-reanimated";
-import { ArrowLeft, Check, X } from "lucide-react-native";
+import { ArrowLeft, Check } from "lucide-react-native";
 import { AppText, BottomSheet, Button, SearchBar } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { IngredientSearch } from "@/frontend/core/meals/components/IngredientSearch";
 import { INGREDIENT_CATEGORY_ICONS } from "@/frontend/core/meals/ingredientCategory";
 import { usePantry, usePantryActions } from "../hooks/usePantry";
 import { usePantryStaples } from "../hooks/usePantryStaples";
+import { usePantryGroups } from "../hooks/usePantryMatches";
+import { PantryChip } from "./PantryChip";
 
 export const PANTRY_SUBTITLE = "Add what you have, we'll find what you can cook.";
 
@@ -84,6 +86,7 @@ function AddView({ onDone, onViewStaples }: { onDone: () => void; onViewStaples:
   const actions = usePantryActions();
   const { staples } = usePantryStaples();
   const addedIds = useMemo(() => new Set(pantry.map((item) => item.id)), [pantry]);
+  const groupOf = usePantryGroups(pantry);
 
   return (
     <View className="flex-1">
@@ -116,12 +119,7 @@ function AddView({ onDone, onViewStaples }: { onDone: () => void; onViewStaples:
             </Text>
             <View className="flex-row flex-wrap gap-2">
               {pantry.map((item) => (
-                <View key={item.id} className="flex-row items-center gap-1.5 rounded-full border border-brand-green px-3 py-1.5">
-                  <Text className="font-inter-light text-small text-brand-green">{item.name}</Text>
-                  <Pressable onPress={() => actions.remove(item.id)} hitSlop={8} accessibilityLabel={`Remove ${item.name}`}>
-                    <X color={colors.brandGreen.DEFAULT} size={11} />
-                  </Pressable>
-                </View>
+                <PantryChip key={item.id} item={item} group={groupOf.get(item.id)} onRemove={() => actions.remove(item.id)} />
               ))}
             </View>
           </View>
