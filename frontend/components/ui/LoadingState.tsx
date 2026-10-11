@@ -5,24 +5,22 @@ import { colors } from "@/frontend/constants/theme";
 
 type LoadingStateProps = {
   label?: string;
-  /** "wave": the rolling accent squiggle from Button's loading state, larger,
-   *  for a section loading inline (e.g. the pantry) rather than a whole
-   *  screen. */
-  variant?: "default" | "wave";
+  /** "spiral": the hand-drawn spinning spiral from the Save button's
+   *  loading state, larger and in accent, for a section loading inline
+   *  (e.g. the pantry) rather than a whole screen. */
+  variant?: "default" | "spiral";
 };
 
-// Wave width: wide enough for a few full waves at the larger size.
-const WAVE_WIDTH = 120;
+// The Save button's spiral is 16px; a section's is this.
+const SPIRAL_SIZE = 40;
 
 // Full-bleed centered spinner for a screen/section waiting on a query
 // (e.g. useMeals() before its first successful fetch).
 export function LoadingState({ label, variant = "default" }: LoadingStateProps) {
-  if (variant === "wave") {
+  if (variant === "spiral") {
     return (
       <View className="items-center justify-center gap-3 py-12" accessibilityRole="progressbar" accessibilityLabel={label}>
-        <View style={{ width: WAVE_WIDTH }}>
-          <Spinner variant="wave" size={20} color={colors.accent} />
-        </View>
+        <Spinner variant="spiral" size={SPIRAL_SIZE} color={colors.accent} />
         {label && <AppText variant="caption">{label}</AppText>}
       </View>
     );
