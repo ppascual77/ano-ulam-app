@@ -122,13 +122,12 @@ export function GroceryTab({ userId }: { userId: string | null }) {
               .map((section) => (
                 <View key={section.title}>
                   <GrocerySectionHeader title={section.title} count={section.count} />
-                  {section.rows.map((item, i) => (
+                  {section.rows.map((item) => (
                     <GroceryRow
                       key={item.id}
                       item={item}
                       checked={grocery.isChecked(item)}
                       onToggle={() => grocery.toggle(item)}
-                      isLast={i === section.rows.length - 1}
                       preview
                     />
                   ))}

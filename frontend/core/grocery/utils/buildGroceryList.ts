@@ -1,4 +1,5 @@
 import { formatCount } from "@/frontend/core/meals/utils/multiplyQty";
+import { groceryName, grocerySection, type GrocerySectionKey } from "./groceryLabels";
 import type { IngredientType, MealType, PriceSourceType } from "@/frontend/core/meals/mealTypes";
 
 // Whole packs to buy of a packaged item ("2 × 385 ml"), from its cheapest
@@ -7,9 +8,16 @@ import type { IngredientType, MealType, PriceSourceType } from "@/frontend/core/
 export type GroceryPack = { count: number; size: string; price: number; container?: string };
 
 export type GroceryItem = {
-  /** Lowercased name: the merge key, and what checkbox state is stored by. */
+  /** Lowercased catalog name: the merge key, and what checkbox state is
+   *  stored by. */
   id: string;
+  /** What a shopper calls it ("Green bell pepper"), see groceryName. */
   name: string;
+  /** The catalog name ("Bell pepper, green, raw"): what pantry matching
+   *  goes by. */
+  canonicalName: string;
+  /** Where in the store it's picked up (the list's groups). */
+  section: GrocerySectionKey;
   /** What the meals use, as written ("2 tbsp + 1 tsp"). Also what a saved
    *  check is stored against, so it's never reformatted. */
   qty: string;
@@ -194,7 +202,6 @@ function buyText(parts: QtyPart[], pack: GroceryPack | null, usedPrice: number, 
   return formatParts(parts);
 }
 
-const sentenceCase = (name: string) => name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
 
 // Every ingredient of every home-cooked meal given (fast food is left out),
 // merged by name: quantities added up per unit, prices summed, and "main"
@@ -212,7 +219,7 @@ export function buildGroceryList(meals: Pick<MealType, "category" | "ingredients
       const id = ingredient.name.trim().toLowerCase();
       if (!id) continue;
       const group = groups.get(id) ?? {
-        name: sentenceCase(ingredient.name.trim()),
+        name: ingredient.name.trim(),
         parts: [],
         price: 0,
         main: false,
@@ -237,7 +244,9 @@ export function buildGroceryList(meals: Pick<MealType, "category" | "ingredients
       const estimate = !loose && (pack ? storeListings(group.ingredient).length === 0 : usedPrice > 0);
       return {
         id,
-        name: group.name,
+        name: groceryName(group.name, group.ingredient.displayName),
+        canonicalName: group.name,
+        section: grocerySection(group.ingredient.category),
         qty: formatParts(group.parts),
         buy: buyText(group.parts, pack, usedPrice, group.ingredient),
         price: pack ? pack.price : usedPrice,

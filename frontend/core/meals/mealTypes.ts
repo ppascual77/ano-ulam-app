@@ -42,6 +42,10 @@ export type DaPriceSourceType = {
 export type IngredientType = {
   qty: string;
   name: string;
+  // The ingredients table's display_name: a friendlier name where the
+  // catalog name reads like data ("Bell pepper, green, raw"). Used by the
+  // grocery list.
+  displayName?: string | null;
   type: "main" | "pantry";
   calories?: number;
   protein?: number;
