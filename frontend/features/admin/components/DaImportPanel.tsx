@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { View, Pressable, Linking } from "react-native";
+import { ActivityIndicator, Linking, Pressable, Text, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
-import { Check, ExternalLink } from "lucide-react-native";
-import { AppText, Button, ErrorState, LoadingState } from "@/frontend/components/ui";
+import { Check, CheckCircle2, ExternalLink } from "lucide-react-native";
+import { AppText, Button, ErrorState, LoadingState, NoticeBanner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import {
   commoditiesByIngredient,
@@ -30,6 +30,7 @@ import {
 import { useIngredients } from "../hooks/useIngredients";
 import { useConfirmedIngredientUpdate, type PendingIngredientChange } from "../hooks/useConfirmedIngredientUpdate";
 import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
+import { ActionChip, InlineError, StatTiles, StatusChip } from "./AdminUi";
 
 const DA_PRICE_PAGE = "https://www.da.gov.ph/price-monitoring/";
 // "Import last 7 days" goes back to the newest day minus this many days,
@@ -229,30 +230,44 @@ export function DaImportPanel() {
 
   return (
     <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 40 }}>
-      <AppText variant="body" className="text-ink-subtle mb-1">
-        DA's Daily Price Index: the average retail price of ~200 commodities across 35 NCR wet markets. Pick a day
-        to preview it. Nothing is saved until you confirm.
-      </AppText>
-      <Pressable onPress={() => Linking.openURL(DA_PRICE_PAGE)} className="flex-row items-center gap-1 mb-4">
-        <AppText variant="caption" className="text-primary">
-          DA price monitoring page
-        </AppText>
-        <ExternalLink color={colors.primary} size={12} />
-      </Pressable>
+      <View className="mb-6 gap-3">
+        <Text className="font-inter-regular text-body-lg text-ink">
+          DA's Daily Price Index: the average retail price of ~200 commodities across 35 NCR wet markets. Pick a day
+          to preview it. <Text className="font-inter-semibold">Nothing is saved until you confirm.</Text>
+        </Text>
+        <ActionChip
+          label="DA price monitoring page"
+          icon={<ExternalLink color={colors.primary} size={14} />}
+          onPress={() => Linking.openURL(DA_PRICE_PAGE)}
+        />
+      </View>
 
       {done && (
-        <AppText variant="bodyBold" className="text-primary mb-4">
-          {done}
-        </AppText>
+        <View className="mb-5">
+          <NoticeBanner tone="positive" icon={<CheckCircle2 color={colors.primary} size={18} />}>
+            <AppText variant="bodyBold" className="text-primary">
+              {done}
+            </AppText>
+          </NoticeBanner>
+        </View>
       )}
+
+      <View className="mb-3 gap-1">
+        <AppText variant="sectionSubtitle" dot>
+          Pick a day
+        </AppText>
+        <Text className="font-inter-regular text-body text-ink-subtle">
+          Green with ✓ = already imported. Tap any day to preview it; saving an imported day again just overwrites it.
+        </Text>
+      </View>
 
       {pdfs.isLoading ? (
         <LoadingState label="Reading DA's list of daily PDFs. Their site can take up to 20 seconds..." />
       ) : pdfs.isError ? (
         <ErrorState message={errorMessage(pdfs.error)} onRetry={() => pdfs.refetch()} />
       ) : (
-        <View className="flex-row flex-wrap gap-2 mb-4">
-          <View className="w-full mb-1">
+        <View className="mb-6 flex-row flex-wrap gap-2">
+          <View className="mb-2 w-full">
             <Button
               label={
                 backfill
@@ -264,10 +279,6 @@ export function DaImportPanel() {
               onPress={handleBackfill}
             />
           </View>
-          <AppText variant="caption" className="w-full text-ink-subtle">
-            Green border with ✓ = prices for that day are already imported. Tap any day to preview it; saving an
-            imported day again just overwrites it.
-          </AppText>
           {(pdfs.data ?? []).map((pdf) => {
             const active = picked?.url === pdf.url;
             // Imported = that day's prices are already in daily_prices. The
@@ -278,15 +289,17 @@ export function DaImportPanel() {
                 key={pdf.url}
                 onPress={() => handlePick(pdf)}
                 disabled={parse.isPending || save.isPending || !!backfill}
-                className={`flex-row items-center gap-1 rounded-full border px-3 py-2 ${
-                  active ? "border-primary bg-primary/10" : imported ? "border-primary" : "border-ink-emphasis/10"
+                className={`flex-row items-center gap-1 rounded-full border px-3.5 py-2 ${
+                  active ? "border-primary bg-primary" : imported ? "border-primary/40 bg-primary/5" : "border-ink-emphasis/15"
                 }`}
               >
-                {imported && <Check color={colors.primary} size={12} />}
-                <AppText variant="caption" className={active || imported ? "text-primary" : "text-ink"}>
+                {imported && <Check color={active ? colors.white : colors.primary} size={13} strokeWidth={2.5} />}
+                <Text
+                  className={`font-inter-semibold text-body ${active ? "text-white" : imported ? "text-primary" : "text-ink"}`}
+                >
                   {formatDate(pdf.date)}
                   {pdf.revised ? " · Revised" : ""}
-                </AppText>
+                </Text>
               </Pressable>
             );
           })}
@@ -294,24 +307,33 @@ export function DaImportPanel() {
       )}
 
       {parse.isPending && (
-        <AppText variant="caption" className="text-ink-subtle">
-          Reading PDF...
-        </AppText>
+        <View className="mb-4 flex-row items-center gap-2">
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text className="font-inter-medium text-body text-ink-subtle">Reading PDF...</Text>
+        </View>
       )}
       {error && (
-        <AppText variant="body" className="text-like mb-3">
-          {error}
-        </AppText>
+        <View className="mb-4">
+          <InlineError>{error}</InlineError>
+        </View>
       )}
 
       {preview && (
-        <View className="gap-3">
-          <View>
-            <AppText variant="title">{formatDate(preview.date)}</AppText>
-            <AppText variant="caption" className="text-ink-subtle">
-              {priced.length} priced · {unavailable} n/a (skipped) · {newCount} new commodit
-              {newCount === 1 ? "y" : "ies"} · {linkedRows.length} linked to ingredients
+        <View className="gap-4 border-t border-ink-emphasis/10 pt-6">
+          <View className="gap-3">
+            <AppText variant="sectionSubtitle" dot>
+              {formatDate(preview.date)}
             </AppText>
+            <View className="rounded-2xl bg-primary/5 p-2">
+              <StatTiles
+                stats={[
+                  { label: "Priced", value: String(priced.length), emphasis: true },
+                  { label: "n/a (skipped)", value: String(unavailable) },
+                  { label: "New", value: String(newCount) },
+                  { label: "Linked", value: String(linkedRows.length) },
+                ]}
+              />
+            </View>
           </View>
 
           <Button
@@ -328,7 +350,7 @@ export function DaImportPanel() {
             return (
               <View key={key}>
                 {sectionStart && row.section && (
-                  <AppText variant="eyebrow" className="mt-3 mb-1">
+                  <AppText variant="eyebrow" className="mb-1 mt-4">
                     {row.section}
                   </AppText>
                 )}
@@ -378,30 +400,18 @@ function PreviewRow({
   ingredient: IngredientRow | undefined;
 }) {
   return (
-    <View className="flex-row items-start gap-3 border-b border-ink-emphasis/10 py-2">
-      <View className="flex-1">
-        <AppText variant="bodyMedium" className={price == null ? "text-ink-subtle" : ""}>
+    <View className="flex-row items-start gap-3 border-b border-ink-emphasis/10 py-3">
+      <View className="flex-1 gap-1">
+        <Text className={`font-inter-semibold text-body-lg ${price == null ? "text-ink-subtle" : "text-ink-emphasis"}`}>
           {commodity}
-        </AppText>
-        {!!specification && (
-          <AppText variant="caption" className="text-ink-subtle">
-            {specification}
-          </AppText>
-        )}
-        {ingredient && (
-          <AppText variant="caption" className="text-primary">
-            → {ingredient.canonical_name}
-          </AppText>
-        )}
-        {isNew && (
-          <AppText variant="caption" className="text-accent">
-            New, not linked yet
-          </AppText>
-        )}
+        </Text>
+        {!!specification && <Text className="font-inter-regular text-body text-ink-subtle">{specification}</Text>}
+        {ingredient && <StatusChip label={`→ ${ingredient.canonical_name}`} tone="success" icon={null} />}
+        {isNew && <StatusChip label="New, not linked yet" tone="notice" icon={null} />}
       </View>
-      <AppText variant={price == null ? "caption" : "bodyBold"}>
+      <Text className={price == null ? "font-inter-regular text-body text-ink-subtle" : "font-inter-bold text-body-lg text-ink-emphasis"}>
         {price == null ? "n/a" : `₱${price.toFixed(2)}/${unit}`}
-      </AppText>
+      </Text>
     </View>
   );
 }

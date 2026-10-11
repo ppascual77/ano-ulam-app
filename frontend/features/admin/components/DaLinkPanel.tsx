@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { View, Pressable } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { AppText, ErrorState, LoadingState, SearchBar, SegmentedSwitch, Spinner } from "@/frontend/components/ui";
 import {
@@ -16,6 +16,7 @@ import { useIngredients } from "../hooks/useIngredients";
 import { useConfirmedIngredientUpdate, type PendingIngredientChange } from "../hooks/useConfirmedIngredientUpdate";
 import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
 import { LinkDaCommoditySheet } from "./LinkDaCommoditySheet";
+import { ActionChip, InlineError, StatusChip } from "./AdminUi";
 
 type Filter = "unlinked" | "linked";
 
@@ -154,16 +155,8 @@ export function DaLinkPanel() {
             <SearchBar placeholder="Search DA commodities..." value={search} onChangeText={setSearch} onClear={() => setSearch("")} />
           </>
         )}
-        {notice && (
-          <AppText variant="bodyBold" className="text-primary">
-            {notice}
-          </AppText>
-        )}
-        {error && (
-          <AppText variant="body" className="text-like">
-            {error}
-          </AppText>
-        )}
+        {notice && <StatusChip label={notice} tone="success" />}
+        {error && <InlineError>{error}</InlineError>}
       </View>
 
       <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 40 }}>
@@ -181,46 +174,30 @@ export function DaLinkPanel() {
               disabled={busy}
               className="flex-row items-start gap-3 border-b border-ink-emphasis/10 py-3 active:bg-primary/5"
             >
-              <View className="flex-1">
-                <AppText variant="bodyMedium">{c.commodity}</AppText>
-                {!!c.specification && (
-                  <AppText variant="caption" className="text-ink-subtle">
-                    {c.specification}
-                  </AppText>
-                )}
+              <View className="flex-1 gap-1.5">
+                <View>
+                  <Text className="font-inter-semibold text-body-lg text-ink-emphasis">{c.commodity}</Text>
+                  {!!c.specification && <Text className="font-inter-regular text-body text-ink-subtle">{c.specification}</Text>}
+                </View>
                 {busy ? (
                   <View className="flex-row items-center gap-2">
                     <Spinner size={14} />
-                    <AppText variant="caption" className="text-ink-subtle">
-                      Saving link...
-                    </AppText>
+                    <Text className="font-inter-medium text-body text-ink-subtle">Saving link...</Text>
                   </View>
                 ) : c.ingredient_id ? (
-                  <View className="flex-row items-center gap-3">
-                    <AppText variant="caption" className="text-primary">
-                      → {ingredient?.canonical_name ?? "Archived ingredient"}
-                    </AppText>
-                    <Pressable onPress={() => handleUnlink(c)} hitSlop={8}>
-                      <AppText variant="caption" className="text-like">
-                        Unlink
-                      </AppText>
-                    </Pressable>
+                  <View className="flex-row flex-wrap items-center gap-2">
+                    <StatusChip label={`→ ${ingredient?.canonical_name ?? "Archived ingredient"}`} tone="success" icon={null} />
+                    <ActionChip label="Unlink" tone="neutral" onPress={() => handleUnlink(c)} />
                   </View>
                 ) : (
-                  <AppText variant="caption" className="text-accent">
-                    Tap to link
-                  </AppText>
+                  <StatusChip label="Not linked · tap to link" tone="notice" icon={null} />
                 )}
               </View>
               <View className="items-end">
-                <AppText variant="bodyBold">
+                <Text className="font-inter-bold text-body-lg text-ink-emphasis">
                   {c.latest_price != null ? `₱${c.latest_price.toFixed(2)}/${formatDaUnit(c)}` : "No price"}
-                </AppText>
-                {c.latest_price_date && (
-                  <AppText variant="caption" className="text-ink-subtle">
-                    {c.latest_price_date}
-                  </AppText>
-                )}
+                </Text>
+                {c.latest_price_date && <Text className="font-inter-regular text-small text-ink-subtle">{c.latest_price_date}</Text>}
               </View>
             </Pressable>
           );

@@ -148,3 +148,25 @@ export function Checklist({ items }: { items: ChecklistItem[] }) {
     </View>
   );
 }
+
+// ---- ConfidenceChip ------------------------------------------------------------
+
+const CONFIDENCE_TONES = { HIGH: "success", LOW: "notice", NONE: "neutral", ERROR: "danger" } as const;
+
+// A grounding result's HIGH / LOW / NONE / ERROR, colored by how much to
+// trust it.
+export function ConfidenceChip({ confidence }: { confidence: string }) {
+  const tone = CONFIDENCE_TONES[confidence as keyof typeof CONFIDENCE_TONES] ?? "neutral";
+  return <StatusChip label={confidence} tone={tone} icon={null} />;
+}
+
+// ---- SelectBox -----------------------------------------------------------------
+
+// The square tick box used to pick rows (grounding results, include toggles).
+export function SelectBox({ checked }: { checked: boolean }) {
+  return (
+    <View className={`h-6 w-6 items-center justify-center rounded-md ${checked ? "bg-primary" : "border-2 border-primary/30"}`}>
+      {checked && <Check color={colors.white} size={14} strokeWidth={3} />}
+    </View>
+  );
+}
