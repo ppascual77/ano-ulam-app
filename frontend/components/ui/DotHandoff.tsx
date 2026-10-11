@@ -1,7 +1,7 @@
 import { type RefObject, useCallback, useEffect, useRef } from "react";
 import { Dimensions, View } from "react-native";
 import { useFocusEffect } from "expo-router";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withSequence, withTiming } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { create } from "zustand";
 import { colors } from "@/frontend/constants/theme";
@@ -31,7 +31,15 @@ const CORRECT_MS = 220;
 // How high the dot arcs between the two titles (they're often level).
 const ARC = 70;
 // How much the dot swells mid-flight, so it reads as a dot on the move.
-const SWELL = 1.4;
+const SWELL = 1.2;
+// Squash and stretch: at full speed the dot is this much longer along its
+// path (and thinner across it, keeping its area), round again as it slows.
+const STRETCH = 0.9;
+// Landing: a quick squash flat against the title, then round again, before
+// the real dot takes over.
+const SQUASH = 0.35;
+const SQUASH_IN_MS = 70;
+const SQUASH_OUT_MS = 140;
 // A dot left longer ago than this isn't where this screen came from (e.g.
 // via Discover, which has no title dot).
 const FRESH_MS = 800;
@@ -136,6 +144,7 @@ export function DotHandoffOverlay({ enabled }: { enabled: boolean }) {
   const rootRef = useRef<View>(null);
   const fly = useSharedValue(0);
   const shown = useSharedValue(0);
+  const land = useSharedValue(0);
   const from = useSharedValue<Spot>({ x: 0, y: 0, size: DOT });
   const toX = useSharedValue(0);
   const toY = useSharedValue(0);
@@ -167,9 +176,16 @@ export function DotHandoffOverlay({ enabled }: { enabled: boolean }) {
       toY.value = ty;
       toSize.value = flight.to.size;
       shown.value = 1;
+      land.value = 0;
       fly.value = 0;
       fly.value = withTiming(1, { duration: FLY_MS, easing: Easing.inOut(Easing.cubic) }, (done) => {
-        if (done) scheduleOnRN(finishFlight, flight.id);
+        if (!done) return;
+        land.value = withSequence(
+          withTiming(1, { duration: SQUASH_IN_MS, easing: Easing.out(Easing.quad) }),
+          withTiming(0, { duration: SQUASH_OUT_MS, easing: Easing.out(Easing.back(2)) }, (settled) => {
+            if (settled) scheduleOnRN(finishFlight, flight.id);
+          }),
+        );
       });
     });
   }, [flight]);
@@ -181,9 +197,27 @@ export function DotHandoffOverlay({ enabled }: { enabled: boolean }) {
     const y = a.y + (toY.value - a.y) * f - ARC * 4 * f * (1 - f);
     const size = a.size + (toSize.value - a.size) * f;
     const scale = (size / DOT) * (1 + (SWELL - 1) * Math.sin(Math.PI * f));
+    // Direction of travel: the path's slope at this point (the arc makes it
+    // rise, then fall). Speed follows the ease: still at both ends, fastest
+    // midway, which is where it stretches most.
+    const dx = toX.value - a.x;
+    const dy = toY.value - a.y - ARC * 4 * (1 - 2 * f);
+    const angle = Math.atan2(dy, dx);
+    const stretch = 1 + STRETCH * Math.sin(Math.PI * f);
+    // Landing squash: wide and flat (it lands moving down onto the title).
+    const squash = land.value * SQUASH;
     return {
       opacity: shown.value,
-      transform: [{ translateX: x - DOT / 2 }, { translateY: y - DOT / 2 }, { scale }],
+      transform: [
+        { translateX: x - DOT / 2 },
+        { translateY: y - DOT / 2 },
+        { scale },
+        { scaleX: 1 + squash },
+        { scaleY: 1 - squash },
+        { rotate: `${angle}rad` },
+        { scaleX: stretch },
+        { scaleY: 1 / stretch },
+      ],
     };
   });
 
