@@ -33,21 +33,21 @@ export function groceryName(canonicalName: string, displayName?: string | null):
 }
 
 // Store sections, in the order you'd walk a Filipino supermarket or
-// palengke run: fresh stuff first, packaged goods last.
-export const GROCERY_SECTIONS = ["produce", "meat", "seafood", "dairy", "grains", "pantry"] as const;
+// palengke run: fresh stuff first, packaged goods last. Kept to three:
+// finer groups (dairy, noodles…) mostly held one item each, a header per
+// row.
+export const GROCERY_SECTIONS = ["produce", "meat", "packaged"] as const;
 export type GrocerySectionKey = (typeof GROCERY_SECTIONS)[number];
 
 export const GROCERY_SECTION_LABELS: Record<GrocerySectionKey, string> = {
   produce: "Produce",
-  meat: "Meat & poultry",
-  seafood: "Seafood",
-  dairy: "Dairy & eggs",
-  grains: "Rice, noodles & bread",
-  pantry: "Pantry",
+  meat: "Meat & seafood",
+  // Not "Pantry": that's the pantry staples section further down.
+  packaged: "Dairy & packaged",
 };
 
-// Ingredient categories (lowercased) by section. Anything not listed is a
-// packaged pantry good (condiments, spices, oils, canned, baking…).
+// Ingredient categories (lowercased) by section. Anything not listed is
+// packaged (dairy, eggs, rice, noodles, condiments, spices, canned…).
 const SECTION_OF: Record<string, GrocerySectionKey> = Object.fromEntries(
   (
     [
@@ -58,14 +58,17 @@ const SECTION_OF: Record<string, GrocerySectionKey> = Object.fromEntries(
           "mushroom", "leaf", "citrus fruit", "aromatics", "allium", "herb", "herbs",
         ],
       ],
-      ["meat", ["pork", "beef", "poultry", "poultry product", "meat", "chicken", "processed meat"]],
-      ["seafood", ["fish", "shellfish", "mollusk", "seafood", "processed seafood"]],
-      ["dairy", ["dairy", "egg", "eggs", "cheese", "keso", "dairy substitute"]],
-      ["grains", ["rice", "grain", "grains", "noodles", "pasta", "bread", "flatbread"]],
+      [
+        "meat",
+        [
+          "pork", "beef", "poultry", "poultry product", "meat", "chicken", "processed meat",
+          "fish", "shellfish", "mollusk", "seafood", "processed seafood",
+        ],
+      ],
     ] as [GrocerySectionKey, string[]][]
   ).flatMap(([section, categories]) => categories.map((category) => [category, section])),
 );
 
 export function grocerySection(category: string | null | undefined): GrocerySectionKey {
-  return SECTION_OF[category?.trim().toLowerCase() ?? ""] ?? "pantry";
+  return SECTION_OF[category?.trim().toLowerCase() ?? ""] ?? "packaged";
 }

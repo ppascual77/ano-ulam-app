@@ -231,11 +231,16 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
             <GrocerySectionHeader title="To buy" count={toBuy.length} />
             {sections.map((section) => (
               <Animated.View key={`${tab.key}:${section.key}`} layout={reduceMotion ? undefined : MOVE_LAYOUT} className="mt-3">
-                {/* Only worth labelling when there's more than one. */}
+                {/* Only worth labelling when there's more than one. Quiet on
+                    purpose: a small label and a hairline, a divider rather
+                    than another heading. */}
                 {sections.length > 1 && (
-                  <AppText variant="eyebrow" className="px-2">
-                    {GROCERY_SECTION_LABELS[section.key]}
-                  </AppText>
+                  <View className="flex-row items-center gap-2 px-2">
+                    <Text className="font-inter-medium text-small text-ink-subtle">
+                      {GROCERY_SECTION_LABELS[section.key]}
+                    </Text>
+                    <View className="h-px flex-1 bg-ink-emphasis/10" />
+                  </View>
                 )}
                 {renderRows(section.rows)}
               </Animated.View>
