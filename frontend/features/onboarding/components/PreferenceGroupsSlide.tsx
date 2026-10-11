@@ -18,7 +18,9 @@ export function PreferenceGroupsSlide({ slide, width, selections, onGroupChange 
     <View style={{ width }} className="flex-1 px-10 py-16">
       <View className="mb-4">
         <View className="flex-row items-center mb-3">
-          <AppText variant="subhero">{slide.title}</AppText>
+          <AppText variant="subhero" className="tracking-display" dot>
+            {slide.title}
+          </AppText>
           {slide.image && (
             <Image
               source={slide.image}
@@ -34,7 +36,7 @@ export function PreferenceGroupsSlide({ slide, width, selections, onGroupChange 
       <View className="gap-6">
         {slide.groups.map((group) => (
           <View key={group.id}>
-            <AppText variant="heading" className="mb-7">
+            <AppText variant="sectionTitle" dot className="mb-7">
               {group.title}
             </AppText>
             <ChipSelect

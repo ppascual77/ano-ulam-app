@@ -156,7 +156,7 @@ export const onboardingSlides: OnboardingSlideData[] = [
     groups: [
       {
         id: "dietary-focus",
-        title: "Dietary Focus",
+        title: "Dietary focus",
         mode: "single",
         options: [
           { id: "vegan", label: "Vegan" },
