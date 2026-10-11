@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Image, type ImageProps } from "expo-image";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -51,11 +51,15 @@ export function Toast({ toast, onHide }: ToastProps) {
   const dragY = useSharedValue(0);
   const shown = useSharedValue(0);
 
-  useEffect(() => {
-    if (!toast) return;
+  // Before paint, so a new toast never shows a frame at full opacity.
+  useLayoutEffect(() => {
     dragY.value = 0;
     shown.value = 0;
-    shown.value = withTiming(1, { duration: ENTER_MS, easing: Easing.out(Easing.cubic) });
+    if (toast) shown.value = withTiming(1, { duration: ENTER_MS, easing: Easing.out(Easing.cubic) });
+  }, [toast?.id]);
+
+  useEffect(() => {
+    if (!toast) return;
     const timer = setTimeout(onHide, AUTO_HIDE_MS);
     return () => clearTimeout(timer);
     // Keyed on the toast's id only: a new toast restarts the timer.
