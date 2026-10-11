@@ -7,16 +7,19 @@ type NoticeBannerProps = {
   /** "notice" (default): amber, bordered — for disclaimers/warnings.
    *  "positive": soft green, no border — for calm reassurance notes. */
   tone?: "notice" | "positive";
+  /** Tighter padding, the icon at the first line's top, for a short note
+   *  inside a sheet (e.g. the grocery list's). */
+  compact?: boolean;
 };
 
 // Icon + text row in a tinted rounded box (e.g. a meal card's price note,
 // Budget's "Personalize your suggestions" prompt, Preferences' save note).
-export function NoticeBanner({ icon, children, tone = "notice" }: NoticeBannerProps) {
+export function NoticeBanner({ icon, children, tone = "notice", compact = false }: NoticeBannerProps) {
   const isPositive = tone === "positive";
 
   return (
     <View
-      className={`flex-row gap-2 rounded-xl px-4 py-6 items-center ${
+      className={`flex-row gap-2 rounded-xl ${compact ? "px-3 py-2.5 items-start" : "px-4 py-6 items-center"} ${
         isPositive ? "bg-notice-positive-bg" : "border border-notice-border bg-notice-bg"
       }`}
     >

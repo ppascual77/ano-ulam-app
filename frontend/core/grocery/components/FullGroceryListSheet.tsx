@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import Animated, { FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
 import { ChevronDown, Info } from "lucide-react-native";
-import { AppText, BottomSheet, SegmentedSwitch } from "@/frontend/components/ui";
+import { AppText, BottomSheet, NoticeBanner, SegmentedSwitch } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { pantryHas } from "@/frontend/core/pantry/hooks/usePantry";
 import type { PantryIngredient } from "@/frontend/core/pantry/mock/api";
@@ -213,11 +213,12 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
         )}
 
         {leftover && (
-          <View className="mt-4 flex-row gap-2 rounded-xl border border-notice-border bg-notice-bg px-3 py-2.5">
-            <Info color={colors.notice.icon} size={14} />
-            <Text className="flex-1 font-inter-regular text-sub leading-4 text-notice-text">
-              Some items only come in whole packs, so this is more than your meals use. The rest stays in your pantry.
-            </Text>
+          <View className="mt-4">
+            <NoticeBanner compact icon={<Info color={colors.notice.icon} size={14} />}>
+              <Text className="font-inter-regular text-sub leading-4 text-notice-text">
+                Some items only come in whole packs, so this is more than your meals use. The rest stays in your pantry.
+              </Text>
+            </NoticeBanner>
           </View>
         )}
 
@@ -282,9 +283,13 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
           </View>
         )}
         {items.length > 0 && (
-          <Text className="mt-3 font-inter-regular text-small text-ink-subtle">
-            Prices are a guide only and may vary by store, market and day.
-          </Text>
+          <View className="mt-5">
+            <NoticeBanner compact icon={<Info color={colors.notice.icon} size={14} />}>
+              <Text className="font-inter-regular text-sub leading-4 text-notice-text">
+                Prices are a guide only and may vary by store, market and day.
+              </Text>
+            </NoticeBanner>
+          </View>
         )}
 
 
