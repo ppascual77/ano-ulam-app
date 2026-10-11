@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { AppText, BottomSheet, Button } from "@/frontend/components/ui";
 import type { IngredientRow } from "@/api/ingredients";
+import { InlineError } from "./AdminUi";
 
 type Props = {
   visible: boolean;
@@ -96,9 +97,9 @@ export function ConfirmIngredientSheet({ visible, patch, onCancel, onConfirm, is
         <View className="flex-1" />
 
         {error && (
-          <AppText variant="caption" className="text-like mb-2">
-            Couldn't add ingredient: {error}
-          </AppText>
+          <View className="mb-3">
+            <InlineError>Couldn't add ingredient: {error}</InlineError>
+          </View>
         )}
 
         <View className="gap-2 pb-8">

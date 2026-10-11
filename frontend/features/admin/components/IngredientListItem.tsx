@@ -1,4 +1,4 @@
-import { Pressable, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Pencil, Archive } from "lucide-react-native";
 import { AppText } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -35,7 +35,7 @@ export function IngredientListItem({ ingredient, onEdit, onArchive }: Props) {
   return (
     <View className="flex-row items-center gap-3 border-b border-ink-emphasis/10 px-5 py-4">
       <View className="flex-1 gap-1">
-        <AppText variant="bodyBold">{ingredient.canonical_name}</AppText>
+        <Text className="font-inter-semibold text-body-lg text-ink-emphasis">{ingredient.canonical_name}</Text>
         {ingredient.display_name && ingredient.display_name !== ingredient.canonical_name && (
           <AppText variant="caption" className="text-ink-subtle">
             {ingredient.display_name}
@@ -43,7 +43,7 @@ export function IngredientListItem({ ingredient, onEdit, onArchive }: Props) {
         )}
         <View className="flex-row flex-wrap items-center gap-1.5 mt-1">
           {ingredient.category && <Badge label={ingredient.category} />}
-          {ingredient.role && <Badge label={ingredient.role} tone="primary" />}
+          {ingredient.role && <Badge label={ingredient.role === "main" ? "Main" : "Staple"} tone="primary" />}
           {ingredient.estimated_price != null && (
             <Badge
               label={`₱${ingredient.estimated_price}/${ingredient.estimated_price_unit ?? "?"} · ${ingredient.price_source}`}
@@ -58,11 +58,19 @@ export function IngredientListItem({ ingredient, onEdit, onArchive }: Props) {
         )}
       </View>
 
-      <Pressable onPress={onEdit} className="h-9 w-9 items-center justify-center">
-        <Pencil color={colors.ink.subtle} size={18} />
+      <Pressable
+        onPress={onEdit}
+        accessibilityLabel={`Edit ${ingredient.canonical_name}`}
+        className="h-10 w-10 items-center justify-center rounded-full border border-ink-emphasis/10 active:bg-ink-emphasis/5"
+      >
+        <Pencil color={colors.ink.emphasis} size={17} />
       </Pressable>
-      <Pressable onPress={onArchive} className="h-9 w-9 items-center justify-center">
-        <Archive color={colors.ink.subtle} size={18} />
+      <Pressable
+        onPress={onArchive}
+        accessibilityLabel={`Archive ${ingredient.canonical_name}`}
+        className="h-10 w-10 items-center justify-center rounded-full border border-ink-emphasis/10 active:bg-ink-emphasis/5"
+      >
+        <Archive color={colors.ink.emphasis} size={17} />
       </Pressable>
     </View>
   );

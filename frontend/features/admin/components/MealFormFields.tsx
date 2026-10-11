@@ -1,10 +1,11 @@
-import { View, Pressable } from "react-native";
-import { Trash2 } from "lucide-react-native";
+import { View, Pressable, Text } from "react-native";
+import { Plus, Trash2 } from "lucide-react-native";
 import { AppText, Button, ChipSelect, TextField } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import type { IngredientRow } from "@/api/ingredients";
 import { PILL_TAG_IDS, PILL_TAG_OPTIONS } from "../utils/pillTags";
 import { SeedMealIngredientsEditor, type PendingMealIngredient } from "./SeedMealIngredientsEditor";
+import { FieldLabel } from "./AdminUi";
 
 // Shared by SeedMealScreen's post-import review and EditMealScreen — both
 // edit the same underlying meal shape, so the field set lives in one place
@@ -66,11 +67,28 @@ const ALLERGEN_OPTIONS = [
   { id: "sesame", label: "Sesame" },
 ];
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+// A form section: dotted title (and an optional one-line hint), then its
+// fields. Sections are separated by a rule so long forms scan in blocks.
+function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <View className="gap-3 mb-6">
-      <AppText variant="bodyBold">{title}</AppText>
+    <View className="mb-8 gap-4 border-t border-ink-emphasis/10 pt-6">
+      <View className="gap-1">
+        <AppText variant="sectionSubtitle" dot>
+          {title}
+        </AppText>
+        {hint && <Text className="font-inter-regular text-body text-ink-subtle">{hint}</Text>}
+      </View>
       {children}
+    </View>
+  );
+}
+
+// Two fields side by side.
+function Pair({ children }: { children: [React.ReactNode, React.ReactNode] }) {
+  return (
+    <View className="flex-row gap-3">
+      <View className="flex-1">{children[0]}</View>
+      <View className="flex-1">{children[1]}</View>
     </View>
   );
 }
@@ -99,30 +117,40 @@ export function MealFormFields({ value, onChange, allIngredients }: Props) {
 
   return (
     <View>
-      <Section title="Basic Info">
+      <Section title="Basic info" hint="What people see first on the meal card.">
         <TextField label="Meal name" value={value.name} onChangeText={(v) => set("name", v)} />
         <TextField label="Description" value={value.description} onChangeText={(v) => set("description", v)} multiline />
       </Section>
 
-      <Section title="Timing & Details">
-        <TextField label="Prep time (min)" value={value.prepTime} onChangeText={(v) => set("prepTime", v)} keyboardType="numeric" />
-        <TextField label="Total time (min)" value={value.totalTime} onChangeText={(v) => set("totalTime", v)} keyboardType="numeric" />
-        <TextField label="Serving size" value={value.servingSize} onChangeText={(v) => set("servingSize", v)} keyboardType="numeric" />
-        <TextField label="Protein type (e.g. chicken, vegetarian)" value={value.proteinType} onChangeText={(v) => set("proteinType", v)} />
-        <AppText variant="caption">Difficulty</AppText>
-        <ChipSelect mode="single" options={DIFFICULTY_OPTIONS} value={value.difficulty} onChange={(v) => set("difficulty", v)} />
+      <Section title="Timing & details">
+        <Pair>
+          <TextField label="Prep time (min)" value={value.prepTime} onChangeText={(v) => set("prepTime", v)} keyboardType="numeric" />
+          <TextField label="Total time (min)" value={value.totalTime} onChangeText={(v) => set("totalTime", v)} keyboardType="numeric" />
+        </Pair>
+        <Pair>
+          <TextField label="Serving size" value={value.servingSize} onChangeText={(v) => set("servingSize", v)} keyboardType="numeric" />
+          <TextField label="Protein type" value={value.proteinType} onChangeText={(v) => set("proteinType", v)} />
+        </Pair>
+        <View className="gap-2">
+          <FieldLabel>Difficulty</FieldLabel>
+          <ChipSelect mode="single" options={DIFFICULTY_OPTIONS} value={value.difficulty} onChange={(v) => set("difficulty", v)} />
+        </View>
       </Section>
 
-      <Section title="Source & Pricing">
+      <Section title="Source & pricing">
         <TextField label="Restaurant (fast food only)" value={value.restaurant} onChangeText={(v) => set("restaurant", v)} />
         <TextField label="Source URL" value={value.source} onChangeText={(v) => set("source", v)} autoCapitalize="none" />
         <TextField label="Budget range (e.g. 100-150)" value={value.budgetRange} onChangeText={(v) => set("budgetRange", v)} />
       </Section>
 
-      <Section title="Procedure">
-        <View className="gap-2 mb-2">
+      <Section title="Procedure" hint={`${value.procedure.length} step${value.procedure.length === 1 ? "" : "s"}`}>
+        <View className="gap-3">
           {value.procedure.map((step, index) => (
-            <View key={index} className="flex-row items-center gap-2">
+            <View key={index} className="flex-row items-start gap-3">
+              {/* Step number, like the meal detail's steps timeline. */}
+              <View className="mt-4 h-7 w-7 items-center justify-center rounded-full bg-primary">
+                <Text className="font-inter-bold text-small text-white">{index + 1}</Text>
+              </View>
               <View className="flex-1">
                 <TextField
                   label={`Step ${index + 1}`}
@@ -131,44 +159,60 @@ export function MealFormFields({ value, onChange, allIngredients }: Props) {
                   multiline
                 />
               </View>
-              <Pressable onPress={() => removeProcedureStep(index)} className="h-9 w-9 items-center justify-center">
+              <Pressable
+                onPress={() => removeProcedureStep(index)}
+                accessibilityLabel={`Remove step ${index + 1}`}
+                className="mt-2.5 h-9 w-9 items-center justify-center rounded-full active:bg-like-soft"
+              >
                 <Trash2 color={colors.like} size={18} />
               </Pressable>
             </View>
           ))}
         </View>
-        <Button label="+ Add step" variant="outline" onPress={() => set("procedure", [...value.procedure, ""])} />
+        <Button
+          label="Add step"
+          variant="outline"
+          icon={<Plus color={colors.primary} size={18} strokeWidth={2.5} />}
+          onPress={() => set("procedure", [...value.procedure, ""])}
+        />
       </Section>
 
-      <Section title="Ingredients">
+      <Section title="Ingredients" hint="Link every line to an ingredient record so its price and macros count.">
         <SeedMealIngredientsEditor items={value.ingredients} allIngredients={allIngredients} onChange={(v) => set("ingredients", v)} />
       </Section>
 
-      <Section title="Tags & Dietary">
-        <AppText variant="caption">Dietary tags</AppText>
-        <ChipSelect mode="multi" options={DIETARY_TAG_OPTIONS} value={value.dietaryTags} onChange={(v) => set("dietaryTags", v)} />
+      <Section title="Tags & dietary">
+        <View className="gap-2">
+          <FieldLabel>Dietary tags</FieldLabel>
+          <ChipSelect mode="multi" options={DIETARY_TAG_OPTIONS} value={value.dietaryTags} onChange={(v) => set("dietaryTags", v)} />
+        </View>
 
-        <AppText variant="caption">Nutrition &amp; style tags</AppText>
-        <AppText variant="caption" className="text-ink-subtle -mt-2">
-          Auto-recalculated from the meal's macros whenever totals are recomputed — edit here only to override.
-        </AppText>
-        <ChipSelect
-          mode="multi"
-          options={PILL_TAG_OPTIONS}
-          value={value.tags.filter((t) => PILL_TAG_IDS.has(t))}
-          onChange={(v) => setTagGroup(PILL_TAG_IDS, v)}
-        />
+        <View className="gap-2">
+          <FieldLabel hint="Auto-recalculated from the meal's macros whenever totals are recomputed — edit here only to override.">
+            Nutrition & style tags
+          </FieldLabel>
+          <ChipSelect
+            mode="multi"
+            options={PILL_TAG_OPTIONS}
+            value={value.tags.filter((t) => PILL_TAG_IDS.has(t))}
+            onChange={(v) => setTagGroup(PILL_TAG_IDS, v)}
+          />
+        </View>
 
-        <AppText variant="caption">Way of cooking</AppText>
-        <ChipSelect
-          mode="multi"
-          options={COOKING_METHOD_OPTIONS}
-          value={value.tags.filter((t) => COOKING_METHOD_IDS.has(t))}
-          onChange={(v) => setTagGroup(COOKING_METHOD_IDS, v)}
-        />
+        <View className="gap-2">
+          <FieldLabel>Way of cooking</FieldLabel>
+          <ChipSelect
+            mode="multi"
+            options={COOKING_METHOD_OPTIONS}
+            value={value.tags.filter((t) => COOKING_METHOD_IDS.has(t))}
+            onChange={(v) => setTagGroup(COOKING_METHOD_IDS, v)}
+          />
+        </View>
 
-        <AppText variant="caption">Allergens</AppText>
-        <ChipSelect mode="multi" options={ALLERGEN_OPTIONS} value={value.allergens} onChange={(v) => set("allergens", v)} />
+        <View className="gap-2">
+          <FieldLabel>Allergens</FieldLabel>
+          <ChipSelect mode="multi" options={ALLERGEN_OPTIONS} value={value.allergens} onChange={(v) => set("allergens", v)} />
+        </View>
       </Section>
     </View>
   );

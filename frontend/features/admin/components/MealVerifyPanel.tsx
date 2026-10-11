@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { View, Pressable, ActivityIndicator } from "react-native";
-import { CheckCircle2, AlertTriangle, Sparkles } from "lucide-react-native";
+import { View, Text, ActivityIndicator } from "react-native";
+import { AlertTriangle, ArrowRight, Check, CheckCircle2, Sparkles } from "lucide-react-native";
 import { AppText, Button, NoticeBanner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { type IngredientRow } from "@/api/ingredients";
@@ -18,6 +18,7 @@ import { errorMessage } from "@/lib/errorMessage";
 import { useConfirmedIngredientUpdate } from "../hooks/useConfirmedIngredientUpdate";
 import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
 import type { PendingMealIngredient } from "./SeedMealIngredientsEditor";
+import { ActionChip, InlineError, StatusChip } from "./AdminUi";
 
 // Runs AFTER the admin has manually linked/bridged every ingredient below
 // (SeedMealIngredientsEditor above this panel is untouched by this — every
@@ -312,27 +313,29 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
   };
 
   return (
-    <View className="gap-3 mb-6">
-      <AppText variant="bodyBold">Verify</AppText>
-      <AppText variant="caption" className="text-ink-subtle -mt-2">
-        Once every ingredient above is linked, run an AI check on the totals, individual macros/price, and bridges —
-        catches things like a canned ingredient linked to its raw variant, or a bridge value that looks off. Nothing
-        is changed unless you accept a suggestion below.
-      </AppText>
+    <View className="mb-6 gap-4 rounded-2xl border border-ink-emphasis/10 p-5">
+      <View className="gap-1">
+        <AppText variant="sectionSubtitle" dot>
+          Verify
+        </AppText>
+        <AppText variant="caption" className="text-ink-subtle">
+          Once every ingredient above is linked, run an AI check on the totals, individual macros/price, and bridges —
+          catches things like a canned ingredient linked to its raw variant, or a bridge value that looks off. Nothing
+          is changed unless you accept a suggestion below.
+        </AppText>
+      </View>
 
       {!canVerify && blocked.length > 0 && (
-        <View className="gap-0.5">
+        <View className="gap-1.5">
           {blocked.map((b, i) => (
-            <AppText key={i} variant="caption" className="text-like">
+            <InlineError key={i}>
               {b.name || "This ingredient"}: {b.reason}
-            </AppText>
+            </InlineError>
           ))}
         </View>
       )}
       {!canVerify && blocked.length === 0 && (
-        <AppText variant="caption" className="text-like">
-          Nothing to verify yet — every ingredient is set to "to taste" or has no quantity.
-        </AppText>
+        <InlineError>Nothing to verify yet — every ingredient is set to "to taste" or has no quantity.</InlineError>
       )}
 
       <Button
@@ -343,11 +346,7 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
         onPress={handleVerify}
       />
 
-      {error && (
-        <AppText variant="caption" className="text-like">
-          {error}
-        </AppText>
-      )}
+      {error && <InlineError>{error}</InlineError>}
 
       {result && (
         <View className="gap-3">
@@ -371,6 +370,12 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
             )}
           </NoticeBanner>
 
+          {result.issues.length > 0 && (
+            <Text className="font-inter-semibold text-body-lg text-ink-emphasis">
+              {result.issues.length} suggestion{result.issues.length === 1 ? "" : "s"}
+            </Text>
+          )}
+
           {result.issues.map((issue, index) => {
             const state = issueStates[index] ?? "pending";
             // Shown on every issue so it's obvious at a glance which
@@ -381,77 +386,63 @@ export function MealVerifyPanel({ mealName, mealDescription, servingSize, catego
             const ingredientSource = allIngredients.find((i) => i.canonical_name === issue.ingredientName)?.source ?? null;
             const isUsda = ingredientSource === "USDA";
             return (
-              <View key={index} className="gap-1.5 rounded-2xl border border-notice-border bg-notice-bg p-3">
-                <View className="flex-row items-center flex-wrap gap-1.5">
-                  <AppText variant="bodyBold" className="text-notice-text">
-                    {issue.ingredientName} · {issue.field}
-                  </AppText>
-                  <View className={`rounded-full px-2 py-0.5 ${isUsda ? "bg-primary/15" : "bg-ink-emphasis/10"}`}>
-                    <AppText variant="caption" className={isUsda ? "text-primary" : "text-ink-subtle"}>
-                      {isUsda ? "USDA" : "Manual"}
-                    </AppText>
+              <View key={index} className="gap-3 rounded-2xl border border-ink-emphasis/10 bg-white p-4">
+                {/* Which ingredient and field, and its data source. */}
+                <View className="flex-row flex-wrap items-center gap-1.5">
+                  <Text className="font-inter-semibold text-body-lg text-ink-emphasis">{issue.ingredientName}</Text>
+                  <StatusChip label={issue.field} tone="notice" icon={null} />
+                  <StatusChip label={isUsda ? "USDA" : "Manual"} tone={isUsda ? "success" : "neutral"} icon={null} />
+                </View>
+
+                <Text className="font-inter-regular text-body leading-5 text-ink">{issue.issue}</Text>
+
+                {/* Current vs suggested value, side by side. */}
+                <View className="flex-row items-stretch gap-2">
+                  <View className="flex-1 rounded-xl bg-ink-emphasis/5 px-3 py-2">
+                    <Text className="font-inter-medium text-small text-ink-subtle">Currently</Text>
+                    <Text className="font-inter-semibold text-body text-ink-emphasis">{issue.currentValue}</Text>
+                  </View>
+                  <View className="justify-center">
+                    <ArrowRight color={colors.ink.subtle} size={16} />
+                  </View>
+                  <View className="flex-1 rounded-xl bg-primary/10 px-3 py-2">
+                    <Text className="font-inter-medium text-small text-primary">Suggested</Text>
+                    <Text className="font-inter-semibold text-body text-primary">{issue.suggestedValue}</Text>
                   </View>
                 </View>
-                <AppText variant="caption" className="text-notice-text">
-                  {issue.issue}
-                </AppText>
-                <AppText variant="caption" className="text-ink-subtle">
-                  Currently {issue.currentValue} → suggest {issue.suggestedValue}
-                </AppText>
-                <AppText variant="caption" className="text-ink-subtle">
-                  {issue.reasoning}
-                </AppText>
+
+                <Text className="font-inter-regular text-body leading-5 text-ink-subtle">{issue.reasoning}</Text>
                 {findPairedIndex(index, issue) != null && (
-                  <AppText variant="caption" className="text-ink-subtle italic">
+                  <Text className="font-inter-regular text-small italic text-ink-subtle">
                     Applies together with this ingredient's other price fix below.
-                  </AppText>
+                  </Text>
                 )}
 
                 {state === "pending" && (
-                  <View className="flex-row gap-4 mt-1">
-                    <Pressable onPress={() => handleApply(index, issue)}>
-                      <AppText variant="caption" className="text-primary">
-                        Accept fix
-                      </AppText>
-                    </Pressable>
-                    <Pressable onPress={() => handleSkip(index)}>
-                      <AppText variant="caption" className="text-ink-subtle">
-                        Skip
-                      </AppText>
-                    </Pressable>
+                  <View className="flex-row gap-2">
+                    <ActionChip
+                      label="Accept fix"
+                      icon={<Check color={colors.primary} size={15} strokeWidth={2.5} />}
+                      onPress={() => handleApply(index, issue)}
+                    />
+                    <ActionChip label="Skip" tone="neutral" onPress={() => handleSkip(index)} />
                   </View>
                 )}
                 {state === "applying" && (
-                  <View className="flex-row items-center gap-2 mt-1">
+                  <View className="flex-row items-center gap-2">
                     <ActivityIndicator size="small" color={colors.primary} />
-                    <AppText variant="caption" className="text-ink-subtle">
-                      Applying...
-                    </AppText>
+                    <Text className="font-inter-regular text-body text-ink-subtle">Applying...</Text>
                   </View>
                 )}
-                {state === "applied" && (
-                  <AppText variant="caption" className="text-primary mt-1">
-                    Applied — the ingredient record was updated.
-                  </AppText>
-                )}
-                {state === "skipped" && (
-                  <AppText variant="caption" className="text-ink-subtle mt-1">
-                    Skipped
-                  </AppText>
-                )}
-                {state === "error" && (
-                  <AppText variant="caption" className="text-like mt-1">
-                    {issueErrors[index] ?? "Couldn't apply this fix."}
-                  </AppText>
-                )}
+                {state === "applied" && <StatusChip label="Applied — the ingredient record was updated." tone="success" />}
+                {state === "skipped" && <StatusChip label="Skipped" />}
+                {state === "error" && <InlineError>{issueErrors[index] ?? "Couldn't apply this fix."}</InlineError>}
               </View>
             );
           })}
 
           {result.issues.length === 0 && (
-            <AppText variant="caption" className="text-ink-subtle">
-              No issues flagged.
-            </AppText>
+            <Text className="font-inter-regular text-body text-ink-subtle">No issues flagged.</Text>
           )}
         </View>
       )}

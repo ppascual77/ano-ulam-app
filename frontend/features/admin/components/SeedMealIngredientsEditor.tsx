@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { View, Text, Pressable, ActivityIndicator } from "react-native";
-import { Trash2, Check, Info } from "lucide-react-native";
+import { View, Text, Pressable } from "react-native";
+import { Info, Plus, Search, Sparkles, Trash2 } from "lucide-react-native";
 import { AppText, Button, Dropdown, NoticeBanner, TextField, SelectField } from "@/frontend/components/ui";
 import type { DropdownItem } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -30,6 +30,7 @@ import { IngredientEditSheet } from "./IngredientEditSheet";
 import { ConfirmIngredientSheet } from "./ConfirmIngredientSheet";
 import { SeedIngredientPriceFinder } from "./SeedIngredientPriceFinder";
 import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
+import { ActionChip, FieldLabel, InlineError, StatTiles, StatusChip } from "./AdminUi";
 
 export type { QuantityUnit };
 
@@ -197,12 +198,15 @@ async function withOneRetry<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 function IngredientRowCard({
+  index,
   item,
   allIngredients,
   onChange,
   onRemove,
   onResolve,
 }: {
+  /** Position in the list, for the card's number. */
+  index: number;
   item: PendingMealIngredient;
   allIngredients: IngredientRow[];
   onChange: (patch: Partial<PendingMealIngredient>) => void;
@@ -468,214 +472,197 @@ function IngredientRowCard({
     }
   };
 
+  const linkedLabel = linkedIngredient
+    ? `${linkedIngredient.canonical_name} (${sourceLabel(linkedIngredient.source)})`
+    : candidates.length > 0
+      ? `${candidates.length} match(es) found`
+      : "No match — try Search USDA below";
+
   return (
-    <View className="gap-2 rounded-2xl border border-ink-emphasis/10 p-3">
-      <View className="flex-row items-center gap-2">
-        <View className="flex-1">
-          <TextField label="Ingredient name" value={item.name} onChangeText={(v) => onChange({ name: v })} />
+    <View className="overflow-hidden rounded-2xl border border-ink-emphasis/10 bg-white">
+      {/* Header: which line this is, whether it's linked, delete. */}
+      <View className="flex-row items-center gap-3 border-b border-ink-emphasis/10 px-4 py-3">
+        <View className="h-7 w-7 items-center justify-center rounded-full bg-ink-emphasis/5">
+          <Text className="font-inter-bold text-small text-ink-subtle">{index + 1}</Text>
         </View>
-        <Pressable onPress={onRemove} className="h-9 w-9 items-center justify-center">
+        <Text numberOfLines={1} className="flex-1 font-inter-semibold text-body-lg text-ink-emphasis">
+          {item.name.trim() || "New ingredient"}
+        </Text>
+        {item.ingredientId ? <StatusChip label="Linked" tone="success" /> : <StatusChip label="Not linked" tone="danger" />}
+        <Pressable
+          onPress={onRemove}
+          accessibilityLabel={`Remove ${item.name || "ingredient"}`}
+          className="h-9 w-9 items-center justify-center rounded-full active:bg-like-soft"
+        >
           <Trash2 color={colors.like} size={18} />
         </Pressable>
       </View>
 
-      <View className="flex-row gap-2">
-        <View className="flex-1">
+      <View className="gap-5 p-4">
+        {/* 1. What the recipe says. */}
+        <View className="gap-3">
+          <FieldLabel>Recipe line</FieldLabel>
+          <TextField label="Ingredient name" value={item.name} onChangeText={(v) => onChange({ name: v })} />
+          <View className="flex-row gap-2">
+            <View className="flex-1">
+              <TextField
+                label="Qty amount"
+                value={item.quantityAmount}
+                onChangeText={(v) => onChange({ quantityAmount: v })}
+                keyboardType="numeric"
+              />
+            </View>
+            <View className="flex-1">
+              <Dropdown
+                trigger={<SelectField label="Unit" valueLabel={item.quantityUnit} />}
+                items={unitItems}
+                matchTriggerWidth
+              />
+            </View>
+          </View>
           <TextField
-            label="Qty amount"
-            value={item.quantityAmount}
-            onChangeText={(v) => onChange({ quantityAmount: v })}
-            keyboardType="numeric"
+            label={'Display text (e.g. "3 cloves", "to taste")'}
+            value={item.displayText}
+            onChangeText={(v) => onChange({ displayText: v })}
+          />
+          <TextField
+            label="Note (optional, shown to everyone)"
+            value={item.note}
+            onChangeText={(v) => onChange({ note: v })}
+            multiline
           />
         </View>
-        <View className="flex-1">
+
+        {/* 2. What it's linked to in the ingredient database, and the ways
+            to find a link. */}
+        <View className="gap-3">
+          <FieldLabel>Database link</FieldLabel>
           <Dropdown
-            trigger={<SelectField label="Unit" valueLabel={item.quantityUnit} />}
-            items={unitItems}
+            trigger={<SelectField label="Ingredient database match" valueLabel={linkedLabel} />}
+            items={candidateItems.length > 0 ? candidateItems : [{ label: "No matches yet", onPress: () => {} }]}
             matchTriggerWidth
           />
+
+          {item.ingredientId && (
+            <View className="flex-row flex-wrap items-center gap-1.5">
+              <Text className="font-inter-medium text-body text-ink">Linked to {item.ingredientName}</Text>
+              {linkedIngredient && <StatusChip label={sourceLabel(linkedIngredient.source)} icon={null} />}
+              {linkedIngredient && (
+                <StatusChip
+                  label={bridgeLabel(linkedIngredient) ?? "no piece/ml bridge set"}
+                  tone={bridgeLabel(linkedIngredient) ? "neutral" : "notice"}
+                  icon={bridgeLabel(linkedIngredient) ? null : undefined}
+                />
+              )}
+            </View>
+          )}
+
+          {usdaSearch?.candidates && usdaSearch.candidates.length > 0 && (
+            <Dropdown
+              trigger={
+                <SelectField
+                  label="USDA match"
+                  valueLabel={creating ? "Adding + filling in details..." : `${usdaSearch.candidates.length} result(s) — tap to add + use`}
+                  loading={creating}
+                />
+              }
+              items={usdaSearch.candidates.map((c) => ({
+                label: `${c.description} — ${classifyUsdaConfidence(c.score)} confidence\n${macroPreview(c.calories, c.protein, c.carbohydrates, c.fat)}`,
+                onPress: () => handleAddAndUse(c),
+              }))}
+              matchTriggerWidth
+            />
+          )}
+
+          {/* AI estimate is always available, independent of USDA search
+              state: the admin's own call that nothing found matches. */}
+          <View className="flex-row flex-wrap gap-2">
+            {!(usdaSearch?.candidates && usdaSearch.candidates.length > 0) && (
+              <ActionChip
+                label={usdaSearch?.loading ? "Searching USDA..." : "Search USDA"}
+                icon={<Search color={colors.primary} size={15} />}
+                loading={usdaSearch?.loading}
+                onPress={handleSearchUsda}
+              />
+            )}
+            <ActionChip
+              label={aiEstimating ? "Estimating..." : "AI estimate"}
+              icon={<Sparkles color={colors.primary} size={15} />}
+              loading={aiEstimating}
+              onPress={handleAiEstimate}
+            />
+          </View>
+
+          {usdaSearch?.candidates?.length === 0 && (
+            <Text className="font-inter-regular text-body text-ink-subtle">No USDA match either — try adjusting the name.</Text>
+          )}
+          {usdaSearch?.error && <InlineError>{usdaSearch.error}</InlineError>}
+          {aiError && <InlineError>{aiError}</InlineError>}
+          {createError && <InlineError>Couldn't add ingredient: {createError}</InlineError>}
+
+          {linkedIngredient && <SeedIngredientPriceFinder ingredient={linkedIngredient} />}
         </View>
+
+        {oilHint && (
+          <NoticeBanner icon={<Info color={colors.notice.icon} size={15} />}>
+            <AppText variant="bodyBold" className="text-notice-text">
+              Frying oil, not a direct addition
+            </AppText>
+            <AppText variant="caption" className="text-notice-text">
+              Most of it stays in the pot — only ~14g (about 1 tbsp) typically gets absorbed.
+            </AppText>
+            <View className="mt-2">
+              <ActionChip label="Use ~14g for macros, keep full amount for price" onPress={useAbsorbedOilEstimate} />
+            </View>
+          </NoticeBanner>
+        )}
       </View>
 
+      {/* 3. What this line adds to the meal's totals, as a footer band. */}
       {item.ingredientId && (
         <View
-          className={`rounded-xl border px-3 py-2 ${
-            contribution.status === "error" ? "border-like/30 bg-like/5" : "border-primary/20 bg-primary/5"
+          className={`gap-2 border-t px-4 py-3 ${
+            contribution.status === "error" ? "border-like/20 bg-like/5" : "border-primary/15 bg-primary/5"
           }`}
         >
+          <Text className="font-inter-semibold text-small uppercase tracking-wider text-ink-subtle">Adds to the meal</Text>
           {contribution.status === "ok" && (
             <>
-              <AppText variant="bodyBold" className="text-primary">
-                {contributionLabel(contribution.totals)}
-              </AppText>
+              <Text className="font-inter-bold text-body-lg text-primary">{contributionLabel(contribution.totals)}</Text>
               {item.priceQuantityAmount.trim() !== "" && (
-                <View className="mt-1 flex-row items-center gap-2">
-                  <AppText variant="caption" className="text-ink-subtle">
+                <View className="flex-row flex-wrap items-center gap-2">
+                  <Text className="flex-shrink font-inter-regular text-body text-ink-subtle">
                     Price uses {item.priceQuantityAmount} {item.priceQuantityUnit} instead of the macro quantity
-                  </AppText>
-                  <Pressable onPress={clearPriceOverride}>
-                    <AppText variant="caption" className="text-primary">
-                      Clear
-                    </AppText>
-                  </Pressable>
+                  </Text>
+                  <ActionChip label="Clear" tone="neutral" onPress={clearPriceOverride} />
                 </View>
               )}
             </>
           )}
           {contribution.status === "error" && (
-            <View className="gap-1.5">
-              <AppText variant="caption" className="text-like">
-                Can't calculate price/macros: {contribution.reason}
-              </AppText>
+            <View className="gap-2">
+              <InlineError>Can't calculate price/macros: {contribution.reason}</InlineError>
               {canSuggestBridge && (
-                <Pressable onPress={handleFixBridge} disabled={bridgeFixing} className="flex-row items-center gap-2 self-start">
-                  {bridgeFixing && <ActivityIndicator size="small" color={colors.primary} />}
-                  <AppText variant="caption" className="text-primary">
-                    {bridgeFixing ? "Estimating..." : "Suggest bridge with AI"}
-                  </AppText>
-                </Pressable>
+                <ActionChip
+                  label={bridgeFixing ? "Estimating..." : "Suggest bridge with AI"}
+                  icon={<Sparkles color={colors.primary} size={15} />}
+                  loading={bridgeFixing}
+                  onPress={handleFixBridge}
+                />
               )}
-              {bridgeError && (
-                <AppText variant="caption" className="text-like">
-                  {bridgeError}
-                </AppText>
-              )}
+              {bridgeError && <InlineError>{bridgeError}</InlineError>}
             </View>
           )}
           {contribution.status === "no_quantity" && (
-            <AppText variant="caption" className="text-ink-subtle">
-              Set a quantity above to calculate price/macros
-            </AppText>
+            <Text className="font-inter-regular text-body text-ink-subtle">Set a quantity above to calculate price/macros</Text>
           )}
           {/* Briefly hit right after a brand-new ingredient is created,
               before the matching list has refetched to include it — never
               leave this rendering nothing, even for that window. */}
           {contribution.status === "unlinked" && (
-            <AppText variant="caption" className="text-ink-subtle">
-              Refreshing...
-            </AppText>
+            <Text className="font-inter-regular text-body text-ink-subtle">Refreshing...</Text>
           )}
         </View>
-      )}
-
-      {oilHint && (
-        <NoticeBanner icon={<Info color={colors.notice.icon} size={15} />}>
-          <AppText variant="bodyBold" className="text-notice-text">
-            Frying oil, not a direct addition
-          </AppText>
-          <AppText variant="caption" className="text-notice-text">
-            Most of it stays in the pot — only ~14g (about 1 tbsp) typically gets absorbed.
-          </AppText>
-          <Pressable onPress={useAbsorbedOilEstimate} className="mt-1 self-start">
-            <AppText variant="caption" className="text-primary">
-              Use ~14g for macros, keep full amount for price
-            </AppText>
-          </Pressable>
-        </NoticeBanner>
-      )}
-
-      <TextField
-        label={'Display text (e.g. "3 cloves", "to taste")'}
-        value={item.displayText}
-        onChangeText={(v) => onChange({ displayText: v })}
-      />
-
-      <TextField
-        label="Note (optional, shown to everyone)"
-        value={item.note}
-        onChangeText={(v) => onChange({ note: v })}
-        multiline
-      />
-
-      <Dropdown
-        trigger={
-          <SelectField
-            label="Ingredient database match"
-            valueLabel={
-              linkedIngredient
-                ? `${linkedIngredient.canonical_name} (${sourceLabel(linkedIngredient.source)})`
-                : candidates.length > 0
-                  ? `${candidates.length} match(es) found`
-                  : "No match — try Search USDA below"
-            }
-          />
-        }
-        items={candidateItems.length > 0 ? candidateItems : [{ label: "No matches yet", onPress: () => {} }]}
-        matchTriggerWidth
-      />
-
-      {item.ingredientId ? (
-        <View className="flex-row items-center gap-2">
-          <Check color={colors.primary} size={14} />
-          <AppText variant="caption" className="text-primary">
-            Linked to {item.ingredientName}
-            {linkedIngredient ? ` (${sourceLabel(linkedIngredient.source)})` : ""}
-            {linkedIngredient ? ` · ${bridgeLabel(linkedIngredient) ?? "no piece/ml bridge set"}` : ""}
-          </AppText>
-        </View>
-      ) : (
-        <AppText variant="caption" className="text-like">
-          Not yet linked to a real ingredient
-        </AppText>
-      )}
-
-      {linkedIngredient && <SeedIngredientPriceFinder ingredient={linkedIngredient} />}
-
-      {createError && (
-        <AppText variant="caption" className="text-like">
-          Couldn't add ingredient: {createError}
-        </AppText>
-      )}
-
-      {usdaSearch?.candidates && usdaSearch.candidates.length > 0 ? (
-        <Dropdown
-          trigger={
-            <SelectField
-              label="USDA match"
-              valueLabel={creating ? "Adding + filling in details..." : `${usdaSearch.candidates.length} result(s) — tap to add + use`}
-              loading={creating}
-            />
-          }
-          items={usdaSearch.candidates.map((c) => ({
-            label: `${c.description} — ${classifyUsdaConfidence(c.score)} confidence\n${macroPreview(c.calories, c.protein, c.carbohydrates, c.fat)}`,
-            onPress: () => handleAddAndUse(c),
-          }))}
-          matchTriggerWidth
-        />
-      ) : (
-        <Pressable onPress={handleSearchUsda} disabled={usdaSearch?.loading} className="flex-row items-center gap-2">
-          {usdaSearch?.loading && <ActivityIndicator size="small" color={colors.primary} />}
-          <AppText variant="caption" className="text-primary">
-            {usdaSearch?.loading ? "Searching USDA..." : "Search USDA"}
-          </AppText>
-        </Pressable>
-      )}
-
-      {usdaSearch?.error && (
-        <AppText variant="caption" className="text-like">
-          {usdaSearch.error}
-        </AppText>
-      )}
-      {usdaSearch?.candidates?.length === 0 && (
-        <AppText variant="caption" className="text-ink-subtle">
-          No USDA match either — try adjusting the name.
-        </AppText>
-      )}
-
-      {/* Always available, independent of USDA search state — this is the
-          admin's own judgment call ("none of these actually match") to
-          make at any point, not something gated behind a specific search
-          result. */}
-      <Pressable onPress={handleAiEstimate} disabled={aiEstimating} className="flex-row items-center gap-2">
-        {aiEstimating && <ActivityIndicator size="small" color={colors.primary} />}
-        <AppText variant="caption" className="text-primary">
-          {aiEstimating ? "Estimating..." : "AI Estimate"}
-        </AppText>
-      </Pressable>
-      {aiError && (
-        <AppText variant="caption" className="text-like">
-          {aiError}
-        </AppText>
       )}
 
       <IngredientEditSheet
@@ -789,9 +776,10 @@ export function SeedMealIngredientsEditor({ items, allIngredients, onChange }: P
 
   return (
     <View className="gap-4">
-      {items.map((item) => (
+      {items.map((item, index) => (
         <IngredientRowCard
           key={item.key}
+          index={index}
           item={item}
           allIngredients={allIngredients}
           onChange={(patch) => update(item.key, patch)}
@@ -800,27 +788,42 @@ export function SeedMealIngredientsEditor({ items, allIngredients, onChange }: P
         />
       ))}
 
+      <Button
+        label="Add ingredient"
+        variant="outline"
+        icon={<Plus color={colors.primary} size={18} strokeWidth={2.5} />}
+        onPress={() => onChange([...items, newPendingIngredient()])}
+      />
+
       {total.count > 0 && (
-        <View className="gap-1 rounded-2xl border border-primary/20 bg-primary/5 p-4">
-          <AppText variant="caption" className="text-ink-subtle">
-            Estimated total ({total.count} ingredient{total.count === 1 ? "" : "s"} counted)
-          </AppText>
-          <AppText variant="title" className="font-inter-semibold text-primary">
-            ₱{total.price.toFixed(2)} · {Math.round(total.calories)} cal
-          </AppText>
-          <AppText variant="caption" className="text-ink-subtle">
-            {total.protein.toFixed(1)}g protein · {total.carbohydrates.toFixed(1)}g carbs · {total.fat.toFixed(1)}g fat
-          </AppText>
-          {total.unreviewedOil > 0 && (
-            <AppText variant="caption" className="text-notice-text">
-              Includes {total.unreviewedOil} bulk-oil ingredient{total.unreviewedOil === 1 ? "" : "s"} not yet reviewed —
-              see the highlighted row above.
+        <View className="gap-3 rounded-2xl bg-primary/5 p-4">
+          <View className="flex-row items-baseline justify-between">
+            <AppText variant="sectionSubtitle" dot>
+              Estimated total
             </AppText>
+            <Text className="font-inter-medium text-body text-ink-subtle">
+              {total.count} ingredient{total.count === 1 ? "" : "s"} counted
+            </Text>
+          </View>
+          <StatTiles
+            stats={[
+              { label: "Price", value: `₱${total.price.toFixed(2)}`, emphasis: true },
+              { label: "Calories", value: `${Math.round(total.calories)}` },
+              { label: "Protein", value: `${total.protein.toFixed(1)}g` },
+              { label: "Carbs", value: `${total.carbohydrates.toFixed(1)}g` },
+              { label: "Fat", value: `${total.fat.toFixed(1)}g` },
+            ]}
+          />
+          {total.unreviewedOil > 0 && (
+            <NoticeBanner icon={<Info color={colors.notice.icon} size={15} />}>
+              <AppText variant="caption" className="text-notice-text">
+                Includes {total.unreviewedOil} bulk-oil ingredient{total.unreviewedOil === 1 ? "" : "s"} not yet reviewed —
+                see the highlighted row above.
+              </AppText>
+            </NoticeBanner>
           )}
         </View>
       )}
-
-      <Button label="+ Add ingredient" variant="outline" onPress={() => onChange([...items, newPendingIngredient()])} />
     </View>
   );
 }

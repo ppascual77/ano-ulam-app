@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
-import { View, Pressable } from "react-native";
+import { View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
 import { AppText, Button, ErrorState, LoadingState, Screen } from "@/frontend/components/ui";
-import { colors } from "@/frontend/constants/theme";
 import type { MealWithIngredients, QuantityUnit } from "@/api/meals";
 import {
   useIngredientsForMatching,
@@ -15,6 +13,8 @@ import {
 } from "../hooks/useMeals";
 import { MealFormFields, type MealFormState } from "../components/MealFormFields";
 import { MealImageEditor } from "../components/MealImageEditor";
+import { AdminHeader } from "../components/AdminHeader";
+import { Checklist } from "../components/AdminUi";
 
 const UNIT_VALUES: QuantityUnit[] = ["g", "kg", "ml", "L", "piece"];
 
@@ -128,15 +128,7 @@ export default function EditMealScreen() {
 
   return (
     <Screen padded={false}>
-      <View className="px-5 pt-2 pb-4 flex-row items-center gap-2">
-        <Pressable onPress={() => router.back()} className="h-9 w-9 items-center justify-center">
-          <ArrowLeft color={colors.ink.emphasis} size={18} />
-        </Pressable>
-        <View>
-          <AppText variant="eyebrow">Admin</AppText>
-          <AppText variant="heading">Edit Meal</AppText>
-        </View>
-      </View>
+      <AdminHeader title="Edit Meal" />
 
       {isLoading || ingredientsLoading ? (
         <LoadingState />
@@ -155,12 +147,23 @@ export default function EditMealScreen() {
 
           <MealFormFields value={form} onChange={updateForm} allIngredients={allIngredients} />
 
-          <Button label={isSaving ? "Saving..." : "Save Changes"} disabled={!canSave} onPress={handleSave} />
-          {!allResolved && trimmedIngredients.length > 0 && (
-            <AppText variant="caption" className="text-like text-center mt-2">
-              Every ingredient needs to be linked to a real ingredient record before saving.
+          {/* What's left before saving, then save (same layout as Seed Meal). */}
+          <View className="gap-4 rounded-2xl border border-ink-emphasis/10 p-5">
+            <AppText variant="sectionSubtitle" dot>
+              Ready to save
             </AppText>
-          )}
+            <Checklist
+              items={[
+                { label: "Meal has a name", done: form.name.trim() !== "" },
+                {
+                  label: "Every ingredient is linked",
+                  done: allResolved,
+                  detail: `${trimmedIngredients.filter((i) => i.ingredientId).length} of ${trimmedIngredients.length} linked to a real ingredient record`,
+                },
+              ]}
+            />
+            <Button label={isSaving ? "Saving..." : "Save Changes"} disabled={!canSave} onPress={handleSave} />
+          </View>
         </ScrollView>
       )}
     </Screen>

@@ -12,6 +12,7 @@ import {
   type UsdaGroundingResult,
 } from "@/api/ingredients";
 import { getMealsUsingIngredients } from "@/api/meals";
+import { ActionChip, FieldLabel, InlineError, StatusChip } from "./AdminUi";
 
 type Props = {
   visible: boolean;
@@ -35,7 +36,7 @@ type Props = {
 
 const ROLE_OPTIONS = [
   { id: "main", label: "Main" },
-  { id: "pantry", label: "Pantry" },
+  { id: "pantry", label: "Staple" },
 ];
 const STATE_OPTIONS = [
   { id: "raw", label: "Raw" },
@@ -213,8 +214,10 @@ function buildPatch(form: FormState): Partial<IngredientRow> {
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <View className="gap-3 mb-6">
-      <AppText variant="bodyBold">{title}</AppText>
+    <View className="gap-3 mb-8">
+      <AppText variant="sectionSubtitle" dot>
+        {title}
+      </AppText>
       {children}
     </View>
   );
@@ -363,9 +366,9 @@ export function IngredientEditSheet({
         <Section title="Classification">
           <TextField label="Category" value={form.category} onChangeText={(v) => set("category", v)} />
           <TextField label="Food group" value={form.food_group} onChangeText={(v) => set("food_group", v)} />
-          <AppText variant="caption">Role</AppText>
+          <FieldLabel>Role</FieldLabel>
           <ChipSelect mode="single" options={ROLE_OPTIONS} value={form.role} onChange={(v) => set("role", v)} />
-          <AppText variant="caption">State</AppText>
+          <FieldLabel>State</FieldLabel>
           <ChipSelect mode="single" options={STATE_OPTIONS} value={form.state} onChange={(v) => set("state", v)} />
         </Section>
 
@@ -376,7 +379,7 @@ export function IngredientEditSheet({
             value={form.estimated_price_unit}
             onChangeText={(v) => set("estimated_price_unit", v)}
           />
-          <AppText variant="caption">Price source</AppText>
+          <FieldLabel>Price source</FieldLabel>
           <ChipSelect
             mode="single"
             required
@@ -416,19 +419,14 @@ export function IngredientEditSheet({
                   No confident USDA match found.
                 </AppText>
               )}
-              {usdaResult.confidence === "ERROR" && (
-                <AppText variant="caption" className="text-like">
-                  {usdaResult.error}
-                </AppText>
-              )}
+              {usdaResult.confidence === "ERROR" && <InlineError>{usdaResult.error}</InlineError>}
               {(usdaResult.confidence === "HIGH" || usdaResult.confidence === "LOW") && (
                 <>
-                  <AppText
-                    variant="caption"
-                    className={usdaResult.confidence === "HIGH" ? "text-primary" : "text-accent"}
-                  >
-                    {usdaResult.confidence} confidence
-                  </AppText>
+                  <StatusChip
+                    label={`${usdaResult.confidence} confidence`}
+                    tone={usdaResult.confidence === "HIGH" ? "success" : "notice"}
+                    icon={null}
+                  />
                   <View className="flex-row flex-wrap gap-2">
                     {usdaResult.candidates.map((c, i) => (
                       <Pressable
@@ -447,52 +445,44 @@ export function IngredientEditSheet({
                       </Pressable>
                     ))}
                   </View>
-                  <Pressable
+                  <ActionChip
+                    label="View on USDA"
+                    icon={<ExternalLink color={colors.primary} size={14} />}
                     onPress={() =>
                       Linking.openURL(
                         getUsdaSourceUrl(usdaResult.candidates[usdaCandidateIndex]?.fdcId ?? usdaResult.candidates[0].fdcId),
                       )
                     }
-                    className="flex-row items-center gap-1"
-                  >
-                    <AppText variant="caption" className="text-primary">
-                      View on USDA
-                    </AppText>
-                    <ExternalLink color={colors.primary} size={12} />
-                  </Pressable>
+                  />
                   <Button label="Apply to form" onPress={handleApplyUsdaCandidate} />
                 </>
               )}
             </View>
           )}
 
-          <AppText variant="caption">Source</AppText>
+          <FieldLabel>Source</FieldLabel>
           <ChipSelect mode="single" options={SOURCE_OPTIONS} value={form.source} onChange={(v) => set("source", v)} />
           <TextField label="Source reference ID" value={form.source_ref_id} onChangeText={(v) => set("source_ref_id", v)} />
           {form.source[0] === "USDA" && form.source_ref_id.trim() !== "" && (
-            <Pressable
+            <ActionChip
+              label="View on USDA"
+              icon={<ExternalLink color={colors.primary} size={14} />}
               onPress={() => Linking.openURL(getUsdaSourceUrl(form.source_ref_id.trim()))}
-              className="flex-row items-center gap-1 -mt-2"
-            >
-              <AppText variant="caption" className="text-primary">
-                View on USDA
-              </AppText>
-              <ExternalLink color={colors.primary} size={12} />
-            </Pressable>
+            />
           )}
           <TextField
             label="Source description"
             value={form.source_description}
             onChangeText={(v) => set("source_description", v)}
           />
-          <AppText variant="caption">Match type</AppText>
+          <FieldLabel>Match type</FieldLabel>
           <ChipSelect
             mode="single"
             options={MATCH_TYPE_OPTIONS}
             value={form.match_type}
             onChange={(v) => set("match_type", v)}
           />
-          <AppText variant="caption">Verification status</AppText>
+          <FieldLabel>Verification status</FieldLabel>
           <ChipSelect
             mode="single"
             required
@@ -509,8 +499,8 @@ export function IngredientEditSheet({
         </Section>
 
         {confirming && (
-          <View className="gap-2 rounded-2xl border border-ink-emphasis/10 p-3 mb-3">
-            <AppText variant="bodyBold">
+          <View className="mb-3 gap-2 rounded-2xl border border-notice-border bg-notice-bg p-4">
+            <AppText variant="bodyBold" className="text-notice-text">
               {loadingAffected
                 ? "Checking affected meals..."
                 : affectedMeals && affectedMeals.length > 0
@@ -526,11 +516,7 @@ export function IngredientEditSheet({
                 ))}
               </View>
             )}
-            <Pressable onPress={() => setConfirming(false)} disabled={isSaving}>
-              <AppText variant="caption" className="text-primary">
-                Cancel
-              </AppText>
-            </Pressable>
+            <ActionChip label="Cancel" tone="neutral" disabled={isSaving} onPress={() => setConfirming(false)} />
           </View>
         )}
 

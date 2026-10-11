@@ -1,15 +1,16 @@
 import { useMemo, useState } from "react";
-import { View, Pressable, useWindowDimensions } from "react-native";
+import { View, useWindowDimensions } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { router } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
-import { AppText, BottomSheet, Button, ErrorState, Screen, SearchBar } from "@/frontend/components/ui";
+import { Plus, Trash2 } from "lucide-react-native";
+import { AppText, Button, ConfirmSheet, ErrorState, Screen, SearchBar } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
 import { MealCardSkeleton } from "@/frontend/core/meals/components/card/MealCardSkeleton";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useArchiveMeal, useDeleteMeal, useMeal, useMeals } from "../hooks/useMeals";
 import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
+import { AdminHeader } from "../components/AdminHeader";
 
 const SCREEN_PADDING = 20 * 2; // matches Screen's px-5
 const COLUMN_GAP = 12;
@@ -59,21 +60,14 @@ export default function ManageMealsScreen() {
 
   return (
     <Screen padded={false}>
-      <View className="px-5 pt-2 pb-4 flex-row items-center gap-2">
-        <Pressable onPress={() => router.back()} className="h-9 w-9 items-center justify-center">
-          <ArrowLeft color={colors.ink.emphasis} size={18} />
-        </Pressable>
-        <View className="flex-1">
-          <AppText variant="eyebrow">Admin</AppText>
-          <AppText variant="heading">Manage Meals</AppText>
-          <AppText variant="caption" className="text-ink-subtle">
-            {meals?.length ?? 0} meals
-          </AppText>
-        </View>
-      </View>
+      <AdminHeader title="Manage Meals" subtitle={`${meals?.length ?? 0} meals`} />
 
       <View className="px-5 gap-3 mb-4">
-        <Button label="+ Seed Meal" onPress={() => router.push("/seed-meal")} />
+        <Button
+          label="Seed meal"
+          icon={<Plus color={colors.white} size={20} strokeWidth={2.5} />}
+          onPress={() => router.push("/seed-meal")}
+        />
         <SearchBar value={search} onChangeText={setSearch} placeholder="Search meals..." />
       </View>
 
@@ -138,33 +132,20 @@ export default function ManageMealsScreen() {
         }}
       />
 
-      <BottomSheet visible={confirmDeleteVisible} onClose={() => setConfirmDeleteVisible(false)} heightPercent={0.4}>
-        <View className="flex-1 px-8 pt-16 items-center">
-          <AppText variant="heading" className="text-center mb-2">
-            Delete this meal?
-          </AppText>
-          <AppText variant="body" className="text-ink-subtle text-center mb-8">
-            {deleteTarget ? `"${deleteTarget.name}" will be removed from the catalog. This cannot be undone.` : ""}
-          </AppText>
-          <View className="w-full gap-2">
-            <Pressable
-              onPress={handleDelete}
-              disabled={deleteMeal.isPending}
-              className="items-center justify-center rounded-xl bg-like py-3.5"
-            >
-              <AppText variant="title" className="text-white">
-                {deleteMeal.isPending ? "Deleting..." : "Delete"}
-              </AppText>
-            </Pressable>
-            <Button
-              label="Cancel"
-              variant="outline"
-              disabled={deleteMeal.isPending}
-              onPress={() => setConfirmDeleteVisible(false)}
-            />
+      <ConfirmSheet
+        visible={confirmDeleteVisible}
+        icon={
+          <View className="h-12 w-12 items-center justify-center rounded-full bg-like-soft">
+            <Trash2 color={colors.like} size={20} />
           </View>
-        </View>
-      </BottomSheet>
+        }
+        title="Delete this meal?"
+        body={deleteTarget ? `"${deleteTarget.name}" will be removed from the catalog. This cannot be undone.` : undefined}
+        confirmLabel={deleteMeal.isPending ? "Deleting…" : "Delete meal"}
+        busy={deleteMeal.isPending}
+        onCancel={() => setConfirmDeleteVisible(false)}
+        onConfirm={handleDelete}
+      />
     </Screen>
   );
 }
