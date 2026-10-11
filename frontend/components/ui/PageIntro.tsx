@@ -12,7 +12,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { colors } from "@/frontend/constants/theme";
-import { landSquash, squashStretch } from "./dotMotion";
 
 // A page's "quick glance" intro (the auto tour): a full-page scene over a
 // white cover, ending with one dot that flies up and lands on a spot in the
@@ -132,7 +131,6 @@ export function PageIntro({
   const content = useSharedValue(1);
   const backdrop = useSharedValue(1);
   const fly = useSharedValue(0);
-  const land = useSharedValue(0);
   const start = useSharedValue({ x: 0, y: 0 });
   // The landing spot's center and size, in this overlay's coordinates.
   const target = useSharedValue({ x: 0, y: 0, size: 6 });
@@ -161,8 +159,7 @@ export function PageIntro({
           content.value = withTiming(0, { duration: CONTENT_FADE_MS });
           backdrop.value = withTiming(0, { duration: FADE_MS });
           fly.value = withTiming(1, { duration: FLY_MS, easing: Easing.inOut(Easing.cubic) }, (done) => {
-            // A bubbly squash on landing, then the real dot takes over.
-            if (done) landSquash(land, () => scheduleOnRN(onDone));
+            if (done) scheduleOnRN(onDone);
           });
         });
       });
@@ -187,13 +184,7 @@ export function PageIntro({
     return {
       opacity: dot.value > 0 ? 1 : 0,
       backgroundColor: interpolateColor(f, [0.55, 1], [colors.accent, landColor]),
-      transform: [
-        { translateX: x - dotSize / 2 },
-        { translateY: y - dotSize / 2 },
-        { scale },
-        // Stretches along its arc up to the header, squashes as it lands.
-        ...squashStretch(s.x, s.y, t.x, t.y, FLY_ARC, f, land.value),
-      ],
+      transform: [{ translateX: x - dotSize / 2 }, { translateY: y - dotSize / 2 }, { scale }],
     };
   });
 
