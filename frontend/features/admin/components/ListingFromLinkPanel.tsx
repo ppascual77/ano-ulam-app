@@ -203,7 +203,14 @@ export function ListingFromLinkPanel() {
   const bigChange = ratio != null && (ratio > BIG_CHANGE_RATIO || ratio < 1 / BIG_CHANGE_RATIO);
 
   return (
-    <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+    // Insets follow the keyboard, so the field being typed in scrolls up
+    // above it instead of being covered (same as MacroGoalSheet).
+    <ScrollView
+      className="flex-1 px-5"
+      contentContainerStyle={{ paddingBottom: 40 }}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
+    >
       <AppText variant="body" className="mb-4 text-ink-subtle">
         Add a real store price to an ingredient. It takes the cheapest of its real prices, and its AI pack estimate is
         removed. Nothing is saved until you confirm.
