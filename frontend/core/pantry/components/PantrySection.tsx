@@ -33,7 +33,7 @@ export function PantrySection() {
 
       {/* Loading first, so an empty pantry never flashes before the real one. */}
       {isPending ? (
-        <LoadingState variant="wave" label={PANTRY_LOADING_LABEL} />
+        <LoadingState variant="spiral" label={PANTRY_LOADING_LABEL} />
       ) : pantry.length === 0 ? (
         <PantryEmptyState onAddIngredients={() => setSheetOpen(true)} />
       ) : (
