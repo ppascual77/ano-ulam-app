@@ -45,8 +45,8 @@ export default function RootLayout() {
     Caveat_700Bold,
   });
 
-  // Settings' "Reduce motion": loaded once here, then applied app-wide below.
-  const reduceMotion = useReduceMotionStore((s) => s.override);
+  // Settings' "Reduce motion": loaded once here, read by each animation
+  // that it shortens (useReduceMotion).
   const loadReduceMotion = useReduceMotionStore((s) => s.load);
   // Settings' "Surprise me" (Home's pull-down tag), read by HomeScreen.
   const loadSurpriseMe = useSurpriseMeStore((s) => s.load);
@@ -95,11 +95,12 @@ export default function RootLayout() {
     <View style={{ flex: 1, backgroundColor: "black", alignItems: "center", justifyContent: "center" }}>
       <View style={{ width: "100%", maxWidth: 430, height: "100%", maxHeight: 932 }}>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          {/* Every Reanimated animation jumps straight to its end when
-              reduced: the user's choice, else the phone's setting. */}
-          <ReducedMotionConfig
-            mode={reduceMotion == null ? ReduceMotion.System : reduceMotion ? ReduceMotion.Always : ReduceMotion.Never}
-          />
+          {/* Reanimated never blanket-skips animations, even with the
+              phone's reduce motion on: that froze everything (fades, skeleton
+              pulses, nudges). Reduce motion is handled per animation instead
+              (useReduceMotion): the big moves (page intros, the tab slide,
+              numbers rolling) go, the small ones stay. */}
+          <ReducedMotionConfig mode={ReduceMotion.Never} />
           <SafeAreaProvider>
             <QueryClientProvider client={queryClient}>
               <Stack screenOptions={{ headerShown: false }}>
