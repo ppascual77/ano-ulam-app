@@ -20,7 +20,6 @@ import { colors } from "@/frontend/constants/theme";
 
 const FADE_MS = 450;
 const CONTENT_FADE_MS = 250;
-// Exported so the tab-switch dot (DotHandoff) flies exactly the same way.
 export const INTRO_DOT_FLY_MS = 650;
 // How high the dot arcs on its way to the header.
 export const INTRO_DOT_FLY_ARC = 120;
