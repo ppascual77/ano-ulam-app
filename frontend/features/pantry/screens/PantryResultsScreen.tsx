@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { Image } from "expo-image";
 import Animated, { Easing, FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { ArrowLeft, Bookmark, ChevronRight, Clock, Flame, ShoppingBag, ShoppingCart, UtensilsCrossed } from "lucide-react-native";
-import { LoadingState, Screen, Toast, type ToastState } from "@/frontend/components/ui";
+import { AppText, LoadingState, Screen, Toast, type ToastState } from "@/frontend/components/ui";
 import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
 import { colors } from "@/frontend/constants/theme";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
@@ -75,9 +75,14 @@ export default function PantryResultsScreen() {
         <Pressable onPress={() => router.back()} hitSlop={10} className="h-8 justify-center" accessibilityLabel="Back">
           <ArrowLeft color={colors.ink.emphasis} size={20} />
         </Pressable>
-        <Text className="flex-1 font-inter-bold text-subheading text-ink-emphasis">
-          Based on {pantry.length} ingredient{pantry.length === 1 ? "" : "s"} in your pantry
-        </Text>
+        <View className="flex-1">
+          <AppText variant="sectionTitle" dot>
+            Meals you can cook
+          </AppText>
+          <Text className="mt-0.5 font-inter-regular text-body text-ink-subtle">
+            Based on {pantry.length} ingredient{pantry.length === 1 ? "" : "s"} in your pantry
+          </Text>
+        </View>
       </View>
 
       {matching || loadingMeals ? (
@@ -98,7 +103,9 @@ export default function PantryResultsScreen() {
             <Animated.View entering={FadeInDown.delay(stagger(section.data[0].order)).duration(300)}>
               <View className="mb-2 mt-5">
                 <View className="flex-row items-center gap-2">
-                  <Text className="font-inter-bold text-subheading text-ink-emphasis">{section.title}</Text>
+                  <AppText variant="sectionSubtitle" dot>
+                    {section.title}
+                  </AppText>
                   <View className="rounded-full bg-primary/10 px-2 py-0.5">
                     <Text className="font-inter-semibold text-small text-primary">{section.data.length}</Text>
                   </View>
