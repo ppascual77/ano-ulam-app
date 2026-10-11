@@ -67,14 +67,6 @@ export default function BrowseScreen() {
   const savedMeals = useSavedMealActions();
 
   const [toast, setToast] = useState<ToastState | null>(null);
-  const toastSaved = (meal: MealType, saved: boolean) =>
-    setToast({
-      id: Date.now(),
-      message: `${meal.name} ${saved ? "saved" : "removed"}`,
-      tone: "success",
-      image: resolveMealImage(meal),
-      action: { label: "See it now", onPress: () => router.push("/profile") },
-    });
   const toastError = (message: string) => setToast({ id: Date.now(), message, tone: "error" });
 
   // ---- likes: shared by the cards and Meal Details, so they stay in sync.
@@ -103,7 +95,7 @@ export default function BrowseScreen() {
     const meal = pendingSave.current;
     pendingSave.current = null;
     setGate(null);
-    void savedMeals.save(meal).then((error) => (error ? toastError(error) : toastSaved(meal, true)));
+    void savedMeals.save(meal);
     // Only on the guest -> signed-in transition.
   }, [isGuest]);
 
@@ -146,8 +138,6 @@ export default function BrowseScreen() {
             }
           : undefined
       }
-      onSaveChange={(saved) => toastSaved(meal, saved)}
-      onSaveError={toastError}
     />
   );
 

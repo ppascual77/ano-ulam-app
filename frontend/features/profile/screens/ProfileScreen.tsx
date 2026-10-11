@@ -48,7 +48,7 @@ const TAB_PARAMS: ProfileTab[] = ["saved", "recipes", "grocery", "pantry"];
 // The official AnoUlam account gets the official profile instead (no
 // users.is_official yet: only reachable through the DEV switch).
 export default function ProfileScreen() {
-  const params = useLocalSearchParams<{ tab?: string }>();
+  const params = useLocalSearchParams<{ tab?: string; at?: string }>();
   const queryClient = useQueryClient();
   const { isSignedIn } = useAuth();
   const signIn = useSignInWithGoogle();
@@ -61,6 +61,13 @@ export default function ProfileScreen() {
   const [tab, setTab] = useState<ProfileTab>(
     TAB_PARAMS.includes(params.tab as ProfileTab) ? (params.tab as ProfileTab) : "saved",
   );
+  // Deep link, e.g. the "Saved to your Profile" toast's View:
+  // /profile?tab=saved&at=<time>. `at` changes per visit, so the same link
+  // works again after switching tabs here.
+  useEffect(() => {
+    if (params.at && TAB_PARAMS.includes(params.tab as ProfileTab)) setTab(params.tab as ProfileTab);
+    // Only on a new visit.
+  }, [params.at]);
   const extras = useProfileExtras();
   const updateBio = useUpdateBio();
   const recipes = useMyRecipes(me.id);

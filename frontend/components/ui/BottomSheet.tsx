@@ -10,11 +10,17 @@ import Animated, {
   Extrapolation,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
+import { GlobalToast } from "./GlobalToast";
 
 // Past this fraction of the sheet's height (or a fast enough flick), a drag
 // commits to closing instead of springing back open.
 const DISMISS_THRESHOLD = 0.25;
 const DISMISS_VELOCITY = 800;
+
+// How many modal sheets are on screen right now. While any is, it covers
+// the bottom nav (e.g. save feedback can't fly into the Profile tab).
+let openModalSheets = 0;
+export const isModalSheetOpen = () => openModalSheets > 0;
 
 type BottomSheetProps = {
   visible: boolean;
@@ -103,6 +109,15 @@ export function BottomSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
+  const countsAsModal = modalVisible && presentation === "modal";
+  useEffect(() => {
+    if (!countsAsModal) return;
+    openModalSheets += 1;
+    return () => {
+      openModalSheets -= 1;
+    };
+  }, [countsAsModal]);
+
   const startY = useSharedValue(0);
   const dragGesture = Gesture.Pan()
     .onStart(() => {
@@ -181,6 +196,10 @@ export function BottomSheet({
           {overlay}
         </View>
       )}
+
+      {/* The app-wide toast, above this Modal (it would be hidden under it
+          at the root). An inline sheet's parent already has one. */}
+      {presentation === "modal" && <GlobalToast withActions={false} />}
     </View>
   );
 

@@ -73,7 +73,6 @@ export function VisitorCreatedTab({ userId, loadMoreSignal, onToast }: VisitorCr
                   width={width}
                   layout="grid"
                   onPress={() => detail.open(meal.id)}
-                  onSaveError={(message) => onToast(message, "error")}
                 />
               )}
             />

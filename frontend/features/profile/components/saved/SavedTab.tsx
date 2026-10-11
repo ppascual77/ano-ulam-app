@@ -1,12 +1,13 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Text, View } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Bookmark, Utensils } from "lucide-react-native";
 import { ConfirmSheet } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useSavedMealActions, useSavedMeals } from "@/frontend/core/saved/hooks/useSavedMeals";
+import { markSavedSeen, useSaveFeedbackStore } from "@/frontend/core/saved/store/useSaveFeedbackStore";
 import type { SavedMeal } from "@/frontend/core/saved/types";
 import { MealGrid } from "../MealGrid";
 import { MealGridSkeleton } from "../MealGridSkeleton";
@@ -17,6 +18,7 @@ import { useMe } from "../../hooks/useProfile";
 import { UpdatedMealPrompt } from "./UpdatedMealPrompt";
 import { NutritionSummaryCard } from "./NutritionSummaryCard";
 import { NutritionSummarySheet } from "./NutritionSummarySheet";
+import { FreshPulse } from "./FreshPulse";
 import { useLastDefined } from "../../hooks/useLastDefined";
 
 type SavedTabProps = {
@@ -27,7 +29,8 @@ type SavedTabProps = {
 // that opens the full breakdown. (The meal-plan banner, MealPlanBanner, is
 // hidden for now.)
 // Unsaving asks first ("Remove this meal?"); a meal the creator has since
-// edited asks to sync before opening.
+// edited asks to sync before opening. Seeing this tab clears the Profile
+// tab's "new saved meal" dot, and the meal just saved pulses once.
 export function SavedTab({ onToast }: SavedTabProps) {
   const { data: saved = [], isLoading } = useSavedMeals();
   const actions = useSavedMealActions();
@@ -38,14 +41,22 @@ export function SavedTab({ onToast }: SavedTabProps) {
   const [updated, setUpdated] = useState<SavedMeal | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [nutritionOpen, setNutritionOpen] = useState(false);
+
+  // Re-runs when a save lands while this tab is already on screen.
+  const unseen = useSaveFeedbackStore((s) => s.unseen);
+  const [freshKey, setFreshKey] = useState<string | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const key = markSavedSeen();
+      if (key) setFreshKey(key);
+    }, [unseen]),
+  );
   // Opened once the prompt has finished closing (sheets never overlap).
   const afterPrompt = useRef<SavedMeal | null>(null);
   const removeName = useLastDefined(confirmRemove?.name);
 
-  const unsave = async (entry: SavedMeal) => {
-    const error = await actions.unsave(entry);
-    if (error) onToast(error, "error");
-  };
+  // Its "Removed" (with Undo) or error toast comes from the actions.
+  const unsave = (entry: SavedMeal) => void actions.unsave(entry);
 
   const openCard = (entry: SavedMeal) => {
     if (entry.catalog_status === "updated") setUpdated(entry);
@@ -80,16 +91,18 @@ export function SavedTab({ onToast }: SavedTabProps) {
             items={saved}
             keyOf={(entry) => entry.saved_id}
             renderItem={(entry, width) => (
-              <MealCard
-                meal={entry}
-                width={width}
-                layout="grid"
-                isFastFood={entry.category === "fast_food"}
-                onPress={() => openCard(entry)}
-                onBookmarkPress={() => setConfirmRemove(entry)}
-                topLeft={entry.poster_id ? <PosterChip onPress={() => openProfile(entry.poster_id, me.id)} /> : undefined}
-                imageFooter={<CatalogStatusStrip status={entry.catalog_status} />}
-              />
+              <FreshPulse active={entry.meal_catalog_id === freshKey} onDone={() => setFreshKey(null)}>
+                <MealCard
+                  meal={entry}
+                  width={width}
+                  layout="grid"
+                  isFastFood={entry.category === "fast_food"}
+                  onPress={() => openCard(entry)}
+                  onBookmarkPress={() => setConfirmRemove(entry)}
+                  topLeft={entry.poster_id ? <PosterChip onPress={() => openProfile(entry.poster_id, me.id)} /> : undefined}
+                  imageFooter={<CatalogStatusStrip status={entry.catalog_status} />}
+                />
+              </FreshPulse>
             )}
           />
         </>
@@ -110,7 +123,7 @@ export function SavedTab({ onToast }: SavedTabProps) {
         confirmLabel="Remove"
         onCancel={() => setConfirmRemove(null)}
         onConfirm={() => {
-          if (confirmRemove) void unsave(confirmRemove);
+          if (confirmRemove) unsave(confirmRemove);
           setConfirmRemove(null);
         }}
       />
@@ -125,7 +138,7 @@ export function SavedTab({ onToast }: SavedTabProps) {
         }}
         onSync={sync}
         onUnsave={() => {
-          if (updated) void unsave(updated);
+          if (updated) unsave(updated);
           setUpdated(null);
         }}
         onViewSaved={() => {

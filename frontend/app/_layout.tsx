@@ -27,7 +27,9 @@ import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/frontend/features/auth/store/useAuthStore";
 import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenIntrosStore";
-import { DotHandoffOverlay } from "@/frontend/components/ui";
+import { DotHandoffOverlay, GlobalToast } from "@/frontend/components/ui";
+import { SaveFeedbackLayer } from "@/frontend/core/saved/components/SaveFeedbackLayer";
+import { noteTouch, useSaveFeedbackStore } from "@/frontend/core/saved/store/useSaveFeedbackStore";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 
 // Required for the Google sign-in browser-redirect flow's web fallback path;
@@ -56,11 +58,14 @@ export default function RootLayout() {
   const loadSurpriseMe = useSurpriseMeStore((s) => s.load);
   // Which page intros have played (each plays once).
   const loadSeenIntros = useSeenIntrosStore((s) => s.load);
+  // Save feedback's Profile dot and how many hint toasts have shown.
+  const loadSaveFeedback = useSaveFeedbackStore((s) => s.load);
   useEffect(() => {
     void loadReduceMotion();
     void loadSurpriseMe();
     void loadSeenIntros();
-  }, [loadReduceMotion, loadSurpriseMe, loadSeenIntros]);
+    void loadSaveFeedback();
+  }, [loadReduceMotion, loadSurpriseMe, loadSeenIntros, loadSaveFeedback]);
 
   const authLoading = useAuthStore((s) => s.loading);
   const setSession = useAuthStore((s) => s.setSession);
@@ -100,7 +105,12 @@ export default function RootLayout() {
     // current iPhone (Pro Max); not themeable values, so not in
     // constants/theme.ts.
     <View style={{ flex: 1, backgroundColor: "black", alignItems: "center", justifyContent: "center" }}>
-      <View style={{ width: "100%", maxWidth: 430, height: "100%", maxHeight: 932 }}>
+      {/* onTouchStart sees every tap on its way down (it doesn't take the
+          touch): a save flies from the tap that triggered it. */}
+      <View
+        style={{ width: "100%", maxWidth: 430, height: "100%", maxHeight: 932 }}
+        onTouchStart={(e) => noteTouch(e.nativeEvent.pageX, e.nativeEvent.pageY)}
+      >
         <GestureHandlerRootView style={{ flex: 1 }}>
           {/* Reanimated never blanket-skips animations, even with the
               phone's reduce motion on: that froze everything (fades, skeleton
@@ -118,6 +128,10 @@ export default function RootLayout() {
               </Stack>
               {/* Above every screen: a title dot flying to the next screen's. */}
               <DotHandoffOverlay enabled={!reduceMotionOn} />
+              {/* A saved meal flying into the Profile tab. */}
+              <SaveFeedbackLayer />
+              {/* App-wide toasts (e.g. "Saved to your Profile"). */}
+              <GlobalToast />
             </QueryClientProvider>
           </SafeAreaProvider>
         </GestureHandlerRootView>

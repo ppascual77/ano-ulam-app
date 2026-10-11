@@ -38,10 +38,6 @@ type MealCardProps = {
    *  this meal?" before unsaving). Saved state still comes from the shared
    *  saved list. */
   onBookmarkPress?: () => void;
-  /** Toast hook for a failed save (e.g. the 15-meal limit). */
-  onSaveError?: (message: string) => void;
-  /** After a save/unsave succeeds (e.g. a "{name} saved" toast). */
-  onSaveChange?: (saved: boolean) => void;
   /** Controlled like state, so a caller that tracks likes (Browse, kept in
    *  sync with Meal Details) owns it. Omitted = the card's own local like. */
   like?: { liked: boolean; count: number; onToggle: () => void };
@@ -72,8 +68,6 @@ export function MealCard({
   showDescription = false,
   onViewDetails,
   onBookmarkPress,
-  onSaveError,
-  onSaveChange,
   like,
   hideActions = false,
   hideLike = false,
@@ -101,12 +95,11 @@ export function MealCard({
     setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
   };
 
-  const toggleSave = async () => {
+  // Save feedback (flight to Profile, toasts, errors) comes from the
+  // shared actions, the same as every other save button.
+  const toggleSave = () => {
     if (onBookmarkPress) return onBookmarkPress();
-    const wasSaved = isSaved;
-    const error = await saved.toggle(meal);
-    if (error) onSaveError?.(error);
-    else onSaveChange?.(!wasSaved);
+    void saved.toggle(meal);
   };
 
   return (

@@ -172,7 +172,6 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, postsRef
                       onDelete={() => setConfirmDelete({ meal, fromDetails: false })}
                     />
                   }
-                  onSaveError={(message) => onToast(message, "error")}
                 />
               );
             }}
