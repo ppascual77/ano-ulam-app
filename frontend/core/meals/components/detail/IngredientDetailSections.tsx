@@ -328,7 +328,7 @@ export function PriceSourceSection({
           />
         ))}
         {sources.map((source) => (
-          <PriceSourceCard key={source.url} source={source} isBest={showBest && source.pricePerUnit === cheapest} />
+          <PriceSourceCard key={`${source.store}|${source.productTitle}|${source.url}`} source={source} isBest={showBest && source.pricePerUnit === cheapest} />
         ))}
         {packEstimate && <PackEstimateBox estimate={packEstimate} />}
       </View>

@@ -30,6 +30,39 @@ export type FetchedListing = StoreListing & {
 };
 
 const SM_HOST = "smmarkets.ph";
+
+/** What the admin types in when a link can't be read automatically (any
+ *  store but SM, or an SM product with no size in its name). */
+export type ManualListingInput = {
+  /** May be empty: a price with no product page (e.g. a market stall). */
+  url: string;
+  store: string;
+  productTitle: string;
+  packPrice: number;
+  packSize: number;
+  packUnit: StoreListing["packUnit"];
+};
+
+/** Thrown when a link needs the manual form; `partial` prefills it. */
+export class ListingNeedsInput extends Error {
+  constructor(
+    message: string,
+    readonly partial: Partial<ManualListingInput>,
+  ) {
+    super(message);
+  }
+}
+
+/** The store name for a link: its domain without "www.". */
+export function storeFromUrl(rawUrl: string): string {
+  try {
+    return new URL(rawUrl.trim()).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+const cleanUrl = (url: URL) => `${url.origin}${url.pathname}`;
 const SM_GRAPHQL = "https://smmarkets.ph/graphql";
 
 type SmProduct = {
@@ -85,7 +118,12 @@ export async function fetchListingFromUrl(
   } catch {
     throw new Error("That doesn't look like a link.");
   }
-  if (!url.hostname.endsWith(SM_HOST)) throw new Error("Only SM Markets links for now.");
+  if (!url.hostname.endsWith(SM_HOST)) {
+    throw new ListingNeedsInput("Only SM Markets prices can be read automatically. Enter this one by hand.", {
+      url: cleanUrl(url),
+      store: storeFromUrl(rawUrl),
+    });
+  }
   const slug = url.pathname.split("/").pop()?.replace(/\.html$/, "");
   if (!slug) throw new Error("Couldn't find the product in that link.");
   // SM links come as "20512947-barilla-…", "…-20586191" or "20580933": the
@@ -97,10 +135,14 @@ export async function fetchListingFromUrl(
   if (!product) throw new Error("SM Markets has no product at that link.");
 
   const pack = packFromName(product.name);
-  if (!pack) throw new Error(`No pack size in "${product.name}". Add this one by hand.`);
   const packPrice = Number(product.price_range.minimum_price.final_price.value);
   const regular = Number(product.price_range.minimum_price.regular_price.value);
-  if (!(packPrice > 0)) throw new Error("SM Markets shows no price for it.");
+  if (!pack || !(packPrice > 0)) {
+    throw new ListingNeedsInput(
+      !pack ? `No pack size in "${product.name}". Enter it by hand.` : "SM Markets shows no price for it. Enter it by hand.",
+      { url: cleanUrl(url), store: SM_HOST, productTitle: product.name, ...(packPrice > 0 ? { packPrice } : {}) },
+    );
+  }
 
   return {
     store: SM_HOST,
@@ -109,10 +151,35 @@ export async function fetchListingFromUrl(
     packSize: pack.size,
     packUnit: pack.unit,
     // Without tracking parameters.
-    url: `${url.origin}${url.pathname}`,
+    url: cleanUrl(url),
     ...perUnit(packPrice, pack.size, pack.unit, ingredient),
     inStock: product.stock_status === "IN_STOCK",
     regularPrice: regular > packPrice ? regular : null,
+  };
+}
+
+/** A listing from the manual form, priced in the ingredient's unit like a
+ *  fetched one. */
+export function manualListing(
+  input: ManualListingInput,
+  ingredient: Pick<IngredientRow, "estimated_price_unit" | "grams_per_ml">,
+): FetchedListing {
+  let url = input.url.trim();
+  try {
+    if (url) url = cleanUrl(new URL(url));
+  } catch {
+    // Not a parseable link: kept as typed.
+  }
+  return {
+    store: input.store.trim(),
+    productTitle: input.productTitle.trim(),
+    packPrice: input.packPrice,
+    packSize: input.packSize,
+    packUnit: input.packUnit,
+    url,
+    ...perUnit(input.packPrice, input.packSize, input.packUnit, ingredient),
+    inStock: true,
+    regularPrice: null,
   };
 }
 
@@ -126,7 +193,9 @@ export function addListingPatch(
   daOptions: PriceOption[],
 ): Partial<IngredientRow> {
   const kept = (Array.isArray(ingredient.price_sources) ? ingredient.price_sources : []).filter(
-    (s) => !isPackEstimate(s) && !(s && typeof s === "object" && "url" in s && s.url === listing.url),
+    // The same link again replaces the old listing; no-link ones (a market
+    // stall) never replace each other.
+    (s) => !isPackEstimate(s) && !(listing.url && s && typeof s === "object" && "url" in s && s.url === listing.url),
   );
   const priceSources = [...kept, { ...listing }];
   return {

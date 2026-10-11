@@ -1,10 +1,18 @@
 import { useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
-import { AppText, Button, LoadingState, TextField } from "@/frontend/components/ui";
+import { AppText, Button, LoadingState, SegmentedSwitch, TextField } from "@/frontend/components/ui";
 import { IngredientSearch } from "@/frontend/core/meals/components/IngredientSearch";
 import { ingredientPricePerUnit, type IngredientRow, type PriceOption } from "@/api/ingredients";
-import { addListingPatch, fetchListingFromUrl, type FetchedListing } from "@/api/storeListings";
+import {
+  ListingNeedsInput,
+  addListingPatch,
+  fetchListingFromUrl,
+  manualListing,
+  storeFromUrl,
+  type FetchedListing,
+  type StoreListing,
+} from "@/api/storeListings";
 import { commoditiesByIngredient, daPriceOption, linkedDaPrices } from "@/api/daPrices";
 import { errorMessage } from "@/lib/errorMessage";
 import { useIngredients } from "../hooks/useIngredients";
@@ -16,10 +24,24 @@ import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
 // e.g. a 10 kg sack read as the usual pack.
 const BIG_CHANGE_RATIO = 3;
 
+const PACK_UNITS: { value: StoreListing["packUnit"]; label: string }[] = [
+  { value: "g", label: "g" },
+  { value: "kg", label: "kg" },
+  { value: "ml", label: "ml" },
+  { value: "L", label: "L" },
+];
+
+// The manual form's fields, as typed.
+type ManualForm = { store: string; productTitle: string; price: string; size: string; unit: StoreListing["packUnit"] };
+
+const toNumber = (text: string) => Number(text.replace(/[₱,\s]/g, ""));
+
 const peso = (n: number) => `₱${n.toLocaleString("en-PH", { maximumFractionDigits: 2 })}`;
 
 // Add a store listing from a product link: pick the ingredient, paste an SM
-// Markets link, check the preview, save. Saving goes through the usual
+// Markets link, check the preview, save. Any other link (or none, e.g. a
+// market stall) opens a short manual form instead: price and pack size typed
+// from the page, then the same preview and save. Saving goes through the usual
 // confirm (affected meals listed and recomputed), so it's the manual
 // counterpart of Ground Prices, without a paid search.
 export function ListingFromLinkPanel() {
@@ -33,6 +55,9 @@ export function ListingFromLinkPanel() {
   const [listing, setListing] = useState<FetchedListing | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [manual, setManual] = useState<ManualForm | null>(null);
+  // Why the manual form opened (informational, not an error).
+  const [manualReason, setManualReason] = useState<string | null>(null);
   const confirmedUpdate = useConfirmedIngredientUpdate();
 
   // Linked DA prices stay among its sources, so a cheaper DA price isn't
@@ -46,6 +71,35 @@ export function ListingFromLinkPanel() {
     setLink("");
     setListing(null);
     setError(null);
+    setManual(null);
+    setManualReason(null);
+  };
+
+  const openManual = (prefill: Partial<ManualForm> = {}, reason: string | null = null) => {
+    setListing(null);
+    setError(null);
+    setManualReason(reason);
+    setManual({ store: storeFromUrl(link), productTitle: "", price: "", size: "", unit: "g", ...prefill });
+  };
+
+  const manualValid =
+    !!manual && !!manual.store.trim() && !!manual.productTitle.trim() && toNumber(manual.price) > 0 && toNumber(manual.size) > 0;
+
+  const handleManualPreview = () => {
+    if (!ingredient || !manual || !manualValid) return;
+    setListing(
+      manualListing(
+        {
+          url: link,
+          store: manual.store,
+          productTitle: manual.productTitle,
+          packPrice: toNumber(manual.price),
+          packSize: toNumber(manual.size),
+          packUnit: manual.unit,
+        },
+        ingredient,
+      ),
+    );
   };
 
   const handleFetch = async () => {
@@ -57,7 +111,19 @@ export function ListingFromLinkPanel() {
     try {
       setListing(await fetchListingFromUrl(link, ingredient));
     } catch (err) {
-      setError(errorMessage(err));
+      if (err instanceof ListingNeedsInput) {
+        const { partial } = err;
+        openManual(
+          {
+            store: partial.store ?? "",
+            productTitle: partial.productTitle ?? "",
+            price: partial.packPrice ? String(partial.packPrice) : "",
+          },
+          err.message,
+        );
+      } else {
+        setError(errorMessage(err));
+      }
     } finally {
       setFetching(false);
     }
@@ -99,8 +165,9 @@ export function ListingFromLinkPanel() {
   return (
     <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
       <AppText variant="body" className="mb-4 text-ink-subtle">
-        Paste an SM Markets product link to add it as one of an ingredient&apos;s store prices. The ingredient takes the
-        cheapest of its real prices; its AI pack estimate is removed. Nothing is saved until you confirm.
+        Paste a product link to add it as one of an ingredient&apos;s store prices. SM Markets links are read
+        automatically; any other store (or a price with no link) you enter by hand. The ingredient takes the cheapest of
+        its real prices; its AI pack estimate is removed. Nothing is saved until you confirm.
       </AppText>
 
       {ingredient ? (
@@ -144,12 +211,82 @@ export function ListingFromLinkPanel() {
               setLink(text);
               setListing(null);
               setError(null);
+              setManual(null);
+              setManualReason(null);
             }}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
           />
           <Button label="Get price" loading={fetching} disabled={!link.trim() || fetching} onPress={handleFetch} />
+          {!manual && (
+            <Pressable onPress={() => openManual()} hitSlop={8} className="self-center">
+              <AppText variant="caption" className="text-primary">
+                Enter by hand instead (no link, or another store)
+              </AppText>
+            </Pressable>
+          )}
+        </View>
+      )}
+
+      {ingredient && manual && (
+        <View className="mt-5 gap-3 rounded-2xl border border-ink-emphasis/10 p-4">
+          {manualReason && (
+            <AppText variant="caption" className="text-ink-subtle">
+              {manualReason}
+            </AppText>
+          )}
+          <TextField
+            label="Store"
+            value={manual.store}
+            onChangeText={(store) => {
+              setManual({ ...manual, store });
+              setListing(null);
+            }}
+            autoCapitalize="none"
+          />
+          <TextField
+            label="Product (as on the page)"
+            value={manual.productTitle}
+            onChangeText={(productTitle) => {
+              setManual({ ...manual, productTitle });
+              setListing(null);
+            }}
+          />
+          <View className="flex-row gap-3">
+            <View className="flex-1">
+              <TextField
+                label="Price"
+                value={manual.price}
+                onChangeText={(price) => {
+                  setManual({ ...manual, price });
+                  setListing(null);
+                }}
+                keyboardType="decimal-pad"
+              />
+            </View>
+            <View className="flex-1">
+              <TextField
+                label="Pack size"
+                value={manual.size}
+                onChangeText={(size) => {
+                  setManual({ ...manual, size });
+                  setListing(null);
+                }}
+                keyboardType="decimal-pad"
+                suffix={manual.unit}
+              />
+            </View>
+          </View>
+          <SegmentedSwitch
+            options={PACK_UNITS}
+            value={manual.unit}
+            onChange={(unit) => {
+              setManual({ ...manual, unit });
+              setListing(null);
+            }}
+          />
+          <Button label="Preview" disabled={!manualValid} onPress={handleManualPreview} />
         </View>
       )}
 
