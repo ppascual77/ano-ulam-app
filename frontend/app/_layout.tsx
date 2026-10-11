@@ -26,6 +26,7 @@ import { queryClient } from "@/lib/queryClient";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/frontend/features/auth/store/useAuthStore";
 import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { DotHandoffOverlay } from "@/frontend/components/ui";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 
@@ -53,10 +54,13 @@ export default function RootLayout() {
   const reduceMotionOn = useReduceMotion();
   // Settings' "Surprise me" (Home's pull-down tag), read by HomeScreen.
   const loadSurpriseMe = useSurpriseMeStore((s) => s.load);
+  // Which page intros have played (each plays once).
+  const loadSeenIntros = useSeenIntrosStore((s) => s.load);
   useEffect(() => {
     void loadReduceMotion();
     void loadSurpriseMe();
-  }, [loadReduceMotion, loadSurpriseMe]);
+    void loadSeenIntros();
+  }, [loadReduceMotion, loadSurpriseMe, loadSeenIntros]);
 
   const authLoading = useAuthStore((s) => s.loading);
   const setSession = useAuthStore((s) => s.setSession);

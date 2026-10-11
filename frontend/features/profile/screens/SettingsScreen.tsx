@@ -21,6 +21,7 @@ import {
 import { WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
 import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
+import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 
 const LOG_OUT_DELAY_MS = 2000;
 const SUPPORT_EMAIL = "anoulam.app@gmail.com";
@@ -54,6 +55,7 @@ export default function SettingsScreen() {
   // Device-only (not account data): follows the phone's setting until set here.
   const reduceMotion = useReduceMotion();
   const setReduceMotion = useReduceMotionStore((s) => s.setReduceMotion);
+  const resetIntros = useSeenIntrosStore((s) => s.reset);
   const showSurpriseMe = useSurpriseMeStore((s) => s.show);
   const setShowSurpriseMe = useSurpriseMeStore((s) => s.setShow);
 
@@ -190,6 +192,18 @@ export default function SettingsScreen() {
               value={reduceMotion}
               onChange={setReduceMotion}
             />
+            <Pressable
+              onPress={() => {
+                resetIntros();
+                setToast({ id: Date.now(), message: "Page intros will play again on your next visit.", tone: "success" });
+              }}
+              className="active:opacity-60"
+            >
+              <SettingsRowLabel>Replay page intros</SettingsRowLabel>
+              <SettingsRowDescription>
+                Each page's quick intro plays once. This shows them again the next time you open each page.
+              </SettingsRowDescription>
+            </Pressable>
           </SettingsSection>
 
           <SettingsSection title="Account">

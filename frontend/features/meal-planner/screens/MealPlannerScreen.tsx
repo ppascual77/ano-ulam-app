@@ -23,6 +23,7 @@ import { MacroGoalSheet } from "../components/MacroGoalSheet";
 import { GeneratingView } from "../components/GeneratingView";
 import { MealPlannerIntro } from "../components/MealPlannerIntro";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { DateSelector, DayActions, GroceryListButton, HeroCarousel, MealListRow, SummaryRow, useMeasuredWidth } from "../components/PlanParts";
 import { LockedDaySheet, SwapMealSheet } from "../components/PlannerSheets";
 
@@ -52,7 +53,11 @@ export default function MealPlannerScreen() {
   // The intro's dot lands as the period of "Let's plan your week.".
   // Never with Reduce motion on (Settings, or the phone's own setting).
   const reduceMotion = useReduceMotion();
-  const intro = usePageIntro({ enabled: SHOW_INTRO && !reduceMotion && store.stage === "setup" });
+  const introOnce = useIntroOnce("meal-planner");
+  const intro = usePageIntro({
+    enabled: SHOW_INTRO && !reduceMotion && store.stage === "setup" && introOnce.due,
+    onFinish: introOnce.markSeen,
+  });
 
   const [macroSheetOpen, setMacroSheetOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState(0);
