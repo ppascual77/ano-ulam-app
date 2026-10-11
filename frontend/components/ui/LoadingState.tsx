@@ -12,7 +12,7 @@ type LoadingStateProps = {
 };
 
 // The Save button's spiral is 16px; a section's is this.
-const SPIRAL_SIZE = 40;
+const SPIRAL_SIZE = 64;
 
 // Full-bleed centered spinner for a screen/section waiting on a query
 // (e.g. useMeals() before its first successful fetch).
