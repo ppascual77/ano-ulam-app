@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Settings, Sparkles } from "lucide-react-native";
-import { AppText, Screen, Toast, type ToastState } from "@/frontend/components/ui";
+import { AppText, LandingTitle, Screen, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { RECIPE_LIMIT } from "@/api/recipes";
 import { useAuth, useSignInWithGoogle } from "@/frontend/features/auth/hooks/useAuth";
@@ -196,9 +196,7 @@ export default function ProfileScreen() {
     <Screen padded={false} edges={["top"]} dismissKeyboardOnTap={false}>
       <View className="flex-row items-center justify-between px-5 py-2">
         {/* A bottom nav tab now, so a title instead of a back arrow. */}
-        <AppText variant="sectionTitle" dot>
-          Profile
-        </AppText>
+        <LandingTitle>Profile</LandingTitle>
         <View className="flex-row items-center gap-3">
           {__DEV__ && (
             <Pressable onPress={() => setDevAccount((prev) => NEXT_DEV_ACCOUNT[prev])} className="rounded-full bg-web-ink/80 px-2 py-1">
