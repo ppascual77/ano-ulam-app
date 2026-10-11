@@ -56,8 +56,8 @@ function CheckBox({ checked, faint = false }: { checked: boolean; faint?: boolea
   );
 }
 
-// Check box, the name with the "2 meals" / "In pantry" chips beside it and
-// what to pick up under it, and the price on the right. Checked items fade
+// Check box, the name with what to pick up right after it and the "2 meals"
+// / "In pantry" chips beside them, and the price on the right. Checked items fade
 // and get struck through.
 export function GroceryRow({
   item,
@@ -91,11 +91,13 @@ export function GroceryRow({
 
       <View className={`flex-1 gap-0.5 ${done ? "opacity-40" : ""}`}>
         <View className="flex-row flex-wrap items-center gap-1.5">
-          <Text
-            numberOfLines={wrap ? undefined : 1}
-            className={`flex-shrink font-inter-semibold text-body text-ink-emphasis ${done ? "line-through" : ""}`}
-          >
-            {item.name}
+          {/* The amount right after the name, muted ("Soy sauce 385 ml
+              bottle"); one Text so the two wrap together. */}
+          <Text numberOfLines={wrap ? undefined : 1} className="flex-shrink">
+            <Text className={`font-inter-semibold text-body text-ink-emphasis ${done ? "line-through" : ""}`}>
+              {item.name}
+            </Text>
+            {!!item.buy && <Text className="font-inter-regular text-small text-ink-subtle">{`  ${item.buy}`}</Text>}
           </Text>
           {item.meals > 1 && (
             <View className="rounded-full bg-category-breakfast px-2.5 py-0.5">
@@ -108,7 +110,6 @@ export function GroceryRow({
             </View>
           )}
         </View>
-        {!!item.buy && <Text className="font-inter-regular text-small text-ink-subtle">{item.buy}</Text>}
       </View>
 
       {/* Pantry staples aren't counted: a "+ To buy" button in the price's
