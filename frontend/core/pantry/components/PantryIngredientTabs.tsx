@@ -1,12 +1,10 @@
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { X } from "lucide-react-native";
 import { ActivePill } from "@/frontend/components/ui";
-import { colors } from "@/frontend/constants/theme";
 import type { PantryIngredient } from "../mock/api";
 import { usePantryGroups } from "../hooks/usePantryMatches";
 import { PANTRY_GROUPS, type PantryGroup } from "../pantryGroups";
+import { PantryChip } from "./PantryChip";
 
 type Tab = "all" | PantryGroup;
 
@@ -49,7 +47,6 @@ export function PantryIngredientTabs({ pantry, onRemove }: { pantry: PantryIngre
   // A tab that just emptied (its last item removed) falls back to All.
   const activeTab: Tab = tabs.some((t) => t.key === tab) ? tab : "all";
   const shown = activeTab === "all" ? pantry : pantry.filter((p) => (groupOf.get(p.id) ?? "staples") === activeTab);
-  const chipClass = (id: string) => PANTRY_GROUPS.find((g) => g.key === (groupOf.get(id) ?? "staples"))!.chipClass;
 
   return (
     <View className="gap-3">
@@ -67,18 +64,7 @@ export function PantryIngredientTabs({ pantry, onRemove }: { pantry: PantryIngre
 
       <View className="flex-row flex-wrap gap-2">
         {shown.map((item) => (
-          <Animated.View
-            key={item.id}
-            entering={FadeIn.duration(180)}
-            exiting={FadeOut.duration(140)}
-          >
-            <View className={`flex-row items-center gap-2 rounded-full px-3.5 py-2 ${chipClass(item.id)}`}>
-              <Text className="font-inter-medium text-body text-ink-emphasis">{item.name}</Text>
-              <Pressable onPress={() => onRemove(item.id)} hitSlop={8} accessibilityLabel={`Remove ${item.name}`}>
-                <X color={colors.ink.emphasis} size={13} />
-              </Pressable>
-            </View>
-          </Animated.View>
+          <PantryChip key={item.id} item={item} group={groupOf.get(item.id)} onRemove={() => onRemove(item.id)} />
         ))}
       </View>
     </View>
