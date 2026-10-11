@@ -43,8 +43,17 @@ export default function HomeScreen() {
   };
 
   return (
-    <Screen edges={["top"]}>
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+    // No tap-to-dismiss wrapper: its touchable sat over the ScrollView and
+    // claimed touches first, so a swipe started from rest (or a short one)
+    // often didn't scroll. The ScrollView dismisses the keyboard instead
+    // (the budget field), like the other tabs.
+    <Screen edges={["top"]} dismissKeyboardOnTap={false}>
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         {/* TODO: "Patrick" is a placeholder — replace with the authenticated
             user's first name once auth/profile data is wired up. */}
         <Header name="Patrick" />
