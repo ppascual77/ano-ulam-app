@@ -2,7 +2,6 @@ import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useStat
 import { Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import Animated, {
-  Easing,
   interpolateColor,
   useAnimatedStyle,
   useSharedValue,
@@ -12,7 +11,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { colors } from "@/frontend/constants/theme";
-import { landSquash, squashStretch } from "./dotMotion";
+import { DOT_FLY_EASING, DOT_FLY_MS, dotFlightTransform, landSquash } from "./dotMotion";
 
 // A page's "quick glance" intro (the auto tour): a full-page scene over a
 // white cover, ending with one dot that flies up and lands on a spot in the
@@ -21,9 +20,8 @@ import { landSquash, squashStretch } from "./dotMotion";
 
 const FADE_MS = 450;
 const CONTENT_FADE_MS = 250;
-const FLY_MS = 650;
-// How high the dot arcs on its way to the header.
-const FLY_ARC = 120;
+// How far into the flight the dot has shrunk to the landing spot's size.
+const SHRINK_BY = 0.35;
 
 export type IntroSize = { w: number; h: number };
 export type IntroState = "armed" | "playing" | "done";
@@ -160,7 +158,7 @@ export function PageIntro({
           target.value = { x: tx - rx + tw / 2, y: ty - ry + th / 2, size: Math.max(tw, 1) };
           content.value = withTiming(0, { duration: CONTENT_FADE_MS });
           backdrop.value = withTiming(0, { duration: FADE_MS });
-          fly.value = withTiming(1, { duration: FLY_MS, easing: Easing.inOut(Easing.cubic) }, (done) => {
+          fly.value = withTiming(1, { duration: DOT_FLY_MS, easing: DOT_FLY_EASING }, (done) => {
             // A bubbly squash on landing, then the real dot takes over.
             if (done) landSquash(land, () => scheduleOnRN(onDone));
           });
@@ -180,20 +178,15 @@ export function PageIntro({
     const f = fly.value;
     const s = start.value;
     const t = target.value;
-    const x = s.x + (t.x - s.x) * f;
-    const y = s.y + (t.y - s.y) * f - FLY_ARC * 4 * f * (1 - f);
-    // Shrinks from its scene size to exactly the landing spot's size.
-    const scale = dot.value * (1 + (t.size / dotSize - 1) * f);
+    // Shrinks from its scene size to the landing spot's size in the first
+    // stretch of the flight, so the rest (and the landing) matches the dot
+    // that flies between screens (DotHandoff).
+    const shrink = Math.min(1, f / SHRINK_BY);
+    const size = dot.value * (dotSize + (t.size - dotSize) * shrink);
     return {
       opacity: dot.value > 0 ? 1 : 0,
       backgroundColor: interpolateColor(f, [0.55, 1], [colors.accent, landColor]),
-      transform: [
-        { translateX: x - dotSize / 2 },
-        { translateY: y - dotSize / 2 },
-        { scale },
-        // Stretches along its arc up to the header, squashes as it lands.
-        ...squashStretch(s.x, s.y, t.x, t.y, FLY_ARC, f, land.value),
-      ],
+      transform: dotFlightTransform(s, t, f, land.value, dotSize, size),
     };
   });
 

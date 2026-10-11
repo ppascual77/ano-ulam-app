@@ -1,8 +1,17 @@
 import { Easing, type SharedValue, withSequence, withTiming } from "react-native-reanimated";
 
-// Squash and stretch for a flying dot, shared by a page intro's landing dot
+// The flying dot's whole motion, shared by a page intro's landing dot
 // (PageIntro) and the title-dot handoff between screens (DotHandoff), so
-// both feel like the same bubbly dot.
+// both are the same bubbly dot: same flight time, ease, arc, swell, squash
+// and stretch.
+
+/** One flight, start to landing (before the landing squash). */
+export const DOT_FLY_MS = 650;
+export const DOT_FLY_EASING = Easing.inOut(Easing.cubic);
+// How high the dot arcs on its way.
+const ARC = 70;
+// How much it swells mid-flight.
+const SWELL = 1.2;
 
 // At full speed the dot is this much longer along its path (and thinner
 // across it, keeping its area), round again as it slows.
@@ -13,15 +22,13 @@ const SQUASH = 0.35;
 const SQUASH_IN_MS = 70;
 const SQUASH_OUT_MS = 160;
 
-/** Transforms (after the translate and size scale) that stretch the dot
- *  along its path and squash it on landing. `f` is the eased flight
- *  progress (0-1) along a straight line from (ax, ay) to (bx, by) lifted by
- *  an arc of height `arc` (y - arc * 4f(1-f)); `land` runs 0 → 1 → 0. */
-export function squashStretch(ax: number, ay: number, bx: number, by: number, arc: number, f: number, land: number) {
+// Stretches the dot along its path and squashes it on landing. `f` is the
+// eased flight progress (0-1); `land` runs 0 → 1 → 0.
+function squashStretch(ax: number, ay: number, bx: number, by: number, f: number, land: number) {
   "worklet";
   // Direction of travel: the path's slope here (rising, then falling).
   // Speed follows the ease, fastest midway, where it stretches most.
-  const angle = Math.atan2(by - ay - arc * 4 * (1 - 2 * f), bx - ax);
+  const angle = Math.atan2(by - ay - ARC * 4 * (1 - 2 * f), bx - ax);
   const stretch = 1 + STRETCH * Math.sin(Math.PI * f);
   // Wide and flat: it lands moving down onto the title.
   const squash = land * SQUASH;
@@ -44,4 +51,27 @@ export function landSquash(land: SharedValue<number>, onSettled: () => void) {
       if (settled) onSettled();
     }),
   );
+}
+
+/** A flying dot's transform at progress `f` (0-1, already eased) from
+ *  `from` to `to` (centers), for a dot drawn `drawn` px wide at its
+ *  top-left. `sizeAt` is the dot's size in px at this point. */
+export function dotFlightTransform(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  f: number,
+  land: number,
+  drawn: number,
+  sizeAt: number,
+) {
+  "worklet";
+  const x = from.x + (to.x - from.x) * f;
+  const y = from.y + (to.y - from.y) * f - ARC * 4 * f * (1 - f);
+  const scale = (sizeAt / drawn) * (1 + (SWELL - 1) * Math.sin(Math.PI * f));
+  return [
+    { translateX: x - drawn / 2 },
+    { translateY: y - drawn / 2 },
+    { scale },
+    ...squashStretch(from.x, from.y, to.x, to.y, f, land),
+  ];
 }
