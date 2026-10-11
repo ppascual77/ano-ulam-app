@@ -13,6 +13,7 @@ import { UsdaGroundingPanel } from "../components/UsdaGroundingPanel";
 import { FnriGroundingPanel } from "../components/FnriGroundingPanel";
 import { PriceGroundingPanel } from "../components/PriceGroundingPanel";
 import { PackEstimatePanel } from "../components/PackEstimatePanel";
+import { ListingFromLinkPanel } from "../components/ListingFromLinkPanel";
 import type { IngredientRow } from "@/api/ingredients";
 
 const ROLE_OPTIONS = [
@@ -33,7 +34,7 @@ const PRICE_SOURCE_OPTIONS = [
   { id: "da", label: "DA Daily Price" },
 ];
 
-type Tab = "all" | "usda" | "fnri" | "prices" | "packs";
+type Tab = "all" | "usda" | "fnri" | "prices" | "link" | "packs";
 
 export default function ManageIngredientsScreen() {
   const [tab, setTab] = useState<Tab>("all");
@@ -93,6 +94,7 @@ export default function ManageIngredientsScreen() {
                 { id: "usda", label: "Ground from USDA" },
                 { id: "fnri", label: "Ground from FNRI" },
                 { id: "prices", label: "Ground Prices" },
+            { id: "link", label: "From Link" },
                 { id: "packs", label: "Pack Estimates" },
               ] as const
             ).map((t) => (
@@ -113,6 +115,8 @@ export default function ManageIngredientsScreen() {
         <UsdaGroundingPanel />
       ) : tab === "prices" ? (
         <PriceGroundingPanel />
+      ) : tab === "link" ? (
+        <ListingFromLinkPanel />
       ) : tab === "packs" ? (
         <PackEstimatePanel />
       ) : tab === "fnri" ? (
