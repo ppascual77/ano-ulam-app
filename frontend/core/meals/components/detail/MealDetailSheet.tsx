@@ -121,9 +121,9 @@ export function MealDetailSheet({
   const track = (target: MealType, request: Promise<string | null>) => {
     setBusyMeal(target);
     const minBusy = new Promise((resolve) => setTimeout(resolve, MIN_BUSY_MS));
-    void Promise.all([request, minBusy]).then(([error]) => {
+    // Save/unsave errors are toasted by the saved actions themselves.
+    void Promise.all([request, minBusy]).then(() => {
       setBusyMeal((current) => (current === target ? null : current));
-      notify(error);
     });
   };
 

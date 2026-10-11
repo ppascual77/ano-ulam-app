@@ -86,7 +86,6 @@ function OfficialRecipesTab({ onToast }: { onToast: Toast }) {
                 isFastFood={meal.category === "fast_food"}
                 hideLike
                 onPress={() => detail.open(meal.id)}
-                onSaveError={(message) => onToast(message, "error")}
               />
             )}
           />

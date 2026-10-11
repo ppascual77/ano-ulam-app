@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Pressable, SectionList, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Image } from "expo-image";
 import Animated, { Easing, FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { ArrowLeft, Bookmark, ChevronRight, Clock, Flame, ShoppingBag, ShoppingCart, UtensilsCrossed } from "lucide-react-native";
-import { AppText, LoadingState, Screen, Toast, type ToastState } from "@/frontend/components/ui";
+import { AppText, LoadingState, Screen } from "@/frontend/components/ui";
 import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
 import { colors } from "@/frontend/constants/theme";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
@@ -43,14 +43,10 @@ export default function PantryResultsScreen() {
   const { matchedMeals, averageMatch, results, isLoading: matching } = usePantryMatches(pantry);
   const { data: meals, isLoading: loadingMeals } = useRealMeals();
   const detail = useMealDetail();
-  // The bookmark saves the meal.
+  // The bookmark saves the meal; its feedback (flight to Profile, toasts)
+  // comes from the saved actions.
   const savedMeals = useSavedMealActions();
-  const [toast, setToast] = useState<ToastState | null>(null);
-  const toggleSave = async (meal: MealType) => {
-    const wasSaved = !!savedMeals.savedFor(meal);
-    const error = await savedMeals.toggle(meal);
-    setToast({ id: Date.now(), tone: error ? "error" : "success", message: error ?? (wasSaved ? "Removed from saved meals" : "Saved to your meals") });
-  };
+  const toggleSave = (meal: MealType) => void savedMeals.toggle(meal);
 
   // Matches paired with their meal's card info, split into readiness
   // sections. `order` runs across sections, for the landing stagger.
@@ -121,7 +117,7 @@ export default function PantryResultsScreen() {
                 match={item.match}
                 delay={stagger(item.order)}
                 saved={!!savedMeals.savedFor(item.meal)}
-                onToggleSave={() => void toggleSave(item.meal)}
+                onToggleSave={() => toggleSave(item.meal)}
                 onPress={() => detail.open(item.meal.id)}
               />
             </View>
@@ -130,7 +126,6 @@ export default function PantryResultsScreen() {
       )}
 
       <MealDetailSheet meal={detail.meal} onClose={detail.close} />
-      <Toast toast={toast} onHide={() => setToast(null)} />
     </Screen>
   );
 }

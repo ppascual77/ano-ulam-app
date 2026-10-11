@@ -1,6 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Pressable, View } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, usePathname } from "expo-router";
 import { House, Lock, Search, TrendingUp, Utensils } from "lucide-react-native";
@@ -9,6 +9,7 @@ import { AppText, Avatar, Dropdown } from "@/frontend/components/ui";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { adminMenuItems, isAdmin } from "@/frontend/features/admin/adminMenu";
 import { colors } from "@/frontend/constants/theme";
+import { registerProfileDot, useSaveFeedbackStore } from "@/frontend/core/saved/store/useSaveFeedbackStore";
 
 type Tab = {
   href: "/home" | "/browse" | "/price-watch";
@@ -69,6 +70,13 @@ function TabButton({ href, label, icon: Icon }: Tab) {
   );
 }
 
+// Every tab's path: on any other route a pushed screen covers the tab bar.
+const TAB_PATHS = ["/home", "/browse", "/discover", "/price-watch", "/profile"];
+
+// A save landing: the avatar squashes, then pops back past full size.
+const POP_SPRING = { damping: 8, stiffness: 320, mass: 0.6 };
+const DOT_SIZE = 10;
+
 // Without a session (dev on a device): the same mock name the rest of the
 // app uses.
 const MOCK_NAME = "Patrick";
@@ -77,21 +85,55 @@ const NAV_AVATAR = 28;
 // The last tab (it took Meal Planner's spot, 2026-10-10: saved meals, the
 // grocery list and pantry get used daily; the planner is a weekly Pro task,
 // opened from Home's "Plan your week" card). Shows the user's avatar or
-// initials, ringed in green when active. Admins get the admin menu (opening
+// initials, ringed in green when active, with an orange dot while there's a
+// newly saved meal the Saved tab hasn't shown yet. Admins get the admin menu (opening
 // upward); everyone else goes straight to their profile.
 function ProfileTabButton() {
-  const active = usePathname() === "/profile";
+  const pathname = usePathname();
+  const active = pathname === "/profile";
   const { session } = useAuth();
   const meta = session?.user.user_metadata ?? {};
   const name = (meta.full_name as string | undefined) ?? (meta.name as string | undefined) ?? MOCK_NAME;
   const avatarUrl = (meta.avatar_url as string | undefined) ?? (meta.picture as string | undefined);
 
+  // Save feedback (see useSaveFeedbackStore): a saved meal flies into the
+  // dot's spot, the avatar pops as it lands, and the orange dot stays until
+  // the Saved tab has been seen.
+  const unseen = useSaveFeedbackStore((s) => s.unseen);
+  const landed = useSaveFeedbackStore((s) => s.landed);
+  const dotRef = useRef<View>(null);
+  useEffect(() => {
+    registerProfileDot(dotRef.current, TAB_PATHS.includes(pathname));
+  }, [pathname]);
+  useEffect(() => () => registerProfileDot(null, false), []);
+
+  const pop = useSharedValue(1);
+  useEffect(() => {
+    if (landed === 0) return;
+    pop.value = withSequence(withTiming(0.88, { duration: 90 }), withSpring(1, POP_SPRING));
+  }, [landed, pop]);
+  const popStyle = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
+
+  const dot = useSharedValue(unseen ? 1 : 0);
+  useEffect(() => {
+    dot.value = unseen ? withSpring(1, POP_SPRING) : withTiming(0, { duration: 160 });
+  }, [unseen, dot]);
+  const dotStyle = useAnimatedStyle(() => ({ opacity: Math.min(dot.value, 1), transform: [{ scale: dot.value }] }));
+
   const content = (
     <View className="items-center justify-center gap-1">
       <View className="h-8 w-14 items-center justify-center">
-        <View className={`rounded-full p-0.5 ${active ? "border-2 border-primary" : "border-2 border-transparent"}`}>
-          <Avatar name={name} imageUri={avatarUrl} size={NAV_AVATAR} />
-        </View>
+        <Animated.View style={popStyle}>
+          <View className={`rounded-full p-0.5 ${active ? "border-2 border-primary" : "border-2 border-transparent"}`}>
+            <Avatar name={name} imageUri={avatarUrl} size={NAV_AVATAR} />
+          </View>
+          {/* Always laid out (just hidden), so the flight can measure it. */}
+          <View ref={dotRef} collapsable={false} pointerEvents="none" style={{ position: "absolute", top: 0, right: 0, width: DOT_SIZE, height: DOT_SIZE }}>
+            <Animated.View style={[{ flex: 1 }, dotStyle]}>
+              <View className="flex-1 rounded-full border-2 border-white bg-accent" />
+            </Animated.View>
+          </View>
+        </Animated.View>
       </View>
       <AppText variant="navLabel" className={active ? "font-inter-semibold text-primary" : "text-ink-subtle"}>
         Profile
@@ -116,6 +158,7 @@ function ProfileTabButton() {
     <Pressable
       onPress={() => router.navigate("/profile")}
       accessibilityRole="tab"
+      accessibilityLabel={unseen ? "Profile, new saved meal" : "Profile"}
       accessibilityState={{ selected: active }}
       className="flex-1 items-center justify-center"
     >

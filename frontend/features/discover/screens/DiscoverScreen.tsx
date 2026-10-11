@@ -153,8 +153,8 @@ export default function DiscoverScreen() {
     if (action.type === "like") {
       await feed.toggleLike(action.meal);
     } else {
-      const error = await feed.toggleSave(action.meal);
-      if (error) showToast(error);
+      // Its feedback (toasts, errors included) comes from the saved actions.
+      await feed.toggleSave(action.meal);
     }
   };
 

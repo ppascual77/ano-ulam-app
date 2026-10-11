@@ -4,6 +4,7 @@ import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { savedKeys } from "../queryKeys";
 import { listSavedMeals, saveMeal, syncSavedMeal, unsaveMeal, updateSavedServings } from "../mock/api";
 import { SAVED_MEALS_LIMIT, savedKeyOf, type SavedMeal } from "../types";
+import { announceRemoved, announceSaveError, announceSaved } from "../store/useSaveFeedbackStore";
 
 export const SAVED_LIMIT_MESSAGE = `You've reached the limit of ${SAVED_MEALS_LIMIT} saved meals. Remove one to add more.`;
 const SAVE_FAILED_MESSAGE = "Couldn't update your saved meals. Please try again.";
@@ -15,8 +16,12 @@ export function useSavedMeals() {
 }
 
 // Lookup + actions on the shared list. Save/unsave are optimistic (the
-// bookmark flips right away) and revert on failure. Each action resolves to
-// an error message for the caller to toast, or null.
+// bookmark flips right away) and revert on failure. Save/unsave feedback
+// (the flight to Profile, the dot, the toasts, errors included) is shown
+// from here, the same for every caller (see useSaveFeedbackStore), so
+// callers don't toast those. Other actions resolve to an error message for
+// the caller to toast, or null; save/unsave resolve to one too, for callers
+// that track the request.
 export function useSavedMealActions() {
   const queryClient = useQueryClient();
   const { data: saved = [] } = useSavedMeals();
@@ -27,11 +32,15 @@ export function useSavedMealActions() {
   const read = () => queryClient.getQueryData<SavedMeal[]>(savedKeys.list) ?? [];
   const write = (next: SavedMeal[]) => queryClient.setQueryData(savedKeys.list, next);
 
-  const save = async (meal: MealType, servings?: number): Promise<string | null> => {
+  // `quiet`: an Undo putting a meal back, which needs no "saved" feedback.
+  const save = async (meal: MealType, servings?: number, quiet = false): Promise<string | null> => {
     const before = read();
     const key = savedKeyOf(meal);
     if (before.some((entry) => entry.meal_catalog_id === key)) return null;
-    if (before.length >= SAVED_MEALS_LIMIT) return SAVED_LIMIT_MESSAGE;
+    if (before.length >= SAVED_MEALS_LIMIT) {
+      announceSaveError(SAVED_LIMIT_MESSAGE, true);
+      return SAVED_LIMIT_MESSAGE;
+    }
     // Placeholder entry until the real one comes back.
     const optimistic: SavedMeal = {
       ...meal,
@@ -42,13 +51,18 @@ export function useSavedMealActions() {
       catalog_status: "active",
     };
     write([optimistic, ...before]);
+    // On the optimistic flip, so the flight leaves with the bookmark.
+    if (!quiet) void announceSaved(meal);
     try {
       const entry = await saveMeal(meal, servings);
       write(read().map((e) => (e.meal_catalog_id === key ? entry : e)));
       return null;
     } catch (error) {
       write(read().filter((e) => e.meal_catalog_id !== key));
-      return error instanceof Error && error.message === "limit" ? SAVED_LIMIT_MESSAGE : SAVE_FAILED_MESSAGE;
+      const isLimit = error instanceof Error && error.message === "limit";
+      const message = isLimit ? SAVED_LIMIT_MESSAGE : SAVE_FAILED_MESSAGE;
+      announceSaveError(message, isLimit);
+      return message;
     }
   };
 
@@ -57,9 +71,11 @@ export function useSavedMealActions() {
     write(before.filter((e) => e.saved_id !== entry.saved_id));
     try {
       await unsaveMeal(entry.saved_id);
+      announceRemoved(entry, () => void save(entry, entry.serving_size, true));
       return null;
     } catch {
       write(before);
+      announceSaveError(SAVE_FAILED_MESSAGE, false);
       return SAVE_FAILED_MESSAGE;
     }
   };
