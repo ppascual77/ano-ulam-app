@@ -15,7 +15,6 @@ import {
 const HEIGHT = 160;
 const Y_LABEL_WIDTH = 44;
 const X_LABEL_HEIGHT = 18;
-const RIGHT_PAD = 8;
 const TOP_PAD = 8;
 // Narrowest gap between two day labels ("28" at 10pt plus breathing room).
 const MIN_LABEL_SPACING = 22;
@@ -29,6 +28,10 @@ const RING_MS = 650;
 const DOT_RADIUS = 4.5;
 const RING_GROWTH = 10;
 const DOT_SPRING = { damping: 7, stiffness: 240, mass: 0.5 };
+const RING_STROKE = 2;
+// Room right of the latest point for the ring at its widest (radius plus
+// half its stroke), so the ripple isn't cut off at the chart's edge.
+const RIGHT_PAD = Math.ceil(DOT_RADIUS + RING_GROWTH + RING_STROKE / 2) + 1;
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -66,7 +69,7 @@ function DrawnLine({ d, length, endX, endY, delay }: { d: string; length: number
         strokeDasharray={[length, length]}
         animatedProps={lineProps}
       />
-      <AnimatedCircle cx={endX} cy={endY} fill="none" stroke={colors.accent} strokeWidth={2} animatedProps={ringProps} />
+      <AnimatedCircle cx={endX} cy={endY} fill="none" stroke={colors.accent} strokeWidth={RING_STROKE} animatedProps={ringProps} />
       <AnimatedCircle cx={endX} cy={endY} fill={colors.accent} animatedProps={dotProps} />
     </>
   );
