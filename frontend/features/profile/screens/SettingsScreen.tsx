@@ -186,7 +186,7 @@ export default function SettingsScreen() {
           <SettingsSection title="Accessibility">
             <SettingsToggle
               label="Reduce motion"
-              description="Skips page intros and makes animations instant. Also turns on with your phone's own reduce motion setting."
+              description="Skips page intros, swaps sliding transitions for fades, and stops numbers rolling. Small fades stay. Also turns on with your phone's own reduce motion setting."
               value={reduceMotion}
               onChange={setReduceMotion}
             />
