@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { ChevronRight, Info, Lightbulb, ShoppingCart } from "lucide-react-native";
-import { Spinner } from "@/frontend/components/ui";
+import { ChevronRight, Lightbulb, ShoppingCart } from "lucide-react-native";
+import { AppText, Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
 import { useSavedGroceryList } from "@/frontend/core/grocery/hooks/useSavedGroceryList";
@@ -38,7 +38,6 @@ export function GroceryTab({ userId }: { userId: string | null }) {
   const planGrocery = usePlanGroceryList(plan, planDays, !!plan);
   const { data: pantry = [] } = usePantry();
   const [fullOpen, setFullOpen] = useState(false);
-  const [infoOpen, setInfoOpen] = useState(false);
 
   const { items } = grocery;
   const { mains, staples } = splitGroceryItems(items);
@@ -57,41 +56,24 @@ export function GroceryTab({ userId }: { userId: string | null }) {
   return (
     <View className="gap-4 pb-6">
       <View className="p-3">
-        <View className="flex-row items-start justify-between gap-3">
-          <View className="flex-1">
-            <View className="flex-row flex-wrap items-center gap-2">
-              <Text className="font-inter-semibold text-body text-web-ink">Grocery Preview</Text>
-              {items.length > 0 && (
-                <View className="rounded-full bg-web-divider px-1.5 py-0.5">
-                  <Text className="font-inter-medium text-sub text-web-ink-muted">
-                    {items.length} item{items.length === 1 ? "" : "s"}
-                  </Text>
-                </View>
-              )}
-              <Pressable onPress={() => setInfoOpen((open) => !open)} hitSlop={8} accessibilityLabel="About Grocery Preview">
-                <Info color={colors.webInk.muted} size={16} />
-              </Pressable>
-            </View>
-            <Text className="mt-0.5 font-inter-regular text-small text-web-ink-body">
-              Here's what you need to buy to cook all your saved meals.
-            </Text>
+        {/* Dotted title (and item count) like the other profile tabs, with
+            the estimated total big on the right. */}
+        <View className="flex-row items-end justify-between gap-3">
+          <View className="flex-1 flex-row items-baseline gap-1.5">
+            <AppText variant="sectionSubtitle" dot>
+              Grocery preview
+            </AppText>
+            {items.length > 0 && <Text className="font-inter-semibold text-body text-ink-subtle">{items.length}</Text>}
           </View>
           {total > 0 && (
             <View className="items-end">
-              <Text className="w-[50px] text-right font-inter-regular text-small text-web-ink-body">Total cost</Text>
-              <Text className="font-inter-semibold text-body text-brand-green">~₱{formatPeso(shownTotal, 0)}</Text>
+              <Text className="font-inter-medium text-small text-ink-subtle">Total cost</Text>
+              <Text className="font-inter-extrabold text-heading tracking-display text-primary">
+                ~₱{formatPeso(shownTotal, 0)}
+              </Text>
             </View>
           )}
         </View>
-
-        {infoOpen && (
-          <View className="mt-2 rounded-xl border border-web-divider bg-white p-3">
-            <Text className="font-inter-semibold text-small text-web-ink">Grocery Preview</Text>
-            <Text className="mt-0.5 font-inter-regular text-small text-web-ink-muted">
-              Ingredients are automatically gathered from your saved meals, ready for your grocery run.
-            </Text>
-          </View>
-        )}
 
         {grocery.loading ? (
           <View className="items-center py-10">
