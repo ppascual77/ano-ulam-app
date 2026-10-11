@@ -3,6 +3,9 @@ import { getPantry, savePantry, type PantryIngredient } from "../mock/api";
 
 const pantryKeys = { list: ["pantry", "list"] as const };
 
+// What a pantry view says while the pantry loads.
+export const PANTRY_LOADING_LABEL = "Peeking into your pantry…";
+
 export function usePantry() {
   return useQuery({ queryKey: pantryKeys.list, queryFn: getPantry, staleTime: Infinity });
 }
@@ -21,7 +24,12 @@ export function usePantryActions() {
       if (!current.some((i) => i.id === item.id)) write([...current, item]);
     },
     remove: (id: string) => write(read().filter((i) => i.id !== id)),
-    persist: () => savePantry(read()),
+    // Not before the pantry has loaded: that would save an empty list over
+    // the real one (e.g. leaving Profile's Pantry tab mid-load).
+    persist: async () => {
+      const current = queryClient.getQueryData<PantryIngredient[]>(pantryKeys.list);
+      if (current) await savePantry(current);
+    },
   };
 }
 
