@@ -22,6 +22,12 @@ export const useSeenIntrosStore = create<SeenIntrosState>((set, get) => ({
   seen: new Set(),
   loaded: false,
   load: async () => {
+    // Dev builds forget on every reload, so the intros can be checked again
+    // without "Replay page intros". Each still plays only once per session.
+    if (__DEV__) {
+      set({ loaded: true });
+      return;
+    }
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (raw) set({ seen: new Set(JSON.parse(raw) as IntroId[]) });
