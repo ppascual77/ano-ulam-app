@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Plus } from "lucide-react-native";
-import { AppText, LoadingState } from "@/frontend/components/ui";
+import { LandingTitle, LoadingState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { PANTRY_LOADING_LABEL, usePantry, usePantryActions } from "../hooks/usePantry";
 import { PantryEmptyState } from "./PantryEmptyState";
@@ -20,9 +20,7 @@ export function PantrySection() {
   return (
     <View className="gap-4">
       <View className="flex-row items-center justify-between">
-        <AppText variant="sectionTitle" dot>
-          Your pantry
-        </AppText>
+        <LandingTitle>Your pantry</LandingTitle>
         <Pressable
           onPress={() => setSheetOpen(true)}
           accessibilityRole="button"

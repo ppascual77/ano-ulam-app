@@ -25,7 +25,8 @@ import { Caveat_700Bold } from "@expo-google-fonts/caveat";
 import { queryClient } from "@/lib/queryClient";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/frontend/features/auth/store/useAuthStore";
-import { useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { DotHandoffOverlay } from "@/frontend/components/ui";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 
 // Required for the Google sign-in browser-redirect flow's web fallback path;
@@ -48,6 +49,8 @@ export default function RootLayout() {
   // Settings' "Reduce motion": loaded once here, read by each animation
   // that it shortens (useReduceMotion).
   const loadReduceMotion = useReduceMotionStore((s) => s.load);
+  // The user's choice, else the phone's: what the dot handoff follows.
+  const reduceMotionOn = useReduceMotion();
   // Settings' "Surprise me" (Home's pull-down tag), read by HomeScreen.
   const loadSurpriseMe = useSurpriseMeStore((s) => s.load);
   useEffect(() => {
@@ -109,6 +112,8 @@ export default function RootLayout() {
                     intro takes it over. */}
                 <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
               </Stack>
+              {/* Above every screen: a title dot flying to the next screen's. */}
+              <DotHandoffOverlay enabled={!reduceMotionOn} />
             </QueryClientProvider>
           </SafeAreaProvider>
         </GestureHandlerRootView>

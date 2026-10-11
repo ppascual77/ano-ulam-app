@@ -32,3 +32,4 @@ export { PulsePressable } from "./PulsePressable";
 export { RollingText } from "./RollingText";
 export { PageIntro, usePageIntro, type IntroSize } from "./PageIntro";
 export { LandingTitle, type LandingDot } from "./LandingTitle";
+export { DotHandoffOverlay } from "./DotHandoff";
