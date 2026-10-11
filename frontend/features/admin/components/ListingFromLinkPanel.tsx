@@ -19,6 +19,7 @@ import { useIngredients } from "../hooks/useIngredients";
 import { useDaCommodities } from "../hooks/useDaPrices";
 import { useConfirmedIngredientUpdate } from "../hooks/useConfirmedIngredientUpdate";
 import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
+import { RadioOption } from "./RadioOption";
 
 // A price this far off the current one (either way) gets a second look,
 // e.g. a 10 kg sack read as the usual pack.
@@ -39,17 +40,29 @@ const NOT_IN_STORES = new Set(["dessert", "street food", "water"]);
 // estimate (the grocery list's "~" items).
 type ToCheckFilter = "all" | "packs";
 
-// The manual form's fields, as typed.
-type ManualForm = { store: string; productTitle: string; price: string; size: string; unit: StoreListing["packUnit"] };
+// Where the price comes from: an SM link read automatically, or typed in.
+type Source = "sm" | "other";
+
+// The "other store" form's fields, as typed.
+type ManualForm = {
+  link: string;
+  store: string;
+  productTitle: string;
+  price: string;
+  size: string;
+  unit: StoreListing["packUnit"];
+};
+
+const EMPTY_FORM: ManualForm = { link: "", store: "", productTitle: "", price: "", size: "", unit: "g" };
 
 const toNumber = (text: string) => Number(text.replace(/[₱,\s]/g, ""));
 
 const peso = (n: number) => `₱${n.toLocaleString("en-PH", { maximumFractionDigits: 2 })}`;
 
-// Add a store listing from a product link: pick the ingredient, paste an SM
-// Markets link, check the preview, save. Any other link (or none, e.g. a
-// market stall) opens a short manual form instead: price and pack size typed
-// from the page, then the same preview and save. Saving goes through the usual
+// Add a store price: pick the ingredient, then choose how. "SM Markets link"
+// reads the price and pack from the link; "Other store, or no link" is a
+// form (price and pack size typed from the page or the market). Either way
+// the same preview, then save. Saving goes through the usual
 // confirm (affected meals listed and recomputed), so it's the manual
 // counterpart of Ground Prices, without a paid search.
 export function ListingFromLinkPanel() {
@@ -58,7 +71,9 @@ export function ListingFromLinkPanel() {
   const [ingredientId, setIngredientId] = useState<string | null>(null);
   const ingredient = ingredientId ? byId.get(ingredientId) : undefined;
 
-  const [link, setLink] = useState("");
+  const [source, setSource] = useState<Source>("sm");
+  const [smLink, setSmLink] = useState("");
+  const [form, setForm] = useState<ManualForm>(EMPTY_FORM);
   const [fetching, setFetching] = useState(false);
   const [listing, setListing] = useState<FetchedListing | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,9 +88,8 @@ export function ListingFromLinkPanel() {
   );
   const packEstimates = useMemo(() => toCheck.filter((i) => packEstimateOf(i.price_sources)), [toCheck]);
   const toCheckShown = toCheckFilter === "packs" ? packEstimates : toCheck;
-  const [manual, setManual] = useState<ManualForm | null>(null);
-  // Why the manual form opened (informational, not an error).
-  const [manualReason, setManualReason] = useState<string | null>(null);
+  // Why it switched from SM to the form (informational, not an error).
+  const [switchedReason, setSwitchedReason] = useState<string | null>(null);
   const confirmedUpdate = useConfirmedIngredientUpdate();
 
   // Linked DA prices stay among its sources, so a cheaper DA price isn't
@@ -86,34 +100,39 @@ export function ListingFromLinkPanel() {
     linkedDaPrices(daByIngredient.get(row.id) ?? []).flatMap(({ commodity, price }) => daPriceOption(commodity, price, row) ?? []);
 
   const reset = () => {
-    setLink("");
+    setSmLink("");
+    setForm(EMPTY_FORM);
     setListing(null);
     setError(null);
-    setManual(null);
-    setManualReason(null);
+    setSwitchedReason(null);
   };
 
-  const openManual = (prefill: Partial<ManualForm> = {}, reason: string | null = null) => {
+  const chooseSource = (next: Source) => {
+    setSource(next);
     setListing(null);
     setError(null);
-    setManualReason(reason);
-    setManual({ store: storeFromUrl(link), productTitle: "", price: "", size: "", unit: "g", ...prefill });
+    setSwitchedReason(null);
   };
 
-  const manualValid =
-    !!manual && !!manual.store.trim() && !!manual.productTitle.trim() && toNumber(manual.price) > 0 && toNumber(manual.size) > 0;
+  // Any field edited: the preview no longer matches it.
+  const editForm = (change: Partial<ManualForm>) => {
+    setForm((prev) => ({ ...prev, ...change }));
+    setListing(null);
+  };
 
-  const handleManualPreview = () => {
-    if (!ingredient || !manual || !manualValid) return;
+  const formValid = !!form.store.trim() && !!form.productTitle.trim() && toNumber(form.price) > 0 && toNumber(form.size) > 0;
+
+  const handleFormPreview = () => {
+    if (!ingredient || !formValid) return;
     setListing(
       manualListing(
         {
-          url: link,
-          store: manual.store,
-          productTitle: manual.productTitle,
-          packPrice: toNumber(manual.price),
-          packSize: toNumber(manual.size),
-          packUnit: manual.unit,
+          url: form.link,
+          store: form.store,
+          productTitle: form.productTitle,
+          packPrice: toNumber(form.price),
+          packSize: toNumber(form.size),
+          packUnit: form.unit,
         },
         ingredient,
       ),
@@ -127,18 +146,21 @@ export function ListingFromLinkPanel() {
     setListing(null);
     setSaved(null);
     try {
-      setListing(await fetchListingFromUrl(link, ingredient));
+      setListing(await fetchListingFromUrl(smLink, ingredient));
     } catch (err) {
       if (err instanceof ListingNeedsInput) {
+        // Not an SM link, or one SM can't fully describe: over to the form,
+        // filled in with what's known.
         const { partial } = err;
-        openManual(
-          {
-            store: partial.store ?? "",
-            productTitle: partial.productTitle ?? "",
-            price: partial.packPrice ? String(partial.packPrice) : "",
-          },
-          err.message,
-        );
+        setForm({
+          ...EMPTY_FORM,
+          link: partial.url ?? smLink,
+          store: partial.store ?? storeFromUrl(smLink),
+          productTitle: partial.productTitle ?? "",
+          price: partial.packPrice ? String(partial.packPrice) : "",
+        });
+        setSource("other");
+        setSwitchedReason(err.message);
       } else {
         setError(errorMessage(err));
       }
@@ -183,9 +205,8 @@ export function ListingFromLinkPanel() {
   return (
     <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
       <AppText variant="body" className="mb-4 text-ink-subtle">
-        Paste a product link to add it as one of an ingredient&apos;s store prices. SM Markets links are read
-        automatically; any other store (or a price with no link) you enter by hand. The ingredient takes the cheapest of
-        its real prices; its AI pack estimate is removed. Nothing is saved until you confirm.
+        Add a real store price to an ingredient. It takes the cheapest of its real prices, and its AI pack estimate is
+        removed. Nothing is saved until you confirm.
       </AppText>
 
       {ingredient ? (
@@ -260,119 +281,80 @@ export function ListingFromLinkPanel() {
         </View>
       )}
 
-      {/* The link field and Get price; the manual form takes over (with its
-          own link field) once it's open. */}
-      {ingredient && !manual && (
+      {ingredient && (
         <View className="gap-3">
-          <TextField
-            label="Product link (any store)"
-            value={link}
-            onChangeText={(text) => {
-              setLink(text);
-              setListing(null);
-              setError(null);
-              setManual(null);
-              setManualReason(null);
-            }}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
+          <AppText variant="bodyBold">How are you adding it?</AppText>
+          <RadioOption
+            selected={source === "sm"}
+            label="SM Markets link"
+            description="Paste the product link; the price and pack size are read for you."
+            onPress={() => chooseSource("sm")}
           />
-          <Button label="Get price" loading={fetching} disabled={!link.trim() || fetching} onPress={handleFetch} />
-          <Pressable onPress={() => openManual()} hitSlop={8} className="self-center">
-            <AppText variant="caption" className="text-primary">
-              Enter by hand instead (no link, or another store)
-            </AppText>
-          </Pressable>
-        </View>
-      )}
+          <RadioOption
+            selected={source === "other"}
+            label="Other store, or no link"
+            description="Any other store, or a market price: type the price and pack size."
+            onPress={() => chooseSource("other")}
+          />
 
-      {ingredient && manual && (
-        <View className="gap-3 rounded-2xl border border-ink-emphasis/10 p-4">
-          <View className="flex-row items-center justify-between">
-            <AppText variant="bodyBold">Enter by hand</AppText>
-            <Pressable
-              onPress={() => {
-                setManual(null);
-                setManualReason(null);
-                setListing(null);
-              }}
-              hitSlop={8}
-            >
-              <AppText variant="caption" className="text-primary">
-                Back
-              </AppText>
-            </Pressable>
-          </View>
-          {manualReason && (
-            <AppText variant="caption" className="text-ink-subtle">
-              {manualReason}
-            </AppText>
+          {source === "sm" ? (
+            <View className="mt-2 gap-3">
+              <TextField
+                label="SM Markets link"
+                value={smLink}
+                onChangeText={(text) => {
+                  setSmLink(text);
+                  setListing(null);
+                  setError(null);
+                }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+              />
+              <Button label="Get price" loading={fetching} disabled={!smLink.trim() || fetching} onPress={handleFetch} />
+            </View>
+          ) : (
+            <View className="mt-2 gap-3">
+              {switchedReason && (
+                <AppText variant="caption" className="text-ink-subtle">
+                  {switchedReason}
+                </AppText>
+              )}
+              <TextField
+                label="Link (optional)"
+                value={form.link}
+                onChangeText={(link) =>
+                  // A pasted link fills in the store, unless one's typed.
+                  editForm({ link, ...(form.store.trim() ? {} : { store: storeFromUrl(link) }) })
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+              />
+              <TextField label="Store" value={form.store} onChangeText={(store) => editForm({ store })} />
+              <TextField
+                label="Product (as on the page)"
+                value={form.productTitle}
+                onChangeText={(productTitle) => editForm({ productTitle })}
+              />
+              <View className="flex-row gap-3">
+                <View className="flex-1">
+                  <TextField label="Price" value={form.price} onChangeText={(price) => editForm({ price })} keyboardType="decimal-pad" />
+                </View>
+                <View className="flex-1">
+                  <TextField
+                    label="Pack size"
+                    value={form.size}
+                    onChangeText={(size) => editForm({ size })}
+                    keyboardType="decimal-pad"
+                    suffix={form.unit}
+                  />
+                </View>
+              </View>
+              <SegmentedSwitch options={PACK_UNITS} value={form.unit} onChange={(unit) => editForm({ unit })} />
+              <Button label="Preview" disabled={!formValid} onPress={handleFormPreview} />
+            </View>
           )}
-          {/* The link saved with it (the one above, editable here without
-              clearing the form); empty for a price with no product page. */}
-          <TextField
-            label="Link (optional)"
-            value={link}
-            onChangeText={(text) => {
-              setLink(text);
-              setListing(null);
-            }}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-          />
-          <TextField
-            label="Store"
-            value={manual.store}
-            onChangeText={(store) => {
-              setManual({ ...manual, store });
-              setListing(null);
-            }}
-            autoCapitalize="none"
-          />
-          <TextField
-            label="Product (as on the page)"
-            value={manual.productTitle}
-            onChangeText={(productTitle) => {
-              setManual({ ...manual, productTitle });
-              setListing(null);
-            }}
-          />
-          <View className="flex-row gap-3">
-            <View className="flex-1">
-              <TextField
-                label="Price"
-                value={manual.price}
-                onChangeText={(price) => {
-                  setManual({ ...manual, price });
-                  setListing(null);
-                }}
-                keyboardType="decimal-pad"
-              />
-            </View>
-            <View className="flex-1">
-              <TextField
-                label="Pack size"
-                value={manual.size}
-                onChangeText={(size) => {
-                  setManual({ ...manual, size });
-                  setListing(null);
-                }}
-                keyboardType="decimal-pad"
-                suffix={manual.unit}
-              />
-            </View>
-          </View>
-          <SegmentedSwitch
-            options={PACK_UNITS}
-            value={manual.unit}
-            onChange={(unit) => {
-              setManual({ ...manual, unit });
-              setListing(null);
-            }}
-          />
-          <Button label="Preview" disabled={!manualValid} onPress={handleManualPreview} />
         </View>
       )}
 
