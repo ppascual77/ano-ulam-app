@@ -14,7 +14,8 @@ import { colors } from "@/frontend/constants/theme";
 // root draws the flying dot, above the tab transition.
 //
 // Skipped when the arriving screen plays its intro (that lands its own
-// dot), when either dot is off screen, and with Reduce motion on.
+// dot), when either dot is off screen (checked before take-off, so a screen
+// scrolled past its title gets no hop at all), and with Reduce motion on.
 
 type Spot = { x: number; y: number; size: number };
 // `to` starts as a prediction and is corrected (same id) once the new
@@ -86,12 +87,17 @@ async function arrive(node: View, canLand: () => boolean) {
   const from = await last.spot;
   if (!from) return;
 
-  // Predict where it lands: where this dot was last seen. First time, the
-  // dot as it is now, mid-slide: its height is already right (tabs slide
-  // sideways), and titles all start at the same left edge, so the old
-  // dot's x is the best guess for now.
-  const now = lastSpot.get(node) ? null : await measureSpot(node);
-  const predicted = lastSpot.get(node) ?? (now ? { ...now, x: from.x } : from);
+  // The target must be on screen before anything takes off: a screen
+  // scrolled past its title (or any dot that isn't visible) gets no hop.
+  // Its height is already right mid-slide (tabs slide sideways), only x is
+  // still moving.
+  const now = await measureSpot(node);
+  if (!now) return;
+
+  // Predict where it lands: this dot's last settled x (titles all start at
+  // the same left edge, so first time, the old dot's x), at its height now.
+  const seen = lastSpot.get(node);
+  const predicted = { ...now, x: (seen ?? from).x };
 
   // The flying dot takes over from both real ones and sets off right away.
   const id = ++flightCount;
@@ -99,7 +105,11 @@ async function arrive(node: View, canLand: () => boolean) {
   await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
   if (useHandoffStore.getState().flight?.id !== id) return;
   const to = await measureSpot(node);
-  if (!to) return; // Off screen: it finishes at the prediction.
+  if (!to) {
+    // Scrolled out of view mid-flight: stop rather than land on nothing.
+    finishFlight(id);
+    return;
+  }
   lastSpot.set(node, to);
   useHandoffStore.setState({ flight: { id, from, to } });
 }

@@ -130,14 +130,15 @@ function IngredientRow({ ingredient, onPress: onPressProp, dropPct }: Ingredient
             names after it stay lined up. */}
         <Image source={ingredientCategoryIcon(ingredient)} style={{ width: 32, height: 32 }} contentFit="contain" />
         <View className="flex-1 gap-1">
-          {/* Quantity right after the name, centered with it: a size smaller
-              and a weight lighter so the name still leads. */}
-          <View className="flex-row items-center gap-1.5">
-            {/* Plain Text so semibold is the only weight (AppText's caption
-                variant would bring its own regular weight). */}
-            <Text className="shrink font-inter-semibold text-body leading-5 text-ink-subtle">{capitalize(ingredient.name)}</Text>
-            <Text className="font-inter-light text-small text-ink-subtle">({ingredient.qty})</Text>
-          </View>
+          {/* Quantity right after the name, a size smaller and a weight
+              lighter so the name still leads. One Text (not two side by
+              side), so a long quantity wraps onto the next line instead of
+              squeezing the name out. Plain Text so semibold is the only
+              weight (AppText's caption variant would bring its own). */}
+          <Text className="font-inter-semibold text-body leading-5 text-ink-subtle">
+            {capitalize(ingredient.name)}
+            <Text className="font-inter-light text-small text-ink-subtle">{`  (${ingredient.qty})`}</Text>
+          </Text>
           {/* Main / Staple chip under the name, sized to its label. */}
           <View className={`self-start rounded-full px-2 py-1 ${isMain ? "bg-primary/10" : "bg-ink-emphasis/5"}`}>
             <Text className={`font-inter-semibold text-sub ${isMain ? "text-primary" : "text-ink-subtle"}`}>

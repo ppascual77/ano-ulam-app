@@ -16,7 +16,7 @@ export function PreferencesSlide({ slide, width, selected, onToggle }: Props) {
   return (
     <View style={{ width }} className="flex-1 px-10 justify-center">
       <View className="flex-row items-end justify-between mb-14">
-        <AppText variant="subhero" className="flex-1">
+        <AppText variant="subhero" className="flex-1 tracking-display" dot>
           {slide.title}
         </AppText>
         {slide.image && (

@@ -1,15 +1,11 @@
-import { View, Text } from "react-native";
+import { View } from "react-native";
 import { Image } from "expo-image";
 import { Check } from "lucide-react-native";
 import { AppText, Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import type { AccountPitchSlideData } from "../slides";
 import { HighlightedText } from "./HighlightedText";
-
-const heroColorClass = {
-  primary: "text-primary",
-  accent: "text-accent",
-} as const;
+import { HeroTitle } from "./HeroTitle";
 
 type Props = {
   slide: AccountPitchSlideData;
@@ -28,13 +24,7 @@ export function AccountPitchSlide({ slide, width, onContinueWithGoogle, onContin
         )}
       </View>
 
-      <Text className="font-inter-extrabold text-heading text-center mb-2">
-        {slide.hero.map((segment, i) => (
-          <Text key={i} className={segment.color ? heroColorClass[segment.color] : "text-ink-emphasis"}>
-            {segment.text}
-          </Text>
-        ))}
-      </Text>
+      <HeroTitle segments={slide.hero} className="mb-2 text-center text-heading" />
 
       <HighlightedText className="mb-6 text-center">{slide.subtitle}</HighlightedText>
 

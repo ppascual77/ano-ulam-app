@@ -1,13 +1,9 @@
-import { View, Text } from "react-native";
+import { View } from "react-native";
 import { Image } from "expo-image";
 import { AppText } from "@/frontend/components/ui";
 import type { ContentSlideData } from "../slides";
 import { HighlightedText } from "./HighlightedText";
-
-const heroColorClass = {
-  primary: "text-primary",
-  accent: "text-accent",
-} as const;
+import { HeroTitle } from "./HeroTitle";
 
 type Props = {
   slide: ContentSlideData;
@@ -33,16 +29,7 @@ export function ContentSlide({ slide, width }: Props) {
         {slide.caption}
       </AppText>
 
-      <Text className="font-inter-extrabold text-hero">
-        {slide.hero.map((segment, i) => (
-          <Text key={i}>
-            <Text className={segment.color ? heroColorClass[segment.color] : "text-ink-emphasis"}>
-              {segment.text}
-            </Text>
-            {segment.breakAfter && "\n"}
-          </Text>
-        ))}
-      </Text>
+      <HeroTitle segments={slide.hero} className="text-hero" />
 
       <HighlightedText className="mt-3">{slide.description}</HighlightedText>
     </View>
