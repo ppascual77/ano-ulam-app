@@ -17,6 +17,7 @@ export { Toggle } from "./Toggle";
 export { SegmentedSwitch } from "./SegmentedSwitch";
 export { ActivePill } from "./ActivePill";
 export { NoticeBanner } from "./NoticeBanner";
+export { DotLabel } from "./DotLabel";
 export { LoadingState } from "./LoadingState";
 export { ErrorState } from "./ErrorState";
 export { Dropdown } from "./Dropdown";

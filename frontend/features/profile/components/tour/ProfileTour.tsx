@@ -21,7 +21,7 @@ export const PROFILE_TOUR_STEPS: { target: ProfileTab; title: string; body: stri
   {
     target: "saved",
     title: "Saved meals",
-    body: "Every meal you've bookmarked lives here. Once you've saved a few, your nutrition summary shows up right alongside them.",
+    body: "Every meal you've bookmarked lives here. Your combined calories and macros sit right at the top. Tap them for the full breakdown.",
   },
   {
     target: "recipes",

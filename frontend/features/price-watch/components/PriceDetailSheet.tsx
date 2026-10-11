@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { AppText, BottomSheet } from "@/frontend/components/ui";
+import { AppText, BottomSheet, DotLabel } from "@/frontend/components/ui";
 import { MacroSection } from "@/frontend/core/meals/components/detail/MacroSection";
 import { RelatedMealCard } from "@/frontend/core/meals/components/detail/RelatedMealCard";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
@@ -33,16 +33,6 @@ const enter = (step: number) => FadeInDown.delay(step * STAGGER_MS).duration(ENT
 const CARD = "rounded-3xl border border-ink-emphasis/10 bg-white p-4";
 
 const TREND_BG = { down: "bg-trend-down/10", up: "bg-trend-up/10", flat: "bg-trend-flat/10" } as const;
-
-// "● MEAT": eyebrow label with the accent dot as its bullet.
-function DotLabel({ children, className = "" }: { children: string; className?: string }) {
-  return (
-    <View className={`flex-row items-center gap-2 ${className}`}>
-      <View className="h-2 w-2 rounded-full bg-accent" />
-      <AppText variant="eyebrow">{children}</AppText>
-    </View>
-  );
-}
 
 // "Bangus, Large" → "Bangus", "Sardines (Tamban)" → "Sardines".
 const baseName = (name: string) => name.split(/[,(]/)[0].trim();

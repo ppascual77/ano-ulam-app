@@ -15,14 +15,17 @@ import { CatalogStatusStrip, PosterChip } from "../CardOverlays";
 import { openProfile } from "@/frontend/core/users/openProfile";
 import { useMe } from "../../hooks/useProfile";
 import { UpdatedMealPrompt } from "./UpdatedMealPrompt";
+import { NutritionSummaryCard } from "./NutritionSummaryCard";
+import { NutritionSummarySheet } from "./NutritionSummarySheet";
 import { useLastDefined } from "../../hooks/useLastDefined";
 
 type SavedTabProps = {
   onToast: (message: string, tone: "success" | "error") => void;
 };
 
-// Owner's saved meals in a 2-column grid. (The meal-plan banner,
-// MealPlanBanner, is hidden for now.)
+// Owner's saved meals in a 2-column grid, under a nutrition summary card
+// that opens the full breakdown. (The meal-plan banner, MealPlanBanner, is
+// hidden for now.)
 // Unsaving asks first ("Remove this meal?"); a meal the creator has since
 // edited asks to sync before opening.
 export function SavedTab({ onToast }: SavedTabProps) {
@@ -34,6 +37,7 @@ export function SavedTab({ onToast }: SavedTabProps) {
   const [confirmRemove, setConfirmRemove] = useState<SavedMeal | null>(null);
   const [updated, setUpdated] = useState<SavedMeal | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [nutritionOpen, setNutritionOpen] = useState(false);
   // Opened once the prompt has finished closing (sheets never overlap).
   const afterPrompt = useRef<SavedMeal | null>(null);
   const removeName = useLastDefined(confirmRemove?.name);
@@ -70,24 +74,28 @@ export function SavedTab({ onToast }: SavedTabProps) {
           action={{ label: "Explore Meals", Icon: Utensils, onPress: () => router.navigate("/browse") }}
         />
       ) : (
-        <MealGrid
-          items={saved}
-          keyOf={(entry) => entry.saved_id}
-          renderItem={(entry, width) => (
-            <MealCard
-              meal={entry}
-              width={width}
-              layout="grid"
-              isFastFood={entry.category === "fast_food"}
-              onPress={() => openCard(entry)}
-              onBookmarkPress={() => setConfirmRemove(entry)}
-              topLeft={entry.poster_id ? <PosterChip onPress={() => openProfile(entry.poster_id, me.id)} /> : undefined}
-              imageFooter={<CatalogStatusStrip status={entry.catalog_status} />}
-            />
-          )}
-        />
+        <>
+          <NutritionSummaryCard saved={saved} onPress={() => setNutritionOpen(true)} />
+          <MealGrid
+            items={saved}
+            keyOf={(entry) => entry.saved_id}
+            renderItem={(entry, width) => (
+              <MealCard
+                meal={entry}
+                width={width}
+                layout="grid"
+                isFastFood={entry.category === "fast_food"}
+                onPress={() => openCard(entry)}
+                onBookmarkPress={() => setConfirmRemove(entry)}
+                topLeft={entry.poster_id ? <PosterChip onPress={() => openProfile(entry.poster_id, me.id)} /> : undefined}
+                imageFooter={<CatalogStatusStrip status={entry.catalog_status} />}
+              />
+            )}
+          />
+        </>
       )}
 
+      <NutritionSummarySheet visible={nutritionOpen} onClose={() => setNutritionOpen(false)} saved={saved} />
       <MealDetailSheet meal={detail} onClose={() => setDetail(null)} onNotify={onToast} />
 
       <ConfirmSheet
