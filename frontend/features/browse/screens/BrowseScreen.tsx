@@ -215,7 +215,7 @@ export default function BrowseScreen() {
           <>
             {todaysPick && (
               <View className="mb-6 mt-6">
-                <AppText variant="title" className="mb-3">
+                <AppText variant="sectionTitle" dot className="mb-3">
                   Today&apos;s pick
                 </AppText>
                 <TodaysPickCard meal={todaysPick} onPress={() => setSelectedMeal(todaysPick)} />
