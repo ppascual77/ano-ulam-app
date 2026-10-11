@@ -287,6 +287,11 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
             <Text className="font-inter-extrabold text-heading text-primary">₱{formatPeso(shownTotal, 0)}</Text>
           </View>
         )}
+        {items.length > 0 && (
+          <Text className="mt-3 font-inter-regular text-small text-ink-subtle">
+            Prices are a guide only and may vary by store, market and day.
+          </Text>
+        )}
 
 
       </ScrollView>
