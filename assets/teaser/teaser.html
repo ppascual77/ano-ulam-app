@@ -456,25 +456,23 @@ function sceneLogo(t) {
   confetti(t, T.logoLand, logoDot(LOGO).x, logoDot(LOGO).y);
 
   revealLine(["AnoUlam"], (W - lineWidth(["AnoUlam"], 120)) / 2, WORD_Y, 120, { tIn: T.wordIn, tOut: T.wordOut, colors: [C.ink] });
-  const soon = ["Coming", "soon"];
-  const sw = lineWidth(soon, 120);
+  const soon = ["Coming", "soon"], SOON = 88;
+  const sw = lineWidth(soon, SOON);
   const sx = (W - sw) / 2;
-  revealLine(soon, sx, WORD_Y, 120, { tIn: T.soonIn, colors: [C.ink, C.green] });
-  const soonX = sx + lineWidth(["Coming", ""], 120);
-  wiggleLine(soonX + 4, sx + sw, WORD_Y + 46, { amp: 6, waves: 3.5, width: 9, color: C.orange, to: outQuint(seg(t, T.underline, T.underline + 0.7)), phase: t * 2 });
+  revealLine(soon, sx, WORD_Y, SOON, { tIn: T.soonIn, colors: [C.ink, C.green] });
+  const soonX = sx + lineWidth(["Coming", ""], SOON);
+  wiggleLine(soonX + 4, sx + sw, WORD_Y + 36, { amp: 5, waves: 3, width: 7, color: C.orange, to: outQuint(seg(t, T.underline, T.underline + 0.7)), phase: t * 2 });
 
   // Store logos only: Play Store and Apple, side by side.
   [0, 1].forEach((i) => {
     const u = outQuint(seg(t, T.pills[i], T.pills[i] + 0.9));
     if (u <= 0) return;
-    const sz = 104, cx = 540 + (i ? 1 : -1) * 92, cy = 1500 + (1 - u) * 60;
+    const sz = 64, cx = 540 + (i ? 1 : -1) * 60, cy = 1440 + (1 - u) * 40;
     ctx.save(); ctx.globalAlpha = u;
     if (i) ctx.drawImage(IMG.appleInk, cx - sz / 2, cy - sz / 2 - 6, sz, sz);
     else ctx.drawImage(IMG.play, cx - sz * 0.44, cy - sz / 2, sz, sz);
     ctx.restore();
   });
-  const a = seg(t, 13.3, 13.9);
-  if (a > 0) { ctx.save(); ctx.globalAlpha = a; text("Tara, kain!", 540, 1690, "700 76px Caveat", C.orange, 0, "center"); ctx.restore(); }
 }
 
 // A full-screen green panel with a soft wavy edge that only waves while it moves.
