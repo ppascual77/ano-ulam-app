@@ -25,11 +25,21 @@ const PROMPT = `You give the typical retail pack of grocery ingredients as sold 
 
 For each ingredient, pick the pack size an ordinary household most commonly buys for everyday cooking: the regular shelf size, not bulk/institutional packs, and not single-use sachets unless sachets are genuinely how it's normally bought (e.g. some seasonings). Prefer the size of the leading local brand.
 
+Philippine packs are SMALLER than Western ones. Typical sizes to anchor on:
+- Dried spices, herbs and seeds (cardamom, fennel, cumin, mustard seed, star anise, oregano, bay leaf): 10-50 g sachets or small bottles, never 100 g+.
+- Bouillon / broth cubes: a pack of 6 cubes (about 60 g); 10 g per cube.
+- Gravy, sauce and seasoning mixes (gravy, sinigang, kare-kare, menudo): powder sachets of 20-50 g, not bottles of liquid.
+- Gulaman / agar: 25 g bars or sachets. Gelatin: 10-30 g sachets.
+- Bottled sauces (soy sauce, vinegar, fish sauce, oyster sauce, sweet chili, sweet and sour): 150-385 ml for everyday use; 1 L only for staples like soy sauce and vinegar.
+- Cooking oils: 1 L. Specialty oils (sesame, annatto): 100-250 ml.
+- Dried legumes, flour, sugar, grits, tapioca: 250-500 g. Snacks and chips: 60-150 g.
+When unsure between two common sizes, pick the smaller everyday one.
+
 Rules:
 - packUnit is "ml" for liquids and sauces sold by volume, "g" for anything sold by weight (pastes, powders, spices, dry goods, mayonnaise in jars sold by weight). Use the unit printed on the pack.
 - packSize is a number in that unit (385, 1000, 50). Never a range.
 - container is one plain word: bottle, pack, jar, can, pouch, sachet, box, tub, bag, tube.
-- example is a short real product at that size, e.g. "Datu Puti Vinegar 385 ml", or null if you can't name one.
+- example is a short real product at that size, e.g. "Datu Puti Vinegar 385 ml", or null. Only name a brand and product you're confident is actually sold in the Philippines at that size; never pair a brand with a product it doesn't make (no "Purefoods Lard", no "Kraft Molasses"). null is always better than a guess.
 - If the item isn't something sold in a pack at all (homemade, bought loose, a cooked dish), return {"id", "error": "short reason"} for it instead.
 
 Return ONLY a JSON object: {"results": [{"id": string, "packSize": number, "packUnit": "g" | "ml", "container": string, "example": string | null} | {"id": string, "error": string}]}, one entry per input id, same ids.`;
