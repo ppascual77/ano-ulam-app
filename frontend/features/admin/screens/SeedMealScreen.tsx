@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { router } from "expo-router";
@@ -18,6 +18,7 @@ import { MealVerifyPanel } from "../components/MealVerifyPanel";
 import type { PendingMealIngredient } from "../components/SeedMealIngredientsEditor";
 import { AdminHeader } from "../components/AdminHeader";
 import { Checklist, InlineError } from "../components/AdminUi";
+import { buildMealCalculation } from "../utils/mealCalculation";
 
 function draftIngredientsToPending(draft: ImportedMealDraft): PendingMealIngredient[] {
   return draft.ingredients.map((ing, i) => {
@@ -66,12 +67,6 @@ export default function SeedMealScreen() {
   const [url, setUrl] = useState("");
   const [draft, setDraft] = useState<ImportedMealDraft | null>(null);
   const [form, setForm] = useState<MealFormState | null>(null);
-  // Gates Confirm Seed behind having run AI Verify at least once — the
-  // admin decides when to (re-)trigger it and can still save regardless of
-  // its verdict (verify is informational, manual review is what actually
-  // gates correctness), but skipping it entirely isn't allowed per the
-  // Seed -> Verify -> Manual validate -> Save flow.
-  const [hasVerified, setHasVerified] = useState(false);
 
   const importMeal = useImportMealFromUrl();
   const { data: allIngredients, isLoading: ingredientsLoading, isError: ingredientsError } = useIngredientsForMatching();
@@ -91,10 +86,25 @@ export default function SeedMealScreen() {
   };
 
   const updateForm = (patch: Partial<MealFormState>) => setForm((prev) => (prev ? { ...prev, ...patch } : prev));
+  const updateIngredientItem = (key: string, patch: Partial<PendingMealIngredient>) =>
+    setForm((prev) =>
+      prev ? { ...prev, ingredients: prev.ingredients.map((i) => (i.key === key ? { ...i, ...patch } : i)) } : prev,
+    );
 
-  const trimmedIngredients = (form?.ingredients ?? []).filter((i) => i.name.trim() !== "");
+  const trimmedIngredients = useMemo(
+    () => (form?.ingredients ?? []).filter((i) => i.name.trim() !== ""),
+    [form?.ingredients],
+  );
   const allResolved = trimmedIngredients.length > 0 && trimmedIngredients.every((i) => i.ingredientId);
-  const canSave = !!draft && !!form && form.name.trim() !== "" && allResolved && hasVerified && !createMeal.isPending;
+  // The calculation check (no AI) gates Confirm Seed: anything that would
+  // silently zero out an ingredient's kcal or ₱ has to be fixed first. The
+  // AI bridge check in the panel is optional.
+  const calculation = useMemo(
+    () => (allResolved && allIngredients ? buildMealCalculation(trimmedIngredients, allIngredients) : null),
+    [allResolved, trimmedIngredients, allIngredients],
+  );
+  const calculationPasses = !!calculation && calculation.errorCount === 0;
+  const canSave = !!draft && !!form && form.name.trim() !== "" && allResolved && calculationPasses && !createMeal.isPending;
 
   const handleSave = async () => {
     if (!draft || !form) return;
@@ -198,15 +208,12 @@ export default function SeedMealScreen() {
 
           <MealFormFields value={form} onChange={updateForm} allIngredients={allIngredients} />
 
-          {allResolved && (
+          {calculation && (
             <MealVerifyPanel
               mealName={form.name}
-              mealDescription={form.description}
               servingSize={Number(form.servingSize) || 1}
-              category={draft.category}
-              items={trimmedIngredients}
-              allIngredients={allIngredients}
-              onVerified={() => setHasVerified(true)}
+              calculation={calculation}
+              onUpdateItem={updateIngredientItem}
             />
           )}
 
@@ -224,9 +231,13 @@ export default function SeedMealScreen() {
                   detail: `${trimmedIngredients.filter((i) => i.ingredientId).length} of ${trimmedIngredients.length} linked to a real ingredient record`,
                 },
                 {
-                  label: "Verified with AI",
-                  done: hasVerified,
-                  detail: hasVerified ? undefined : "Run Verify with AI above (appears once every ingredient is linked).",
+                  label: "Calculation check passes",
+                  done: calculationPasses,
+                  detail: calculationPasses
+                    ? undefined
+                    : calculation
+                      ? `${calculation.errorCount} to fix in the Check above.`
+                      : "Shows up once every ingredient is linked.",
                 },
               ]}
             />

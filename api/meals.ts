@@ -551,9 +551,11 @@ export type ProposedTotals = {
 // Scales an ingredient's per-basis_amount macros/price to the actual
 // quantity used. Price is scaled independently since estimated_price_unit
 // isn't always the same unit as basis_unit (e.g. priced per 'kg' while
-// macros are stored per-100'g') — assumes price_unit and basis_unit share
-// the same weight-vs-volume domain, true for every ingredient seeded so
-// far; returns a null price rather than guessing if they don't.
+// macros are stored per-100'g'). When the two are in different domains
+// (broth priced per L with macros per 100 g), grams_per_ml converts
+// between them; without it the price is null rather than a guess. Before
+// 2026-10-14 the cross-domain case was always null, so those ingredients
+// silently added ₱0 to every meal.
 export function computeProposedTotals(ingredient: IngredientRow, conversion: QuantityConversion): ProposedTotals {
   if (!conversion.ok) {
     return { calories: null, protein: null, carbohydrates: null, fat: null, price: null };
@@ -568,10 +570,16 @@ export function computeProposedTotals(ingredient: IngredientRow, conversion: Qua
     const isVolumeUnit = priceUnit === "ml" || priceUnit === "L";
     const conversionIsWeight = conversion.basisUnit === "g";
     const conversionIsVolume = conversion.basisUnit === "ml";
+    const unitBase = priceUnit === "kg" || priceUnit === "L" ? 1000 : 1;
+    const density = ingredient.grams_per_ml;
+    let pricedAmount: number | null = null;
     if ((isWeightUnit && conversionIsWeight) || (isVolumeUnit && conversionIsVolume)) {
-      const unitBase = priceUnit === "kg" || priceUnit === "L" ? 1000 : 1;
-      price = (ingredient.estimated_price / unitBase) * conversion.basisAmount;
+      pricedAmount = conversion.basisAmount;
+    } else if (density != null && density > 0) {
+      if (isVolumeUnit && conversionIsWeight) pricedAmount = conversion.basisAmount / density;
+      else if (isWeightUnit && conversionIsVolume) pricedAmount = conversion.basisAmount * density;
     }
+    if (pricedAmount != null) price = (ingredient.estimated_price / unitBase) * pricedAmount;
   }
 
   return {
@@ -653,169 +661,180 @@ export async function recomputeMealTotals(mealId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// AI Verify — runs AFTER the admin has manually linked/bridged every
-// ingredient in Seed Meal (matching/bridging itself is never touched here —
-// stays fully manual, admin-triggered, exactly as SeedMealIngredientsEditor
-// already works). Audits the RESULT: total macros/price, each ingredient's
-// computed contribution, and whether its bridge/price-unit/state actually
-// hold up for this specific recipe — the same kind of review this project's
-// own ingredient batches have gotten by hand this session (catching e.g. a
-// canned/drained ingredient linked to its raw/dry variant, or an oil's
-// price unit not matching its basis unit), run automatically instead.
-// Returns proposed field-level fixes only; nothing is written to the
-// ingredients table until the admin accepts an individual issue in
-// MealVerifyPanel — same "grounding never silently applies" principle as
-// this project's other AI features.
+// Seed Meal checks — run AFTER the admin has manually linked/bridged every
+// ingredient (matching/bridging itself stays fully manual in
+// SeedMealIngredientsEditor). Two layers, deliberately separate:
+//
+// 1. Calculation check (calculationProblems, no AI): only things that are
+//    definitely broken in how an ingredient turns into kcal and ₱ — no
+//    price, a price that can't convert to the measured quantity, a per-g
+//    price that's really per-kg, missing macros. Where the fix is pure
+//    arithmetic it carries the exact patch. This gates Confirm Seed.
+// 2. Bridge check (verifyMealIngredients, AI, optional): judges only what
+//    code can't, whether piece weights, densities and the counted quantity
+//    match the recipe's own text. It never proposes macros (USDA/FNRI data
+//    is reference data; estimated macros get re-grounded, not re-guessed)
+//    and never proposes prices (prices come from Price grounding).
+// Nothing is written until the admin accepts a fix.
 // ---------------------------------------------------------------------------
 
-export type MealVerifyField =
-  | "calories" | "protein" | "carbohydrates" | "fat" | "sugar" | "fiber" | "sodium"
-  | "estimated_price" | "estimated_price_unit" | "grams_per_ml" | "grams_per_piece"
-  | "piece_label" | "state" | "role";
+export type CalcProblem = {
+  level: "error" | "warning";
+  message: string;
+  // An exact, arithmetic-only correction to the ingredient record.
+  fix?: { label: string; patch: Partial<IngredientRow> };
+};
 
-export type MealVerifyIssue = {
+const MACRO_FIELDS = ["calories", "protein", "carbohydrates", "fat"] as const;
+// Above this, a per-g / per-ml price is a per-kg / per-L number saved
+// with the wrong unit (₱250 for one gram of chicken).
+const MAX_PLAUSIBLE_PRICE_PER_GRAM = 15;
+// Water is 1 g/ml; cooking oils ~0.92, syrups/honey ~1.4. Outside this a
+// density bridge is a typo.
+const MIN_GRAMS_PER_ML = 0.3;
+const MAX_GRAMS_PER_ML = 2;
+
+const isVolume = (unit: string | null) => unit === "ml" || unit === "L";
+const isWeight = (unit: string | null) => unit === "g" || unit === "kg";
+
+// Problems in how one linked ingredient computes, given the conversion
+// and totals the meal math produced for it.
+export function calculationProblems(
+  ingredient: IngredientRow,
+  quantityUnit: QuantityUnit,
+  computed: ProposedTotals,
+): CalcProblem[] {
+  const problems: CalcProblem[] = [];
+  const price = ingredient.estimated_price;
+  const priceUnit = ingredient.estimated_price_unit;
+  const density = ingredient.grams_per_ml;
+
+  const missing = MACRO_FIELDS.filter((f) => ingredient[f] == null);
+  if (missing.length > 0) {
+    problems.push({ level: "error", message: `Missing ${missing.join(", ")}, so it adds nothing for ${missing.length === 1 ? "that" : "those"}. Fill it in Manage Ingredients.` });
+  }
+
+  // ₱0 is a real price (water); only a missing one is a gap.
+  if (price == null || !priceUnit) {
+    problems.push({ level: "error", message: "Has no price, so it adds ₱0 to the meal. Find one in Manage Ingredients > Prices." });
+  } else if ((priceUnit === "g" || priceUnit === "ml") && price > MAX_PLAUSIBLE_PRICE_PER_GRAM) {
+    const coarse = priceUnit === "g" ? "kg" : "L";
+    problems.push({
+      level: "error",
+      message: `Priced at ₱${price} per ${priceUnit}, which only makes sense per ${coarse}.`,
+      fix: { label: `Use ₱${price}/${coarse}`, patch: { estimated_price_unit: coarse } },
+    });
+  } else if (computed.price == null) {
+    // Same-domain prices always compute, so this is weight vs volume with
+    // no density to convert through.
+    problems.push({
+      level: "error",
+      message: `Priced per ${priceUnit} but its macros are per ${ingredient.basis_unit}, and it has no grams per ml to convert, so it adds ₱0. Set grams per ml in Manage Ingredients.`,
+    });
+  }
+
+  const usesDensity =
+    (isVolume(quantityUnit) && ingredient.basis_unit === "g") ||
+    (isWeight(quantityUnit) && ingredient.basis_unit === "ml") ||
+    (isVolume(priceUnit) && ingredient.basis_unit === "g") ||
+    (isWeight(priceUnit) && ingredient.basis_unit === "ml");
+  if (usesDensity && density != null && (density < MIN_GRAMS_PER_ML || density > MAX_GRAMS_PER_ML)) {
+    problems.push({ level: "warning", message: `${density} g per ml looks off (water is 1, oil about 0.92). Check it in Manage Ingredients.` });
+  }
+
+  if (ingredient.source === "manual" && missing.length === 0) {
+    const fromMacros = 4 * (ingredient.protein ?? 0) + 4 * (ingredient.carbohydrates ?? 0) + 9 * (ingredient.fat ?? 0);
+    const calories = ingredient.calories ?? 0;
+    if (fromMacros > 0 && Math.abs(calories - fromMacros) / Math.max(calories, fromMacros) > 0.35) {
+      problems.push({
+        level: "warning",
+        message: `Its estimated macros don't add up (${Math.round(calories)} kcal vs ${Math.round(fromMacros)} from P/C/F). Try Fetch from USDA in Manage Ingredients.`,
+      });
+    }
+  }
+
+  return problems;
+}
+
+export type MealBridgeField = "grams_per_piece" | "grams_per_ml" | "piece_label" | "quantity";
+
+export type MealBridgeIssue = {
+  // The recipe row (PendingMealIngredient.key) the issue is about.
+  key: string;
   ingredientName: string;
-  field: MealVerifyField;
+  field: MealBridgeField;
   issue: string;
   currentValue: string;
   suggestedValue: string;
-  reasoning: string;
 };
 
-export type MealVerifyResult = {
-  summary: string;
-  overallAssessment: "plausible" | "concerning";
-  issues: MealVerifyIssue[];
-};
-
-export type MealVerifyIngredientInput = {
+export type MealBridgeCheckInput = {
+  key: string;
   displayText: string;
-  quantityAmount: number | null;
-  quantityUnit: string | null;
+  quantityAmount: number;
+  quantityUnit: QuantityUnit;
   ingredient: IngredientRow;
-  computed: ProposedTotals;
+  // What the quantity resolved to for the math, e.g. 480 g.
+  usedAmount: number;
+  usedUnit: "g" | "ml";
 };
+
+const MEAL_BRIDGE_FIELDS = new Set<MealBridgeField>(["grams_per_piece", "grams_per_ml", "piece_label", "quantity"]);
 
 export async function verifyMealIngredients(
-  meal: { name: string; description: string | null; servingSize: number; category: string | null },
-  items: MealVerifyIngredientInput[],
-  totals: ProposedTotals,
-): Promise<MealVerifyResult> {
-  const data = await invokeEdgeFunction<{ verification: MealVerifyResult }>("verify-meal-ingredients", {
+  meal: { name: string; servingSize: number },
+  items: MealBridgeCheckInput[],
+): Promise<MealBridgeIssue[]> {
+  const data = await invokeEdgeFunction<{ issues: MealBridgeIssue[] }>("verify-meal-ingredients", {
     meal,
     ingredients: items.map((item) => ({
+      key: item.key,
       name: item.ingredient.canonical_name,
       displayText: item.displayText,
       quantityAmount: item.quantityAmount,
       quantityUnit: item.quantityUnit,
-      role: item.ingredient.role,
-      category: item.ingredient.category,
-      state: item.ingredient.state,
-      source: item.ingredient.source,
-      basisAmount: item.ingredient.basis_amount,
-      basisUnit: item.ingredient.basis_unit,
-      calories: item.ingredient.calories,
-      protein: item.ingredient.protein,
-      carbohydrates: item.ingredient.carbohydrates,
-      fat: item.ingredient.fat,
-      sugar: item.ingredient.sugar,
-      fiber: item.ingredient.fiber,
-      sodium: item.ingredient.sodium,
-      estimatedPrice: item.ingredient.estimated_price,
-      estimatedPriceUnit: item.ingredient.estimated_price_unit,
-      gramsPerMl: item.ingredient.grams_per_ml,
+      usedAmount: Math.round(item.usedAmount * 10) / 10,
+      usedUnit: item.usedUnit,
       gramsPerPiece: item.ingredient.grams_per_piece,
       pieceLabel: item.ingredient.piece_label,
-      computed: item.computed,
+      gramsPerMl: item.ingredient.grams_per_ml,
     })),
-    totals,
   });
-  if (!data.verification) throw new Error("Verify returned no data");
-  return data.verification;
+  const keys = new Set(items.map((i) => i.key));
+  // Defense in depth: only the fields this check is allowed to touch, on
+  // rows that exist.
+  return (data.issues ?? []).filter((issue) => keys.has(issue.key) && MEAL_BRIDGE_FIELDS.has(issue.field));
 }
 
-const MEAL_VERIFY_NUMERIC_FIELDS = new Set<MealVerifyField>([
-  "calories", "protein", "carbohydrates", "fat", "sugar", "fiber", "sodium",
-  "estimated_price", "grams_per_ml", "grams_per_piece",
-]);
-
-// Nutrition (+ state, which only ever matters in service of a nutrition
-// correction) is real, already-verified USDA reference data once an
-// ingredient's source is "USDA" — never a fix target, no matter what the
-// verify prompt returns. Mirrors the SOURCE rule in
-// verify-meal-ingredients's SYSTEM_PROMPT; enforced here too as the actual
-// hard rule, in case a response ever ignores the instruction.
-const MEAL_VERIFY_USDA_LOCKED_FIELDS = new Set<MealVerifyField>([
-  "calories", "protein", "carbohydrates", "fat", "sugar", "fiber", "sodium", "state",
-]);
-
-export function isMealVerifyFieldAllowedForSource(field: MealVerifyField, ingredientSource: string | null): boolean {
-  return !(ingredientSource === "USDA" && MEAL_VERIFY_USDA_LOCKED_FIELDS.has(field));
-}
-
-// Nutrition can legitimately be 0 (e.g. fat in a vegetable); a price or a
-// bridge of 0 would zero out every meal built on the ingredient.
-const MEAL_VERIFY_POSITIVE_FIELDS = new Set<MealVerifyField>([
-  "estimated_price", "grams_per_ml", "grams_per_piece",
-]);
-
-// Mirrors the ingredients table's CHECK constraints (ingredients_price_unit_check,
-// ingredients_role_check) and IngredientEditSheet's STATE_OPTIONS. Spelled-out
-// variants the LLM tends to return ("kilogram", "liter") map to the stored unit.
-const PRICE_UNIT_ALIASES: Record<string, string> = {
-  g: "g", gram: "g", grams: "g",
-  kg: "kg", kilo: "kg", kilos: "kg", kilogram: "kg", kilograms: "kg",
-  ml: "ml", milliliter: "ml", milliliters: "ml", millilitre: "ml", millilitres: "ml",
-  l: "L", liter: "L", liters: "L", litre: "L", litres: "L",
-};
-const MEAL_VERIFY_ROLES = new Set(["main", "pantry"]);
-const MEAL_VERIFY_STATES = new Set(["raw", "cooked", "fried", "dried"]);
-
-export type MealVerifyFixParse =
-  | { ok: true; patch: Partial<IngredientRow> }
+export type MealBridgeFixParse =
+  | { ok: true; target: "ingredient"; patch: Partial<IngredientRow> }
+  | { ok: true; target: "row"; quantityAmount: string; quantityUnit: QuantityUnit }
   | { ok: false; reason: string };
 
-// The LLM always returns suggestedValue as a string (simplest, unambiguous
-// JSON-mode shape) — parses it back into the right type for the field it
-// names before it can be used as an updateIngredient patch. Rejects anything
-// it can't map cleanly instead of guessing: a NaN used to be written as null
-// (silently wiping the field while the card said "Applied"), and an
-// off-list unit/role failed the DB's CHECK constraint.
-export function parseMealVerifyFixValue(field: MealVerifyField, value: string): MealVerifyFixParse {
+const QUANTITY_UNITS = new Set<QuantityUnit>(["g", "kg", "ml", "L", "piece"]);
+
+// The LLM returns suggestedValue as a string; this maps it back to a typed
+// patch, rejecting anything it can't read cleanly instead of guessing.
+export function parseMealBridgeFix(field: MealBridgeField, value: string): MealBridgeFixParse {
   const raw = value.trim();
-
-  if (MEAL_VERIFY_NUMERIC_FIELDS.has(field)) {
-    // Tolerates a currency prefix / unit suffix ("₱250", "0.92 g/ml") but
-    // not a range or a second number ("0.91-0.92", "250 per 1 kg"), which
-    // would mean picking one for the admin.
-    const numbers = raw.replace(/,/g, "").match(/\d+(\.\d+)?/g);
-    if (!numbers || numbers.length !== 1) {
-      return { ok: false, reason: `Couldn't read "${value}" as a single number for ${field}. Edit it in Manage Ingredients instead.` };
+  if (field === "quantity") {
+    // "<number> <unit>", e.g. "480 g" or "2 piece".
+    const match = raw.replace(/,/g, "").match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)$/);
+    const unit = match ? (match[2] === "l" ? "L" : match[2]) : null;
+    if (!match || !unit || !QUANTITY_UNITS.has(unit as QuantityUnit) || Number(match[1]) === 0) {
+      return { ok: false, reason: `Couldn't read "${value}" as a quantity. Edit it in the ingredient list above.` };
     }
-    const num = Number(numbers[0]);
-    if (MEAL_VERIFY_POSITIVE_FIELDS.has(field) && num === 0) {
-      return { ok: false, reason: `${field} can't be 0.` };
-    }
-    return { ok: true, patch: { [field]: num } };
+    return { ok: true, target: "row", quantityAmount: match[1], quantityUnit: unit as QuantityUnit };
   }
-
-  const normalized = raw.toLowerCase().replace(/^(per|\/)\s*/, "");
-  switch (field) {
-    case "estimated_price_unit": {
-      const unit = PRICE_UNIT_ALIASES[normalized];
-      if (!unit) return { ok: false, reason: `"${value}" isn't a valid price unit. Prices can only be per g, kg, ml, or L.` };
-      return { ok: true, patch: { estimated_price_unit: unit } };
-    }
-    case "role":
-      if (!MEAL_VERIFY_ROLES.has(normalized)) return { ok: false, reason: `"${value}" isn't a valid role (main or pantry).` };
-      return { ok: true, patch: { role: normalized } };
-    case "state":
-      if (!MEAL_VERIFY_STATES.has(normalized)) return { ok: false, reason: `"${value}" isn't a valid state (raw, cooked, fried, or dried).` };
-      return { ok: true, patch: { state: normalized } };
-    default:
-      if (raw === "") return { ok: false, reason: `Suggested ${field} is empty.` };
-      return { ok: true, patch: { [field]: raw } };
+  if (field === "piece_label") {
+    if (raw === "") return { ok: false, reason: "Suggested piece label is empty." };
+    return { ok: true, target: "ingredient", patch: { piece_label: raw.toLowerCase() } };
   }
+  const numbers = raw.replace(/,/g, "").match(/\d+(\.\d+)?/g);
+  if (!numbers || numbers.length !== 1 || Number(numbers[0]) === 0) {
+    return { ok: false, reason: `Couldn't read "${value}" as a single number for ${field}. Edit it in Manage Ingredients instead.` };
+  }
+  return { ok: true, target: "ingredient", patch: { [field]: Number(numbers[0]) } };
 }
 
 // Cascades an ingredient's data change to every meal that references it —
