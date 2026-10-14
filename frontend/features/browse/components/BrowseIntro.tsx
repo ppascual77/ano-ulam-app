@@ -1,12 +1,12 @@
 import { type RefObject, useEffect } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   Easing,
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withSequence,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
@@ -14,29 +14,63 @@ import { BicepsFlexed, PiggyBank, Timer, type LucideIcon } from "lucide-react-na
 import { INTRO_DOT_REST_MS, PageIntro, type IntroSize } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 
-// A quick glance at what Browse is:
-//   0.0s   "What are you craving?" rises in
-//   0.2s   a slot-machine reel of dishes spins, easing to a stop on one
-//   1.55s  "sounds good today!" (handwritten) pops under it
-//   1.75s  the three ulam moods pop in: Tipid, High Protein, Quick & Easy
-//   2.35s  everything collapses into one dot
-//   3.07s  (once the dot has settled) the cover fades to the real page as the dot arcs up and lands as
-//          the period of the "Browse." header (see PageIntro)
-const SPIN_AT = 200;
-const SPIN_MS = 1300;
-const NOTE_AT = 1550;
-const MOODS_AT = 1750;
+// A quick glance at what Browse is, a magnifier over every dish:
+//   0.0s   "What are you craving?" rises in over a field of faint dish names
+//   0.3s   a magnifying glass glides over the field; whatever's under the
+//          lens shows big and sharp
+//   2.0s   it slows and stops on one dish, which turns orange
+//   2.1s   "sounds good today!" (handwritten) pops under it
+//   2.3s   the three ulam moods pop in: Tipid, High Protein, Quick & Easy
+//   2.9s   everything shrinks into the lens's middle, where the dot
+//          appears, settles, then arcs up and lands as the period of the
+//          "Browse." header (see PageIntro)
+const FIELD_AT = 100;
+const LENS_AT = 300;
+const STOP_AT = 2000;
+const NOTE_AT = 2100;
+const MOODS_AT = 2300;
 const MOOD_STAGGER_MS = 110;
-const COLLAPSE_AT = 2350;
+const COLLAPSE_AT = 2900;
 const COLLAPSE_MS = 380;
 const DOT_AT = COLLAPSE_AT + 60;
 const FLY_AT = DOT_AT + INTRO_DOT_REST_MS;
 
-// The reel: spins through these (twice, for speed), landing on the last.
-const DISHES = ["Adobo", "Sisig", "Tinola", "Kare-Kare", "Laing", "Pancit", "Lechon", "Bulalo"];
-const LANDS_ON = "Sinigang";
-const REEL = [...DISHES, ...DISHES, LANDS_ON];
-const ITEM_HEIGHT = 64;
+// The field: where each dish sits, as fractions of the field's box. The
+// last is the one the lens stops on.
+const FIELD: { name: string; x: number; y: number }[] = [
+  { name: "Adobo", x: 0.2, y: 0.06 },
+  { name: "Tinola", x: 0.72, y: 0.02 },
+  { name: "Laing", x: 0.48, y: 0.18 },
+  { name: "Bulalo", x: 0.14, y: 0.32 },
+  { name: "Pancit", x: 0.82, y: 0.28 },
+  { name: "Menudo", x: 0.36, y: 0.44 },
+  { name: "Lechon", x: 0.86, y: 0.42 },
+  { name: "Kare-Kare", x: 0.2, y: 0.66 },
+  { name: "Paksiw", x: 0.6, y: 0.74 },
+  { name: "Afritada", x: 0.3, y: 0.9 },
+  { name: "Tortang Talong", x: 0.74, y: 0.94 },
+  { name: "Sinigang", x: 0.6, y: 0.58 },
+];
+const TARGET = FIELD[FIELD.length - 1];
+// The field's box, as fractions of the screen.
+const FIELD_TOP = 0.3;
+const FIELD_HEIGHT = 0.36;
+const FIELD_SIDE = 28;
+const ITEM_W = 140;
+const ITEM_H = 24;
+
+const LENS_R = 58;
+const LENS_RIM = 5;
+const ZOOM = 1.8;
+// The lens's path in field fractions: in from the lower left, a wander, then
+// the target.
+const PATH = [
+  { x: -0.15, y: 1.1 },
+  { x: 0.22, y: 0.7 },
+  { x: 0.42, y: 0.2 },
+  { x: 0.78, y: 0.36 },
+];
+const LEG_MS = (STOP_AT - LENS_AT) / PATH.length;
 
 const MOODS: { label: string; icon: LucideIcon; tilt: string }[] = [
   { label: "Tipid Meals", icon: PiggyBank, tilt: "-4deg" },
@@ -45,8 +79,14 @@ const MOODS: { label: string; icon: LucideIcon; tilt: string }[] = [
 ];
 const POP_SPRING = { damping: 8, stiffness: 220, mass: 0.5 };
 
-// Where everything collapses to, and the dot appears.
-const collapsePoint = (size: IntroSize) => ({ x: size.w / 2, y: size.h / 2 });
+type Point = { x: number; y: number };
+
+// A field fraction to scene coordinates.
+const toScene = (size: IntroSize, p: Point): Point => ({
+  x: FIELD_SIDE + p.x * (size.w - FIELD_SIDE * 2),
+  y: size.h * FIELD_TOP + p.y * size.h * FIELD_HEIGHT,
+});
+const targetPoint = (size: IntroSize) => toScene(size, TARGET);
 
 function MoodChip({ label, icon: Icon, tilt, index }: { label: string; icon: LucideIcon; tilt: string; index: number }) {
   const pop = useSharedValue(0);
@@ -62,60 +102,126 @@ function MoodChip({ label, icon: Icon, tilt, index }: { label: string; icon: Luc
   );
 }
 
-function CravingScene({ size }: { size: IntroSize }) {
-  const spin = useSharedValue(0);
-  const note = useSharedValue(0);
-  const collapse = useSharedValue(0);
-  useEffect(() => {
-    spin.value = withDelay(SPIN_AT, withTiming(1, { duration: SPIN_MS, easing: Easing.out(Easing.cubic) }));
-    note.value = withDelay(NOTE_AT, withSpring(1, POP_SPRING));
-    collapse.value = withDelay(COLLAPSE_AT, withTiming(1, { duration: COLLAPSE_MS, easing: Easing.in(Easing.cubic) }));
-  }, [spin, note, collapse]);
-
-  const reelStyle = useAnimatedStyle(() => ({ transform: [{ translateY: -(REEL.length - 1) * ITEM_HEIGHT * spin.value }] }));
-  const noteStyle = useAnimatedStyle(() => ({ opacity: note.value, transform: [{ scale: 0.6 + 0.4 * note.value }, { rotate: "-4deg" }] }));
-  // The whole scene shrinks into the middle of the screen (where the dot
-  // appears) and fades.
-  const collapseStyle = useAnimatedStyle(() => ({
-    opacity: 1 - collapse.value,
-    transform: [{ scale: 1 - 0.85 * collapse.value }],
-  }));
-
+// Every dish in place. `sharp` is the copy seen through the lens.
+function Field({ size, sharp }: { size: IntroSize; sharp: boolean }) {
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, collapseStyle]}>
-      <Animated.View entering={FadeInDown.duration(450)} className="items-center" style={{ marginTop: size.h * 0.16 }}>
-        <Text className="font-inter-medium text-subheading text-ink-subtle">What are you craving?</Text>
-      </Animated.View>
-
-      {/* Slot-machine window: one dish visible, soft white fades top and
-          bottom so the spin reads as a reel. */}
-      <View className="mt-3 overflow-hidden" style={{ height: ITEM_HEIGHT }}>
-        <Animated.View style={reelStyle}>
-          {REEL.map((dish, i) => (
+    <>
+      {FIELD.map((dish) => {
+        const p = toScene(size, dish);
+        const isTarget = dish === TARGET;
+        return (
+          <View
+            key={dish.name}
+            style={{ position: "absolute", left: p.x - ITEM_W / 2, top: p.y - ITEM_H / 2, width: ITEM_W, height: ITEM_H }}
+            className="items-center justify-center"
+          >
             <Text
-              key={i}
-              style={{ height: ITEM_HEIGHT, lineHeight: ITEM_HEIGHT }}
-              className={`text-center font-inter-extrabold text-subhero tracking-display ${
-                i === REEL.length - 1 ? "text-accent" : "text-ink-emphasis"
+              numberOfLines={1}
+              // Brand green: faint in the field, full strength through the
+              // lens; the dish it finds is orange.
+              className={`font-inter-semibold text-body ${
+                isTarget ? (sharp ? "text-accent" : "text-accent/40") : sharp ? "text-primary" : "text-primary/30"
               }`}
             >
-              {dish}
+              {dish.name}
             </Text>
-          ))}
-        </Animated.View>
-        <LinearGradient
-          pointerEvents="none"
-          colors={[colors.white, "rgba(255,255,255,0)", "rgba(255,255,255,0)", colors.white]}
-          locations={[0, 0.25, 0.75, 1]}
-          style={StyleSheet.absoluteFill}
-        />
-      </View>
+          </View>
+        );
+      })}
+    </>
+  );
+}
 
-      <Animated.View className="items-center" style={noteStyle}>
+function MagnifierScene({ size }: { size: IntroSize }) {
+  const target = targetPoint(size);
+  const path = PATH.map((p) => toScene(size, p));
+  const field = useSharedValue(0);
+  const lensX = useSharedValue(path[0].x);
+  const lensY = useSharedValue(path[0].y);
+  const lens = useSharedValue(0);
+  const found = useSharedValue(0);
+  const note = useSharedValue(0);
+  const collapse = useSharedValue(0);
+
+  useEffect(() => {
+    // Fades back once the lens has found its dish, so the note reads clean.
+    field.value = withSequence(
+      withDelay(FIELD_AT, withTiming(1, { duration: 400 })),
+      withDelay(STOP_AT - FIELD_AT - 400, withTiming(0.35, { duration: 300 })),
+    );
+    lens.value = withDelay(LENS_AT, withSpring(1, POP_SPRING));
+    // Leg by leg through the path, the last one easing to a stop.
+    const stops = [...path.slice(1), target];
+    const leg = (i: number, v: number) =>
+      withTiming(v, { duration: LEG_MS, easing: i === stops.length - 1 ? Easing.out(Easing.cubic) : Easing.inOut(Easing.quad) });
+    lensX.value = withDelay(LENS_AT, withSequence(...stops.map((p, i) => leg(i, p.x))));
+    lensY.value = withDelay(LENS_AT, withSequence(...stops.map((p, i) => leg(i, p.y))));
+    found.value = withDelay(STOP_AT, withSequence(withTiming(1.15, { duration: 120 }), withSpring(1)));
+    note.value = withDelay(NOTE_AT, withSpring(1, POP_SPRING));
+    collapse.value = withDelay(COLLAPSE_AT, withTiming(1, { duration: COLLAPSE_MS, easing: Easing.in(Easing.cubic) }));
+  }, []);
+
+  const fieldStyle = useAnimatedStyle(() => ({ opacity: field.value }));
+  const lensStyle = useAnimatedStyle(() => ({
+    opacity: Math.min(1, lens.value * 2),
+    transform: [
+      { translateX: lensX.value - LENS_R },
+      { translateY: lensY.value - LENS_R },
+      { scale: lens.value * (found.value === 0 ? 1 : found.value) },
+    ],
+  }));
+  // The sharp copy, scaled ZOOM times around whatever's under the lens's
+  // middle: a scene point p lands at LENS_R + (p - lens) * ZOOM.
+  const zoomStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: LENS_R - lensX.value * ZOOM },
+      { translateY: LENS_R - lensY.value * ZOOM },
+      { scale: ZOOM },
+    ],
+  }));
+  const noteStyle = useAnimatedStyle(() => ({ opacity: note.value, transform: [{ scale: 0.6 + 0.4 * note.value }, { rotate: "-4deg" }] }));
+  // Everything shrinks into the lens's middle (the target), where the dot
+  // appears.
+  const collapseStyle = useAnimatedStyle(() => ({ opacity: 1 - collapse.value, transform: [{ scale: 1 - 0.85 * collapse.value }] }));
+
+  return (
+    <Animated.View style={[StyleSheet.absoluteFill, { transformOrigin: [target.x, target.y, 0] }, collapseStyle]}>
+      <Animated.View entering={FadeInDown.duration(450)} className="items-center" style={{ marginTop: size.h * 0.16 }}>
+        <Text className="font-inter-extrabold text-heading-lg tracking-display text-ink-emphasis">What are you craving?</Text>
+      </Animated.View>
+
+      <Animated.View style={[StyleSheet.absoluteFill, fieldStyle]}>
+        <Field size={size} sharp={false} />
+      </Animated.View>
+
+      {/* The lens: a white window onto the sharp copy, a rim and a handle. */}
+      <Animated.View style={[{ position: "absolute", left: 0, top: 0, width: LENS_R * 2, height: LENS_R * 2 }, lensStyle]}>
+        <View
+          className="absolute bg-ink-emphasis"
+          style={{ width: 12, height: 52, borderRadius: 6, left: LENS_R * 2 - 18, top: LENS_R * 2 - 14, transform: [{ rotate: "-45deg" }] }}
+        />
+        <View className="overflow-hidden bg-white" style={{ width: LENS_R * 2, height: LENS_R * 2, borderRadius: LENS_R }}>
+          <Animated.View style={[{ position: "absolute", left: 0, top: 0, width: size.w, height: size.h, transformOrigin: [0, 0, 0] }, zoomStyle]}>
+            <Field size={size} sharp />
+          </Animated.View>
+        </View>
+        <View
+          pointerEvents="none"
+          className="absolute border-ink-emphasis"
+          style={{ left: 0, top: 0, width: LENS_R * 2, height: LENS_R * 2, borderRadius: LENS_R, borderWidth: LENS_RIM }}
+        />
+      </Animated.View>
+
+      <Animated.View
+        style={[{ position: "absolute", left: 0, right: 0, top: target.y + LENS_R + 26, alignItems: "center" }, noteStyle]}
+      >
         <Text className="font-handwritten text-heading-lg text-accent">sounds good today!</Text>
       </Animated.View>
 
-      <View className="mt-10 flex-row flex-wrap justify-center gap-2 px-4">
+      <View
+        style={{ position: "absolute", left: 0, right: 0, top: size.h * (FIELD_TOP + FIELD_HEIGHT) + 120 }}
+        className="flex-row flex-wrap justify-center gap-2 px-4"
+      >
         {MOODS.map((mood, i) => (
           <MoodChip key={mood.label} {...mood} index={i} />
         ))}
@@ -136,12 +242,12 @@ export function BrowseIntro({ active, targetRef, onDone }: BrowseIntroProps) {
       active={active}
       targetRef={targetRef}
       onDone={onDone}
-      dotStart={collapsePoint}
+      dotStart={targetPoint}
       dotAt={DOT_AT}
       flyAt={FLY_AT}
       accessibilityLabel="Browse: search any dish you're craving, or pick by mood: tipid, high protein, or quick and easy."
     >
-      {(size) => <CravingScene size={size} />}
+      {(size) => <MagnifierScene size={size} />}
     </PageIntro>
   );
 }

@@ -28,7 +28,7 @@ export default function HomeScreen() {
   // with ?intro=1 and where its page indicator's dot was), not on every
   // visit like the other tabs' intros. Its dot lands as the period of
   // "Categories." with a burst of confetti.
-  const params = useLocalSearchParams<{ intro?: string; dotX?: string; dotY?: string }>();
+  const params = useLocalSearchParams<{ intro?: string; dotX?: string; dotY?: string; picks?: string }>();
   const [introPending, setIntroPending] = useState(params.intro === "1");
   const reduceMotion = useReduceMotion();
   const intro = usePageIntro({ enabled: introPending && !reduceMotion });
@@ -75,7 +75,14 @@ export default function HomeScreen() {
       </ScrollView>
       {showSurpriseMe && <RandomMealPuller />}
       {intro.showing && (
-        <HomeIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={finishIntro} entry={entry} />
+        <HomeIntro
+          key={intro.run}
+          active={intro.active}
+          targetRef={intro.targetRef}
+          onDone={finishIntro}
+          entry={entry}
+          picks={params.picks ? params.picks.split("|").filter(Boolean) : []}
+        />
       )}
     </Screen>
   );

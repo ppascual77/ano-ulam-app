@@ -1,5 +1,5 @@
 import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Modal, Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import Animated, {
   Easing,
@@ -13,10 +13,17 @@ import Animated, {
 import { scheduleOnRN } from "react-native-worklets";
 import { colors } from "@/frontend/constants/theme";
 
-// A page's "quick glance" intro (the auto tour): a full-page scene over a
+// A page's "quick glance" intro (the auto tour): a full-screen scene over a
 // white cover, ending with one dot that flies up and lands on a spot in the
 // real page's header (e.g. the period of "Price Watch."). The page supplies
 // the scene; this handles the cover, skipping, measuring and the flight.
+//
+// Two layers: an in-page cover, up while the intro is armed so the page
+// never flashes before it plays, and, while it plays, a full-screen Modal
+// over everything (status bar and bottom nav too) holding the scene and
+// the dot. Both covers fade together as the dot takes off. The Modal only
+// shows while playing: an armed intro waits on a hidden tab, and a Modal
+// there would cover whichever tab is showing.
 
 const FADE_MS = 450;
 const CONTENT_FADE_MS = 250;
@@ -196,47 +203,64 @@ export function PageIntro({
   });
 
   return (
-    <Pressable
-      onPress={onDone}
-      accessibilityRole="button"
-      accessibilityLabel={`${accessibilityLabel} Tap to skip.`}
-      className="absolute bottom-0 left-0 right-0 top-0"
-      style={{ zIndex: 50 }}
-    >
-      <View
-        ref={rootRef}
-        collapsable={false}
-        className="flex-1"
-        onLayout={(e) => {
-          const { width: w, height: h } = e.nativeEvent.layout;
-          setSize((prev) => (prev && prev.w === w && prev.h === h ? prev : { w, h }));
-        }}
+    <>
+      {/* In-page cover: hides the page from the moment it's armed. */}
+      <Animated.View
+        pointerEvents={active ? "none" : "auto"}
+        className={`absolute bottom-0 left-0 right-0 top-0 ${tone === "dark" ? "bg-black" : "bg-white"}`}
+        style={[{ zIndex: 50 }, backdropStyle]}
+      />
+
+      <Modal
+        visible={active}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        navigationBarTranslucent
+        onRequestClose={onDone}
       >
-        <Animated.View
-          pointerEvents="none"
-          className={`absolute bottom-0 left-0 right-0 top-0 ${tone === "dark" ? "bg-black" : "bg-white"}`}
-          style={backdropStyle}
-        />
+        <Pressable
+          onPress={onDone}
+          accessibilityRole="button"
+          accessibilityLabel={`${accessibilityLabel} Tap to skip.`}
+          className="flex-1"
+        >
+          <View
+            ref={rootRef}
+            collapsable={false}
+            className="flex-1"
+            onLayout={(e) => {
+              const { width: w, height: h } = e.nativeEvent.layout;
+              setSize((prev) => (prev && prev.w === w && prev.h === h ? prev : { w, h }));
+            }}
+          >
+            <Animated.View
+              pointerEvents="none"
+              className={`absolute bottom-0 left-0 right-0 top-0 ${tone === "dark" ? "bg-black" : "bg-white"}`}
+              style={backdropStyle}
+            />
 
-        {size && active && (
-          <Animated.View pointerEvents="none" className="flex-1" style={contentStyle}>
-            {children(size)}
-            <Text
-              className={`absolute bottom-6 left-0 right-0 text-center font-inter-regular text-small ${
-                tone === "dark" ? "text-white/50" : "text-ink-placeholder"
-              }`}
-            >
-              Tap to skip
-            </Text>
-          </Animated.View>
-        )}
+            {size && (
+              <Animated.View pointerEvents="none" className="flex-1" style={contentStyle}>
+                {children(size)}
+                <Text
+                  className={`absolute bottom-10 left-0 right-0 text-center font-inter-regular text-small ${
+                    tone === "dark" ? "text-white/50" : "text-ink-placeholder"
+                  }`}
+                >
+                  Tap to skip
+                </Text>
+              </Animated.View>
+            )}
 
-        {/* Outside the scene layer, so it stays as the scene fades. */}
-        <Animated.View
-          pointerEvents="none"
-          style={[{ position: "absolute", left: 0, top: 0, width: dotSize, height: dotSize, borderRadius: dotSize / 2 }, dotStyle]}
-        />
-      </View>
-    </Pressable>
+            {/* Outside the scene layer, so it stays as the scene fades. */}
+            <Animated.View
+              pointerEvents="none"
+              style={[{ position: "absolute", left: 0, top: 0, width: dotSize, height: dotSize, borderRadius: dotSize / 2 }, dotStyle]}
+            />
+          </View>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
