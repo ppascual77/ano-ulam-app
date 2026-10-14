@@ -41,7 +41,8 @@ page.on("pageerror", (e) => console.error("[page error]", e));
 await page.goto(url);
 await page.waitForFunction(() => window.ready === true, null, { timeout: 30000 });
 
-const grab = (t) => page.evaluate((t) => { window.render(t); return document.getElementById("c").toDataURL("image/png").split(",")[1]; }, t);
+// Each frame blends 6 sub-frames (motion blur), see renderFrame.
+const grab = (t) => page.evaluate(([t, fps]) => { window.renderFrame(t, fps, 6); return document.getElementById("c").toDataURL("image/png").split(",")[1]; }, [t, FPS]);
 
 const stills = opt("--stills");
 if (stills) {
@@ -62,6 +63,8 @@ if (stills) {
     "-f", "image2pipe", "-framerate", String(FPS), "-c:v", "png", "-i", "-",
     "-i", wav,
     "-c:v", "libx264", "-preset", "slow", "-crf", "17", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+    // Social-platform loudness (about -16 LUFS), peaks kept under -1.5 dB.
+    "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-ar", "48000",
     "-c:a", "aac", "-b:a", "192k", "-shortest", mp4,
   ], { stdio: ["pipe", "inherit", "inherit"] });
   const frames = Math.round(duration * FPS);

@@ -1,8 +1,8 @@
 # Soundtrack for the teaser, built from the cue list teaser.html exports
 # (capture.mjs writes it to cues.json), so every hit lands on its frame.
 # Usage: python3 synth-audio.py cues.json out.wav DURATION
-# Soft, wooden, playful: marimba plucks, boings and pops over a light beat,
-# reusing the app's own confetti.wav for the "ta-da" moments.
+# Deliberately quiet and clean: pure tones only (no noise), a soft
+# wooden "tok" per landing scaled by how hard the dot hit, and a warm pad.
 import json, sys, wave
 from pathlib import Path
 import numpy as np
@@ -14,7 +14,6 @@ DUR = float(sys.argv[3])
 N = int(DUR * SR) + SR
 L = np.zeros(N)
 R = np.zeros(N)
-rng = np.random.default_rng(7)
 TAU = 2 * np.pi
 
 
@@ -24,181 +23,112 @@ def tt(sec):
 
 def add(at, sig, gain=1.0, pan=0.0):
     i = int(at * SR)
-    if i >= N or i + len(sig) <= 0:
+    if i >= N:
         return
     sig = sig[: N - i]
-    L[i : i + len(sig)] += sig * gain * (1 - max(0, pan))
-    R[i : i + len(sig)] += sig * gain * (1 + min(0, pan))
+    L[i : i + len(sig)] += sig * gain * np.sqrt(0.5 * (1 - pan))
+    R[i : i + len(sig)] += sig * gain * np.sqrt(0.5 * (1 + pan))
 
 
-def note(n):  # MIDI -> Hz
+def hz(n):
     return 440 * 2 ** ((n - 69) / 12)
 
 
-def marimba(f, dur=0.6, bright=0.4):
+def mallet(f, dur=0.9, bright=0.3, decay=7):
+    """Soft marimba-like note, as in assets/sounds/generate-confetti.mjs."""
     t = tt(dur)
-    s = np.sin(TAU * f * t) * np.exp(-t * 9) + bright * np.sin(TAU * f * 4 * t) * np.exp(-t * 45) + 0.25 * np.sin(TAU * f * 0.5 * t) * np.exp(-t * 14)
-    return s * np.minimum(1, np.arange(len(t)) / 30)
+    s = (np.sin(TAU * f * t) * np.exp(-t * decay)
+         + bright * np.sin(TAU * f * 4 * t) * np.exp(-t * 40)
+         + 0.2 * np.sin(TAU * f * 0.5 * t) * np.exp(-t * 10))
+    return s * np.minimum(1, np.arange(len(t)) / 40)
 
 
-def sweep(f0, f1, dur, decay=6, shape="exp"):
+def tok(f=220, dur=0.25):
+    """Rounded wooden thud for the dot landing."""
     t = tt(dur)
-    f = f0 * (f1 / f0) ** (t / dur) if shape == "exp" else np.linspace(f0, f1, len(t))
-    ph = np.cumsum(f) / SR * TAU
-    return np.sin(ph) * np.exp(-t * decay)
+    pitch = f * (1 + 0.6 * np.exp(-t * 60))
+    return np.sin(np.cumsum(TAU * pitch / SR)) * np.exp(-t * 22) * np.minimum(1, np.arange(len(t)) / 20)
 
 
-def noise(dur):
-    return rng.standard_normal(int(dur * SR))
-
-
-def lowpass(x, a):  # one-pole; a in (0,1], smaller = darker. a can be array.
-    y = np.zeros_like(x)
-    a = np.broadcast_to(a, x.shape)
-    acc = 0.0
-    for i in range(len(x)):
-        acc += a[i] * (x[i] - acc)
-        y[i] = acc
-    return y
-
-
-def whoosh(dur, up=True, gain=1.0):
+def glide(f0, f1, dur, gain_curve=None):
     t = tt(dur)
-    env = np.sin(np.pi * t / dur) ** 2
-    a = np.linspace(0.02, 0.35, len(t)) if up else np.linspace(0.35, 0.02, len(t))
-    return lowpass(noise(dur), a) * env * gain * 3
+    f = f0 * (f1 / f0) ** (t / dur)
+    env = np.sin(np.pi * t / dur) ** 2 if gain_curve is None else gain_curve(t)
+    return np.sin(np.cumsum(TAU * f / SR)) * env
 
 
-def kick():
-    t = tt(0.35)
-    return sweep(150, 45, 0.35, decay=9) * 1.0 + 0.3 * noise(0.35) * np.exp(-t * 120)
-
-
-def hat():
-    t = tt(0.06)
-    n = noise(0.06)
-    return (n - lowpass(n, 0.5)) * np.exp(-t * 70) * 0.5
-
-
-def tock(f=1800):
-    t = tt(0.05)
-    return np.sin(TAU * f * t) * np.exp(-t * 110)
-
-
-def pop():
-    t = tt(0.12)
-    return sweep(500, 1400, 0.12, decay=30) * 0.9 + 0.2 * noise(0.12) * np.exp(-t * 200)
-
-
-def boing():
-    t = tt(0.55)
-    f = 120 + 160 * (1 - np.exp(-t * 6)) + 25 * np.sin(TAU * 14 * t) * np.exp(-t * 4)
-    return np.sin(np.cumsum(f) / SR * TAU) * np.exp(-t * 5)
+def pad(notes, dur, attack=0.6, release=1.2):
+    t = tt(dur)
+    s = np.zeros(len(t))
+    for n in notes:
+        f = hz(n)
+        # Two slightly detuned sines + a soft octave: warm, no buzz.
+        s += np.sin(TAU * f * t) + np.sin(TAU * f * 1.003 * t + 1.0) + 0.25 * np.sin(TAU * 2 * f * t)
+    env = np.minimum(1, t / attack) * np.minimum(1, (dur - t) / release)
+    return s * np.clip(env, 0, 1) / (2.25 * len(notes))
 
 
 def load_wav(p):
     with wave.open(str(p)) as w:
-        x = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16) / 32768
-    return x
+        return np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16) / 32768
 
 
 confetti = load_wav(Path(__file__).resolve().parent.parent / "sounds" / "confetti.wav")
 
-PENTA = [72, 74, 76, 79, 81, 84, 86, 88, 91, 93]  # C major pentatonic from C5
+# Landings climb a C-major pentatonic as the story moves on; the opening
+# bounces all share one pitch and just get quieter, like a real ball.
+LAND_NOTES = {"drop": 79, 0: 79, 1: 81, 2: 84, 3: 86, 4: 88}
+drop_count = sum(1 for c in cues if c[1] == "land") - 6  # the bounce train
+for at, name, strength, idx in cues:
+    if name == "land":
+        if idx < drop_count:
+            add(at, tok(180), 0.55 * strength)
+            add(at, mallet(hz(79), 0.6, 0.15), 0.22 * strength)
+        else:
+            k = idx - drop_count
+            note = [76, 79, 81, 84, 88, 91][k]
+            add(at, tok(200), 0.35 * max(0.4, strength))
+            add(at, mallet(hz(note), 1.0, 0.25), 0.38, pan=[-0.2, 0.15, -0.1, 0.2, 0, 0.1][k])
+    elif name == "lift":
+        add(at - 0.04, glide(300, 620, 0.16), 0.06)
+    elif name == "grow":
+        add(at, mallet(hz(91), 1.2, 0.3), 0.16, pan=0.3)
+    elif name == "fall":
+        add(at, glide(700, 260, 0.6), 0.06)
+    elif name == "reveal":
+        add(at, confetti, 0.42)
+        add(at, glide(65, 55, 1.6, lambda t: np.exp(-t * 2.2) * np.minimum(1, t * 30)), 0.5)
+        for k, n in enumerate([60, 67, 72, 76]):
+            add(at + 0.035 * k, mallet(hz(n), 1.6, 0.2, 3), 0.17, pan=-0.3 + 0.2 * k)
+    elif name == "soon":
+        for k, n in enumerate([72, 76, 79, 84]):
+            add(at + 0.06 * k, mallet(hz(n), 1.4, 0.2, 4), 0.12, pan=-0.2 + 0.15 * k)
 
-for cue in cues:
-    at, name = cue[0], cue[1]
-    arg = cue[2] if len(cue) > 2 else 0
-    if name == "fall":
-        add(at, sweep(1400, 500, 0.38, decay=3) * 0.18, pan=0)
-    elif name == "boing":
-        add(at, boing(), 0.7)
-        add(at, kick(), 0.5)
-    elif name == "whooshUp":
-        add(at, whoosh(0.35, True), 0.35)
-    elif name == "bounce":
-        add(at, marimba(note(PENTA[2 + arg])), 0.55, pan=-0.3 + arg * 0.2)
-        add(at, tock(), 0.15)
-    elif name == "whoosh":
-        add(at, whoosh(0.2, True), 0.4, pan=0.4)
-    elif name == "thud":
-        add(at, kick(), 0.9)
-        add(at, marimba(note(48), 0.6, 0.1), 0.5)
-    elif name == "tada":
-        add(at, confetti, 0.6)
-    elif name == "riser":
-        d = float(arg)
-        t = tt(d)
-        add(at, (sweep(200, 1600, d, decay=0) * 0.15 + whoosh(d, True) * 0.6) * (t / d) ** 2, 0.7)
-    elif name == "kick":
-        add(at, kick(), 0.8)
-    elif name == "tick":
-        add(at, tock(2400), 0.11, pan=0.15)
-        add(at, marimba(note(96), 0.08, 0), 0.22, pan=0.15)
-    elif name == "ding":
-        for k, n in enumerate([84, 88, 91]):
-            add(at + k * 0.03, marimba(note(n), 1.0, 0.6), 0.32)
-    elif name == "swoosh":
-        add(at, whoosh(0.42, True), 0.5)
-    elif name == "hop":
-        add(at, marimba(note([79, 81, 84][arg]), 0.7), 0.6, pan=[-0.3, 0, 0.3][arg])
-        add(at, pop(), 0.2)
-    elif name == "suck":
-        add(at, whoosh(0.4, False), 0.45)
-        add(at, sweep(900, 150, 0.4, decay=4) * 0.2)
-    elif name == "windup":
-        d = float(arg)
-        t = tt(d)
-        add(at, sweep(300, 900, d, decay=0) * (t / d) * 0.18)
-    elif name == "boom":
-        t = tt(1.4)
-        add(at, sweep(90, 35, 1.4, decay=3.5), 1.0)
-        add(at, lowpass(noise(1.4), 0.08) * np.exp(-t * 4) * 1.4, 0.8)
-        for k, n in enumerate([60, 67, 72, 76, 79]):
-            add(at + 0.02 * k, marimba(note(n), 1.4, 0.3), 0.3)
-    elif name == "plink":
-        add(at, marimba(note(PENTA[arg % len(PENTA)] + 12), 0.25, 0.5), 0.22, pan=-0.5 + (arg % 7) / 7)
-    elif name == "pop":
-        add(at, pop(), 0.5)
-    elif name == "hopUp":
-        add(at, sweep(500, 1500, 0.22, decay=6) * 0.25)
-    elif name == "chord":
-        t = tt(2.3)
-        for n in [60, 64, 67, 72, 76]:
-            f = note(n)
-            add(at, (np.sin(TAU * f * t) + 0.3 * np.sin(TAU * 2 * f * t)) * np.exp(-t * 1.6) * np.minimum(1, t * 40), 0.12)
-    elif name == "pops":
-        for k in range(14):
-            add(at + rng.uniform(0, 0.35), pop() * rng.uniform(0.3, 0.7), 0.4, pan=rng.choice([-0.7, 0.7]))
+# Warm pad bed: C -> Am -> F -> G -> C, swelling under the story.
+chords = [
+    (2.3, 3.0, [48, 55, 64, 67]),   # C
+    (5.2, 2.7, [45, 52, 60, 64]),   # Am
+    (7.8, 2.4, [41, 48, 57, 64]),   # Fmaj7
+    (10.0, 2.2, [43, 50, 59, 62]),  # G
+    (12.1, 2.9, [48, 55, 64, 67, 71]),  # Cmaj7
+]
+for at, d, notes in chords:
+    add(at, pad(notes, d + 0.8, attack=0.5, release=0.9), 0.16)
 
-# Music bed: a light, bouncy beat from the orange reel to the payoff.
-BPM = 120
-beat = 60 / BPM
-start, stop = 3.8, 12.9
-bass = [48, 48, 55, 52, 45, 45, 52, 50]
-b = 0
-x = start
-while x < stop - 0.01:
-    add(x, kick(), 0.42)
-    add(x + beat / 2, hat(), 0.5, pan=0.3)
-    if b % 2 == 1:
-        add(x, tock(1200), 0.12, pan=-0.3)
-    add(x + beat / 2, marimba(note(bass[b % len(bass)]), 0.35, 0.05), 0.35)
-    b += 1
-    x += beat
-# Intro: soft shaker on 8ths.
-x = 0.5
-while x < 3.4:
-    add(x, hat(), 0.18, pan=-0.2)
-    x += beat / 2
+# Soft pulse under the features: muted plucks on 8ths at 100 BPM.
+step = 60 / 100 / 2
+arp = [60, 67, 72, 67, 64, 67, 72, 76]
+x, k = 5.95, 0
+while x < 10.6:
+    add(x, mallet(hz(arp[k % len(arp)]), 0.3, 0.05, 14), 0.05, pan=0.25 if k % 2 else -0.25)
+    x += step
+    k += 1
 
 mix = np.stack([L, R], 1)[: int(DUR * SR)]
-# Soft clip, normalize, short fade-out.
-mix = np.tanh(mix * 1.2)
 mix /= np.max(np.abs(mix)) + 1e-9
-mix *= 0.79  # headroom so the AAC encode doesn't clip
-fade = int(0.35 * SR)
-mix[-fade:] *= np.linspace(1, 0, fade)[:, None]
+mix *= 0.8
+fade = int(0.6 * SR)
+mix[-fade:] *= np.linspace(1, 0, fade)[:, None] ** 2
 with wave.open(out_path, "wb") as w:
     w.setnchannels(2)
     w.setsampwidth(2)
