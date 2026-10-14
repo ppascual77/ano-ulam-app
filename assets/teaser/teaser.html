@@ -1,0 +1,906 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>AnoUlam Teaser</title>
+<style>
+  html, body { margin: 0; background: #111; height: 100%; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { height: 100vh; width: auto; display: block; }
+  body.capture canvas { height: 1920px; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script>
+// AnoUlam "coming soon" teaser, 15s at 1080x1920.
+// Everything is a pure function of t (render(t)), so capture.mjs can step
+// it frame by frame, and the sound cues (CUES) come from the same timeline.
+// Opened directly in a browser it just loops in real time as a preview.
+
+const W = 1080, H = 1920, DURATION = 15;
+const cv = document.getElementById("c");
+const ctx = cv.getContext("2d");
+
+// Brand tokens (tailwind.config.js / constants/theme.ts), nothing invented.
+const C = {
+  green: "#286046",      // primary
+  greenDark: "#18402F",  // brand-green.dark
+  brandGreen: "#006D4D", // brand-green
+  orange: "#E36B17",     // accent
+  orangeLight: "#F88927",// brand-orange
+  ink: "#2B3437",        // ink.emphasis
+  cream: "#F2EDE1",      // tag.bg
+  peach: "#FEF1E6",      // category.breakfast
+  white: "#FFFFFF",
+  like: "#EF4444",
+  fats: "#F46767",
+};
+const DOODLE_COLORS = [C.green, C.orange];
+
+// ---------------------------------------------------------------- math
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, u) => a + (b - a) * u;
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const outCubic = (u) => 1 - Math.pow(1 - u, 3);
+const inCubic = (u) => u * u * u;
+const inOutCubic = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
+const outExpo = (u) => (u >= 1 ? 1 : 1 - Math.pow(2, -10 * u));
+const inExpo = (u) => (u <= 0 ? 0 : Math.pow(2, 10 * u - 10));
+const outBack = (u, s = 1.70158) => 1 + (s + 1) * Math.pow(u - 1, 3) + s * Math.pow(u - 1, 2);
+const inBack = (u, s = 1.70158) => (s + 1) * u * u * u - s * u * u;
+// Damped spring from 0 to 1, dt seconds after release.
+const spring = (dt, freq = 2.4, damp = 7) => (dt <= 0 ? 0 : 1 - Math.exp(-damp * dt) * Math.cos(2 * Math.PI * freq * dt));
+// Decaying wobble that starts at 0 and ends at 0 (for squash, shake).
+const wobble = (dt, freq = 5, damp = 9) => (dt < 0 ? 0 : Math.exp(-damp * dt) * Math.sin(2 * Math.PI * freq * dt));
+
+function hash(...a) {
+  let h = 2166136261;
+  for (const v of a) { h ^= Math.round(v * 977) | 0; h = Math.imul(h, 16777619); }
+  h ^= h >>> 13; h = Math.imul(h, 0x5bd1e995); h ^= h >>> 15;
+  return (h >>> 0) / 4294967296;
+}
+// "Line boil" like the app's doodles: redraw by hand ~10 times a second.
+const boilKey = (t) => Math.floor(t * 10 + 1e-6) % 3;
+const jit = (id, i, t, amt) => (hash(id, i, boilKey(t)) - 0.5) * 2 * amt;
+
+// Parabolic hop from a to b over [t0, t1], h px above the higher end.
+function hop(t, t0, t1, a, b, h) {
+  const u = seg(t, t0, t1);
+  const top = Math.min(a.y, b.y) - h;
+  // Quadratic through a, top-ish, b.
+  const y = (1 - u) * (1 - u) * a.y + 2 * (1 - u) * u * (2 * top - (a.y + b.y) / 2) + u * u * b.y;
+  return { x: lerp(a.x, b.x, u), y };
+}
+
+// ---------------------------------------------------------------- doodles
+// Ported from frontend/components/ui/doodles.tsx (24x24 viewBox).
+const ring = (cx, cy, r, n) => Array.from({ length: n }, (_, i) => {
+  const a = (i / n) * Math.PI * 2; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+});
+const DOODLES = {
+  triangle: { strokes: [{ points: [[6, 4], [20, 12], [6, 20]], closed: true }], filled: true },
+  star: { strokes: [{ points: Array.from({ length: 10 }, (_, i) => {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5; const r = i % 2 === 0 ? 10 : 4.2;
+    return [12 + Math.cos(a) * r, 12 + Math.sin(a) * r]; }), closed: true }] },
+  spiral: { strokes: [{ points: Array.from({ length: 23 }, (_, i) => {
+    const a = i * 0.45; const r = 1.2 + a * 0.85; return [12 + Math.cos(a) * r, 12 + Math.sin(a) * r]; }) }] },
+  circle: { strokes: [{ points: ring(12, 12, 8, 16), closed: true }] },
+  zigzags: { strokes: [{ points: [[3, 9], [7, 5], [11, 9], [15, 5], [19, 9]] }, { points: [[5, 17], [9, 13], [13, 17], [17, 13], [21, 17]] }] },
+  dots: { strokes: [], dots: [[7, 16, 2.6], [12, 7, 2.6], [17.5, 15, 2.6]], filled: true },
+};
+const EXTRA = {
+  down: { strokes: [{ points: [[2, 6], [8, 11.5], [12, 8.5], [21, 17]] }, { points: [[14.5, 17.5], [21, 17], [20.5, 10.5]] }] },
+  heart: { strokes: [{ points: Array.from({ length: 24 }, (_, i) => {
+    const a = (i / 24) * Math.PI * 2;
+    return [12 + 0.55 * 16 * Math.pow(Math.sin(a), 3), 11 - 0.55 * (13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a))]; }), closed: true }], filled: true },
+  check: { strokes: [{ points: [[5, 12.5], [10, 17], [19, 6.5]] }] },
+};
+const DOODLE_NAMES = Object.keys(DOODLES);
+const getDoodle = (n) => DOODLES[n] || EXTRA[n];
+
+function drawDoodle(name, x, y, size, rot, color, t, id, { alpha = 1, draw = 1, lw = 2.4, fill } = {}) {
+  const d = getDoodle(name);
+  if (alpha <= 0 || size <= 0) return;
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.translate(x, y); ctx.rotate(rot); ctx.scale(size / 24, size / 24); ctx.translate(-12, -12);
+  ctx.strokeStyle = color; ctx.fillStyle = color;
+  ctx.lineWidth = lw; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  let k = 0;
+  for (const s of d.strokes) {
+    const pts = s.points.map(([px, py], i) => [px + jit(id, k * 50 + i, t, 0.8), py + jit(id + 0.5, k * 50 + i, t, 0.8)]);
+    if (s.closed) pts.push(pts[0]);
+    tracePartial(pts, 0, draw);
+    ctx.stroke();
+    if ((fill ?? d.filled) && draw >= 1) ctx.fill();
+    k++;
+  }
+  for (const [i, [cx, cy, r]] of (d.dots || []).entries()) {
+    ctx.beginPath();
+    ctx.arc(cx + jit(id, 900 + i, t, 0.8), cy + jit(id, 950 + i, t, 0.8), r * Math.min(1, draw * 1.5), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Path through pts, trimmed to [from, to] of its length.
+function tracePartial(pts, from, to) {
+  ctx.beginPath();
+  if (to <= from || pts.length < 2) return;
+  const lens = [0];
+  for (let i = 1; i < pts.length; i++) lens.push(lens[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const total = lens[lens.length - 1];
+  const a = from * total, b = to * total;
+  const at = (L) => {
+    let i = 1; while (i < lens.length - 1 && lens[i] < L) i++;
+    const u = (L - lens[i - 1]) / Math.max(1e-6, lens[i] - lens[i - 1]);
+    return [lerp(pts[i - 1][0], pts[i][0], u), lerp(pts[i - 1][1], pts[i][1], u), i];
+  };
+  const [sx, sy, si] = at(a);
+  ctx.moveTo(sx, sy);
+  const [ex, ey, ei] = at(b);
+  for (let i = si; i < ei; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.lineTo(ex, ey);
+}
+
+// A hand-drawn wiggly line between two points.
+function wiggle(x0, y0, x1, y1, { amp = 14, waves = 5, phase = 0, width = 10, color = C.green, from = 0, to = 1, id = 1, t = 0, n = 90, alpha = 1, bend = null } = {}) {
+  if (to <= from || alpha <= 0) return;
+  const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1;
+  const nx = -dy / L, ny = dx / L;
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const s = i / n;
+    let off = amp * Math.sin(2 * Math.PI * waves * s + phase) + jit(id, i, t, amp * 0.12 + 1.5);
+    if (bend) off += bend(s);
+    pts.push([x0 + dx * s + nx * off, y0 + dy * s + ny * off]);
+  }
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  tracePartial(pts, from, to);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// Doodle confetti burst, like Confetti.tsx: fans out, arcs, falls, fades.
+function burst(t, t0, x, y, { count = 16, seed = 1, from = -Math.PI, span = Math.PI * 2, dmin = 130, drange = 220, grav = 160, dur = 1.0, smin = 34, srange = 22, colors = DOODLE_COLORS, names = DOODLE_NAMES } = {}) {
+  const dt = t - t0;
+  if (dt < 0 || dt > dur + 0.3) return;
+  for (let i = 0; i < count; i++) {
+    const r = (k) => hash(seed, i, k);
+    const delay = r(1) * 0.12;
+    const p = outCubic(clamp((dt - delay) / dur));
+    if (dt < delay) continue;
+    const ang = from + (count > 1 ? i / (count - (span >= Math.PI * 2 ? 0 : 1)) : 0.5) * span + (r(2) - 0.5) * 0.5;
+    const dist = dmin + r(3) * drange;
+    const px = x + Math.cos(ang) * dist * p;
+    const py = y + Math.sin(ang) * dist * p + grav * p * p;
+    const alpha = p < 0.6 ? 1 : 1 - (p - 0.6) / 0.4;
+    const scale = 0.4 + 0.6 * Math.min(p * 3, 1);
+    const name = names[(i + seed) % names.length];
+    const color = colors[(i + Math.floor(i / names.length)) % colors.length];
+    drawDoodle(name, px, py, (smin + r(4) * srange) * scale, (r(5) - 0.5) * 6.3 * p, color, t, seed * 100 + i, { alpha });
+  }
+}
+
+// ---------------------------------------------------------------- text
+const FONT = (w, px) => `${w} ${px}px Inter`;
+function text(str, x, y, { font, color = C.ink, align = "left", ls = 0, alpha = 1 } = {}) {
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = "alphabetic";
+  ctx.letterSpacing = `${ls}px`;
+  ctx.fillText(str, x, y);
+  ctx.restore();
+}
+function measure(str, font, ls = 0) {
+  ctx.save(); ctx.font = font; ctx.letterSpacing = `${ls}px`;
+  const w = ctx.measureText(str).width; ctx.restore(); return w;
+}
+// Per-letter x offsets, for staggered letter animations.
+function letterXs(str, font, ls = 0) {
+  const xs = [];
+  for (let i = 0; i < str.length; i++) xs.push(measure(str.slice(0, i), font, ls));
+  return xs;
+}
+// Letters drop in one by one and land with a springy squash.
+function dropLetters(str, x, y, t, t0, { font, color, ls = 0, stagger = 0.04, colors = null, rise = 160 } = {}) {
+  const xs = letterXs(str, font, ls);
+  for (let i = 0; i < str.length; i++) {
+    const dt = t - t0 - i * stagger;
+    if (dt <= 0) continue;
+    const s = spring(dt, 2.6, 8);
+    ctx.save();
+    ctx.translate(x + xs[i], y + (1 - s) * -rise);
+    const sq = 1 + 0.25 * wobble(dt - 0.12, 4, 10);
+    ctx.scale(1 / sq, sq);
+    ctx.rotate((1 - Math.min(1, s)) * (hash(i, 7) - 0.5) * 0.6);
+    text(str[i], 0, 0, { font, color: colors ? colors[i] : color, alpha: clamp(dt * 12) });
+    ctx.restore();
+  }
+}
+
+// ---------------------------------------------------------------- images
+const IMG = {};
+function loadImg(key, src) {
+  return new Promise((res, rej) => { const im = new Image(); im.onload = () => { IMG[key] = im; res(); }; im.onerror = rej; im.src = src; });
+}
+// up > 1 redraws a small raster bigger and re-sharpens its alpha edge, so
+// the 255px logo still reads crisp at 600px+.
+function tinted(im, color, clipBottom = null, up = 1) {
+  const c = document.createElement("canvas");
+  c.width = im.width * up; c.height = im.height * up;
+  const g = c.getContext("2d");
+  g.imageSmoothingQuality = "high";
+  g.drawImage(im, 0, 0, c.width, c.height);
+  if (clipBottom != null) g.clearRect(0, clipBottom * up, c.width, c.height);
+  if (up > 1) {
+    const d = g.getImageData(0, 0, c.width, c.height);
+    for (let i = 3; i < d.data.length; i += 4) d.data[i] = clamp((d.data[i] - 128) * 3 + 128, 0, 255);
+    g.putImageData(d, 0, 0);
+  }
+  g.globalCompositeOperation = "source-in";
+  g.fillStyle = color; g.fillRect(0, 0, c.width, c.height);
+  return c;
+}
+// logo_white.png is 255x374; its "?" dot sits at rows 313-370, x 3-77.
+const LOGO_W = 255, LOGO_H = 374;
+const LOGO_DOT = { x: 40, y: 341.5, rx: 37.5, ry: 29 };
+
+// Logo whose box center is (cx, cy), h px tall, rotated rot, scaled s.
+// Returns where (and how big) its dot is, so the hero dot can sit in it.
+function logoDot(cx, cy, h, rot = 0, s = 1) {
+  const k = (h / LOGO_H) * s;
+  const lx = (LOGO_DOT.x - LOGO_W / 2) * k, ly = (LOGO_DOT.y - LOGO_H / 2) * k;
+  return { x: cx + lx * Math.cos(rot) - ly * Math.sin(rot), y: cy + lx * Math.sin(rot) + ly * Math.cos(rot), rx: LOGO_DOT.rx * k, ry: LOGO_DOT.ry * k };
+}
+function drawLogo(cx, cy, h, rot = 0, s = 1, { dot = false, alpha = 1 } = {}) {
+  if (s <= 0.001) return;
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.translate(cx, cy); ctx.rotate(rot); ctx.scale(s, s);
+  const w = (h * LOGO_W) / LOGO_H;
+  ctx.drawImage(dot ? IMG.logoGreen : IMG.logoGreenNoDot, -w / 2, -h / 2, w, h);
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- hero dot
+function drawDot(x, y, { rx = 34, ry = null, sx = 1, sy = 1, rot = 0, color = C.orange, alpha = 1 } = {}) {
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.translate(x, y); ctx.rotate(rot);
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.ellipse(0, 0, Math.max(0.1, rx * sx), Math.max(0.1, (ry ?? rx) * sy), 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+// Stretch along the direction of travel, from two samples of a path.
+function stretchFor(p0, p1, k = 0.012, max = 0.45) {
+  const vx = p1.x - p0.x, vy = p1.y - p0.y; const v = Math.hypot(vx, vy);
+  const st = Math.min(max, v * k);
+  return { rot: Math.atan2(vy, vx), sx: 1 + st, sy: 1 / (1 + st) };
+}
+// Squash on landing at tl (dt seconds after).
+function squash(t, tl, amt = 0.38) {
+  const w = wobble(t - tl, 4.5, 11) * amt;
+  return { sx: 1 + w, sy: 1 - w };
+}
+
+// ---------------------------------------------------------------- shake
+const IMPACTS = [[0.5, 10], [2.85, 16], [3.1, 10], [5.3, 14], [9.6, 30], [12.9, 14]];
+function shake(t) {
+  let x = 0, y = 0;
+  for (const [ti, m] of IMPACTS) {
+    const dt = t - ti; if (dt < 0 || dt > 0.6) continue;
+    const e = Math.exp(-dt * 12) * m;
+    x += e * Math.sin(dt * 90 + ti); y += e * Math.cos(dt * 77 + ti * 2);
+  }
+  return { x, y };
+}
+
+// ======================================================================
+// Timeline (seconds). The sound cues below read from these too.
+// ======================================================================
+const T = {
+  lineIn: 0.0, dropStart: 0.12, tramp: 0.5, launch: 0.68,
+  words: [1.2, 1.6, 2.0, 2.4], logoSlam: 2.85, dotHome: 3.1,
+  irisA: 3.42, irisB: 3.8, reelA: 3.8, reelB: 5.3,
+  waveA: 5.72, waveB: 6.15, feats: [6.3, 7.05, 7.8], collapse: 8.62, irisOutA: 8.85, irisOutB: 9.22,
+  toCenter: 9.22, toCenterB: 9.42, boom: 9.6, word: 10.15, period: 10.6, tagline: 10.8,
+  shrink: 11.8, shrinkB: 12.25, coming: 12.12, soon: 12.36, dotHopA: 12.62, dotHopB: 12.9,
+  pills: [13.12, 13.27], corner: 13.45, wink: 14.35, winkLand: 14.7,
+};
+
+// ---------------------------------------------------------------- scene A/B layout
+const WORDS = [
+  { s: "Ano", y: 600, color: C.ink, hit: 0.5 },
+  { s: "ulam", y: 800, color: C.green, hit: 0.72 },
+  { s: "mo", y: 1000, color: C.ink, hit: 0.5 },
+  { s: "today", y: 1200, color: C.ink, hit: 0.62 },
+];
+const WORD_FONT = FONT(900, 178), WORD_LS = -8, WORD_X = 96, DOT_R = 34;
+const B_LOGO = { cx: 862, cy: 930, h: 570 };
+
+function wordTop(i) {
+  const w = WORDS[i]; const wd = measure(w.s, WORD_FONT, WORD_LS);
+  return { x: WORD_X + wd * w.hit, y: w.y - 178 * 0.75 - DOT_R };
+}
+
+function bLogoState(t) {
+  const dt = t - T.logoSlam;
+  const s = spring(dt, 2.2, 6.5);
+  const rot = (1 - spring(dt, 1.8, 5)) * 0.6 + wobble(t - T.dotHome, 3, 6) * 0.05;
+  return { s: Math.max(0, s), rot };
+}
+
+// ---------------------------------------------------------------- scene D layout
+const FEATS = [
+  { s: "Plan your week", y: 820 },
+  { s: "Watch prices", y: 1120 },
+  { s: "Find your ulam", y: 1420 },
+];
+const FEAT_FONT = FONT(800, 124), FEAT_LS = -5, FEAT_X = 80, FEAT_R = 19;
+function featDot(i) {
+  const w = measure(FEATS[i].s, FEAT_FONT, FEAT_LS);
+  return { x: FEAT_X + w + 6 + FEAT_R, y: FEATS[i].y - FEAT_R };
+}
+
+// ---------------------------------------------------------------- scene E/F layout
+const E_LOGO = { cx: 540, cy: 840, h: 660 };
+const F_LOGO = { cx: 540, cy: 420, h: 330 };
+const BIG_FONT = FONT(900, 210), BIG_LS = -10;
+function fLogoState(t) {
+  const u = inOutCubic(seg(t, T.shrink, T.shrinkB));
+  return { cx: lerp(E_LOGO.cx, F_LOGO.cx, u), cy: lerp(E_LOGO.cy, F_LOGO.cy, u), h: lerp(E_LOGO.h, F_LOGO.h, u) };
+}
+function soonDot() {
+  const wC = measure("soon", BIG_FONT, BIG_LS);
+  const x0 = 540 - (wC + 70) / 2;
+  return { x: x0 + wC + 10 + 30, y: 1060 - 30, x0 };
+}
+
+// ======================================================================
+// The hero dot's whole journey.
+// ======================================================================
+function dotAt(t) {
+  // A: drop, trampoline, launch.
+  if (t < T.dropStart) return null;
+  if (t < T.tramp) {
+    const u = seg(t, T.dropStart, T.tramp);
+    return { x: 540, y: lerp(-80, 1150 - DOT_R, u * u) };
+  }
+  if (t < T.launch) {
+    const d = trampDepth(t);
+    return { x: 540, y: 1150 - DOT_R + d };
+  }
+  if (t < 1.0) {
+    const u = seg(t, T.launch, 1.0);
+    return { x: lerp(540, 380, u), y: lerp(1150 - DOT_R + trampDepth(T.launch), -120, outCubic(u)) };
+  }
+  // B: bounce across the words, then home into the "?".
+  const W0 = wordTop(0);
+  if (t < T.words[0]) {
+    const u = seg(t, 1.0, T.words[0]);
+    return { x: lerp(380, W0.x, u), y: lerp(-120, W0.y, u * u) };
+  }
+  for (let i = 0; i < 3; i++) {
+    if (t < T.words[i + 1]) return hop(t, T.words[i], T.words[i + 1], wordTop(i), wordTop(i + 1), 150);
+  }
+  const L = bLogoState(t);
+  const home = logoDot(B_LOGO.cx, B_LOGO.cy, B_LOGO.h, L.rot, L.s);
+  if (t < T.dotHome) return hop(t, T.words[3], T.dotHome, wordTop(3), home, 260);
+  if (t < T.irisB) {
+    const u = inExpo(seg(t, T.irisA, T.irisB));
+    return { ...home, rx: lerp(home.rx, 2400, u), ry: lerp(home.ry, 2400, u), home: true };
+  }
+  // C: hidden (the reel has its own period).
+  if (t < T.waveB) return null;
+  // D: drop onto each feature's period, hop to the next.
+  const F = [0, 1, 2].map(featDot).map((p) => ({ x: p.x, y: p.y, r: FEAT_R }));
+  if (t < T.feats[0]) {
+    const u = seg(t, T.waveB, T.feats[0]);
+    return { x: lerp(980, F[0].x, u), y: lerp(-80, F[0].y, u * u), r: FEAT_R };
+  }
+  if (t < T.feats[1]) return { ...hop(t, T.feats[0] + 0.4, T.feats[1], F[0], F[1], 170), r: FEAT_R };
+  if (t < T.feats[2]) return { ...hop(t, T.feats[1] + 0.4, T.feats[2], F[1], F[2], 170), r: FEAT_R };
+  if (t < T.toCenter) return { ...F[2], r: lerp(FEAT_R, DOT_R, seg(t, T.irisOutA, T.irisOutB)) };
+  // E: to the center, wind up, boom, settle into the big logo.
+  const center = { x: 540, y: 980 };
+  if (t < T.toCenterB) return { ...hop(t, T.toCenter, T.toCenterB, F[2], center, 120), r: DOT_R };
+  if (t < T.boom) {
+    const u = seg(t, T.toCenterB, T.boom);
+    return { ...center, r: DOT_R * (1 - 0.45 * outCubic(u)), wind: u };
+  }
+  const fl = fLogoState(t);
+  const home2 = logoDot(fl.cx, fl.cy, fl.h * eLogoScale(t));
+  if (t < T.dotHopA) {
+    const u = outBack(seg(t, T.boom, T.boom + 0.38), 1.4);
+    return { x: lerp(center.x, home2.x, u), y: lerp(center.y, home2.y, u), rx: lerp(DOT_R * 1.6, home2.rx, clamp(u)), ry: lerp(DOT_R * 1.6, home2.ry, clamp(u)), home: true };
+  }
+  // F: hop from the logo down onto "soon."'s period, then a little wink.
+  const sd = soonDot();
+  const sp = { x: sd.x, y: sd.y };
+  if (t < T.dotHopB) {
+    const p = hop(t, T.dotHopA, T.dotHopB, home2, sp, 200);
+    const u = seg(t, T.dotHopA, T.dotHopB);
+    return { ...p, rx: lerp(home2.rx, 30, u), ry: lerp(home2.ry, 30, u) };
+  }
+  if (t > T.wink && t < T.winkLand) return { ...hop(t, T.wink, T.winkLand, sp, sp, 130), r: 30 };
+  return { ...sp, r: 30 };
+}
+
+function trampDepth(t) {
+  if (t < T.tramp) return 0;
+  if (t < T.launch) return 120 * Math.sin((Math.PI / 2) * seg(t, T.tramp, T.launch) * 1.35);
+  return 120 * Math.sin((Math.PI / 2) * 1.35) * Math.exp(-(t - T.launch) * 5) * Math.cos((t - T.launch) * 34);
+}
+
+function eLogoScale(t) { return Math.max(0, spring(t - T.boom, 2.0, 6)); }
+
+// ======================================================================
+// Scenes
+// ======================================================================
+const A_DECOR = Array.from({ length: 12 }, (_, i) => ({
+  name: DOODLE_NAMES[i % 6],
+  x: [120, 940, 80, 990, 200, 880, 140, 960, 520, 300, 760, 610][i],
+  y: [240, 300, 1420, 1500, 1720, 1760, 420, 1100, 200, 1600, 1620, 1780][i],
+  size: 46 + hash(i, 3) * 30,
+  color: DOODLE_COLORS[i % 2],
+  at: 0.05 + i * 0.04,
+}));
+
+function sceneAB(t) {
+  ctx.fillStyle = C.cream; ctx.fillRect(-60, -60, W + 120, H + 120);
+
+  // Floating doodles that pop in and drift.
+  for (const [i, d] of A_DECOR.entries()) {
+    const s = spring(t - d.at, 2.2, 7);
+    drawDoodle(d.name, d.x + Math.sin(t * 1.3 + i) * 10, d.y + Math.cos(t * 1.1 + i * 2) * 12, d.size * s, t * 0.6 * (i % 2 ? 1 : -1) + i, d.color, t, 40 + i, { alpha: 0.9 });
+  }
+
+  // "psst..." note while the dot drops.
+  if (t < 1.0) {
+    const s = spring(t - 0.08, 2.5, 8) * (1 - inBack(seg(t, 0.62, 0.85)));
+    ctx.save(); ctx.translate(540, 560); ctx.rotate(-0.08 + wobble(t - 0.08, 2, 4) * 0.1); ctx.scale(s, s);
+    text("psst...", 0, 0, { font: "700 120px Caveat", color: C.green, align: "center" });
+    ctx.restore();
+  }
+
+  // The trampoline line: draws on, dips under the dot, then whips away.
+  if (t < 1.25) {
+    const d = trampDepth(t);
+    const from = outCubic(seg(t, 0.95, 1.2));
+    wiggle(110, 1150, 970, 1150, {
+      amp: 12 + 30 * seg(t, 0.85, 1.15), waves: 6, phase: t * 9, width: 14, color: C.green, id: 3, t,
+      to: outCubic(seg(t, T.lineIn, 0.38)), from,
+      bend: (s) => d * Math.exp(-Math.pow((s - 0.5) / 0.22, 2)),
+    });
+  }
+  burst(t, T.tramp, 540, 1150, { seed: 3, count: 12, from: -Math.PI, span: Math.PI, dmin: 120, drange: 180, grav: 220 });
+
+  // Words, stamped up by the dot.
+  for (const [i, w] of WORDS.entries()) {
+    const dt = t - T.words[i];
+    if (dt < 0) continue;
+    const s = spring(dt, 2.6, 7.5);
+    ctx.save();
+    ctx.translate(WORD_X, w.y);
+    ctx.scale(1 + 0.12 * wobble(dt, 3, 8), Math.max(0, s));
+    text(w.s, 0, 0, { font: WORD_FONT, color: w.color, ls: WORD_LS });
+    ctx.restore();
+    if (i === 1) {
+      const wd = measure(w.s, WORD_FONT, WORD_LS);
+      wiggle(WORD_X + 4, w.y + 34, WORD_X + wd, w.y + 34, { amp: 9, waves: 4.5, phase: t * 4, width: 12, color: C.orange, id: 11, t, to: outCubic(seg(t, 1.72, 2.05)) });
+    }
+  }
+
+  // The "?" logo slams in; the dot becomes its dot.
+  const L = bLogoState(t);
+  drawLogo(B_LOGO.cx, B_LOGO.cy, B_LOGO.h, L.rot, L.s);
+  // Speed lines behind the slam.
+  for (let k = 0; k < 3; k++) {
+    const u = seg(t, T.logoSlam - 0.05, T.logoSlam + 0.3);
+    if (u > 0 && u < 1) wiggle(1060, 620 + k * 110, 760, 640 + k * 110, { amp: 6, waves: 3, width: 8, color: C.orange, id: 60 + k, t, from: outCubic(u), to: Math.min(1, outCubic(u) * 1.8 + 0.2) });
+  }
+  burst(t, T.dotHome, logoDot(B_LOGO.cx, B_LOGO.cy, B_LOGO.h).x, logoDot(B_LOGO.cx, B_LOGO.cy, B_LOGO.h).y, { seed: 7, count: 22, dmin: 140, drange: 260, grav: 200, dur: 1.1 });
+
+  // "hmm..." note.
+  if (t > 3.15) {
+    const s = spring(t - 3.15, 2.5, 8);
+    ctx.save(); ctx.translate(740, 380); ctx.rotate(0.12); ctx.scale(s, s);
+    text("hmm...", 0, 0, { font: "700 96px Caveat", color: C.orange, align: "center" });
+    ctx.restore();
+  }
+}
+
+// ---- C: orange slot reel
+const DISHES = ["Adobo", "Sinigang", "Sisig", "Kare-Kare", "Tinola", "Bulalo", "Laing", "Pancit", "Menudo", "Kaldereta", "Pinakbet", "Lechon", "Ask AnoUlam"];
+const REEL_GAP = 210;
+function reelPos(t) {
+  const u = seg(t, T.reelA, T.reelB);
+  // Fast start, long ease out, then a clunk a little past the last row.
+  return (DISHES.length - 1) * (1 - Math.pow(1 - u, 3)) + 0.18 * wobble(t - T.reelB, 2.5, 7);
+}
+// Drawn a word at a time: one ~5000px fillText doesn't render reliably.
+function marquee(words, y, speed, t, size, alpha, color) {
+  const font = FONT(900, size);
+  const parts = words.map((wd) => wd + " • ");
+  const ws = parts.map((p) => measure(p, font, -6));
+  const w = ws.reduce((a, b) => a + b, 0);
+  let x = -(((t * speed) % w) + w) % w;
+  for (let k = -1; k < 2; k++) {
+    let px = x + k * w;
+    for (const [i, p] of parts.entries()) {
+      if (px < W + 50 && px + ws[i] > -50) text(p, px, y, { font, color, alpha, ls: -6 });
+      px += ws[i];
+    }
+  }
+}
+function sceneC(t) {
+  ctx.fillStyle = C.orange; ctx.fillRect(-60, -60, W + 120, H + 120);
+  const strip = ["ADOBO", "SINIGANG", "SISIG", "TINOLA", "LAING"];
+  marquee(strip, 330, 520, t, 230, 0.12, C.white);
+  marquee(strip, 1760, -520, t, 230, 0.12, C.white);
+
+  // Big lazy spiral.
+  drawDoodle("spiral", 540, 960, 1500, t * 1.2, C.peach, t, 70, { alpha: 0.13, lw: 0.6 });
+
+  const pos = reelPos(t);
+  const vel = (reelPos(t + 1 / 60) - reelPos(t - 1 / 60)) * 30; // rows per second
+  const calm = seg(t, T.reelB - 0.2, T.reelB + 0.4);
+  // Ribbons above and below the window speed up with the reel.
+  for (const [k, y] of [[0, 760], [1, 1160]]) {
+    wiggle(-40, y, W + 40, y, { amp: 16 + Math.min(30, vel * 2), waves: 7, phase: t * (6 + vel * 0.8) * (k ? -1 : 1), width: 12, color: C.white, id: 80 + k, t, to: outCubic(seg(t, T.irisB - 0.1, T.irisB + 0.35)) });
+  }
+
+  text("TONIGHT'S ULAM IS...", 540, 660, { font: FONT(700, 40), color: C.white, align: "center", ls: 8, alpha: seg(t, 3.85, 4.1) });
+
+  // Reel window.
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 790, W, 340); ctx.clip();
+  const cy = 1010;
+  for (let i = 0; i < DISHES.length; i++) {
+    const off = (i - pos) * REEL_GAP;
+    if (Math.abs(off) > 380) continue;
+    const last = i === DISHES.length - 1;
+    const size = last ? 132 : 150;
+    const font = FONT(900, size);
+    const fade = 1 - clamp(Math.abs(off) / 300);
+    // Motion blur: ghost copies along the travel.
+    const ghosts = Math.min(5, Math.floor(Math.abs(vel) / 2));
+    for (let g = ghosts; g >= 0; g--) {
+      const go = g * Math.sign(vel) * Math.min(40, Math.abs(vel) * 3);
+      text(DISHES[i], 540, cy + off + go, { font, color: C.white, align: "center", ls: -6, alpha: (g === 0 ? 1 : 0.18) * fade });
+    }
+    if (last) {
+      const w = measure(DISHES[i], font, -6);
+      const dt = t - T.reelB;
+      const r = 20 * (dt > 0 ? Math.max(0, spring(dt, 3, 7)) : 0);
+      drawDot(540 + w / 2 + 12 + 20, cy + off - 20, { rx: r, color: C.greenDark });
+    }
+  }
+  ctx.restore();
+  // Fade the reel's edges into the background.
+  for (const [y0, y1] of [[790, 880], [1130, 1040]]) {
+    const g = ctx.createLinearGradient(0, y0, 0, y1);
+    g.addColorStop(0, C.orange); g.addColorStop(1, "rgba(227,107,23,0)");
+    ctx.fillStyle = g; ctx.fillRect(0, Math.min(y0, y1), W, Math.abs(y1 - y0));
+  }
+  burst(t, T.reelB, 540, 1000, { seed: 13, count: 26, dmin: 260, drange: 300, grav: 180, smin: 40, colors: [C.white, C.greenDark], dur: 1.1 });
+  if (t > T.reelB) {
+    const s = spring(t - T.reelB - 0.1, 2.4, 7);
+    ctx.save(); ctx.translate(820, 1300); ctx.rotate(-0.1); ctx.scale(s, s);
+    text("(seryoso!)", 0, 0, { font: "700 84px Caveat", color: C.peach, align: "center" });
+    ctx.restore();
+  }
+  void calm;
+}
+
+// ---- D: green features
+function sceneD(t) {
+  ctx.fillStyle = C.green; ctx.fillRect(-60, -60, W + 120, H + 120);
+  // Slow diagonal ribbons in a darker green.
+  for (let k = 0; k < 5; k++) {
+    const y = 200 + k * 400 + ((t * 60) % 400);
+    wiggle(-100, y + 200, W + 100, y - 200, { amp: 26, waves: 3.5, phase: t * 2 + k, width: 34, color: C.greenDark, id: 90 + k, t, alpha: 0.55 });
+  }
+  const dot = dotAt(t);
+  const col = seg(t, T.collapse, T.collapse + 0.32);
+  const cs = 1 - inBack(col, 2.2);
+  ctx.save();
+  if (dot && col > 0) { ctx.translate(dot.x, dot.y); ctx.scale(Math.max(0, cs), Math.max(0, cs)); ctx.translate(-dot.x, -dot.y); }
+
+  text("everything ulam, in one app", 84, 560, { font: "700 84px Caveat", color: C.peach, alpha: seg(t, 6.1, 6.35), });
+  for (const [i, f] of FEATS.entries()) {
+    const hit = T.feats[i];
+    const u = outCubic(seg(t, hit - 0.32, hit));
+    if (u <= 0) continue;
+    const dt = t - hit;
+    ctx.save();
+    ctx.translate(lerp(-W, FEAT_X, u), f.y);
+    ctx.rotate((1 - u) * -0.15 + wobble(dt, 3, 8) * 0.03);
+    const sq = 1 + 0.12 * wobble(dt, 4, 9);
+    ctx.scale(sq, 1 / sq);
+    text(f.s, 0, 0, { font: FEAT_FONT, color: C.white, ls: FEAT_LS });
+    ctx.restore();
+  }
+  // Week: seven day circles that tick in.
+  for (let d = 0; d < 7; d++) {
+    const at = T.feats[0] + 0.08 + d * 0.06;
+    const s = spring(t - at, 2.8, 8);
+    const x = FEAT_X + 38 + d * 90, y = FEATS[0].y + 100;
+    drawDoodle("circle", x, y, 78 * s, 0, C.peach, t, 120 + d, { lw: 2.2 });
+    if (t > at + 0.12) drawDoodle("check", x, y, 46 * spring(t - at - 0.12, 3, 8), 0, C.orangeLight, t, 140 + d, { lw: 3 });
+  }
+  // Prices: a hand-drawn arrow trending down, plus the drop.
+  {
+    const at = T.feats[1] + 0.05;
+    drawDoodle("down", FEAT_X + 60, FEATS[1].y + 100, 130, 0, C.peach, t, 160, { draw: outCubic(seg(t, at, at + 0.4)), lw: 2.4 });
+    const s = spring(t - at - 0.2, 2.6, 8);
+    ctx.save(); ctx.translate(FEAT_X + 150, FEATS[1].y + 130); ctx.rotate(-0.06); ctx.scale(s, s);
+    text("-₱12 this week", 0, 0, { font: "700 80px Caveat", color: C.orangeLight });
+    ctx.restore();
+  }
+  // Ulam: hearts and stars pop along the line.
+  for (let k = 0; k < 6; k++) {
+    const at = T.feats[2] + 0.05 + k * 0.05;
+    const s = spring(t - at, 2.6, 7);
+    drawDoodle(k % 2 ? "star" : "heart", FEAT_X + 40 + k * 110, FEATS[2].y + 100 + (k % 2) * 20, 64 * s, Math.sin(t * 3 + k) * 0.3, k % 2 ? C.peach : C.orangeLight, t, 170 + k);
+  }
+  burst(t, T.feats[2], featDot(2).x, featDot(2).y, { seed: 21, count: 14, dmin: 100, drange: 160, colors: [C.peach, C.orangeLight], dur: 0.9 });
+  ctx.restore();
+}
+
+// ---- E/F: logo reveal and coming soon (white)
+const E_DECOR = Array.from({ length: 16 }, (_, i) => {
+  const a = (i / 16) * Math.PI * 2 + 0.2;
+  const rx = 470 + hash(i, 2) * 40, ry = 860 + hash(i, 3) * 60;
+  return {
+    name: DOODLE_NAMES[i % 6], color: DOODLE_COLORS[i % 2], size: 44 + hash(i, 4) * 26,
+    x: 540 + Math.cos(a) * rx, y: 960 + Math.sin(a) * ry, spin: (hash(i, 5) - 0.5) * 14,
+  };
+}).filter((d) => d.x > 40 && d.x < W - 40 && d.y > 60 && d.y < H - 60);
+
+const POP_COUNT = 16;
+function cornerPop(t, t0) {
+  // Corner pop confetti (CornerPopConfetti.tsx): logos out of the
+  // bottom-right, hearts out of the bottom-left, arcing up and falling out.
+  const K = 2.7; // screen scale vs a phone in points
+  const G = 900 * K;
+  for (const side of [0, 1]) {
+    for (let i = 0; i < POP_COUNT; i++) {
+      const r = (k) => hash(side * 100 + i, k, 31);
+      const delay = r(1) * 0.25; const dt = t - t0 - delay;
+      if (dt < 0) continue;
+      const lean = ((10 + r(2) * 30) * Math.PI) / 180;
+      const speed = (700 + r(3) * 350) * K * 0.82;
+      const dir = side ? -1 : 1;
+      const vx = Math.sin(lean) * speed * dir, vy = -Math.cos(lean) * speed;
+      const x0 = side ? W - 36 * K : 36 * K, y0 = H - 90 * K;
+      const x = x0 + vx * dt, y = y0 + vy * dt + 0.5 * G * dt * dt;
+      if (y > H + 120) continue;
+      const size = (16 + r(4) * 18) * K * 0.8;
+      const rot = (180 + r(5) * 360) * (r(6) < 0.5 ? -1 : 1) * dt * 0.012;
+      ctx.save(); ctx.globalAlpha = (0.75 + r(7) * 0.25) * clamp(dt * 10);
+      ctx.translate(x, y); ctx.rotate(rot);
+      if (side) {
+        const tint = [IMG.logoGreen, IMG.logoBrand, IMG.logoDark][Math.floor(r(8) * 3)];
+        const w = (size * LOGO_W) / LOGO_H; ctx.drawImage(tint, -w / 2, -size / 2, w, size);
+      } else {
+        drawDoodle("heart", 0, 0, size * 1.1, 0, [C.like, C.orange, C.fats][Math.floor(r(8) * 3)], t, 300 + i, { lw: 1.6 });
+      }
+      ctx.restore();
+    }
+  }
+}
+
+function storePill(i, t) {
+  const at = T.pills[i];
+  const dt = t - at; if (dt < 0) return;
+  const s = spring(dt, 2.2, 7);
+  const cx = 540, cy = [1300, 1470][i], w = 640, h = 140;
+  ctx.save();
+  ctx.translate(cx, cy + (1 - s) * 360);
+  ctx.rotate((1 - s) * (i ? 0.12 : -0.12));
+  ctx.globalAlpha = clamp(dt * 8);
+  ctx.fillStyle = C.ink;
+  ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, h / 2); ctx.fill();
+  const icon = i ? IMG.appleWhite : IMG.google; const isz = 70;
+  ctx.drawImage(icon, -w / 2 + 56, -isz / 2 - (i ? 4 : 0), isz, isz);
+  text("Coming soon on", -w / 2 + 156, -14, { font: FONT(600, 30), color: C.cream });
+  text(i ? "App Store" : "Google Play", -w / 2 + 154, 42, { font: FONT(800, 56), color: C.white, ls: -1.5 });
+  ctx.restore();
+}
+
+function sceneEF(t) {
+  ctx.fillStyle = C.white; ctx.fillRect(-60, -60, W + 120, H + 120);
+  const dt = t - T.boom;
+
+  // Doodles blast out of the dot and settle as the wallpaper.
+  if (dt > 0) {
+    const u = outExpo(clamp(dt / 0.9));
+    for (const [i, d] of E_DECOR.entries()) {
+      const x = lerp(540, d.x, u) + Math.sin(t * 1.4 + i) * 8 * u;
+      const y = lerp(980, d.y, u) + Math.cos(t * 1.2 + i) * 10 * u;
+      drawDoodle(d.name, x, y, d.size * (0.4 + 0.6 * u), d.spin * (1 - u) + t * 0.4 * (i % 2 ? 1 : -1), d.color, t, 200 + i);
+    }
+    // Shockwave ring and radiating squiggles.
+    const ru = outCubic(clamp(dt / 0.7));
+    if (ru < 1) {
+      ctx.save(); ctx.globalAlpha = 1 - ru; ctx.strokeStyle = C.orange; ctx.lineWidth = 26 * (1 - ru) + 2;
+      ctx.beginPath(); ctx.arc(540, 980, 60 + ru * 900, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
+    for (let k = 0; k < 10; k++) {
+      const a = (k / 10) * Math.PI * 2 + 0.3;
+      const v = clamp(dt / 0.75);
+      if (v >= 1) continue;
+      wiggle(540 + Math.cos(a) * 90, 980 + Math.sin(a) * 90, 540 + Math.cos(a) * 760, 980 + Math.sin(a) * 760, { amp: 14, waves: 3, phase: t * 10, width: 16, color: DOODLE_COLORS[k % 2], id: 220 + k, t, from: inCubic(v), to: outCubic(Math.min(1, v * 1.6)) });
+    }
+    burst(t, T.boom, 540, 980, { seed: 41, count: 30, dmin: 300, drange: 600, grav: 500, dur: 1.4, smin: 46, srange: 34 });
+  }
+
+  // Behind the logo, words and buttons, so it never hides them.
+  cornerPop(t, T.corner);
+
+  // Logo.
+  const fl = fLogoState(t);
+  const es = eLogoScale(t);
+  drawLogo(fl.cx, fl.cy, fl.h, wobble(dt, 2.2, 5) * 0.12, es);
+  // After the dot hops off, the logo gets a green dot of its own.
+  if (t > T.dotHopA + 0.05) {
+    const ld = logoDot(fl.cx, fl.cy, fl.h);
+    const s = spring(t - T.dotHopA - 0.05, 3, 8);
+    drawDot(ld.x, ld.y, { rx: ld.rx * s, ry: ld.ry * s, color: C.green });
+  }
+
+  // Wordmark + tagline (E), then they fly off (F).
+  const out = inBack(seg(t, T.shrink, T.shrink + 0.3), 2);
+  if (out < 1 && t > T.word) {
+    ctx.save();
+    ctx.globalAlpha = 1 - clamp(out);
+    ctx.translate(0, -out * 300);
+    const font = FONT(900, 170); const ls = -8;
+    const wd = measure("AnoUlam", font, ls);
+    const x0 = 540 - (wd + 50) / 2;
+    dropLetters("AnoUlam", x0, 1400, t, T.word, { font, ls, colors: [C.ink, C.ink, C.ink, C.green, C.green, C.green, C.green] });
+    const ps = Math.max(0, spring(t - T.period, 3, 7));
+    drawDot(x0 + wd + 10 + 24, 1400 - 24, { rx: 24 * ps });
+    burst(t, T.period, x0 + wd + 34, 1376, { seed: 51, count: 10, from: -Math.PI, span: Math.PI, dmin: 70, drange: 120, smin: 26, srange: 14, dur: 0.8 });
+    const ts = spring(t - T.tagline, 2.4, 7);
+    ctx.save(); ctx.translate(700, 1560); ctx.rotate(-0.09 + wobble(t - T.tagline, 2, 4) * 0.15); ctx.scale(ts, ts);
+    text("Tara, kain!", 0, 0, { font: "700 120px Caveat", color: C.orange, align: "center" });
+    ctx.restore();
+    ctx.restore();
+  }
+
+  // Coming soon.
+  if (t > T.coming) {
+    const fontC = BIG_FONT;
+    const wC = measure("Coming", fontC, BIG_LS);
+    dropLetters("Coming", 540 - wC / 2, 860, t, T.coming, { font: fontC, ls: BIG_LS, color: C.ink, stagger: 0.035 });
+    const sd = soonDot();
+    dropLetters("soon", sd.x0, 1060, t, T.soon, { font: fontC, ls: BIG_LS, color: C.green, stagger: 0.04 });
+    const wS = measure("soon", fontC, BIG_LS);
+    wiggle(sd.x0 + 6, 1112, sd.x0 + wS, 1112, { amp: 11, waves: 4, phase: t * 5, width: 15, color: C.orange, id: 260, t, to: outCubic(seg(t, T.dotHopB + 0.05, T.dotHopB + 0.4)) });
+    burst(t, T.dotHopB, sd.x, sd.y, { seed: 61, count: 18, from: -Math.PI, span: Math.PI, dmin: 120, drange: 220, dur: 1.0 });
+    burst(t, T.winkLand, sd.x, sd.y, { seed: 71, count: 9, from: -Math.PI, span: Math.PI, dmin: 70, drange: 110, smin: 24, srange: 12, dur: 0.7 });
+  }
+  storePill(0, t); storePill(1, t);
+  if (t > T.corner) {
+    const ts = spring(t - T.corner - 0.15, 2.4, 7);
+    ctx.save(); ctx.translate(540, 1700); ctx.rotate(-0.05 + Math.sin(t * 3) * 0.02); ctx.scale(ts, ts);
+    text("Tara, kain!", 0, 0, { font: "700 104px Caveat", color: C.orange, align: "center" });
+    ctx.restore();
+  }
+}
+
+// ======================================================================
+function render(t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  const sh = shake(t);
+  ctx.translate(sh.x, sh.y);
+
+  // Base layer, by phase.
+  if (t < T.irisB) sceneAB(t);
+  else if (t < T.waveB) sceneC(t);
+  else if (t < T.irisOutA) sceneD(t);
+  else sceneEF(t);
+
+  // Wave wipe into green: a cream wave leads, the green one follows.
+  if (t >= T.waveA && t < T.waveB) {
+    for (const [k, col, lag] of [[0, C.peach, 0], [1, C.green, 0.09]]) {
+      const u = inOutCubic(seg(t, T.waveA + lag, T.waveB - (k ? 0 : 0.06)));
+      const top = lerp(H + 160, -200, u);
+      ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-60, H + 60);
+      for (let x = -60; x <= W + 60; x += 20) ctx.lineTo(x, top + 70 * Math.sin(x / 120 + t * 14 + k * 2) + jit(400 + k, x, t, 4));
+      ctx.lineTo(W + 60, H + 60); ctx.closePath(); ctx.fill();
+    }
+  }
+  // Green shrinks back into the dot, revealing white.
+  if (t >= T.irisOutA && t < T.irisOutB) {
+    const d = dotAt(t);
+    const u = inCubic(seg(t, T.irisOutA, T.irisOutB));
+    ctx.fillStyle = C.green; ctx.beginPath(); ctx.arc(d.x, d.y, lerp(2300, 0, u), 0, Math.PI * 2); ctx.fill();
+  }
+
+  // The hero dot, on top of everything.
+  const d = dotAt(t);
+  if (d) {
+    const p0 = dotAt(t - 1 / 120) || d, p1 = dotAt(t + 1 / 120) || d;
+    let st = (d.home || d.rx > 200) ? { rot: 0, sx: 1, sy: 1 } : stretchFor(p0, p1, 0.04);
+    // Squash on every landing.
+    for (const tl of [T.tramp, ...T.words, T.dotHome, ...T.feats, T.dotHopB, T.winkLand]) {
+      if (t >= tl && t < tl + 0.5) { const q = squash(t, tl); st = { rot: 0, sx: st.sx * q.sx, sy: st.sy * q.sy }; }
+    }
+    if (t > T.tramp && t < T.launch) st = { rot: 0, sx: 1 + trampDepth(t) / 260, sy: 1 - trampDepth(t) / 260 };
+    const rx = d.rx ?? d.r ?? DOT_R, ry = d.ry ?? d.r ?? DOT_R;
+    const jitterR = d.wind ? Math.sin(t * 120) * 3 * d.wind : 0;
+    drawDot(d.x + jitterR, d.y, { rx, ry, sx: st.sx, sy: st.sy, rot: st.rot });
+  }
+}
+
+// ---------------------------------------------------------------- sound cues
+// [time, cue name, extra]. synth-audio.py turns these into the soundtrack.
+function reelTicks() {
+  const ticks = []; let last = 0;
+  for (let t = T.reelA; t < T.reelB + 0.3; t += 1 / 240) {
+    const p = Math.floor(reelPos(t) + 0.5);
+    if (p !== last) { ticks.push([+t.toFixed(4), "tick", p]); last = p; }
+  }
+  return ticks;
+}
+const CUES = () => [
+  [T.dropStart, "fall"], [T.tramp, "boing"], [T.launch, "whooshUp"],
+  ...T.words.map((w, i) => [w, "bounce", i]),
+  [T.logoSlam - 0.12, "whoosh"], [T.logoSlam, "thud"], [T.dotHome, "tada"],
+  [T.irisA, "riser", T.irisB - T.irisA], [T.irisB, "kick"],
+  ...reelTicks(), [T.reelB, "ding"], [T.reelB, "tada"],
+  [T.waveA, "swoosh"], ...T.feats.map((f, i) => [f, "hop", i]),
+  [T.collapse, "suck"], [T.toCenterB, "windup", T.boom - T.toCenterB], [T.boom, "boom"], [T.boom, "tada"],
+  ...Array.from({ length: 7 }, (_, i) => [T.word + i * 0.04 + 0.05, "plink", i]), [T.period, "pop"], [T.tagline, "pop"],
+  [T.shrink, "swoosh"],
+  ...Array.from({ length: 6 }, (_, i) => [T.coming + i * 0.035 + 0.05, "plink", i]),
+  ...Array.from({ length: 4 }, (_, i) => [T.soon + i * 0.04 + 0.05, "plink", i + 6]),
+  [T.dotHopA, "hopUp"], [T.dotHopB, "tada"], [T.dotHopB, "chord"],
+  ...T.pills.map((p) => [p + 0.05, "pop"]), [T.corner, "pops"], [T.winkLand, "bounce", 4],
+];
+
+// ---------------------------------------------------------------- boot
+const ROOT = "../../";
+async function boot() {
+  const fonts = [
+    ["Inter", "node_modules/@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf", "600"],
+    ["Inter", "node_modules/@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf", "700"],
+    ["Inter", "node_modules/@expo-google-fonts/inter/800ExtraBold/Inter_800ExtraBold.ttf", "800"],
+    ["Inter", "node_modules/@expo-google-fonts/inter/900Black/Inter_900Black.ttf", "900"],
+    ["Caveat", "node_modules/@expo-google-fonts/caveat/700Bold/Caveat_700Bold.ttf", "700"],
+  ];
+  await Promise.all(fonts.map(async ([fam, url, weight]) => {
+    const f = new FontFace(fam, `url(${ROOT}${url})`, { weight }); await f.load(); document.fonts.add(f);
+  }));
+  await Promise.all([
+    loadImg("logo", ROOT + "assets/icons/logo_white.png"),
+    loadImg("apple", ROOT + "assets/icons/apple-logo.png"),
+    loadImg("google", ROOT + "assets/icons/google-logo.png"),
+  ]);
+  IMG.logoGreen = tinted(IMG.logo, C.green, null, 4);
+  IMG.logoBrand = tinted(IMG.logo, C.brandGreen, null, 2);
+  IMG.logoDark = tinted(IMG.logo, C.greenDark, null, 2);
+  IMG.logoGreenNoDot = tinted(IMG.logo, C.green, 309, 4);
+  IMG.appleWhite = tinted(IMG.apple, C.white);
+  window.render = render;
+  window.CUES = CUES;
+  window.DURATION = DURATION;
+  window.ready = true;
+  if (location.hash !== "#capture") {
+    const t0 = performance.now();
+    const loop = () => { render(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(loop); };
+    loop();
+  } else document.body.classList.add("capture");
+}
+boot();
+</script>
+</body>
+</html>
