@@ -32,7 +32,8 @@ import {
 //   1.3s   your onboarding picks ("Save money", "No nuts", ...) pop in from
 //          the sides one by one and drop into the pot, which bumps each time
 //          while a hand-drawn doodle (swirl, star, triangle, circle: the
-//          app's doodle set, boiling like the confetti) spins up inside it
+//          app's doodle set, boiling like the confetti) pops up in its own
+//          spot inside it; they all keep spinning until the end
 //   then   the pot rattles, the lid pops with a puff of steam, and "Your
 //          ulam, sorted." rises out; "Tara, kain!" (handwritten) pops in
 //   ~4.3s  everything collapses into the "!"'s dot, which settles, then
@@ -88,10 +89,18 @@ const LID_H = 28;
 const POT_STROKE = 3;
 
 // One doodle spins up in the pot per pick, in this order (indexes into
-// DOODLE_LIST: spiral, star, triangle, circle), alternating green/orange.
+// DOODLE_LIST: spiral, star, triangle, circle), alternating green/orange,
+// each in its own spot (offsets from the body's middle) so they fill the pot.
 const POT_DOODLES = [2, 1, 0, 3];
-const POT_DOODLE_SIZE = 46;
-const DOODLE_SPIN_MS = 700;
+const POT_DOODLE_SPOTS = [
+  { x: -36, y: -8 },
+  { x: 34, y: 6 },
+  { x: -4, y: 16 },
+  { x: 40, y: -16 },
+];
+const POT_DOODLE_SIZE = 34;
+// Every doodle turns at this same steady speed from its pop to the end.
+const DOODLE_TURN_MS = 1200;
 
 const POP_SPRING = { damping: 8, stiffness: 220, mass: 0.5 };
 const LID_SPRING = { damping: 7, stiffness: 260, mass: 0.6 };
@@ -138,28 +147,21 @@ function PickChip({ label, index, size, mouthY }: { label: string; index: number
   );
 }
 
-// A doodle popping up inside the pot as a pick drops in: spins in with a
-// full turn, then (unless it's the last) shrinks away for the next one.
-function PotDoodle({ index, at, last, until }: { index: number; at: number; last: boolean; until: number }) {
+// A doodle popping up inside the pot as a pick drops in. Every one stays,
+// in its own spot, turning at the same speed until the scene collapses.
+function PotDoodle({ index, at, until }: { index: number; at: number; until: number }) {
   const [versions] = useState(() => drawBoilPair(DOODLE_LIST[POT_DOODLES[index % POT_DOODLES.length]]));
+  const spot = POT_DOODLE_SPOTS[index % POT_DOODLE_SPOTS.length];
   const pop = useSharedValue(0);
   const spin = useSharedValue(0);
   useEffect(() => {
-    pop.value = last
-      ? withDelay(at, withSpring(1, POP_SPRING))
-      : withDelay(at, withSequence(withSpring(1, POP_SPRING), withDelay(PICK_STAGGER_MS - 200, withTiming(0, { duration: 200 }))));
-    // The last one keeps turning, slower, until the scene collapses.
-    spin.value = withDelay(
-      at,
-      withSequence(
-        withTiming(1, { duration: DOODLE_SPIN_MS, easing: Easing.out(Easing.cubic) }),
-        withTiming(last ? 1.6 : 1, { duration: last ? Math.max(0, until - at - DOODLE_SPIN_MS) : 0, easing: Easing.linear }),
-      ),
-    );
-  }, [pop, spin, at, last, until]);
+    pop.value = withDelay(at, withSpring(1, POP_SPRING));
+    const turning = Math.max(0, until - at);
+    spin.value = withDelay(at, withTiming(turning / DOODLE_TURN_MS, { duration: turning, easing: Easing.linear }));
+  }, [pop, spin, at, until]);
   const style = useAnimatedStyle(() => ({
     opacity: Math.min(1, pop.value * 2),
-    transform: [{ scale: pop.value }, { rotate: `${spin.value * 360}deg` }],
+    transform: [{ translateX: spot.x }, { translateY: spot.y }, { scale: pop.value }, { rotate: `${spin.value * 360}deg` }],
   }));
   return (
     <Animated.View style={[{ position: "absolute", width: POT_DOODLE_SIZE, height: POT_DOODLE_SIZE }, style]}>
@@ -238,7 +240,7 @@ function Pot({
           }}
         >
           {landings.map((at, i) => (
-            <PotDoodle key={i} index={i} at={at} last={i === landings.length - 1} until={doodlesUntil} />
+            <PotDoodle key={i} index={i} at={at} until={doodlesUntil} />
           ))}
         </View>
       </View>

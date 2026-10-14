@@ -57,7 +57,7 @@ const FIELD_TOP = 0.3;
 const FIELD_HEIGHT = 0.36;
 const FIELD_SIDE = 28;
 const ITEM_W = 140;
-const ITEM_H = 24;
+const ITEM_H = 28;
 
 const LENS_R = 58;
 const LENS_RIM = 5;
@@ -117,8 +117,10 @@ function Field({ size, sharp }: { size: IntroSize; sharp: boolean }) {
           >
             <Text
               numberOfLines={1}
-              className={`font-inter-semibold text-body ${
-                sharp ? (isTarget ? "text-accent" : "text-ink-emphasis") : "text-ink-placeholder"
+              // Handwritten, in the brand green: faint in the field, full
+              // strength through the lens; the dish it finds is orange.
+              className={`font-handwritten text-subheading ${
+                isTarget ? (sharp ? "text-accent" : "text-accent/40") : sharp ? "text-primary" : "text-primary/30"
               }`}
             >
               {dish.name}
