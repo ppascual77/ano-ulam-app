@@ -1,8 +1,8 @@
 # Soundtrack for the teaser, built from the cue list teaser.html exports
 # (capture.mjs writes it to cues.json), so every hit lands on its frame.
 # Usage: python3 synth-audio.py cues.json out.wav DURATION
-# Deliberately quiet and clean: pure tones only (no noise), a soft
-# wooden "tok" per landing scaled by how hard the dot hit, and a warm pad.
+# Sound effects only, no music bed: pure tones (no noise), a soft
+# wooden "tok" per landing scaled by how hard the dot hit.
 import json, sys, wave
 from pathlib import Path
 import numpy as np
@@ -57,17 +57,6 @@ def glide(f0, f1, dur, gain_curve=None):
     return np.sin(np.cumsum(TAU * f / SR)) * env
 
 
-def pad(notes, dur, attack=0.6, release=1.2):
-    t = tt(dur)
-    s = np.zeros(len(t))
-    for n in notes:
-        f = hz(n)
-        # Two slightly detuned sines + a soft octave: warm, no buzz.
-        s += np.sin(TAU * f * t) + np.sin(TAU * f * 1.003 * t + 1.0) + 0.25 * np.sin(TAU * 2 * f * t)
-    env = np.minimum(1, t / attack) * np.minimum(1, (dur - t) / release)
-    return s * np.clip(env, 0, 1) / (2.25 * len(notes))
-
-
 def load_wav(p):
     with wave.open(str(p)) as w:
         return np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16) / 32768
@@ -103,26 +92,6 @@ for at, name, strength, idx in cues:
     elif name == "soon":
         for k, n in enumerate([72, 76, 79, 84]):
             add(at + 0.06 * k, mallet(hz(n), 1.4, 0.2, 4), 0.12, pan=-0.2 + 0.15 * k)
-
-# Warm pad bed: C -> Am -> F -> G -> C, swelling under the story.
-chords = [
-    (2.3, 3.0, [48, 55, 64, 67]),   # C
-    (5.2, 2.7, [45, 52, 60, 64]),   # Am
-    (7.8, 2.4, [41, 48, 57, 64]),   # Fmaj7
-    (10.0, 2.2, [43, 50, 59, 62]),  # G
-    (12.1, 2.9, [48, 55, 64, 67, 71]),  # Cmaj7
-]
-for at, d, notes in chords:
-    add(at, pad(notes, d + 0.8, attack=0.5, release=0.9), 0.16)
-
-# Soft pulse under the features: muted plucks on 8ths at 100 BPM.
-step = 60 / 100 / 2
-arp = [60, 67, 72, 67, 64, 67, 72, 76]
-x, k = 5.95, 0
-while x < 10.6:
-    add(x, mallet(hz(arp[k % len(arp)]), 0.3, 0.05, 14), 0.05, pan=0.25 if k % 2 else -0.25)
-    x += step
-    k += 1
 
 mix = np.stack([L, R], 1)[: int(DUR * SR)]
 mix /= np.max(np.abs(mix)) + 1e-9
