@@ -52,7 +52,26 @@ This mode exists because grounding's `classifyConfidence` (in
 `supabase/functions/ground-ingredients-usda/index.ts`) only scores USDA
 text-match relevance + word overlap — it has **no nutrition-plausibility
 check**. A textually-confident match can still be the wrong food record.
-This script is the plausibility check that pipeline is missing:
+This script is the plausibility check that pipeline is missing.
+
+**Which checks run depends on `source`.** A `USDA`/`FNRI` row's macros are
+reference data, so the macro heuristics (Atwater math, fat/organ/blood/
+plain-meat rules) are skipped for it. Re-guessing reference numbers only
+produced noise. What can still be wrong on a sourced row is the *record*,
+so those rows get record checks instead:
+- **State vs record**: state=raw on a cooked/boiled record, state=cooked on
+  a raw record, state=dried on a fresh record (USDA's "mature seeds, raw"
+  counts as dry).
+- **Name vs record** (INFO only): none of the ingredient's words appear in
+  the USDA description. This caught "Native chicken" matched to "Persimmons,
+  native" (2026-10-14), but USDA's own names (Catsup, Spearmint) trip it too,
+  so treat it as a prompt to glance, not a finding.
+
+`manual` rows (AI estimates) get the macro heuristics below. Every row gets
+negative values, enums, completeness, duplicates and **unit bridging**: a
+price in a different domain from the macro basis (per L with macros per
+100 g) with no `grams_per_ml` is MUST-FIX, because that ingredient adds ₱0 to
+every meal; a `grams_per_ml` outside 0.3-2 is REVIEW.
 
 - **Negative values** — especially carbohydrates. USDA's "by difference"
   calculation can round slightly below zero in the source record; small
@@ -62,10 +81,11 @@ This script is the plausibility check that pipeline is missing:
   `protein*4 + carbohydrates*4 + fat*9` (Atwater factors). A >35%
   mismatch usually means the wrong USDA record was matched (different food
   entirely), 15-35% is worth a second look.
-- **Duplicate macro-profile fingerprint** — if two *different* canonical
-  ingredients end up with byte-identical macros, they likely both matched
-  the same generic USDA record when they shouldn't have (e.g. "whole
-  chicken" and "ground chicken" both landing on "chicken, meat only").
+- **Duplicate macro-profile fingerprint** (REVIEW) — two *different*
+  canonical ingredients with byte-identical macros share one record. Fine
+  for one food in two forms (whole vs ground pepper); a bug otherwise (e.g.
+  "Potato, cooked" on the sweet potato record, or "whole chicken" and
+  "ground chicken" both landing on "chicken, meat only").
 - **Category-plausibility heuristics by name keyword** — a name containing
   "skin"/"fat"/"lard"/"chicharon" should be fat-dominant by calories, not
   protein-dominant; a name containing "liver"/"gizzard"/"heart"/"kidney"

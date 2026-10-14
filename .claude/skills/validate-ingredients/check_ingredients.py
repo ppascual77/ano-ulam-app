@@ -130,13 +130,9 @@ class Findings:
 MEAT_FISH_FOOD_GROUPS = {"Meat & Poultry", "Fish & Seafood"}
 
 
-def plausibility_checks(f, name, state, macro_vals, price, food_group=None):
-    """Checks that apply to any ingredient row regardless of where it came
-    from (a pasted post-grounding CSV, or a seed batch's own AI-estimated
-    placeholder numbers before it's ever applied) — negative values,
-    calorie/macro-math consistency, and category-plausibility heuristics by
-    name keyword. Mutates `f` (a Findings instance) in place."""
-    # Negative values.
+def negative_checks(f, name, macro_vals, price):
+    """Negative values. Applies to every row, sourced or not: a USDA
+    by-difference carb can round below zero in the source record itself."""
     for field, val in macro_vals.items():
         if val is not None and val < 0:
             sev = "REVIEW" if val >= -1 else "MUST-FIX"
@@ -144,6 +140,71 @@ def plausibility_checks(f, name, state, macro_vals, price, food_group=None):
                   f"({'likely USDA by-difference rounding artifact, clamp to 0' if sev == 'REVIEW' else 'data corruption'})")
     if price is not None and price < 0:
         f.add("MUST-FIX", name, f"estimated_price = {price} is negative")
+
+
+COOKED_WORDS = re.compile(r"\b(cooked|boiled|roasted|fried|braised|grilled|stewed|baked|steamed|simmered|microwaved)\b")
+# Generic words that say nothing about WHICH food a record is.
+NAME_FILLER = {"raw", "fresh", "whole", "cooked", "dried", "fried", "native", "local", "imported", "and", "with", "the", "of"}
+
+
+def stem(word):
+    if len(word) > 4 and word.endswith("ies"):
+        return word[:-3] + "y"
+    if len(word) > 4 and re.search(r"(oes|ches|shes|xes|sses)$", word):
+        return word[:-2]
+    if len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
+        return word[:-1]
+    return word
+
+
+def record_checks(f, name, state, source, description):
+    """For USDA/FNRI-sourced rows, whose macros are reference data and so
+    skip the macro heuristics: checks that the RECORD is the right one.
+    These are the checks that caught "Native chicken" linked to "Persimmons,
+    native, raw" and cooked items linked to raw records (2026-10-14 audit)."""
+    if is_blank(description):
+        return
+    d = description.lower()
+    st = (state or "").strip().lower()
+    if st == "raw" and COOKED_WORDS.search(d):
+        f.add("REVIEW", name, f"state=raw but the {source} record is cooked: '{description}'")
+    elif st == "cooked" and re.search(r"\braw\b", d) and not COOKED_WORDS.search(d):
+        f.add("REVIEW", name, f"state=cooked but the {source} record is raw: '{description}'")
+    # USDA calls dry legumes "mature seeds, raw" (and lentils just "raw").
+    elif st == "dried" and re.search(r"\braw\b", d) and not re.search(r"dried|dehydrated|dry|mature seeds|lentil", d):
+        f.add("REVIEW", name, f"state=dried but the {source} record is fresh/raw: '{description}'")
+    # At least one of our name's words should appear in the record ("Native
+    # chicken" vs "Persimmons, native"). USDA often uses other names
+    # (Catsup, Spearmint, pak-choi), so this is INFO, not a finding. FNRI
+    # names are often Filipino, so USDA records only.
+    if source == "USDA":
+        ours = {stem(w) for w in re.findall(r"[a-z]+", name.lower()) if w not in NAME_FILLER and len(w) > 2}
+        record_words = {stem(w) for w in re.findall(r"[a-z]+", d)}
+        if ours and not ours & record_words:
+            f.add("INFO", name, f"no word of the name appears in the USDA record '{description}'. Usually just USDA naming, but confirm it's the same food")
+
+
+def bridge_checks(f, name, row, cols):
+    """Unit bridging: a price in a different domain from the macro basis
+    (priced per L, macros per 100 g) needs grams_per_ml to convert, or the
+    ingredient adds ₱0 to every meal."""
+    if not {"estimated_price_unit", "basis_unit", "grams_per_ml"} <= cols:
+        return
+    unit, basis = row.get("estimated_price_unit", ""), row.get("basis_unit", "")
+    cross = (unit in ("ml", "L") and basis == "g") or (unit in ("g", "kg") and basis == "ml")
+    if cross and to_float(row.get("grams_per_ml")) is None:
+        f.add("MUST-FIX", name, f"priced per {unit} but macros are per {basis}, and grams_per_ml is blank, so its price can't be computed")
+    density = to_float(row.get("grams_per_ml"))
+    if density is not None and not (0.3 <= density <= 2):
+        f.add("REVIEW", name, f"grams_per_ml={density} looks off (water 1, oil about 0.92)")
+
+
+def plausibility_checks(f, name, state, macro_vals, price, food_group=None):
+    """Macro heuristics for ESTIMATED values (seed batches, source=manual
+    rows): calorie/macro-math consistency and category plausibility by name
+    keyword. Not run on USDA/FNRI rows, whose macros are reference data (see
+    record_checks for what those get instead). Mutates `f` in place."""
+    negative_checks(f, name, macro_vals, price)
 
     # Calorie/macro-math consistency (Atwater factors). Fiber is counted
     # inside `carbohydrates` (standard label convention) but only
@@ -253,7 +314,13 @@ def validate_csv(path):
             macro_vals[field] = to_float(row.get(field))
         price = to_float(row.get("estimated_price")) if "estimated_price" in cols else None
         food_group = row.get("food_group") if "food_group" in cols else None
-        plausibility_checks(f, name, row.get("state", ""), macro_vals, price, food_group)
+        source = row.get("source", "")
+        if source in ("USDA", "FNRI"):
+            negative_checks(f, name, macro_vals, price)
+            record_checks(f, name, row.get("state", ""), source, row.get("source_description", ""))
+        else:
+            plausibility_checks(f, name, row.get("state", ""), macro_vals, price, food_group)
+        bridge_checks(f, name, row, cols)
 
         # 5. Enum/unit validation.
         # is_blank (not raw truthiness) so a literal "null" string in a
@@ -310,9 +377,9 @@ def validate_csv(path):
     for fingerprint, names in profile_map.items():
         distinct = sorted(set(names))
         if len(distinct) > 1:
-            f.add("MUST-FIX", " / ".join(distinct),
-                  f"identical macro profile {fingerprint} across different ingredients — "
-                  f"likely both matched the same USDA/FNRI record when they shouldn't have")
+            f.add("REVIEW", " / ".join(distinct),
+                  f"identical macro profile {fingerprint}: same record. Fine for one food in two forms "
+                  f"(whole vs ground spice); otherwise one of them is matched to the wrong record")
 
     return f.report()
 
