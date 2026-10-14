@@ -1,6 +1,5 @@
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import Animated, {
   Easing,
@@ -11,35 +10,62 @@ import Animated, {
   withSequence,
   withSpring,
   withTiming,
+  type SharedValue,
 } from "react-native-reanimated";
-import { HOP_MARKER_SIZE, INTRO_DOT_REST_MS, PageIntro, type IntroSize } from "@/frontend/components/ui";
-import { colors } from "@/frontend/constants/theme";
+import {
+  BoilingDoodle,
+  DOODLE_COLORS,
+  DOODLE_LIST,
+  HOP_MARKER_SIZE,
+  INTRO_DOT_REST_MS,
+  PageIntro,
+  drawBoilPair,
+  type IntroSize,
+} from "@/frontend/components/ui";
 
 // The welcome right after onboarding. Onboarding's page indicator dot comes
-// along (see OnboardingScreen) and the whole thing plays out in words:
+// along (see OnboardingScreen) and what you just picked goes into the pot:
 //   0.0s   the indicator's pill squeezes into a ball and hops up to become
 //          the dot of "Hey, welcome!"'s "!"
 //   0.5s   it lands and the greeting waves (tilts back and forth twice)
-//   0.9s   "Ano ulam mo today?" slams in
-//   1.8s   a reel of dishes spins and stops on "Ask AnoUlam."
-//   3.0s   "We'll figure it out together." fades in
-//   3.6s   "Tara, kain!" (handwritten) pops in
-//   4.2s   everything collapses into the "!"'s dot, which settles, then at
-//   4.92s  arcs up and
-//          lands as the period of "Categories." (see PageIntro), where
-//          HomeScreen bursts confetti
+//   0.9s   an outlined kaldero rises in under it
+//   1.3s   your onboarding picks ("Save money", "No nuts", ...) pop in from
+//          the sides one by one and drop into the pot, which bumps each time
+//          while a hand-drawn doodle (swirl, star, triangle, circle: the
+//          app's doodle set, boiling like the confetti) spins up inside it
+//   then   the pot rattles, the lid pops with a puff of steam, and "Your
+//          ulam, sorted." rises out; "Tara, kain!" (handwritten) pops in
+//   ~4.3s  everything collapses into the "!"'s dot, which settles, then
+//          arcs up and lands as the period of "Categories." (see
+//          PageIntro), where HomeScreen bursts confetti
+// The picks drive the timing (up to MAX_PICKS), so it's computed per run.
 const ENTRY_MS = 500;
 const ENTRY_ARC = 140;
 const WAVE_STEP_MS = 110;
-const SLAM_AT = 900;
-const SPIN_AT = 1800;
-const SPIN_MS = 1200;
-const TOGETHER_AT = 3000;
-const NOTE_AT = 3600;
-const COLLAPSE_AT = 4200;
+const POT_AT = 900;
+const PICKS_AT = 1300;
+const PICK_STAGGER_MS = 300;
+// Pops in at the side, then flies into the pot.
+const PICK_APPEAR_MS = 220;
+const PICK_FLY_MS = 520;
+const PICK_ARC = 70;
+const RATTLE_STEP_MS = 70;
 const COLLAPSE_MS = 380;
-const DOT_AT = COLLAPSE_AT + 60;
-const FLY_AT = DOT_AT + INTRO_DOT_REST_MS;
+
+const MAX_PICKS = 4;
+// When onboarding sent nothing (skipped the questions, or a replay).
+const FALLBACK_PICKS = ["Save money", "Eat more protein", "Pinoy favorites"];
+
+function timeline(pickCount: number) {
+  const picksDone = PICKS_AT + (pickCount - 1) * PICK_STAGGER_MS + PICK_APPEAR_MS + PICK_FLY_MS;
+  const rattleAt = picksDone + 80;
+  const lidAt = rattleAt + RATTLE_STEP_MS * 5;
+  const sortedAt = lidAt + 120;
+  const noteAt = sortedAt + 500;
+  const collapseAt = noteAt + 600;
+  const dotAt = collapseAt + 60;
+  return { rattleAt, lidAt, sortedAt, noteAt, collapseAt, dotAt, flyAt: dotAt + INTRO_DOT_REST_MS };
+}
 
 // The "!" is drawn (stem + dot) instead of typed, so its dot can be the one
 // that flies in. Sized for text-subhero (55px extrabold).
@@ -50,25 +76,198 @@ const BANG_DOT = 10;
 // Lifts the "!" onto the text's baseline.
 const BANG_BASELINE = 10;
 
-// Spins through these, landing on "Ask AnoUlam." (the last row).
-const DISHES = ["Adobo", "Sinigang", "Sisig", "Kare-Kare", "Tinola", "Bulalo", "Laing", "Pancit"];
-const REEL_LENGTH = DISHES.length + 1;
-const ROW_HEIGHT = 44;
-// The reel reads 20% bigger than the question above it. Scaled rather than
-// a bigger font, since there's no type token at that size.
-const REEL_SCALE = 1.2;
-// Room for the scaled-up reel, which layout doesn't know about.
-const REEL_GROWTH = (ROW_HEIGHT * (REEL_SCALE - 1)) / 2;
+// The kaldero, an outline drawn from bordered shapes. Its mouth (top of the
+// body) sits at POT_MOUTH of the screen's height.
+const POT_MOUTH = 0.56;
+const POT_W = 150;
+const POT_H = 84;
+const RIM_W = 172;
+const RIM_H = 12;
+const LID_W = 146;
+const LID_H = 28;
+const POT_STROKE = 3;
+
+// One doodle spins up in the pot per pick, in this order (indexes into
+// DOODLE_LIST: spiral, star, triangle, circle), alternating green/orange.
+const POT_DOODLES = [2, 1, 0, 3];
+const POT_DOODLE_SIZE = 46;
+const DOODLE_SPIN_MS = 700;
 
 const POP_SPRING = { damping: 8, stiffness: 220, mass: 0.5 };
-const SLAM_SPRING = { damping: 11, stiffness: 320, mass: 0.6 };
+const LID_SPRING = { damping: 7, stiffness: 260, mass: 0.6 };
 const ENTRY_SIZE = HOP_MARKER_SIZE.pill;
 
 type Point = { x: number; y: number };
 
 const center = (size: IntroSize) => ({ x: size.w / 2, y: size.h / 2 });
 
-function WelcomeScene({ size, entry, onBang }: { size: IntroSize; entry?: Point; onBang: (p: Point) => void }) {
+// One pick: pops in at one side above the pot, then arcs into its mouth,
+// shrinking and fading as it goes in.
+function PickChip({ label, index, size, mouthY }: { label: string; index: number; size: IntroSize; mouthY: number }) {
+  const appear = useSharedValue(0);
+  const fly = useSharedValue(0);
+  const side = index % 2 === 0 ? -1 : 1;
+  const startX = side * size.w * 0.26;
+  const startY = mouthY - 170 + (index % 3) * 34;
+
+  useEffect(() => {
+    const at = PICKS_AT + index * PICK_STAGGER_MS;
+    appear.value = withDelay(at, withSpring(1, POP_SPRING));
+    fly.value = withDelay(at + PICK_APPEAR_MS, withTiming(1, { duration: PICK_FLY_MS, easing: Easing.in(Easing.quad) }));
+  }, [appear, fly, index]);
+
+  const style = useAnimatedStyle(() => {
+    const f = fly.value;
+    return {
+      opacity: Math.min(1, appear.value * 2) * interpolate(f, [0, 0.75, 1], [1, 1, 0]),
+      transform: [
+        { translateX: startX * (1 - f) },
+        { translateY: startY + (mouthY - 18 - startY) * f - PICK_ARC * 4 * f * (1 - f) },
+        { scale: appear.value * (1 - 0.55 * f) },
+        { rotate: `${side * -6 * (1 - f)}deg` },
+      ],
+    };
+  });
+
+  return (
+    <Animated.View style={[{ position: "absolute", left: 0, right: 0, top: 0, alignItems: "center" }, style]}>
+      <View className="rounded-full border border-ink-emphasis/10 bg-mood-bg px-3 py-2">
+        <Text className="font-inter-semibold text-small text-ink-emphasis">{label}</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
+// A doodle popping up inside the pot as a pick drops in: spins in with a
+// full turn, then (unless it's the last) shrinks away for the next one.
+function PotDoodle({ index, at, last, until }: { index: number; at: number; last: boolean; until: number }) {
+  const [versions] = useState(() => drawBoilPair(DOODLE_LIST[POT_DOODLES[index % POT_DOODLES.length]]));
+  const pop = useSharedValue(0);
+  const spin = useSharedValue(0);
+  useEffect(() => {
+    pop.value = last
+      ? withDelay(at, withSpring(1, POP_SPRING))
+      : withDelay(at, withSequence(withSpring(1, POP_SPRING), withDelay(PICK_STAGGER_MS - 200, withTiming(0, { duration: 200 }))));
+    // The last one keeps turning, slower, until the scene collapses.
+    spin.value = withDelay(
+      at,
+      withSequence(
+        withTiming(1, { duration: DOODLE_SPIN_MS, easing: Easing.out(Easing.cubic) }),
+        withTiming(last ? 1.6 : 1, { duration: last ? Math.max(0, until - at - DOODLE_SPIN_MS) : 0, easing: Easing.linear }),
+      ),
+    );
+  }, [pop, spin, at, last, until]);
+  const style = useAnimatedStyle(() => ({
+    opacity: Math.min(1, pop.value * 2),
+    transform: [{ scale: pop.value }, { rotate: `${spin.value * 360}deg` }],
+  }));
+  return (
+    <Animated.View style={[{ position: "absolute", width: POT_DOODLE_SIZE, height: POT_DOODLE_SIZE }, style]}>
+      <BoilingDoodle versions={versions} size={POT_DOODLE_SIZE} color={DOODLE_COLORS[index % DOODLE_COLORS.length]} />
+    </Animated.View>
+  );
+}
+
+function Pot({
+  mouthY,
+  landings,
+  doodlesUntil,
+  rise,
+  bump,
+  rattle,
+  lid,
+}: {
+  mouthY: number;
+  /** When each pick lands in the mouth (ms into the scene). */
+  landings: number[];
+  doodlesUntil: number;
+  rise: SharedValue<number>;
+  bump: SharedValue<number>;
+  rattle: SharedValue<number>;
+  lid: SharedValue<number>;
+}) {
+  const potStyle = useAnimatedStyle(() => ({
+    opacity: rise.value,
+    transform: [
+      { translateY: 40 * (1 - rise.value) },
+      { rotate: `${rattle.value * 3}deg` },
+      // A little squash each time something drops in.
+      { scaleX: 1 + 0.06 * bump.value },
+      { scaleY: 1 - 0.06 * bump.value },
+    ],
+  }));
+  const lidStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -34 * lid.value }, { translateX: 18 * lid.value }, { rotate: `${14 * lid.value + rattle.value * 6}deg` }],
+  }));
+
+  return (
+    <Animated.View
+      style={[{ position: "absolute", left: 0, right: 0, top: mouthY - RIM_H - LID_H, alignItems: "center" }, potStyle]}
+    >
+      {/* Lid, with its knob. */}
+      <Animated.View style={[{ alignItems: "center" }, lidStyle]}>
+        <View
+          className="border-ink-emphasis bg-white"
+          style={{ width: 20, height: 11, borderWidth: POT_STROKE, borderBottomWidth: 0, borderTopLeftRadius: 7, borderTopRightRadius: 7 }}
+        />
+        <View
+          className="border-ink-emphasis bg-white"
+          style={{
+            width: LID_W,
+            height: LID_H - 11,
+            borderWidth: POT_STROKE,
+            borderTopLeftRadius: LID_W / 2,
+            borderTopRightRadius: LID_W / 2,
+          }}
+        />
+      </Animated.View>
+      {/* Rim, handles and body, with the doodles inside. */}
+      <View className="border-ink-emphasis bg-white" style={{ width: RIM_W, height: RIM_H, borderRadius: RIM_H / 2, borderWidth: POT_STROKE, zIndex: 1 }} />
+      <View style={{ width: RIM_W + 28, height: POT_H, alignItems: "center", marginTop: -POT_STROKE }}>
+        <View className="absolute left-0 border-ink-emphasis" style={{ top: 8, width: 26, height: 14, borderRadius: 7, borderWidth: POT_STROKE }} />
+        <View className="absolute right-0 border-ink-emphasis" style={{ top: 8, width: 26, height: 14, borderRadius: 7, borderWidth: POT_STROKE }} />
+        <View
+          className="items-center justify-center border-ink-emphasis bg-white"
+          style={{
+            width: POT_W,
+            height: POT_H,
+            borderWidth: POT_STROKE,
+            borderTopWidth: 0,
+            borderBottomLeftRadius: 44,
+            borderBottomRightRadius: 44,
+          }}
+        >
+          {landings.map((at, i) => (
+            <PotDoodle key={i} index={i} at={at} last={i === landings.length - 1} until={doodlesUntil} />
+          ))}
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
+
+// A puff of steam from under the lifted lid: rises, grows and fades.
+function Steam({ at, x, mouthY }: { at: number; x: number; mouthY: number }) {
+  const puff = useSharedValue(0);
+  useEffect(() => {
+    puff.value = withDelay(at, withTiming(1, { duration: 900, easing: Easing.out(Easing.quad) }));
+  }, [puff, at]);
+  const style = useAnimatedStyle(() => ({
+    opacity: interpolate(puff.value, [0, 0.2, 1], [0, 0.5, 0]),
+    transform: [{ translateX: x }, { translateY: mouthY - 60 - 70 * puff.value }, { scale: 0.6 + 0.9 * puff.value }],
+  }));
+  return (
+    <Animated.View style={[{ position: "absolute", left: 0, right: 0, top: 0, alignItems: "center" }, style]}>
+      <View className="bg-ink-emphasis/10" style={{ width: 34, height: 34, borderRadius: 17 }} />
+    </Animated.View>
+  );
+}
+
+function WelcomeScene({ size, entry, picks, onBang }: { size: IntroSize; entry?: Point; picks: string[]; onBang: (p: Point) => void }) {
+  const t = timeline(picks.length);
+  const mouthY = size.h * POT_MOUTH;
+  // When each pick lands in the pot's mouth.
+  const landings = picks.map((_, i) => PICKS_AT + i * PICK_STAGGER_MS + PICK_APPEAR_MS + PICK_FLY_MS * 0.85);
   const sceneRef = useRef<View>(null);
   const bangDotRef = useRef<View>(null);
   // Where the "!"'s dot sits (scene coordinates); the collapse shrinks
@@ -83,19 +282,40 @@ function WelcomeScene({ size, entry, onBang }: { size: IntroSize; entry?: Point;
   const fly = useSharedValue(0);
   const land = useSharedValue(0);
   const wave = useSharedValue(0);
-  const slam = useSharedValue(0);
-  const spin = useSharedValue(0);
-  const together = useSharedValue(0);
+  const potRise = useSharedValue(0);
+  const potBump = useSharedValue(0);
+  const rattle = useSharedValue(0);
+  const lid = useSharedValue(0);
+  const sorted = useSharedValue(0);
   const note = useSharedValue(0);
   const collapse = useSharedValue(0);
 
   useEffect(() => {
     greet.value = withDelay(100, withTiming(1, { duration: 350 }));
-    slam.value = withDelay(SLAM_AT, withSpring(1, SLAM_SPRING));
-    spin.value = withDelay(SPIN_AT, withTiming(1, { duration: SPIN_MS, easing: Easing.out(Easing.cubic) }));
-    together.value = withDelay(TOGETHER_AT, withTiming(1, { duration: 450 }));
-    note.value = withDelay(NOTE_AT, withSpring(1, POP_SPRING));
-    collapse.value = withDelay(COLLAPSE_AT, withTiming(1, { duration: COLLAPSE_MS, easing: Easing.in(Easing.cubic) }));
+    potRise.value = withDelay(POT_AT, withSpring(1, POP_SPRING));
+    // One squash per pick, as each lands in the mouth.
+    potBump.value = withSequence(
+      ...landings.map((at, i) =>
+        withDelay(
+          Math.max(0, at - (i === 0 ? 0 : landings[i - 1] + 250)),
+          withSequence(withTiming(1, { duration: 90 }), withTiming(0, { duration: 160 })),
+        ),
+      ),
+    );
+    rattle.value = withDelay(
+      t.rattleAt,
+      withSequence(
+        withTiming(-1, { duration: RATTLE_STEP_MS }),
+        withTiming(1, { duration: RATTLE_STEP_MS }),
+        withTiming(-0.8, { duration: RATTLE_STEP_MS }),
+        withTiming(0.6, { duration: RATTLE_STEP_MS }),
+        withTiming(0, { duration: RATTLE_STEP_MS }),
+      ),
+    );
+    lid.value = withDelay(t.lidAt, withSpring(1, LID_SPRING));
+    sorted.value = withDelay(t.sortedAt, withSpring(1, POP_SPRING));
+    note.value = withDelay(t.noteAt, withSpring(1, POP_SPRING));
+    collapse.value = withDelay(t.collapseAt, withTiming(1, { duration: COLLAPSE_MS, easing: Easing.in(Easing.cubic) }));
     // Pops on landing, bumping the greeting into its wave.
     land.value = withDelay(ENTRY_MS, withSequence(withTiming(1.4, { duration: 90 }), withSpring(1)));
     wave.value = withDelay(
@@ -108,8 +328,12 @@ function WelcomeScene({ size, entry, onBang }: { size: IntroSize; entry?: Point;
         withTiming(0, { duration: WAVE_STEP_MS }),
       ),
     );
-    const haptic = setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light), ENTRY_MS);
-    return () => clearTimeout(haptic);
+    const timers = [
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light), ENTRY_MS),
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light), t.rattleAt),
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium), t.lidAt),
+    ];
+    return () => timers.forEach(clearTimeout);
   }, []);
 
   // Measured before anything in the greeting moves (it only fades until the
@@ -159,15 +383,10 @@ function WelcomeScene({ size, entry, onBang }: { size: IntroSize; entry?: Point;
       transform: [{ translateX: x - w / 2 }, { translateY: y - h / 2 }],
     };
   });
-  const slamStyle = useAnimatedStyle(() => ({
-    opacity: Math.min(1, slam.value * 3),
-    transform: [{ scale: 1.8 - 0.8 * slam.value }],
-  }));
-  const reelStyle = useAnimatedStyle(() => ({ transform: [{ translateY: -(REEL_LENGTH - 1) * ROW_HEIGHT * spin.value }] }));
-  const reelWindowStyle = useAnimatedStyle(() => ({ opacity: spin.value > 0 ? 1 : 0, transform: [{ scale: REEL_SCALE }] }));
-  const togetherStyle = useAnimatedStyle(() => ({
-    opacity: together.value,
-    transform: [{ translateY: 10 * (1 - together.value) }],
+  // Rises out of the pot as the lid pops.
+  const sortedStyle = useAnimatedStyle(() => ({
+    opacity: Math.min(1, sorted.value * 2),
+    transform: [{ translateY: 40 * (1 - sorted.value) }, { scale: 0.7 + 0.3 * sorted.value }],
   }));
   const noteStyle = useAnimatedStyle(() => ({ opacity: note.value, transform: [{ scale: 0.6 + 0.4 * note.value }, { rotate: "-4deg" }] }));
   // Everything shrinks into the "!"'s dot (where PageIntro's dot takes over).
@@ -175,11 +394,8 @@ function WelcomeScene({ size, entry, onBang }: { size: IntroSize; entry?: Point;
 
   return (
     <View ref={sceneRef} collapsable={false} style={StyleSheet.absoluteFill}>
-      <Animated.View
-        style={[StyleSheet.absoluteFill, { transformOrigin: bang ? [bang.x, bang.y, 0] : "center" }, collapseStyle]}
-        className="items-center"
-      >
-        <Animated.View style={[{ marginTop: size.h * 0.12 }, greetStyle]} className="items-center">
+      <Animated.View style={[StyleSheet.absoluteFill, { transformOrigin: bang ? [bang.x, bang.y, 0] : "center" }, collapseStyle]}>
+        <Animated.View style={[{ marginTop: size.h * 0.14 }, greetStyle]} className="items-center">
           <Text className="font-inter-extrabold text-subhero tracking-display text-ink-emphasis">Hey,</Text>
           <View className="flex-row items-end">
             <Text className="font-inter-extrabold text-subhero tracking-display text-ink-emphasis">welcome</Text>
@@ -196,50 +412,24 @@ function WelcomeScene({ size, entry, onBang }: { size: IntroSize; entry?: Point;
           </View>
         </Animated.View>
 
-        <Animated.View style={slamStyle} className="mt-8">
+        {/* "Your ulam, sorted." sits above the pot, hidden until the lid pops. */}
+        <Animated.View style={[{ position: "absolute", left: 0, right: 0, top: mouthY - 140, alignItems: "center" }, sortedStyle]}>
           <Text className="text-center font-inter-extrabold text-heading-lg tracking-display text-ink-emphasis">
-            Ano <Text className="text-accent">ulam</Text> mo today?
+            Your <Text className="text-accent">ulam</Text>, sorted.
           </Text>
         </Animated.View>
 
-        {/* Slot-machine window: one row visible, soft white fades top and
-            bottom so the spin reads as a reel. */}
-        <Animated.View
-          className="self-stretch overflow-hidden"
-          // The usual 8px gap under the question, plus room for the scale-up.
-          style={[{ height: ROW_HEIGHT, marginTop: 8 + REEL_GROWTH, marginBottom: REEL_GROWTH }, reelWindowStyle]}
-        >
-          <Animated.View style={reelStyle}>
-            {DISHES.map((dish, i) => (
-              <Text
-                key={i}
-                style={{ height: ROW_HEIGHT, lineHeight: ROW_HEIGHT }}
-                className="text-center font-inter-extrabold text-heading-lg tracking-display text-ink-subtle"
-              >
-                {dish}
-              </Text>
-            ))}
-            <Text
-              style={{ height: ROW_HEIGHT, lineHeight: ROW_HEIGHT }}
-              className="text-center font-inter-extrabold text-heading-lg tracking-display text-ink-emphasis"
-            >
-              Ask <Text className="text-primary">Ano</Text>
-              <Text className="text-accent">Ulam.</Text>
-            </Text>
-          </Animated.View>
-          <LinearGradient
-            pointerEvents="none"
-            colors={[colors.white, "rgba(255,255,255,0)", "rgba(255,255,255,0)", colors.white]}
-            locations={[0, 0.3, 0.7, 1]}
-            style={StyleSheet.absoluteFill}
-          />
-        </Animated.View>
+        {[-28, 6, 34].map((x, i) => (
+          <Steam key={x} at={t.lidAt + i * 120} x={x} mouthY={mouthY} />
+        ))}
 
-        <Animated.View style={togetherStyle} className="mt-4">
-          <Text className="text-center font-inter-medium text-subheading text-ink-subtle">We&apos;ll figure it out together.</Text>
-        </Animated.View>
+        <Pot mouthY={mouthY} landings={landings} doodlesUntil={t.collapseAt} rise={potRise} bump={potBump} rattle={rattle} lid={lid} />
 
-        <Animated.View style={noteStyle} className="mt-6">
+        {picks.map((label, i) => (
+          <PickChip key={label} label={label} index={i} size={size} mouthY={mouthY} />
+        ))}
+
+        <Animated.View style={[{ position: "absolute", left: 0, right: 0, top: mouthY + POT_H + 28, alignItems: "center" }, noteStyle]}>
           <Text className="font-handwritten text-heading-lg text-accent">Tara, kain!</Text>
         </Animated.View>
       </Animated.View>
@@ -257,10 +447,15 @@ type HomeIntroProps = {
   /** Where onboarding's indicator dot was, in window coordinates. Without
    *  it the "!"'s dot just pops in. */
   entry?: Point;
+  /** What the user picked in onboarding, as chip labels (see
+   *  OnboardingScreen's picksParam). Empty falls back to sample picks. */
+  picks: string[];
 };
 
-export function HomeIntro({ active, targetRef, onDone, entry }: HomeIntroProps) {
+export function HomeIntro({ active, targetRef, onDone, entry, picks }: HomeIntroProps) {
   const bang = useRef<Point | null>(null);
+  const shown = (picks.length > 0 ? picks : FALLBACK_PICKS).slice(0, MAX_PICKS);
+  const t = timeline(shown.length);
   return (
     <PageIntro
       active={active}
@@ -268,15 +463,16 @@ export function HomeIntro({ active, targetRef, onDone, entry }: HomeIntroProps) 
       onDone={onDone}
       // Takes off from the "!"'s dot, once the scene has collapsed into it.
       dotStart={(size) => bang.current ?? center(size)}
-      dotAt={DOT_AT}
-      flyAt={FLY_AT}
+      dotAt={t.dotAt}
+      flyAt={t.flyAt}
       dotSize={BANG_DOT}
-      accessibilityLabel="Hey, welcome! Ano ulam mo today? Ask AnoUlam. We'll figure it out together."
+      accessibilityLabel={`Hey, welcome! Your picks: ${shown.join(", ")}. Your ulam, sorted. Tara, kain!`}
     >
       {(size) => (
         <WelcomeScene
           size={size}
           entry={entry}
+          picks={shown}
           onBang={(p) => {
             bang.current = p;
           }}
