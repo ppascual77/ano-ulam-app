@@ -6,7 +6,6 @@ import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import {
   getAccountSettings,
   getProfileExtras,
-  markTourShown,
   updateBio,
   updateNewsletter,
   updatePrivacy,
@@ -115,13 +114,6 @@ export function useAccountSettingsActions() {
     setNewsletter: (on: boolean) => {
       patch({ newsletter_subscribed: on });
       void updateNewsletter(on).catch(() => {});
-    },
-    completeTour: (tourId: string) => {
-      const current = queryClient.getQueryData<AccountSettings>(settingsKey);
-      if (current && !current.tours_completed.includes(tourId)) {
-        patch({ tours_completed: [...current.tours_completed, tourId] });
-      }
-      void markTourShown(tourId).catch(() => {});
     },
   };
 }

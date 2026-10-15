@@ -36,20 +36,18 @@ export async function updateBio(bio: string): Promise<void> {
   extras = { ...extras, bio: bio || null };
 }
 
-// Account settings with no column yet (privacy, newsletter) and which
-// first-run tours were completed. Dietary focus / allergens are NOT here:
-// they're real (users.preferences).
+// Account settings with no column yet (privacy, newsletter). Dietary focus
+// / allergens are NOT here: they're real (users.preferences).
 export type AccountSettings = {
   show_saved_public: boolean;
   newsletter_subscribed: boolean;
-  tours_completed: string[];
 };
 
-let settings: AccountSettings = { show_saved_public: false, newsletter_subscribed: true, tours_completed: [] };
+let settings: AccountSettings = { show_saved_public: false, newsletter_subscribed: true };
 
 export async function getAccountSettings(): Promise<AccountSettings> {
   await delay(250);
-  return { ...settings, tours_completed: [...settings.tours_completed] };
+  return { ...settings };
 }
 
 export async function updatePrivacy(show: boolean): Promise<void> {
@@ -62,9 +60,3 @@ export async function updateNewsletter(on: boolean): Promise<void> {
   settings = { ...settings, newsletter_subscribed: on };
 }
 
-export async function markTourShown(tourId: string): Promise<void> {
-  await delay(200);
-  if (!settings.tours_completed.includes(tourId)) {
-    settings = { ...settings, tours_completed: [...settings.tours_completed, tourId] };
-  }
-}
