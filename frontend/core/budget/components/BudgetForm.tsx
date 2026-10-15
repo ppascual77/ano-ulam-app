@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { PhilippinePeso, Utensils } from "lucide-react-native";
 import { AppText, Button, Stepper, TextField } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
+import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 
 type BudgetFormProps = {
   onSuggestMeals?: (params: { budget: string; servings: number }) => void;
@@ -16,6 +17,7 @@ export function BudgetForm({ onSuggestMeals }: BudgetFormProps) {
   const [budget, setBudget] = useState("");
   const [servings, setServings] = useState(1);
   const [isSuggesting, setIsSuggesting] = useState(false);
+  const reduceMotion = useReduceMotion();
   const timeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => () => clearTimeout(timeout.current), []);
@@ -62,6 +64,8 @@ export function BudgetForm({ onSuggestMeals }: BudgetFormProps) {
         icon={<Utensils color={colors.white} size={20} strokeWidth={2} />}
         iconPosition="right"
         loading={isSuggesting}
+        // Reduce motion: the twirling spiral, no wave snap or confetti.
+        loader={reduceMotion ? "spiral" : "wave"}
         onPress={handleSuggest}
       />
     </View>

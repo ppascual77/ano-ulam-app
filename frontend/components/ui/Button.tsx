@@ -73,6 +73,9 @@ type ButtonProps = Omit<PressableProps, "style"> & {
   /** false: no confetti when the loading wave snaps (e.g. a button that
    *  already celebrates its own result, like meal details' Save). */
   celebrate?: boolean;
+  /** "spiral": the twirling spiral instead of the wave, with no snap or
+   *  confetti when it ends (the label just comes back). For Reduce motion. */
+  loader?: "wave" | "spiral";
 };
 
 export function Button({
@@ -85,6 +88,7 @@ export function Button({
   disabled,
   loading = false,
   celebrate = true,
+  loader = "wave",
   ...props
 }: ButtonProps) {
   // "fullPill" (currently only the "tinted" View Details button) centers its
@@ -105,6 +109,8 @@ export function Button({
   // the button, not the spinner, so it keeps flying after the wave is gone.
   const [burstId, setBurstId] = useState(0);
   if (loading && !showWave) setShowWave(true);
+  // The spiral has no outro: it goes as soon as loading does.
+  if (!loading && showWave && loader === "spiral") setShowWave(false);
   const busy = loading || showWave;
 
   const contentOpacity = useSharedValue(busy ? 0 : 1);
@@ -145,16 +151,22 @@ export function Button({
           className="absolute inset-0 justify-center"
           style={{ paddingHorizontal: WAVE_INSET }}
         >
-          <Spinner
-            variant="wave"
-            size={12}
-            color={colors.accent}
-            done={!loading}
-            onSnap={() => {
-              if (celebrate) setBurstId((n) => n + 1);
-            }}
-            onDone={() => setShowWave(false)}
-          />
+          {loader === "spiral" ? (
+            <View className="items-center">
+              <Spinner variant="spiral" size={20} color={variant === "primary" ? colors.white : colors.primary} />
+            </View>
+          ) : (
+            <Spinner
+              variant="wave"
+              size={12}
+              color={colors.accent}
+              done={!loading}
+              onSnap={() => {
+                if (celebrate) setBurstId((n) => n + 1);
+              }}
+              onDone={() => setShowWave(false)}
+            />
+          )}
         </Animated.View>
       )}
       <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
