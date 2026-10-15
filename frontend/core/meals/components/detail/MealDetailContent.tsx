@@ -321,6 +321,8 @@ function ConsumerFooter({ meal, servings, saved, recipeOwner }: ConsumerFooterPr
         icon={<Bookmark color={saved.isSaved ? colors.primary : colors.white} size={16} fill={saved.isSaved ? colors.primary : "none"} />}
         iconPosition="right"
         loading={saved.busy}
+        // Its own save confetti (above) covers it; unsaving shouldn't burst.
+        celebrate={false}
         accessibilityHint={saved.isSaved ? "Removes it from your saved meals" : undefined}
         // Not `disabled`: that dims the button, but it's still the live state.
         onPress={() => {
