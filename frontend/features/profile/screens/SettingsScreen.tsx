@@ -132,29 +132,8 @@ export default function SettingsScreen() {
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
         {/* Bottom padding clears the home indicator (top-only safe area). */}
         <View className="mt-4 gap-8 px-5" style={{ paddingBottom: insets.bottom + 40 }}>
-          <SettingsSection title="Privacy">
-            <SettingsToggle
-              label="Show saved meals on your profile"
-              description="When enabled, visitors to your profile can see the meals you've saved."
-              value={settings.data?.show_saved_public ?? false}
-              onChange={settingsActions.setShowSaved}
-            />
-          </SettingsSection>
-
-          <SettingsSection
-            title="Notifications"
-            onLayout={(e) => setNewsletterLayout({ y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height })}
-          >
-            <SettingsToggle
-              label="Email newsletter"
-              description="Receive occasional emails about new meals, features, and food tips from AnoUlam."
-              value={settings.data?.newsletter_subscribed ?? false}
-              // Turning it off asks first; turning it on just saves.
-              onChange={(on) => (on ? settingsActions.setNewsletter(true) : setConfirmUnsubscribe(true))}
-            />
-          </SettingsSection>
-
-          <SettingsSection title="Preferences">
+          {/* Most-used first: these change which meals you see. */}
+          <SettingsSection title="Meal preferences">
             <View className="gap-3">
               <SettingsLabel>Dietary focus</SettingsLabel>
               <ChipSelect
@@ -176,19 +155,16 @@ export default function SettingsScreen() {
             </View>
           </SettingsSection>
 
-          <SettingsSection title="Home">
+          <SettingsSection title="App">
             <SettingsToggle
-              label="Surprise me"
+              label="Surprise me on Home"
               description="The pull-down tag on Home that picks a random meal when you can't decide. Turn it off to hide it."
               value={showSurpriseMe}
               onChange={setShowSurpriseMe}
             />
-          </SettingsSection>
-
-          <SettingsSection title="Accessibility">
             <SettingsToggle
               label="Reduce motion"
-              description="Skips page intros, swaps sliding transitions for fades, and stops numbers rolling. Small fades stay. Also turns on with your phone's own reduce motion setting."
+              description="Skips page intros, swaps sliding transitions for fades, and stops numbers rolling. Also turns on with your phone's own reduce motion setting."
               value={reduceMotion}
               onChange={setReduceMotion}
             />
@@ -206,37 +182,56 @@ export default function SettingsScreen() {
             </Pressable>
           </SettingsSection>
 
-          <SettingsSection title="Account">
+          {/* The newsletter deep link (?section=newsletter) centers this one. */}
+          <SettingsSection
+            title="Privacy & notifications"
+            onLayout={(e) => setNewsletterLayout({ y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height })}
+          >
+            <SettingsToggle
+              label="Show saved meals on your profile"
+              description="When enabled, visitors to your profile can see the meals you've saved."
+              value={settings.data?.show_saved_public ?? false}
+              onChange={settingsActions.setShowSaved}
+            />
+            <SettingsToggle
+              label="Email newsletter"
+              description="Receive occasional emails about new meals, features, and food tips from AnoUlam."
+              value={settings.data?.newsletter_subscribed ?? false}
+              // Turning it off asks first; turning it on just saves.
+              onChange={(on) => (on ? settingsActions.setNewsletter(true) : setConfirmUnsubscribe(true))}
+            />
+          </SettingsSection>
+
+          <SettingsSection title="About">
+            <LinkRow label="Send feedback" onPress={sendFeedback} />
+            <LinkRow label="Privacy Policy" onPress={() => void Linking.openURL(`${WEB_APP_URL}/privacy`)} />
+            <LinkRow label="Terms of Service" onPress={() => void Linking.openURL(`${WEB_APP_URL}/terms`)} />
+            <Text className="font-inter-regular text-body text-ink-subtle">Version {APP_VERSION}</Text>
+          </SettingsSection>
+
+          <View className="gap-5">
+            <Pressable
+              onPress={logOut}
+              className="flex-row items-center justify-center gap-2 rounded-2xl border border-like py-4 active:bg-like-soft"
+            >
+              <LogOut color={colors.like} size={18} />
+              <Text className="font-inter-semibold text-body-lg text-like">Log out</Text>
+            </Pressable>
+            {/* Deliberately quiet: a destructive action that shouldn't catch
+                the eye while scrolling (the confirm sheet still guards it). */}
             <Pressable
               onPress={() =>
                 isSignedIn
                   ? setConfirmDelete(true)
                   : setToast({ id: Date.now(), message: "Sign in to delete your account.", tone: "error" })
               }
-              className="active:opacity-60"
+              hitSlop={8}
+              accessibilityRole="button"
+              className="self-center active:opacity-60"
             >
-              <View className="flex-row items-center gap-2">
-                <Trash2 color={colors.like} size={18} />
-                <SettingsRowLabel className="text-like">Delete account</SettingsRowLabel>
-              </View>
-              <SettingsRowDescription>Permanently deletes your account and the recipes you've published.</SettingsRowDescription>
+              <Text className="font-inter-regular text-body text-ink-subtle underline">Delete account</Text>
             </Pressable>
-          </SettingsSection>
-
-          <SettingsSection title="About">
-            <LinkRow label="Privacy Policy" onPress={() => void Linking.openURL(`${WEB_APP_URL}/privacy`)} />
-            <LinkRow label="Terms of Service" onPress={() => void Linking.openURL(`${WEB_APP_URL}/terms`)} />
-            <LinkRow label="Send feedback" onPress={sendFeedback} />
-            <Text className="font-inter-regular text-body text-ink-subtle">Version {APP_VERSION}</Text>
-          </SettingsSection>
-
-          <Pressable
-            onPress={logOut}
-            className="flex-row items-center justify-center gap-2 rounded-2xl border border-like py-4 active:bg-like-soft"
-          >
-            <LogOut color={colors.like} size={18} />
-            <Text className="font-inter-semibold text-body-lg text-like">Log out</Text>
-          </Pressable>
+          </View>
         </View>
       </ScrollView>
 
