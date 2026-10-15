@@ -4,6 +4,7 @@ import { browseMeals } from "@/api/meals";
 import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { EMPTY_FILTERS, hasQueryFilters, type MealFilters } from "../utils/filters";
+import { useAvoidFilter } from "@/frontend/core/preferences/hooks/useAvoidFilter";
 
 const DEBOUNCE_MS = 400;
 // Guests get this many searches per 24h, like the web. There's no server
@@ -100,6 +101,9 @@ export function useBrowseSearch({ isGuest }: { isGuest: boolean }) {
     // Sort is applied below without a new request.
   }, [trimmed, applied.dietaryTags, applied.tags, applied.restaurants, applied.priceRange, isGuest, isSearchMode]);
 
+  // Pro: meals with an ingredient the user avoids don't show.
+  const { isAvoided } = useAvoidFilter();
+
   return {
     query,
     setQuery,
@@ -107,7 +111,7 @@ export function useBrowseSearch({ isGuest }: { isGuest: boolean }) {
     setApplied,
     isSearchMode,
     loading,
-    results: order(results, applied.sortByPrice),
+    results: order(results.filter((meal) => !isAvoided(meal)), applied.sortByPrice),
     limitReached,
   };
 }

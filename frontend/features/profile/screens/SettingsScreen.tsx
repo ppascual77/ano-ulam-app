@@ -3,12 +3,11 @@ import { Linking, Platform, Pressable, ScrollView, Text, View, useWindowDimensio
 import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, ChevronRight, LogOut, Trash2 } from "lucide-react-native";
+import { ArrowLeft, ChevronRight, Lock, LogOut, Trash2 } from "lucide-react-native";
 import { AppText, ChipSelect, ConfirmSheet, Screen, Spinner, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { parseUserPreferences, type UserPreferences } from "@/api/auth";
 import { useAuth, useDeleteAccount, useSignOut } from "@/frontend/features/auth/hooks/useAuth";
-import { useUpdateUserProfile, useUserProfile } from "@/frontend/features/auth/hooks/useUserProfile";
+import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
 import { ALLERGEN_OPTIONS, DIETARY_FOCUS_OPTIONS } from "@/frontend/core/preferences/options";
 import { useAccountSettings, useAccountSettingsActions } from "../hooks/useProfile";
 import {
@@ -22,6 +21,10 @@ import { WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
 import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenIntrosStore";
+import { useProStore } from "@/frontend/core/pro/store/useProStore";
+import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
+import { ProUpgradeSheet } from "@/frontend/core/pro/components/ProUpgradeSheet";
+import { AvoidIngredientsSheet } from "../components/settings/AvoidIngredientsSheet";
 
 const LOG_OUT_DELAY_MS = 2000;
 const SUPPORT_EMAIL = "anoulam.app@gmail.com";
@@ -65,14 +68,16 @@ export default function SettingsScreen() {
 
   // Preferences are real (users.preferences, same as Home's Preferences
   // sheet). Without a session (dev on a device) changes stay local.
-  const profile = useUserProfile();
-  const updateProfile = useUpdateUserProfile();
-  const [localPrefs, setLocalPrefs] = useState<UserPreferences | null>(null);
-  const prefs = localPrefs ?? parseUserPreferences(profile.data?.preferences);
-  const setPrefs = (next: UserPreferences) => {
-    setLocalPrefs(next);
-    if (isSignedIn) updateProfile.mutate({ preferences: next });
-  };
+  const { prefs, setPrefs } = usePreferences();
+
+  // ---- Pro ------------------------------------------------------------------
+  // Pro rows show for everyone (with a lock); without Pro they open the
+  // upsell instead (MOCK Pro: "Unlock" just flips it, see useProStore).
+  const isPro = useProStore((s) => s.isPro);
+  const setPro = useProStore((s) => s.setPro);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [avoidOpen, setAvoidOpen] = useState(false);
+  const avoidedNames = prefs.avoid_ingredients.map((a) => a.name.split(",")[0]);
 
   // ---- ?section=newsletter --------------------------------------------------
 
@@ -155,6 +160,27 @@ export default function SettingsScreen() {
             </View>
           </SettingsSection>
 
+          <SettingsSection title="Pro">
+            <Pressable
+              onPress={() => (isPro ? setAvoidOpen(true) : setUpgradeOpen(true))}
+              accessibilityRole="button"
+              className="flex-row items-center gap-3 active:opacity-60"
+            >
+              <View className="flex-1">
+                <View className="flex-row items-center gap-2">
+                  <SettingsRowLabel>Ingredients to avoid</SettingsRowLabel>
+                  <ProBadge />
+                </View>
+                <SettingsRowDescription>
+                  {isPro && avoidedNames.length > 0
+                    ? `Avoiding ${avoidedNames.slice(0, 3).join(", ")}${avoidedNames.length > 3 ? ` and ${avoidedNames.length - 3} more` : ""}.`
+                    : "Hide meals with ingredients you don't eat, everywhere in the app."}
+                </SettingsRowDescription>
+              </View>
+              {isPro ? <ChevronRight color={colors.ink.subtle} size={18} /> : <Lock color={colors.ink.subtle} size={16} />}
+            </Pressable>
+          </SettingsSection>
+
           <SettingsSection title="App">
             <SettingsToggle
               label="Surprise me on Home"
@@ -235,6 +261,20 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
 
+      <AvoidIngredientsSheet visible={avoidOpen} onClose={() => setAvoidOpen(false)} />
+      <ProUpgradeSheet
+        visible={upgradeOpen}
+        title="Make every meal yours"
+        body="Pro hides meals with ingredients you don't eat, plans your whole week and more."
+        onClose={() => setUpgradeOpen(false)}
+        onUnlock={() => {
+          setPro(true);
+          setUpgradeOpen(false);
+          // Not straight into the picker: two native modals at once can
+          // get stuck (see BottomSheet's onClosed).
+          setToast({ id: Date.now(), message: "Pro unlocked (test)", tone: "success" });
+        }}
+      />
       <ConfirmSheet
         visible={confirmUnsubscribe}
         title="Sad to see you go 😢"

@@ -1,3 +1,4 @@
+import { useProStore } from "@/frontend/core/pro/store/useProStore";
 import { useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
@@ -43,6 +44,8 @@ const SHOW_INTRO = true;
 
 export default function MealPlannerScreen() {
   const store = usePlannerStore();
+  const isPro = useProStore((s) => s.isPro);
+  const setPro = useProStore((s) => s.setPro);
   const { pool, isLoading: poolLoading } = usePlannerPool();
   const { session } = useAuth();
   const meta = session?.user.user_metadata ?? {};
@@ -88,7 +91,7 @@ export default function MealPlannerScreen() {
   // The grocery list covers the days you can see: the whole week for
   // Premium, today for Free. Fetched while the plan is on screen, so it's
   // ready when the sheet opens.
-  const groceryDays = useMemo(() => (store.isPremium ? [0, 1, 2, 3, 4] : [0]), [store.isPremium]);
+  const groceryDays = useMemo(() => (isPro ? [0, 1, 2, 3, 4] : [0]), [isPro]);
   const grocery = usePlanGroceryList(plan, groceryDays, store.stage === "plan");
   // The sheet's other tab: the saved-meals list (same as Profile's).
   const savedGrocery = useSavedGroceryList(session?.user.id ?? null);
@@ -118,9 +121,9 @@ export default function MealPlannerScreen() {
   };
 
   const unlock = () => {
-    store.setPremium(true);
+    setPro(true);
     setLockedOpen(false);
-    showToast("Premium unlocked (test)");
+    showToast("Pro unlocked (test)");
   };
 
 
@@ -212,7 +215,7 @@ export default function MealPlannerScreen() {
             </View>
           </View>
 
-          <DateSelector plan={plan} selected={selectedDay} isPremium={store.isPremium} onSelect={selectDay} onLocked={() => setLockedOpen(true)} />
+          <DateSelector plan={plan} selected={selectedDay} isPremium={isPro} onSelect={selectDay} onLocked={() => setLockedOpen(true)} />
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="gap-4 px-5 pb-10 pt-4">
             <SummaryRow plan={plan} day={plan.days[selectedDay]} />
@@ -247,14 +250,14 @@ export default function MealPlannerScreen() {
             </Animated.View>
 
             <DayActions
-              locked={!store.isPremium}
-              onRegenerate={() => (store.isPremium ? regenerate() : setLockedOpen(true))}
+              locked={!isPro}
+              onRegenerate={() => (isPro ? regenerate() : setLockedOpen(true))}
               onSwap={() =>
-                store.isPremium
+                isPro
                   ? setSwap({ dayIndex: selectedDay, slot: plan.days[selectedDay].meals[selectedMeal].slot })
                   : setLockedOpen(true)
               }
-              onEdit={() => (store.isPremium ? showToast("Editing a day is coming soon") : setLockedOpen(true))}
+              onEdit={() => (isPro ? showToast("Editing a day is coming soon") : setLockedOpen(true))}
             />
             <GroceryListButton onPress={() => setGroceryOpen(true)} />
           </ScrollView>

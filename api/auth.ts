@@ -7,13 +7,31 @@ import type { Database } from "@/lib/database.types";
 
 export type UserProfile = Database["public"]["Tables"]["users"]["Row"];
 
+/** An ingredient a Pro user never wants in suggestions. The names travel
+ *  with the id so meals that only have ingredient names (mock data) can be
+ *  matched too. */
+export type AvoidedIngredient = { id: string; name: string; aliases: string[] };
+
 export type UserPreferences = {
   dietary_focus: string;
   allergens: string[];
   goals: string[];
+  /** Pro: ingredients to avoid (see useAvoidFilter). */
+  avoid_ingredients: AvoidedIngredient[];
 };
 
-const DEFAULT_PREFERENCES: UserPreferences = { dietary_focus: "none", allergens: [], goals: [] };
+const DEFAULT_PREFERENCES: UserPreferences = { dietary_focus: "none", allergens: [], goals: [], avoid_ingredients: [] };
+
+const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+
+function parseAvoided(v: unknown): AvoidedIngredient[] {
+  if (!Array.isArray(v)) return [];
+  return v.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const o = item as Record<string, unknown>;
+    return typeof o.id === "string" && typeof o.name === "string" ? [{ id: o.id, name: o.name, aliases: strings(o.aliases) }] : [];
+  });
+}
 
 // preferences is a jsonb column (typed as Json, not a known shape) — this
 // parses it defensively rather than casting, since a malformed/legacy row
@@ -33,6 +51,7 @@ export function parseUserPreferences(
     goals: Array.isArray(p.goals)
       ? p.goals.filter((v): v is string => typeof v === "string")
       : DEFAULT_PREFERENCES.goals,
+    avoid_ingredients: parseAvoided(p.avoid_ingredients),
   };
 }
 
