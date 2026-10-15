@@ -109,9 +109,10 @@ export default function ReviewRecipesScreen() {
                 multiline
               />
               <Button
-                label={reject.isPending ? "Rejecting..." : "Reject recipe"}
+                label="Reject recipe"
                 variant="outline"
-                disabled={!reason.trim() || reject.isPending}
+                loading={reject.isPending}
+                disabled={!reason.trim()}
                 onPress={handleReject}
               />
             </View>

@@ -28,9 +28,13 @@ type SpinnerProps = {
   color?: string;
   /** The faint full ring behind it. Defaults to 20% white. Ring only. */
   trackColor?: string;
-  /** Wave only: curl the line into the spiral doodle at its right end. */
+  /** Wave only: straighten the line, pull it taut from both ends and snap
+   *  it in the middle. */
   done?: boolean;
-  /** Wave only: called once the spiral has formed and held, so the parent
+  /** Wave only: called the moment the line snaps (e.g. to burst confetti
+   *  from its middle). */
+  onSnap?: () => void;
+  /** Wave only: called once the snapped halves have faded, so the parent
    *  can take the spinner away. */
   onDone?: () => void;
 };
@@ -103,53 +107,43 @@ const WAVE_STROKE_WIDTH = 2.5;
 // Points the line is drawn through. Enough that the wave reads smooth.
 const WAVE_POINTS = 120;
 
-// The "done" flourish: the line reels into the spiral doodle at its right
-// end while it spins, then the spiral pops (quick squash, then bursts
-// outward and fades, with a ring of little ticks flying off), and Button
-// brings its label back. Same spiral formula as DOODLES.spiral
-// (a = 0..9.9 rad, r = 1.2 + a * 0.85 in a 24-unit box), scaled to
-// SPIRAL_RADIUS px.
-const SPIRAL_TURN = 9.9;
-const SPIRAL_RADIUS = 10;
-const SPIRAL_SCALE = SPIRAL_RADIUS / (1.2 + SPIRAL_TURN * 0.85);
-const MORPH_MS = 750;
-// How much the right end leads the left while curling (0 = all at once).
-const MORPH_STAGGER = 0.6;
-// Turns the spiral makes from the start of the curl to the end of the pop.
-// Speeds up into the pop. Wound the way that reels the line in.
-const SPIN_TURNS = 1.5;
-const POP_MS = 280;
-// Pop timeline (0..1): squash to POP_SQUASH by POP_SQUASH_AT, then grow to
-// POP_GROW while fading out.
-const POP_SQUASH_AT = 0.3;
-const POP_SQUASH = 0.85;
-const POP_GROW = 1.7;
-const BURST_TICKS = 8;
-// Furthest anything reaches from the spiral's center, in SPIRAL_RADIUS
-// units (the popped spiral / burst ticks). Sizes the box so nothing clips.
-const POP_EXTENT = 1.75;
+// The "done" outro, a string pulled taut until it snaps: the wiggle calms
+// into a straight string, both ends get pulled outward (opposite ways) and
+// it thins under the tension, then it snaps in the middle, the two halves
+// whipping back to the ends and fading. Button fires confetti from the break
+// (onSnap). Replaced a curl into the spiral doodle, which read as a
+// different object from the wave.
+const STRAIGHTEN_MS = 220;
+const PULL_MS = 280;
+const SNAP_MS = 240;
+// How far each end is pulled outward, in px. The wave runs this far in from
+// each side so the pull has room.
+const PULL_PX = 6;
+// The stroke at full tension, thinner than WAVE_STROKE_WIDTH.
+const TAUT_STROKE_WIDTH = 1.3;
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 // A long wavy line spanning its parent's width, always WAVE_COUNT waves
 // across. Drawn point by point every frame (not a fixed path slid sideways)
-// so it can morph: phase loops 0 -> 1 and the sine makes the restart
-// seamless. When `done` flips on, each point slides to its spot on the
-// (spinning) spiral, right end first, so the line looks like it curls up.
-function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone }: SpinnerProps) {
+// so it can change shape: phase loops 0 -> 1 and the sine makes the restart
+// seamless. When `done` flips on: calm, pull taut, snap (see STRAIGHTEN_MS).
+function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone, onSnap }: SpinnerProps) {
   const [width, setWidth] = useState(0);
   // The worklets below read width from this, not the state: a worklet keeps
   // the JS values it was first created with, so `width` there stays 0 and
   // the wavelength divides by zero (NaN path).
   const widthSV = useSharedValue(0);
   const phase = useSharedValue(0);
-  const morph = useSharedValue(0);
-  const spin = useSharedValue(0);
-  const pop = useSharedValue(0);
-  const boxHeight = Math.max(size, SPIRAL_RADIUS * POP_EXTENT * 2 + WAVE_STROKE_WIDTH);
-  // Ref so a new inline onDone each parent render doesn't restart the timer.
+  const calm = useSharedValue(0);
+  const pull = useSharedValue(0);
+  const snap = useSharedValue(0);
+  const boxHeight = size;
+  // Refs so new inline callbacks each parent render don't restart the timers.
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
+  const onSnapRef = useRef(onSnap);
+  onSnapRef.current = onSnap;
 
   useEffect(() => {
     phase.value = withRepeat(withTiming(1, { duration: WAVE_PERIOD_MS, easing: Easing.linear }), -1, false);
@@ -157,74 +151,54 @@ function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone }: Spi
 
   useEffect(() => {
     if (!done) {
-      morph.value = 0;
-      spin.value = 0;
-      pop.value = 0;
+      calm.value = 0;
+      pull.value = 0;
+      snap.value = 0;
       return;
     }
-    morph.value = withTiming(1, { duration: MORPH_MS, easing: Easing.inOut(Easing.cubic) });
-    spin.value = withTiming(SPIN_TURNS * 2 * Math.PI, { duration: MORPH_MS + POP_MS, easing: Easing.in(Easing.quad) });
-    pop.value = withDelay(MORPH_MS, withTiming(1, { duration: POP_MS, easing: Easing.out(Easing.quad) }));
-    const timer = setTimeout(() => onDoneRef.current?.(), MORPH_MS + POP_MS);
-    return () => clearTimeout(timer);
-  }, [done, morph, spin, pop]);
+    calm.value = withTiming(1, { duration: STRAIGHTEN_MS, easing: Easing.out(Easing.cubic) });
+    pull.value = withDelay(STRAIGHTEN_MS, withTiming(1, { duration: PULL_MS, easing: Easing.in(Easing.quad) }));
+    snap.value = withDelay(STRAIGHTEN_MS + PULL_MS, withTiming(1, { duration: SNAP_MS, easing: Easing.out(Easing.cubic) }));
+    const timers = [
+      setTimeout(() => onSnapRef.current?.(), STRAIGHTEN_MS + PULL_MS),
+      setTimeout(() => onDoneRef.current?.(), STRAIGHTEN_MS + PULL_MS + SNAP_MS),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [done, calm, pull, snap]);
 
   const pathProps = useAnimatedProps(() => {
     const width = widthSV.value;
-    if (width <= 0) return { d: "", strokeOpacity: 1 };
+    if (width <= 0) return { d: "", strokeWidth: WAVE_STROKE_WIDTH, strokeOpacity: 1 };
     const pad = WAVE_STROKE_WIDTH / 2;
     const mid = boxHeight / 2;
-    const amplitude = size / 2 - pad;
+    const center = width / 2;
+    const amplitude = (size / 2 - pad) * (1 - calm.value);
     const waveLength = width / WAVE_COUNT;
-    const spiralX = width - pad - SPIRAL_RADIUS * POP_EXTENT;
-    const p = pop.value;
-    const popScale =
-      p < POP_SQUASH_AT
-        ? 1 - (1 - POP_SQUASH) * (p / POP_SQUASH_AT)
-        : POP_SQUASH + (POP_GROW - POP_SQUASH) * ((p - POP_SQUASH_AT) / (1 - POP_SQUASH_AT));
-    const opacity = p < POP_SQUASH_AT ? 1 : 1 - (p - POP_SQUASH_AT) / (1 - POP_SQUASH_AT);
+    // The ends: PULL_PX in from the sides, pulled out to the sides.
+    const reach = pad + PULL_PX * (1 - pull.value);
+    const left = reach;
+    const right = width - reach;
+    // After the snap each half's broken end whips back to its own side.
+    const s = snap.value;
     let d = "";
+    const half = WAVE_POINTS / 2;
     for (let i = 0; i < WAVE_POINTS; i++) {
       const t = i / (WAVE_POINTS - 1);
-      // On the wave.
-      const wx = pad + t * (width - pad * 2);
-      const wy = mid - amplitude * Math.sin(2 * Math.PI * (wx / waveLength + phase.value));
-      // On the spiral: the left end is the outer tail (pointing left, so it
-      // still reads as the same line), the right end is the center. Angle
-      // grows toward the center, which winds clockwise on screen (y points
-      // down); spinning the same way reels the line in.
-      const a = (1 - t) * SPIRAL_TURN;
-      const r = (1.2 + a * 0.85) * SPIRAL_SCALE * popScale;
-      const angle = Math.PI + (SPIRAL_TURN - a) + spin.value;
-      const sx = spiralX + Math.cos(angle) * r;
-      const sy = mid + Math.sin(angle) * r;
-      const k = Math.min(1, Math.max(0, morph.value * (1 + MORPH_STAGGER) - (1 - t) * MORPH_STAGGER));
-      const x = wx + (sx - wx) * k;
-      const y = wy + (sy - wy) * k;
-      d += `${i === 0 ? "M" : " L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+      let x = left + t * (right - left);
+      if (s > 0) {
+        // Squeeze each half toward its outer end.
+        x = x < center ? left + (x - left) * (1 - s) : right - (right - x) * (1 - s);
+      }
+      const y = mid - amplitude * Math.sin(2 * Math.PI * (x / waveLength + phase.value));
+      // Two strokes once snapped: start the right half fresh.
+      d += `${i === 0 || (s > 0 && i === half) ? "M" : " L"}${x.toFixed(2)} ${y.toFixed(2)}`;
     }
-    return { d, strokeOpacity: opacity };
+    return {
+      d,
+      strokeWidth: WAVE_STROKE_WIDTH + (TAUT_STROKE_WIDTH - WAVE_STROKE_WIDTH) * pull.value * (1 - s),
+      strokeOpacity: 1 - s,
+    };
   }, [size, boxHeight]);
-
-  // The pop's burst: short ticks around the spiral that fly outward and
-  // shrink to nothing, starting just as the squash releases.
-  const burstProps = useAnimatedProps(() => {
-    const width = widthSV.value;
-    const b = Math.min(1, Math.max(0, (pop.value - POP_SQUASH_AT) / (1 - POP_SQUASH_AT)));
-    if (width <= 0 || b <= 0) return { d: "", strokeOpacity: 0 };
-    const cx = width - WAVE_STROKE_WIDTH / 2 - SPIRAL_RADIUS * POP_EXTENT;
-    const cy = boxHeight / 2;
-    const inner = SPIRAL_RADIUS * (1.2 + 0.5 * b);
-    const outer = inner + SPIRAL_RADIUS * 0.5 * (1 - b);
-    let d = "";
-    for (let i = 0; i < BURST_TICKS; i++) {
-      const angle = (i / BURST_TICKS) * 2 * Math.PI;
-      const cos = Math.cos(angle);
-      const sin = Math.sin(angle);
-      d += `M${(cx + cos * inner).toFixed(2)} ${(cy + sin * inner).toFixed(2)} L${(cx + cos * outer).toFixed(2)} ${(cy + sin * outer).toFixed(2)} `;
-    }
-    return { d, strokeOpacity: 1 - b };
-  }, [boxHeight]);
 
   return (
     <View
@@ -242,16 +216,8 @@ function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone }: Spi
           <AnimatedPath
             animatedProps={pathProps}
             stroke={color}
-            strokeWidth={WAVE_STROKE_WIDTH}
             strokeLinecap="round"
             strokeLinejoin="round"
-            fill="none"
-          />
-          <AnimatedPath
-            animatedProps={burstProps}
-            stroke={color}
-            strokeWidth={WAVE_STROKE_WIDTH}
-            strokeLinecap="round"
             fill="none"
           />
         </Svg>

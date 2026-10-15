@@ -177,8 +177,9 @@ export default function SeedMealScreen() {
               keyboardType="url"
             />
             <Button
-              label={importMeal.isPending ? "Importing..." : "Import Recipe"}
-              disabled={importMeal.isPending || url.trim() === ""}
+              label="Import Recipe"
+              loading={importMeal.isPending}
+              disabled={url.trim() === ""}
               icon={<Link2 color={colors.white} size={16} />}
               onPress={handleImport}
             />
@@ -242,11 +243,8 @@ export default function SeedMealScreen() {
               ]}
             />
             <Button
-              label={
-                createMeal.isPending || addMealIngredient.isPending || recomputeMealTotals.isPending
-                  ? "Saving..."
-                  : "Confirm Seed"
-              }
+              label="Confirm Seed"
+              loading={createMeal.isPending || addMealIngredient.isPending || recomputeMealTotals.isPending}
               disabled={!canSave}
               onPress={handleSave}
             />

@@ -586,7 +586,7 @@ function IngredientRowCard({
               />
             )}
             <ActionChip
-              label={aiEstimating ? "Estimating..." : "AI estimate"}
+              label="AI estimate"
               icon={<Sparkles color={colors.primary} size={15} />}
               loading={aiEstimating}
               onPress={handleAiEstimate}
@@ -644,7 +644,7 @@ function IngredientRowCard({
               <InlineError>Can't calculate price/macros: {contribution.reason}</InlineError>
               {canSuggestBridge && (
                 <ActionChip
-                  label={bridgeFixing ? "Estimating..." : "Suggest bridge with AI"}
+                  label="Suggest bridge with AI"
                   icon={<Sparkles color={colors.primary} size={15} />}
                   loading={bridgeFixing}
                   onPress={handleFixBridge}

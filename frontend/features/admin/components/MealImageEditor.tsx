@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { View, Pressable, ActivityIndicator } from "react-native";
+import { View, Pressable } from "react-native";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { Camera, ImageOff, Sparkles, X } from "lucide-react-native";
-import { AppText, Button } from "@/frontend/components/ui";
+import { AppText, Button, Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { generateMealImage } from "@/api/meals";
 import { useUploadMealImage } from "../hooks/useMeals";
@@ -123,7 +123,7 @@ export function MealImageEditor({
             style={{ height: IMAGE_HEIGHT }}
             className="absolute inset-0 items-center justify-center bg-ink-emphasis/40"
           >
-            <ActivityIndicator size="small" color={colors.white} />
+            <Spinner variant="wave" size={12} color={colors.accent} />
             <AppText variant="caption" className="text-white mt-2">
               Generating...
             </AppText>
@@ -170,7 +170,7 @@ export function MealImageEditor({
       {previewUri && !generating && (
         <View className="flex-row items-center gap-2 mt-3">
           <View className="flex-1">
-            <Button label={applying ? "Using..." : "Use this photo"} disabled={applying} onPress={handleAcceptPreview} />
+            <Button label="Use this photo" loading={applying} onPress={handleAcceptPreview} />
           </View>
           <View className="flex-1">
             <Button label="Regenerate" variant="outline" disabled={applying} onPress={handleGenerate} />

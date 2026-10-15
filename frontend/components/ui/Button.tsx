@@ -3,6 +3,7 @@ import { View, Pressable, PressableProps, StyleProp, ViewStyle } from "react-nat
 import Animated, { FadeOut, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { colors } from "@/frontend/constants/theme";
 import { AppText } from "./AppText";
+import { Confetti } from "./Confetti";
 import { Spinner } from "./Spinner";
 
 // "social" is a neutral white/bordered button for third-party auth
@@ -50,8 +51,10 @@ const shapeStyles: Partial<Record<Shape, { borderRadius: number }>> = {
   fullPill: { borderRadius: 10 },
 };
 
-// Crossfade between the finished spiral and the label coming back.
+// Crossfade between the snapped wave and the label coming back.
 const CONTENT_FADE_MS = 200;
+// The loading wave's inset from the button's sides.
+const WAVE_INSET = 50;
 
 type ButtonProps = Omit<PressableProps, "style"> & {
   label?: string;
@@ -63,8 +66,13 @@ type ButtonProps = Omit<PressableProps, "style"> & {
   style?: StyleProp<ViewStyle>;
   /** Swaps the content for Spinner's rolling accent "wave" and blocks
    *  presses, without the disabled fade. The button keeps its size. When it
-   *  flips back off, the wave curls into a spiral before the label returns. */
+   *  flips back off, the wave straightens, is pulled taut from both ends and
+   *  snaps in the middle, with a burst of confetti, before the label
+   *  returns. */
   loading?: boolean;
+  /** false: no confetti when the loading wave snaps (e.g. a button that
+   *  already celebrates its own result, like meal details' Save). */
+  celebrate?: boolean;
 };
 
 export function Button({
@@ -76,6 +84,7 @@ export function Button({
   style,
   disabled,
   loading = false,
+  celebrate = true,
   ...props
 }: ButtonProps) {
   // "fullPill" (currently only the "tinted" View Details button) centers its
@@ -87,10 +96,14 @@ export function Button({
     </AppText>
   );
 
-  // The wave outlives `loading`: once it flips off, the wave curls into a
-  // spiral first (Spinner's `done`), and only then goes away. Set during
-  // render (not in an effect) so the wave is there on loading's first frame.
+  // The wave outlives `loading`: once it flips off, it's pulled taut and
+  // snaps first (Spinner's `done`), and only then goes away. Set
+  // during render (not in an effect) so the wave is there on loading's
+  // first frame.
   const [showWave, setShowWave] = useState(loading);
+  // Confetti from where the wave snapped (the button's middle). Lives on
+  // the button, not the spinner, so it keeps flying after the wave is gone.
+  const [burstId, setBurstId] = useState(0);
   if (loading && !showWave) setShowWave(true);
   const busy = loading || showWave;
 
@@ -129,11 +142,26 @@ export function Button({
         <Animated.View
           exiting={FadeOut.duration(CONTENT_FADE_MS)}
           pointerEvents="none"
-          className="absolute inset-0 justify-center px-[50px]"
+          className="absolute inset-0 justify-center"
+          style={{ paddingHorizontal: WAVE_INSET }}
         >
-          <Spinner variant="wave" size={12} color={colors.accent} done={!loading} onDone={() => setShowWave(false)} />
+          <Spinner
+            variant="wave"
+            size={12}
+            color={colors.accent}
+            done={!loading}
+            onSnap={() => {
+              if (celebrate) setBurstId((n) => n + 1);
+            }}
+            onDone={() => setShowWave(false)}
+          />
         </Animated.View>
       )}
+      <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
+        <View style={{ width: 0, height: 0 }}>
+          <Confetti burstId={burstId} direction="up" />
+        </View>
+      </View>
     </Pressable>
   );
 }

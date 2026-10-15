@@ -27,18 +27,16 @@ export default function HomeScreen() {
   // The welcome intro plays once, right after onboarding (which lands here
   // with ?intro=1 and where its page indicator's dot was), not on every
   // visit like the other tabs' intros. Its dot lands as the period of
-  // "Categories." with a burst of confetti.
+  // "Categories." (no confetti: that's kept for likes and saves).
   const params = useLocalSearchParams<{ intro?: string; dotX?: string; dotY?: string }>();
   const [introPending, setIntroPending] = useState(params.intro === "1");
   const reduceMotion = useReduceMotion();
   const intro = usePageIntro({ enabled: introPending && !reduceMotion });
-  const [landingBurst, setLandingBurst] = useState(0);
   const entry =
     params.dotX && params.dotY ? { x: Number(params.dotX), y: Number(params.dotY) } : undefined;
   const finishIntro = () => {
     intro.finish();
     setIntroPending(false);
-    setLandingBurst((n) => n + 1);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
@@ -67,7 +65,7 @@ export default function HomeScreen() {
         </View>
         {mode === "budget" ? (
           <BudgetSection
-            categoriesLanding={{ dotRef: intro.targetRef, showDot: intro.landed, burstId: landingBurst }}
+            categoriesLanding={{ dotRef: intro.targetRef, showDot: intro.landed }}
           />
         ) : (
           <PantrySection />

@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ActivityIndicator, Linking, Pressable, Text, View } from "react-native";
+import { Linking, Pressable, Text, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { Check, CheckCircle2, ExternalLink } from "lucide-react-native";
-import { AppText, Button, ErrorState, LoadingState, NoticeBanner } from "@/frontend/components/ui";
+import { AppText, Button, ErrorState, LoadingState, NoticeBanner, Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import {
   commoditiesByIngredient,
@@ -308,7 +308,7 @@ export function DaImportPanel() {
 
       {parse.isPending && (
         <View className="mb-4 flex-row items-center gap-2">
-          <ActivityIndicator size="small" color={colors.primary} />
+          <Spinner variant="wave" size={12} color={colors.accent} />
           <Text className="font-inter-medium text-body text-ink-subtle">Reading PDF...</Text>
         </View>
       )}
@@ -337,8 +337,9 @@ export function DaImportPanel() {
           </View>
 
           <Button
-            label={save.isPending || confirmedUpdate.isSaving ? "Saving..." : `Save ${priced.length} prices`}
-            disabled={save.isPending || confirmedUpdate.isSaving || confirmedUpdate.loadingAffected || priced.length === 0}
+            label={`Save ${priced.length} prices`}
+            loading={save.isPending || confirmedUpdate.isSaving}
+            disabled={confirmedUpdate.loadingAffected || priced.length === 0}
             onPress={handleSave}
           />
 

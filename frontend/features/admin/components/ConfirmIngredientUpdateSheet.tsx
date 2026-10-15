@@ -53,7 +53,7 @@ export function ConfirmIngredientUpdateSheet({ pending, affectedMeals, loading, 
         <View className="flex-1" />
 
         <View className="gap-2 pb-8">
-          <Button label={isSaving ? "Updating..." : "Confirm Update"} disabled={isSaving || loading} onPress={onConfirm} />
+          <Button label="Confirm Update" loading={isSaving} disabled={loading} onPress={onConfirm} />
           <Button label="Cancel" variant="outline" disabled={isSaving} onPress={onCancel} />
         </View>
       </View>

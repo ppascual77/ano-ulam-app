@@ -32,8 +32,10 @@ export type ToastState = {
   tone: keyof typeof TONES;
   /** Small thumbnail on the left (e.g. the meal that was just saved). */
   image?: ImageProps["source"];
-  /** A text button on the right (e.g. "View" -> Profile). */
-  action?: { label: string; onPress: () => void };
+  /** A text button on the right (e.g. "View" -> Profile). `inSheet`: it's
+   *  safe to show over a modal sheet too (e.g. Undo), unlike one that
+   *  navigates away under the sheet (see GlobalToast's withActions). */
+  action?: { label: string; onPress: () => void; inSheet?: boolean };
 };
 
 type ToastProps = {
