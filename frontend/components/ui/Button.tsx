@@ -4,7 +4,7 @@ import Animated, { FadeOut, useAnimatedStyle, useSharedValue, withTiming } from 
 import { colors } from "@/frontend/constants/theme";
 import { AppText } from "./AppText";
 import { Confetti } from "./Confetti";
-import { Spinner } from "./Spinner";
+import { Spinner, WAVE_SNAP_X } from "./Spinner";
 
 // "social" is a neutral white/bordered button for third-party auth
 // (Google, Apple) — the icon carries the brand identity, not our palette.
@@ -53,6 +53,9 @@ const shapeStyles: Partial<Record<Shape, { borderRadius: number }>> = {
 
 // Crossfade between the wave's final dot and the label coming back.
 const CONTENT_FADE_MS = 200;
+// The loading wave's inset from the button's sides (the confetti is aimed
+// at its left end).
+const WAVE_INSET = 50;
 
 type ButtonProps = Omit<PressableProps, "style"> & {
   label?: string;
@@ -98,8 +101,9 @@ export function Button({
   // during render (not in an effect) so the wave is there on loading's
   // first frame.
   const [showWave, setShowWave] = useState(loading);
-  // Confetti from where the wave snapped (the button's middle). Lives on
-  // the button, not the spinner, so it keeps flying after the wave is gone.
+  // Confetti from where the wave snapped (its left end), popper-style. Lives
+  // on the button, not the spinner, so it keeps flying after the wave is
+  // gone.
   const [burstId, setBurstId] = useState(0);
   if (loading && !showWave) setShowWave(true);
   const busy = loading || showWave;
@@ -139,7 +143,8 @@ export function Button({
         <Animated.View
           exiting={FadeOut.duration(CONTENT_FADE_MS)}
           pointerEvents="none"
-          className="absolute inset-0 justify-center px-[50px]"
+          className="absolute inset-0 justify-center"
+          style={{ paddingHorizontal: WAVE_INSET }}
         >
           <Spinner
             variant="wave"
@@ -153,9 +158,9 @@ export function Button({
           />
         </Animated.View>
       )}
-      <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
+      <View pointerEvents="none" className="absolute bottom-0 top-0 justify-center" style={{ left: WAVE_INSET + WAVE_SNAP_X }}>
         <View style={{ width: 0, height: 0 }}>
-          <Confetti burstId={burstId} direction="up" />
+          <Confetti burstId={burstId} direction="popper" />
         </View>
       </View>
     </Pressable>

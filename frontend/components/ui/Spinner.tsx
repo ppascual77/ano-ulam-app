@@ -28,8 +28,8 @@ type SpinnerProps = {
   color?: string;
   /** The faint full ring behind it. Defaults to 20% white. Ring only. */
   trackColor?: string;
-  /** Wave only: straighten the line, pull it in to its middle and snap it
-   *  into a dot. */
+  /** Wave only: straighten the line, yank it to its left end and snap it
+   *  into a dot there (WAVE_SNAP_X from the wave's left edge). */
   done?: boolean;
   /** Wave only: called as the line snaps into its dot, so the parent can
    *  take the spinner away (and burst confetti from there). */
@@ -104,16 +104,20 @@ const WAVE_STROKE_WIDTH = 2.5;
 // Points the line is drawn through. Enough that the wave reads smooth.
 const WAVE_POINTS = 120;
 
-// The "done" outro, all one line coming to rest: the wiggle calms into a
-// straight line, the line pulls in from both ends to its middle, and what's
-// left snaps into a dot (Button bursts confetti from it as the label comes
-// back). Replaced a curl into the spiral doodle, which read as a different
-// object from the wave.
+// The "done" outro, a party popper: the wiggle calms into a straight
+// string, the string gets yanked to its left end (the right end racing
+// left), and what's left snaps into a dot there; Button fires confetti out
+// of it the other way, up and to the right, as the label comes back.
+// Replaced a curl into the spiral doodle, which read as a different object
+// from the wave.
 const STRAIGHTEN_MS = 240;
 const PULL_MS = 300;
 const SNAP_MS = 160;
 // The dot it snaps into, in px.
 const DOT_RADIUS = 3.5;
+// Where the dot ends up, from the wave's left edge: Button aims its
+// confetti there.
+export const WAVE_SNAP_X = WAVE_STROKE_WIDTH / 2;
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -121,7 +125,7 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 // A long wavy line spanning its parent's width, always WAVE_COUNT waves
 // across. Drawn point by point every frame (not a fixed path slid sideways)
 // so it can change shape: phase loops 0 -> 1 and the sine makes the restart
-// seamless. When `done` flips on: calm, pull in, snap (see STRAIGHTEN_MS).
+// seamless. When `done` flips on: calm, yank left, snap (see STRAIGHTEN_MS).
 function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone }: SpinnerProps) {
   const [width, setWidth] = useState(0);
   // The worklets below read width from this, not the state: a worklet keeps
@@ -160,7 +164,6 @@ function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone }: Spi
     if (width <= 0 || pull.value >= 1) return { d: "" };
     const pad = WAVE_STROKE_WIDTH / 2;
     const mid = boxHeight / 2;
-    const center = width / 2;
     const amplitude = (size / 2 - pad) * (1 - calm.value);
     const waveLength = width / WAVE_COUNT;
     const reach = 1 - pull.value;
@@ -169,17 +172,17 @@ function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone }: Spi
       const t = i / (WAVE_POINTS - 1);
       const wx = pad + t * (width - pad * 2);
       const y = mid - amplitude * Math.sin(2 * Math.PI * (wx / waveLength + phase.value));
-      // Both ends close in on the middle.
-      const x = center + (wx - center) * reach;
+      // Yanked to the left end: every point slides toward it.
+      const x = pad + (wx - pad) * reach;
       d += `${i === 0 ? "M" : " L"}${x.toFixed(2)} ${y.toFixed(2)}`;
     }
     return { d };
   }, [size, boxHeight]);
 
-  // The dot the line snaps into: from the stroke's own width to DOT_RADIUS,
-  // overshooting a little (the snap).
+  // The dot the line snaps into, at its left end: from the stroke's own
+  // width to DOT_RADIUS, overshooting a little (the snap).
   const dotProps = useAnimatedProps(() => ({
-    cx: widthSV.value / 2,
+    cx: WAVE_STROKE_WIDTH / 2,
     r: pull.value >= 1 ? WAVE_STROKE_WIDTH / 2 + (DOT_RADIUS - WAVE_STROKE_WIDTH / 2) * snap.value : 0,
   }));
 

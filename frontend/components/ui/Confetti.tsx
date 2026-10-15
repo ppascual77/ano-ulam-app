@@ -38,9 +38,12 @@ type Particle = {
 // right edge (a card's like/save, Discover's action rail) where bursting
 // further right would get clipped or run off-screen. "up": symmetric around
 // straight up, for buttons with room on both sides (or near the left edge).
+// "popper": a tight cone up and to the right, like a party popper's blast
+// (Button's loading outro, fired from the left end of the pulled line).
 const FANS = {
   upLeft: { from: -215, span: 175 },
   up: { from: -180, span: 180 },
+  popper: { from: -80, span: 65 },
 } as const;
 
 export type ConfettiDirection = keyof typeof FANS;
