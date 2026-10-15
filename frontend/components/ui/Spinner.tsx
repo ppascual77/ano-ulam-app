@@ -9,7 +9,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import Svg, { Circle, Path } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 import { BoilingDoodle, DOODLES, drawBoilPair } from "./doodles";
 
 type SpinnerProps = {
@@ -28,11 +28,14 @@ type SpinnerProps = {
   color?: string;
   /** The faint full ring behind it. Defaults to 20% white. Ring only. */
   trackColor?: string;
-  /** Wave only: straighten the line, yank it to its left end and snap it
-   *  into a dot there (WAVE_SNAP_X from the wave's left edge). */
+  /** Wave only: straighten the line, pull it taut from both ends and snap
+   *  it in the middle. */
   done?: boolean;
-  /** Wave only: called as the line snaps into its dot, so the parent can
-   *  take the spinner away (and burst confetti from there). */
+  /** Wave only: called the moment the line snaps (e.g. to burst confetti
+   *  from its middle). */
+  onSnap?: () => void;
+  /** Wave only: called once the snapped halves have faded, so the parent
+   *  can take the spinner away. */
   onDone?: () => void;
 };
 
@@ -104,29 +107,28 @@ const WAVE_STROKE_WIDTH = 2.5;
 // Points the line is drawn through. Enough that the wave reads smooth.
 const WAVE_POINTS = 120;
 
-// The "done" outro, a party popper: the wiggle calms into a straight
-// string, the string gets yanked to its left end (the right end racing
-// left), and what's left snaps into a dot there; Button fires confetti out
-// of it the other way, up and to the right, as the label comes back.
-// Replaced a curl into the spiral doodle, which read as a different object
-// from the wave.
-const STRAIGHTEN_MS = 240;
-const PULL_MS = 300;
-const SNAP_MS = 160;
-// The dot it snaps into, in px.
-const DOT_RADIUS = 3.5;
-// Where the dot ends up, from the wave's left edge: Button aims its
-// confetti there.
-export const WAVE_SNAP_X = WAVE_STROKE_WIDTH / 2;
+// The "done" outro, a string pulled taut until it snaps: the wiggle calms
+// into a straight string, both ends get pulled outward (opposite ways) and
+// it thins under the tension, then it snaps in the middle, the two halves
+// whipping back to the ends and fading. Button fires confetti from the break
+// (onSnap). Replaced a curl into the spiral doodle, which read as a
+// different object from the wave.
+const STRAIGHTEN_MS = 220;
+const PULL_MS = 280;
+const SNAP_MS = 240;
+// How far each end is pulled outward, in px. The wave runs this far in from
+// each side so the pull has room.
+const PULL_PX = 6;
+// The stroke at full tension, thinner than WAVE_STROKE_WIDTH.
+const TAUT_STROKE_WIDTH = 1.3;
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 // A long wavy line spanning its parent's width, always WAVE_COUNT waves
 // across. Drawn point by point every frame (not a fixed path slid sideways)
 // so it can change shape: phase loops 0 -> 1 and the sine makes the restart
-// seamless. When `done` flips on: calm, yank left, snap (see STRAIGHTEN_MS).
-function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone }: SpinnerProps) {
+// seamless. When `done` flips on: calm, pull taut, snap (see STRAIGHTEN_MS).
+function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone, onSnap }: SpinnerProps) {
   const [width, setWidth] = useState(0);
   // The worklets below read width from this, not the state: a worklet keeps
   // the JS values it was first created with, so `width` there stays 0 and
@@ -136,10 +138,12 @@ function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone }: Spi
   const calm = useSharedValue(0);
   const pull = useSharedValue(0);
   const snap = useSharedValue(0);
-  const boxHeight = Math.max(size, DOT_RADIUS * 2 + WAVE_STROKE_WIDTH);
-  // Ref so a new inline onDone each parent render doesn't restart the timer.
+  const boxHeight = size;
+  // Refs so new inline callbacks each parent render don't restart the timers.
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
+  const onSnapRef = useRef(onSnap);
+  onSnapRef.current = onSnap;
 
   useEffect(() => {
     phase.value = withRepeat(withTiming(1, { duration: WAVE_PERIOD_MS, easing: Easing.linear }), -1, false);
@@ -153,38 +157,48 @@ function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone }: Spi
       return;
     }
     calm.value = withTiming(1, { duration: STRAIGHTEN_MS, easing: Easing.out(Easing.cubic) });
-    pull.value = withDelay(STRAIGHTEN_MS, withTiming(1, { duration: PULL_MS, easing: Easing.in(Easing.cubic) }));
-    snap.value = withDelay(STRAIGHTEN_MS + PULL_MS, withTiming(1, { duration: SNAP_MS, easing: Easing.out(Easing.back(3)) }));
-    const timer = setTimeout(() => onDoneRef.current?.(), STRAIGHTEN_MS + PULL_MS + SNAP_MS);
-    return () => clearTimeout(timer);
+    pull.value = withDelay(STRAIGHTEN_MS, withTiming(1, { duration: PULL_MS, easing: Easing.in(Easing.quad) }));
+    snap.value = withDelay(STRAIGHTEN_MS + PULL_MS, withTiming(1, { duration: SNAP_MS, easing: Easing.out(Easing.cubic) }));
+    const timers = [
+      setTimeout(() => onSnapRef.current?.(), STRAIGHTEN_MS + PULL_MS),
+      setTimeout(() => onDoneRef.current?.(), STRAIGHTEN_MS + PULL_MS + SNAP_MS),
+    ];
+    return () => timers.forEach(clearTimeout);
   }, [done, calm, pull, snap]);
 
   const pathProps = useAnimatedProps(() => {
     const width = widthSV.value;
-    if (width <= 0 || pull.value >= 1) return { d: "" };
+    if (width <= 0) return { d: "", strokeWidth: WAVE_STROKE_WIDTH, strokeOpacity: 1 };
     const pad = WAVE_STROKE_WIDTH / 2;
     const mid = boxHeight / 2;
+    const center = width / 2;
     const amplitude = (size / 2 - pad) * (1 - calm.value);
     const waveLength = width / WAVE_COUNT;
-    const reach = 1 - pull.value;
+    // The ends: PULL_PX in from the sides, pulled out to the sides.
+    const reach = pad + PULL_PX * (1 - pull.value);
+    const left = reach;
+    const right = width - reach;
+    // After the snap each half's broken end whips back to its own side.
+    const s = snap.value;
     let d = "";
+    const half = WAVE_POINTS / 2;
     for (let i = 0; i < WAVE_POINTS; i++) {
       const t = i / (WAVE_POINTS - 1);
-      const wx = pad + t * (width - pad * 2);
-      const y = mid - amplitude * Math.sin(2 * Math.PI * (wx / waveLength + phase.value));
-      // Yanked to the left end: every point slides toward it.
-      const x = pad + (wx - pad) * reach;
-      d += `${i === 0 ? "M" : " L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+      let x = left + t * (right - left);
+      if (s > 0) {
+        // Squeeze each half toward its outer end.
+        x = x < center ? left + (x - left) * (1 - s) : right - (right - x) * (1 - s);
+      }
+      const y = mid - amplitude * Math.sin(2 * Math.PI * (x / waveLength + phase.value));
+      // Two strokes once snapped: start the right half fresh.
+      d += `${i === 0 || (s > 0 && i === half) ? "M" : " L"}${x.toFixed(2)} ${y.toFixed(2)}`;
     }
-    return { d };
+    return {
+      d,
+      strokeWidth: WAVE_STROKE_WIDTH + (TAUT_STROKE_WIDTH - WAVE_STROKE_WIDTH) * pull.value * (1 - s),
+      strokeOpacity: 1 - s,
+    };
   }, [size, boxHeight]);
-
-  // The dot the line snaps into, at its left end: from the stroke's own
-  // width to DOT_RADIUS, overshooting a little (the snap).
-  const dotProps = useAnimatedProps(() => ({
-    cx: WAVE_STROKE_WIDTH / 2,
-    r: pull.value >= 1 ? WAVE_STROKE_WIDTH / 2 + (DOT_RADIUS - WAVE_STROKE_WIDTH / 2) * snap.value : 0,
-  }));
 
   return (
     <View
@@ -202,12 +216,10 @@ function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone }: Spi
           <AnimatedPath
             animatedProps={pathProps}
             stroke={color}
-            strokeWidth={WAVE_STROKE_WIDTH}
             strokeLinecap="round"
             strokeLinejoin="round"
             fill="none"
           />
-          <AnimatedCircle animatedProps={dotProps} cy={boxHeight / 2} fill={color} />
         </Svg>
       )}
     </View>
