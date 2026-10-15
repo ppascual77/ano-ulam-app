@@ -4,7 +4,8 @@ import { ChevronRight } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 
 // Outlined, full-width button at the bottom of the reel. Opens the active
-// meal's full MealDetailSheet. `loading` while that meal's ingredients load.
+// meal's full MealDetailSheet. `loading` while that meal's ingredients load
+// (the twirling spiral, in white like the label, on the dark reel).
 export function ViewRecipeButton({ onPress, loading = false }: { onPress: () => void; loading?: boolean }) {
   return (
     <Pressable
@@ -13,7 +14,7 @@ export function ViewRecipeButton({ onPress, loading = false }: { onPress: () => 
       className="h-12 flex-row items-center justify-center rounded-2xl border border-white"
     >
       {loading ? (
-        <Spinner variant="wave" size={12} color={colors.accent} />
+        <Spinner variant="spiral" size={22} color={colors.white} />
       ) : (
         <>
           <Text className="font-inter-semibold text-body text-white">View Recipe</Text>
