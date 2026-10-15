@@ -10,7 +10,6 @@ import { ActivePreferencesSummary } from "./ActivePreferencesSummary";
 import { mockMeals } from "@/frontend/core/meals/mocks/meals";
 import { MACRO_RULES, NON_MACRO_RULES } from "@/frontend/core/meals/utils/constants";
 import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
-import { useAvoidFilter } from "@/frontend/core/preferences/hooks/useAvoidFilter";
 
 type MealSuggestionProps = {
   budget?: string;
@@ -36,13 +35,9 @@ export function MealSuggestion({ budget }: MealSuggestionProps) {
     setPrefs({ ...preferences, allergens: value });
   };
 
-  // Pro: meals with an ingredient the user avoids don't show.
-  const { isAvoided } = useAvoidFilter();
-
   const filteredMeals = useMemo(() => {
-    const allowed = mockMeals.filter((meal) => !isAvoided(meal));
-    if (filters.length === 0) return allowed;
-    return allowed.filter((meal) =>
+    if (filters.length === 0) return mockMeals;
+    return mockMeals.filter((meal) =>
       filters.every((filterId) => {
         if (filterId === "highProtein") return MACRO_RULES.highProtein(meal);
         if (filterId === "lowCarb") return MACRO_RULES.lowCarb(meal);
@@ -50,7 +45,7 @@ export function MealSuggestion({ budget }: MealSuggestionProps) {
         return meal.protein_type === filterId;
       }),
     );
-  }, [filters, isAvoided]);
+  }, [filters]);
 
   const homeCooked = filteredMeals.filter((m) => m.category === "luto");
   const fastFood = filteredMeals.filter((m) => m.category === "fast_food");
