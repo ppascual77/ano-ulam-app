@@ -1,11 +1,11 @@
 import { ReactNode, useEffect, useState } from "react";
-import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { ImageIcon, Link2, X } from "lucide-react-native";
-import { Avatar, BottomSheet } from "@/frontend/components/ui";
+import { Avatar, BottomSheet, Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import type { FoodPost, PostInput } from "@/frontend/core/posts/mock/posts";
 import type { KlipyKind } from "@/api/klipy";
@@ -169,7 +169,7 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
           <Text className="font-inter-bold text-body text-web-ink">{editPost ? "Edit Post" : "New Post"}</Text>
           <Pressable onPress={submit} disabled={!canPost} className={canPost ? "" : "opacity-40"}>
             {posting ? (
-              <ActivityIndicator color={colors.brandGreen.DEFAULT} />
+              <Spinner variant="wave" size={12} color={colors.accent} />
             ) : (
               <Text className="font-inter-bold text-body text-brand-green">{editPost ? "Save" : "Post"}</Text>
             )}

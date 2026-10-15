@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, Text } from "react-native";
+import { Pressable, Text } from "react-native";
+import { Spinner } from "@/frontend/components/ui";
 import { ChevronRight } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 
@@ -12,7 +13,7 @@ export function ViewRecipeButton({ onPress, loading = false }: { onPress: () => 
       className="h-12 flex-row items-center justify-center rounded-2xl border border-white"
     >
       {loading ? (
-        <ActivityIndicator color={colors.white} />
+        <Spinner variant="wave" size={12} color={colors.accent} />
       ) : (
         <>
           <Text className="font-inter-semibold text-body text-white">View Recipe</Text>

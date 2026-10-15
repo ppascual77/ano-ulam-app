@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { View, Text, ActivityIndicator } from "react-native";
+import { View, Text } from "react-native";
 import { AlertTriangle, ArrowRight, Check, CheckCircle2, Sparkles } from "lucide-react-native";
-import { AppText, Button, NoticeBanner } from "@/frontend/components/ui";
+import { AppText, Button, NoticeBanner, Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { type IngredientRow } from "@/api/ingredients";
 import { parseMealBridgeFix, verifyMealIngredients, type MealBridgeIssue } from "@/api/meals";
@@ -158,7 +158,7 @@ export function MealVerifyPanel({ mealName, servingSize, calculation, onUpdateIt
     if (state === "applying") {
       return (
         <View className="flex-row items-center gap-2">
-          <ActivityIndicator size="small" color={colors.primary} />
+          <Spinner variant="wave" size={12} color={colors.accent} />
           <Text className="font-inter-regular text-body text-ink-subtle">Applying...</Text>
         </View>
       );
@@ -267,10 +267,11 @@ export function MealVerifyPanel({ mealName, servingSize, calculation, onUpdateIt
           </AppText>
         </View>
         <Button
-          label={loading ? "Checking..." : issues ? "Check again" : "Check bridges with AI"}
+          label={issues ? "Check again" : "Check bridges with AI"}
           variant="outline"
           icon={<Sparkles color={colors.primary} size={16} />}
-          disabled={countedRows.length === 0 || loading}
+          loading={loading}
+          disabled={countedRows.length === 0}
           onPress={handleBridgeCheck}
         />
         {error && <InlineError>{error}</InlineError>}

@@ -47,7 +47,6 @@ import {
   PulsePressable,
   RollingText,
   SegmentedSwitch,
-  Spinner,
   useBurstOnActivate,
 } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -313,17 +312,16 @@ function ConsumerFooter({ meal, servings, saved, recipeOwner }: ConsumerFooterPr
   return (
     <View>
       <Confetti burstId={saveBurstId} direction="up" />
+      {/* Save is the CTA (solid); once saved it turns into a quiet outline
+          "Saved" state, which unsaves on tap (with an Undo toast, see
+          announceRemoved). A solid "Unsave" used to read as the main action. */}
       <Button
-        label={saved.isSaved ? "Unsave" : "Save Meal"}
-        variant={saved.isSaved ? "primary" : "outline"}
-        icon={
-          saved.busy ? (
-            <Spinner variant="spiral" size={16} color={saved.isSaved ? colors.white : colors.primary} />
-          ) : (
-            <Bookmark color={saved.isSaved ? colors.white : colors.primary} size={16} fill={saved.isSaved ? colors.white : "none"} />
-          )
-        }
+        label={saved.isSaved ? "Saved" : "Save Meal"}
+        variant={saved.isSaved ? "outline" : "primary"}
+        icon={<Bookmark color={saved.isSaved ? colors.primary : colors.white} size={16} fill={saved.isSaved ? colors.primary : "none"} />}
         iconPosition="right"
+        loading={saved.busy}
+        accessibilityHint={saved.isSaved ? "Removes it from your saved meals" : undefined}
         // Not `disabled`: that dims the button, but it's still the live state.
         onPress={() => {
           if (saved.busy) return;
@@ -906,7 +904,7 @@ export function MealDetailContent({
                 <Button label="Reject" variant="outline" onPress={review.onReject} disabled={review.busy} />
               </View>
               <View className="flex-1">
-                <Button label={review.busy ? "Approving..." : "Approve"} onPress={review.onApprove} disabled={review.busy} />
+                <Button label="Approve" onPress={review.onApprove} loading={review.busy} />
               </View>
             </View>
           )}

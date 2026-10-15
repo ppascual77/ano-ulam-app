@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import { Spinner } from "@/frontend/components/ui";
 import { AlertCircle, Check } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 
@@ -33,7 +34,7 @@ export function ActionChip({ label, onPress, icon, loading = false, disabled = f
         primary ? "border-primary/25 bg-primary/5 active:bg-primary/15" : "border-ink-emphasis/15 active:bg-ink-emphasis/5"
       } ${disabled ? "opacity-40" : ""}`}
     >
-      {loading ? <ActivityIndicator size="small" color={primary ? colors.primary : colors.ink.subtle} /> : icon}
+      {loading ? <Spinner variant="wave" size={12} color={colors.accent} /> : icon}
       <Text className={`font-inter-semibold text-body ${primary ? "text-primary" : "text-ink-subtle"}`}>{label}</Text>
     </Pressable>
   );

@@ -227,9 +227,9 @@ export default function AddRecipeScreen() {
           </View>
           <View className="flex-1">
             <Button
-              label={step === STEPS.length - 1 ? (submit.isPending ? "Submitting..." : "Submit for review") : "Next"}
+              label={step === STEPS.length - 1 ? "Submit for review" : "Next"}
               onPress={next}
-              disabled={submit.isPending}
+              loading={submit.isPending}
             />
           </View>
         </View>

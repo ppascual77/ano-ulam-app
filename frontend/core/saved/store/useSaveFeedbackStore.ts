@@ -148,7 +148,7 @@ export function announceRemoved(meal: MealType, undo: () => void) {
     message: "Removed from your saved meals",
     tone: "success",
     image: resolveMealImage(meal),
-    action: { label: "Undo", onPress: undo },
+    action: { label: "Undo", onPress: undo, inSheet: true },
   });
 }
 

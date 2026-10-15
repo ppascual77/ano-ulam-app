@@ -406,9 +406,9 @@ export function IngredientEditSheet({
 
         <Section title="Grounding / source">
           <Button
-            label={isFetchingUsda ? "Fetching..." : "Fetch from USDA"}
+            label="Fetch from USDA"
             variant="outline"
-            disabled={isFetchingUsda}
+            loading={isFetchingUsda}
             onPress={handleFetchUsda}
           />
 
@@ -521,8 +521,9 @@ export function IngredientEditSheet({
         )}
 
         <Button
-          label={isSaving ? "Saving..." : confirming ? "Confirm Update" : (saveLabel ?? "Save")}
-          disabled={isSaving || (confirming && loadingAffected)}
+          label={confirming ? "Confirm Update" : (saveLabel ?? "Save")}
+          loading={isSaving}
+          disabled={confirming && loadingAffected}
           onPress={handleSave}
         />
       </ScrollView>

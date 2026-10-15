@@ -282,8 +282,8 @@ export function SeedIngredientPriceFinder({ ingredient }: { ingredient: Ingredie
 
       {picking > 0 && (
         <Button
-          label={applying ? "Saving..." : `Use ${picking} source${picking === 1 ? "" : "s"} (cheapest wins)`}
-          disabled={applying || confirmedUpdate.loadingAffected}
+          label={`Use ${picking} source${picking === 1 ? "" : "s"} (cheapest wins)`}
+          loading={applying || confirmedUpdate.loadingAffected}
           onPress={handleApply}
         />
       )}

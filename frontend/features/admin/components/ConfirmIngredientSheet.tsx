@@ -104,8 +104,8 @@ export function ConfirmIngredientSheet({ visible, patch, onCancel, onConfirm, is
 
         <View className="gap-2 pb-8">
           <Button
-            label={isSaving ? "Adding..." : "Confirm & add to meal"}
-            disabled={isSaving}
+            label="Confirm & add to meal"
+            loading={isSaving}
             onPress={onConfirm}
           />
           <Button label="Back to edit" variant="outline" disabled={isSaving} onPress={onCancel} />

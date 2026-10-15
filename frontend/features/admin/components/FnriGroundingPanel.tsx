@@ -108,8 +108,9 @@ export function FnriGroundingPanel() {
       </AppText>
 
       <Button
-        label={confirmedUpdate.isSaving ? "Applying..." : `Apply ${selectedCount} selected`}
-        disabled={confirmedUpdate.isSaving || selectedCount === 0}
+        label={`Apply ${selectedCount} selected`}
+        loading={confirmedUpdate.isSaving}
+        disabled={selectedCount === 0}
         onPress={handleRequestConfirm}
       />
 

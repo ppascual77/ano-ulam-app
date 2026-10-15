@@ -26,8 +26,8 @@ import { colors } from "@/frontend/constants/theme";
 //   3.6s   "Tara, kain!" (handwritten) pops in
 //   4.2s   everything collapses into the "!"'s dot, which settles, then at
 //   4.92s  arcs up and
-//          lands as the period of "Categories." (see PageIntro), where
-//          HomeScreen bursts confetti
+//          lands as the period of "Categories." (see PageIntro), with a
+//          success haptic (HomeScreen)
 const ENTRY_MS = 500;
 const ENTRY_ARC = 140;
 const WAVE_STEP_MS = 110;

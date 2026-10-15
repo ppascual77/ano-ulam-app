@@ -18,9 +18,10 @@ export function hideGlobalToast(id?: number) {
 }
 
 /** `withActions={false}` drops the toast's button (inside a sheet, where
- *  e.g. navigating to another tab would happen under the sheet). */
+ *  e.g. navigating to another tab would happen under the sheet), unless
+ *  the action is marked `inSheet` (e.g. Undo). */
 export function GlobalToast({ withActions = true }: { withActions?: boolean }) {
   const toast = useGlobalToastStore((s) => s.toast);
-  const shown = toast && !withActions ? { ...toast, action: undefined } : toast;
+  const shown = toast && !withActions && !toast.action?.inSheet ? { ...toast, action: undefined } : toast;
   return <Toast toast={shown} onHide={() => hideGlobalToast(toast?.id)} />;
 }

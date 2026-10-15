@@ -162,7 +162,7 @@ export default function EditMealScreen() {
                 },
               ]}
             />
-            <Button label={isSaving ? "Saving..." : "Save Changes"} disabled={!canSave} onPress={handleSave} />
+            <Button label="Save Changes" loading={isSaving} disabled={!canSave} onPress={handleSave} />
           </View>
         </ScrollView>
       )}

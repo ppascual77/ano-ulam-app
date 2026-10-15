@@ -289,8 +289,9 @@ export function PriceGroundingPanel() {
           </View>
 
           <Button
-            label={confirmedUpdate.isSaving ? "Applying..." : `Confirm ${selected.size} ingredient${selected.size === 1 ? "" : "s"}`}
-            disabled={confirmedUpdate.isSaving || selected.size === 0}
+            label={`Confirm ${selected.size} ingredient${selected.size === 1 ? "" : "s"}`}
+            loading={confirmedUpdate.isSaving}
+            disabled={selected.size === 0}
             onPress={handleRequestConfirm}
           />
           {applyError && <InlineError>{applyError}</InlineError>}

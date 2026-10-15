@@ -143,8 +143,9 @@ export function UsdaGroundingPanel() {
       )}
 
       <Button
-        label={ground.isPending ? "Grounding..." : `Run USDA Grounding (${groundingCandidates.length})`}
-        disabled={ground.isPending || groundingCandidates.length === 0}
+        label={`Run USDA Grounding (${groundingCandidates.length})`}
+        loading={ground.isPending}
+        disabled={groundingCandidates.length === 0}
         onPress={handleRun}
       />
 
@@ -171,8 +172,9 @@ export function UsdaGroundingPanel() {
           </View>
 
           <Button
-            label={confirmedUpdate.isSaving ? "Applying..." : `Confirm ${selected.size} selected`}
-            disabled={confirmedUpdate.isSaving || selected.size === 0}
+            label={`Confirm ${selected.size} selected`}
+            loading={confirmedUpdate.isSaving}
+            disabled={selected.size === 0}
             onPress={handleRequestConfirm}
           />
 

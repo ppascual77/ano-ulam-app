@@ -417,7 +417,7 @@ export function ListingFromLinkPanel() {
             </AppText>
           )}
           <View className="mt-3">
-            <Button label={confirmedUpdate.isSaving ? "Saving..." : "Save store price"} disabled={confirmedUpdate.isSaving} onPress={handleSave} />
+            <Button label="Save store price" loading={confirmedUpdate.isSaving} onPress={handleSave} />
           </View>
         </View>
       )}
