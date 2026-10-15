@@ -14,7 +14,24 @@ export default function TabsLayout() {
     // attached and pre-mounted gives the slide real content on both sides.
     <Tabs
       detachInactiveScreens={false}
-      screenOptions={{ headerShown: false, animation: reduceMotion ? "fade" : "shift", lazy: false }}
+      screenOptions={{
+        headerShown: false,
+        lazy: false,
+        animation: reduceMotion ? "fade" : "shift",
+        // The stock fade only animates opacity. Switching from "shift" to it
+        // (turning Reduce motion on) left each inactive tab stuck at shift's
+        // last translateX (-50 / +50): an animated style key that disappears
+        // keeps its last native value. Home showed cut off on the left with
+        // a gap on the right. Pinning translateX to 0 overwrites it.
+        ...(reduceMotion && {
+          sceneStyleInterpolator: ({ current }) => ({
+            sceneStyle: {
+              opacity: current.progress.interpolate({ inputRange: [-1, 0, 1], outputRange: [0, 1, 0] }),
+              transform: [{ translateX: 0 }],
+            },
+          }),
+        }),
+      }}
       tabBar={() => <BottomNav />}
     >
       <Tabs.Screen name="home" />
