@@ -27,26 +27,6 @@ const preferencesSlide = onboardingSlides.find(
 const defaultGoals = new Set(
   preferencesSlide?.options.filter((o) => o.defaultSelected).map((o) => o.id) ?? [],
 );
-const groupsSlide = onboardingSlides.find((s) => s.type === "preferenceGroups");
-
-// What the user picked, as short chip labels for Home's welcome (they drop
-// into its pot): goals first, then a dietary focus and allergens. "|"
-// separated, since it travels as a route param.
-function picksParam(goals: Set<string>, groupSelections: Record<string, string[]>): string {
-  const label = (groupId: string, id: string) =>
-    groupsSlide?.type === "preferenceGroups"
-      ? groupsSlide.groups.find((g) => g.id === groupId)?.options.find((o) => o.id === id)?.label
-      : undefined;
-  const picks = [
-    ...(preferencesSlide?.options.filter((o) => goals.has(o.id)).map((o) => o.label) ?? []),
-    ...(groupSelections["dietary-focus"] ?? []).filter((id) => id !== "none").map((id) => label("dietary-focus", id)),
-    ...(groupSelections["allergens"] ?? []).filter((id) => id !== "none").map((id) => {
-      const name = label("allergens", id);
-      return name ? `No ${name.toLowerCase()}` : undefined;
-    }),
-  ];
-  return picks.filter((p): p is string => !!p).join("|");
-}
 
 type SlideCallbacks = {
   goals: Set<string>;
@@ -144,15 +124,14 @@ export default function OnboardingScreen() {
   // app/_layout.tsx) and hops it into "Hey, welcome!".
   const goHome = () => {
     const dot = indicatorDotRef.current;
-    const picks = picksParam(goals, groupSelections);
     if (!dot) {
-      router.replace({ pathname: "/home", params: { intro: "1", picks } });
+      router.replace({ pathname: "/home", params: { intro: "1" } });
       return;
     }
     dot.measureInWindow((x, y, w, h) => {
       router.replace({
         pathname: "/home",
-        params: { intro: "1", picks, dotX: String(x + w / 2), dotY: String(y + h / 2) },
+        params: { intro: "1", dotX: String(x + w / 2), dotY: String(y + h / 2) },
       });
     });
   };
