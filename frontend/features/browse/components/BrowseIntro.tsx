@@ -61,6 +61,12 @@ const ITEM_H = 24;
 
 const LENS_R = 58;
 const LENS_RIM = 5;
+// The handle: a bar out of the rim's lower right, on the lens's 45° diagonal
+// so it points straight out from the middle. Its middle sits HANDLE_REACH
+// from the lens's middle (starting just inside the rim, so they join).
+const HANDLE_W = 12;
+const HANDLE_L = 52;
+const HANDLE_REACH = (LENS_R - LENS_RIM / 2 + HANDLE_L / 2) / Math.SQRT2;
 const ZOOM = 1.8;
 // The lens's path in field fractions: in from the lower left, a wander, then
 // the target.
@@ -198,7 +204,16 @@ function MagnifierScene({ size }: { size: IntroSize }) {
       <Animated.View style={[{ position: "absolute", left: 0, top: 0, width: LENS_R * 2, height: LENS_R * 2 }, lensStyle]}>
         <View
           className="absolute bg-ink-emphasis"
-          style={{ width: 12, height: 52, borderRadius: 6, left: LENS_R * 2 - 18, top: LENS_R * 2 - 14, transform: [{ rotate: "-45deg" }] }}
+          style={{
+            width: HANDLE_W,
+            height: HANDLE_L,
+            borderRadius: HANDLE_W / 2,
+            left: LENS_R + HANDLE_REACH - HANDLE_W / 2,
+            top: LENS_R + HANDLE_REACH - HANDLE_L / 2,
+            // A vertical bar turned 45° counterclockwise runs top-left to
+            // bottom-right: along the diagonal.
+            transform: [{ rotate: "-45deg" }],
+          }}
         />
         <View className="overflow-hidden bg-white" style={{ width: LENS_R * 2, height: LENS_R * 2, borderRadius: LENS_R }}>
           <Animated.View style={[{ position: "absolute", left: 0, top: 0, width: size.w, height: size.h, transformOrigin: [0, 0, 0] }, zoomStyle]}>
