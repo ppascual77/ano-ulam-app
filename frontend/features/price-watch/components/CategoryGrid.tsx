@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import * as Haptics from "expo-haptics";
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { AppText } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import type { PriceCategory } from "@/frontend/core/prices/utils/prices";
@@ -13,13 +13,19 @@ import { priceWatchCategories } from "../constants/categories";
 // green highlight behind the selected tile that glides to it (across and
 // down: this grid is two rows), grows in from nothing, shrinks away on
 // "See all". The chosen photo hops, the rest dim, a selection haptic.
-// No spring overshoot (the grid runs edge to edge in a clipping scroll view).
+// No overshoot (the grid runs edge to edge in a clipping scroll view).
 // Reduce motion: the highlight jumps; no hop.
+//
+// Instant on tap: picking a category refilters and re-renders the whole
+// price list, so nothing waits for that. The highlight starts moving from
+// the press handler itself (on the UI thread), the grid shows the pick from
+// its own state right away (hop, dimming), and the list's update is a
+// low-priority transition behind it.
 
 const COLUMNS = 4;
 const GAP = 10;
 const RADIUS = 16;
-const SLIDE = { damping: 30, stiffness: 260, mass: 0.8, overshootClamping: true };
+const GLIDE = { duration: 240, easing: Easing.out(Easing.cubic) };
 
 type CategoryGridProps = {
   /** null = All. */
@@ -30,6 +36,9 @@ type CategoryGridProps = {
 // Tapping the selected tile again (or "See all") goes back to All.
 export function CategoryGrid({ selected, onSelect }: CategoryGridProps) {
   const reduce = useReduceMotion();
+  // The pick as shown here, ahead of the screen's (slower) update.
+  const [current, setCurrent] = useState(selected);
+  useEffect(() => setCurrent(selected), [selected]);
   const [tileW, setTileW] = useState(0);
   const [tileH, setTileH] = useState(0);
 
@@ -37,8 +46,8 @@ export function CategoryGrid({ selected, onSelect }: CategoryGridProps) {
   const col = useSharedValue(0);
   const row = useSharedValue(0);
   const shown = useSharedValue(0);
-  useEffect(() => {
-    const i = selected ? priceWatchCategories.findIndex((c) => c.id === selected) : -1;
+  const moveTo = (id: PriceCategory | null) => {
+    const i = id ? priceWatchCategories.findIndex((c) => c.id === id) : -1;
     if (i < 0) {
       shown.value = reduce ? 0 : withTiming(0, { duration: 180 });
       return;
@@ -48,29 +57,36 @@ export function CategoryGrid({ selected, onSelect }: CategoryGridProps) {
     if (shown.value < 0.05 || reduce) {
       col.value = c;
       row.value = r;
-      shown.value = reduce ? 1 : withSpring(1, SLIDE);
+      shown.value = reduce ? 1 : withTiming(1, GLIDE);
     } else {
-      col.value = withSpring(c, SLIDE);
-      row.value = withSpring(r, SLIDE);
+      col.value = withTiming(c, GLIDE);
+      row.value = withTiming(r, GLIDE);
     }
-  }, [selected, reduce, col, row, shown]);
+  };
+  // A change from outside (search clearing it, the initial pick).
+  useEffect(() => moveTo(selected), [selected]);
 
   const highlight = useAnimatedStyle(() => ({
     opacity: shown.value,
     transform: [{ translateX: col.value * (tileW + GAP) }, { translateY: row.value * (tileH + GAP) }, { scale: 0.88 + 0.12 * shown.value }],
   }));
 
+  const pick = (next: PriceCategory | null) => {
+    moveTo(next);
+    setCurrent(next);
+    startTransition(() => onSelect(next));
+  };
   const choose = (id: PriceCategory) => {
     void Haptics.selectionAsync();
-    onSelect(id === selected ? null : id);
+    pick(id === current ? null : id);
   };
 
   return (
     <View className="gap-3">
       <View className="flex-row items-center justify-between">
         <AppText variant="title">Check by Category</AppText>
-        {selected && (
-          <Pressable onPress={() => onSelect(null)} hitSlop={8}>
+        {current && (
+          <Pressable onPress={() => pick(null)} hitSlop={8}>
             <AppText variant="bodyMedium" className="text-primary">
               See all
             </AppText>
@@ -99,8 +115,8 @@ export function CategoryGrid({ selected, onSelect }: CategoryGridProps) {
               index={i}
               width={tileW}
               category={category}
-              selected={category.id === selected}
-              dimmed={selected != null && category.id !== selected}
+              selected={category.id === current}
+              dimmed={current != null && category.id !== current}
               reduce={reduce}
               onPress={() => choose(category.id)}
               onMeasure={i === 0 ? setTileH : undefined}
