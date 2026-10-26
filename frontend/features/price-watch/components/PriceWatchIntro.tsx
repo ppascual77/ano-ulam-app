@@ -16,7 +16,7 @@ import { useCountTo } from "@/frontend/core/prices/hooks/useCountTo";
 import { NCR_MARKETS } from "../constants/markets";
 
 // A quick glance at what Price Watch is, the showreel's DA scene:
-//   0.0s   "Straight from the DA." rises in
+//   0.0s   "Straight from the Department of Agriculture." rises in
 //   0.35s  one dot per NCR market pops in as a cloud, counting up
 //   1.5s   the dots converge and merge into one accent dot
 //   1.95s  "one daily average" (handwritten) pops under it
@@ -116,9 +116,17 @@ function DaScene({ size }: { size: IntroSize }) {
   return (
     <>
       <Animated.View entering={FadeInDown.duration(500)} className="items-center" style={{ marginTop: size.h * 0.12 }}>
-        <Text className="font-inter-medium text-subheading text-ink-subtle">Straight from</Text>
-        <Text className="font-inter-extrabold text-subhero tracking-display text-primary">
-          the DA<Text className="text-accent">.</Text>
+        {/* Spelled out ("DA" isn't obvious to everyone): the name's last
+            word carries the big type, shrinking to fit a narrow screen. */}
+        <Text className="font-inter-medium text-subheading text-ink-subtle">Straight from the</Text>
+        <Text className="font-inter-extrabold text-heading-lg tracking-display text-primary">Department of</Text>
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          style={{ maxWidth: size.w - 48 }}
+          className="font-inter-extrabold text-subhero tracking-display text-primary"
+        >
+          Agriculture<Text className="text-accent">.</Text>
         </Text>
       </Animated.View>
 
@@ -156,7 +164,7 @@ export function PriceWatchIntro({ active, targetRef, onDone }: PriceWatchIntroPr
       dotAt={DOT_AT}
       flyAt={FLY_AT}
       dotSize={MERGED_DOT}
-      accessibilityLabel="Price Watch: prices straight from the DA, a daily average of 35 NCR markets."
+      accessibilityLabel="Price Watch: prices straight from the Department of Agriculture, a daily average of 35 NCR markets."
     >
       {(size) => <DaScene size={size} />}
     </PageIntro>

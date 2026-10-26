@@ -1,7 +1,5 @@
 import { Image, Text, View, useWindowDimensions } from "react-native";
-import { Sparkles } from "lucide-react-native";
-import { colors } from "@/frontend/constants/theme";
-import { GoogleSignInButton } from "@/frontend/features/auth/components/GoogleSignInButton";
+import { SignInPrompt } from "@/frontend/features/auth/components/SignInPrompt";
 
 // No results ("We're curating your meals"), or the in-page daily limit.
 // The copy mentions budget because the web shares it with the budget
@@ -28,17 +26,14 @@ export function EmptyMealView({ limitReached = false }: { limitReached?: boolean
 // Replaces the whole Browse screen once a guest uses up today's searches.
 export function GuestLimitGate({ onSignIn, signingIn = false }: { onSignIn: () => void; signingIn?: boolean }) {
   return (
-    <View className="flex-1 items-center justify-center gap-5 px-8">
-      <View className="h-16 w-16 items-center justify-center rounded-full bg-web-divider">
-        <Sparkles color={colors.brandGreen.DEFAULT} size={28} />
-      </View>
-      <Text className="text-center font-inter-bold text-heading text-web-ink">Explore more meals</Text>
-      <Text className="max-w-[320px] text-center font-inter-regular text-body leading-6 text-web-ink-muted">
-        Sign up to unlock endless discovery, save your favorites, and track your nutrition.
-      </Text>
-      <View className="w-full max-w-[320px]">
-        <GoogleSignInButton onPress={onSignIn} signingIn={signingIn} />
-      </View>
+    <View className="flex-1 justify-center">
+      <SignInPrompt
+        art={require("@/assets/onboarding/slide-1.gif")}
+        title="Explore more meals"
+        description="That's today's free searches. Sign in to keep searching, save your favorites and track your nutrition."
+        onSignIn={onSignIn}
+        signingIn={signingIn}
+      />
     </View>
   );
 }

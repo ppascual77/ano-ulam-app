@@ -27,7 +27,7 @@ export function MarketsSheet({ visible, onClose, presentation = "modal" }: Marke
           so use them as a general guide for your grocery budget.
         </Text>
         <Pressable onPress={openDaPage} hitSlop={8} className="mb-6 mt-2 flex-row items-center gap-1 self-start">
-          <Text className="font-inter-semibold text-body-lg text-primary">See DA price monitoring</Text>
+          <Text className="font-inter-semibold text-body-lg text-primary">See Dept. of Agriculture prices</Text>
           <ExternalLink color={colors.primary} size={14} />
         </Pressable>
 

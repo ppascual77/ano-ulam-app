@@ -1,11 +1,11 @@
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { Image } from "expo-image";
-import { router } from "expo-router";
 import { Check } from "lucide-react-native";
 import { AppText } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { GoogleSignInButton } from "@/frontend/features/auth/components/GoogleSignInButton";
+import { TermsLine } from "@/frontend/features/auth/components/TermsLine";
 
 // One per Profile tab a guest is missing out on.
 const BENEFITS = ["Save your favorite meals", "Share your own recipes", "Keep a grocery list", "Track your pantry"];
@@ -54,17 +54,7 @@ export function GuestProfileView({ onSignIn, signingIn = false }: GuestProfileVi
 
       <GoogleSignInButton onPress={onSignIn} signingIn={signingIn} />
 
-      <Text className="text-center font-inter-regular text-small leading-4 text-ink-subtle">
-        By continuing, you agree to our{" "}
-        <Text onPress={() => router.push("/terms")} className="font-inter-semibold text-primary">
-          Terms of Service
-        </Text>{" "}
-        and{" "}
-        <Text onPress={() => router.push("/privacy")} className="font-inter-semibold text-primary">
-          Privacy Policy
-        </Text>
-        .
-      </Text>
+      <TermsLine />
     </View>
   );
 }
