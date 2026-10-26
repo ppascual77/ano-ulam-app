@@ -18,7 +18,8 @@ import { colors } from "@/frontend/constants/theme";
 // The welcome right after onboarding. Onboarding's page indicator dot comes
 // along (see OnboardingScreen) and the whole thing plays out in words:
 //   0.0s   the indicator's pill squeezes into a ball and hops up to become
-//          the dot of "Hey, welcome!"'s "!"
+//          the dot of the greeting's "!": "Hey, <first name>!" when signed
+//          in, just "Hey!" for a guest
 //   0.5s   it lands and the greeting waves (tilts back and forth twice)
 //   0.9s   "Ano ulam mo today?" slams in
 //   1.8s   a reel of dishes spins and stops on "Ask AnoUlam."
@@ -68,7 +69,7 @@ type Point = { x: number; y: number };
 
 const center = (size: IntroSize) => ({ x: size.w / 2, y: size.h / 2 });
 
-function WelcomeScene({ size, entry, onBang }: { size: IntroSize; entry?: Point; onBang: (p: Point) => void }) {
+function WelcomeScene({ size, entry, name, onBang }: { size: IntroSize; entry?: Point; name?: string; onBang: (p: Point) => void }) {
   const sceneRef = useRef<ViewInstance>(null);
   const bangDotRef = useRef<ViewInstance>(null);
   // Where the "!"'s dot sits (scene coordinates); the collapse shrinks
@@ -180,9 +181,18 @@ function WelcomeScene({ size, entry, onBang }: { size: IntroSize; entry?: Point;
         className="items-center"
       >
         <Animated.View style={[{ marginTop: size.h * 0.12 }, greetStyle]} className="items-center">
-          <Text className="font-inter-extrabold text-subhero tracking-display text-ink-emphasis">Hey,</Text>
+          {/* Signed in: "Hey," over "<name>!". A guest: "Hey!". */}
+          {name && <Text className="font-inter-extrabold text-subhero tracking-display text-ink-emphasis">Hey,</Text>}
           <View className="flex-row items-end">
-            <Text className="font-inter-extrabold text-subhero tracking-display text-ink-emphasis">welcome</Text>
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              // A long name shrinks to fit beside the "!".
+              style={{ maxWidth: size.w - 80 }}
+              className={`font-inter-extrabold text-subhero tracking-display ${name ? "text-primary" : "text-ink-emphasis"}`}
+            >
+              {name ?? "Hey"}
+            </Text>
             <View className="ml-1 items-center" style={{ marginBottom: BANG_BASELINE }}>
               <View className="bg-accent" style={{ width: BANG_STEM_W, height: BANG_STEM_H, borderRadius: BANG_STEM_W / 2 }} />
               <Animated.View
@@ -257,9 +267,11 @@ type HomeIntroProps = {
   /** Where onboarding's indicator dot was, in window coordinates. Without
    *  it the "!"'s dot just pops in. */
   entry?: Point;
+  /** The signed-in user's first name; a guest gets just "Hey!". */
+  name?: string;
 };
 
-export function HomeIntro({ active, targetRef, onDone, entry }: HomeIntroProps) {
+export function HomeIntro({ active, targetRef, onDone, entry, name }: HomeIntroProps) {
   const bang = useRef<Point | null>(null);
   return (
     <PageIntro
@@ -271,12 +283,13 @@ export function HomeIntro({ active, targetRef, onDone, entry }: HomeIntroProps) 
       dotAt={DOT_AT}
       flyAt={FLY_AT}
       dotSize={BANG_DOT}
-      accessibilityLabel="Hey, welcome! Ano ulam mo today? Ask AnoUlam. We'll figure it out together."
+      accessibilityLabel={`Hey${name ? `, ${name}` : ""}! Ano ulam mo today? Ask AnoUlam. We'll figure it out together.`}
     >
       {(size) => (
         <WelcomeScene
           size={size}
           entry={entry}
+          name={name}
           onBang={(p) => {
             bang.current = p;
           }}

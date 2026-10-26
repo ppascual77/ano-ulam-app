@@ -11,6 +11,7 @@ import { BudgetSection } from "@/frontend/core/budget/components/BudgetSection";
 import { PantrySection } from "@/frontend/core/pantry/components/PantrySection";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { HomeIntro } from "@/frontend/features/home/components/HomeIntro";
+import { useDisplayName } from "@/frontend/features/auth/hooks/useDisplayName";
 
 type Mode = "budget" | "pantry";
 
@@ -21,6 +22,8 @@ const MODE_OPTIONS: { value: Mode; label: string }[] = [
 
 export default function HomeScreen() {
   const [mode, setMode] = useState<Mode>("budget");
+  // Signed in: "Hello, <first name>". A guest just gets "Hello".
+  const { firstName } = useDisplayName();
   // Turned off in Settings > Home: no Surprise me tag at all.
   const showSurpriseMe = useSurpriseMeStore((s) => s.show);
 
@@ -52,9 +55,7 @@ export default function HomeScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        {/* TODO: "Patrick" is a placeholder — replace with the authenticated
-            user's first name once auth/profile data is wired up. */}
-        <Header name="Patrick" />
+        <Header name={firstName} />
 
         <View className="mt-5">
           <PlanWeekCard />
@@ -73,7 +74,7 @@ export default function HomeScreen() {
       </ScrollView>
       {showSurpriseMe && <RandomMealPuller />}
       {intro.showing && (
-        <HomeIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={finishIntro} entry={entry} />
+        <HomeIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={finishIntro} entry={entry} name={firstName} />
       )}
     </Screen>
   );
