@@ -28,8 +28,8 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 //   select  the highlight slides to the tile on a soft spring, blending into
 //           that category's color on the way (grows in from nothing; shrinks
 //           away on clear); a selection haptic
-//   land    the chosen illustration hops (lifts, wiggles, settles a touch
-//           bigger); the others dim
+//   land    the chosen illustration hops (lifts, wiggles, settles back
+//           untransformed, so it stays as sharp as the rest); the others dim
 // An orange "now" dot marks the meal that fits the time of day, breathing
 // twice when Home appears. Reduce motion: the highlight jumps, no hop,
 // wiggle or breathing.
@@ -161,10 +161,9 @@ type CategoryTileProps = {
 function CategoryTile({ index, label, image, selected, dimmed, isNow, reduce, onPress }: CategoryTileProps) {
   // Press squeeze.
   const press = useSharedValue(1);
-  // The art's hop on select: lift, wiggle, then a touch bigger while chosen.
+  // The art's hop on select: lift and wiggle, then rest untransformed.
   const lift = useSharedValue(0);
   const tilt = useSharedValue(0);
-  const grow = useSharedValue(1);
   const dim = useSharedValue(1);
   // Arrival: the tiles rise in one after another the first time.
   const enter = useSharedValue(reduce ? 1 : 0);
@@ -178,9 +177,8 @@ function CategoryTile({ index, label, image, selected, dimmed, isNow, reduce, on
       lift.value = withSequence(withTiming(-7, { duration: 140, easing: Easing.out(Easing.quad) }), withSpring(0, HOP));
       tilt.value = withSequence(withTiming(-7, { duration: 90 }), withTiming(5, { duration: 110 }), withSpring(0, HOP));
     }
-    grow.value = reduce ? (selected ? 1.04 : 1) : withSpring(selected ? 1.04 : 1, HOP);
     dim.value = reduce ? (dimmed ? 0.5 : 1) : withTiming(dimmed ? 0.5 : 1, { duration: 200 });
-  }, [selected, dimmed, reduce, lift, tilt, grow, dim]);
+  }, [selected, dimmed, reduce, lift, tilt, dim]);
 
   const tileStyle = useAnimatedStyle(() => ({
     opacity: enter.value,
@@ -188,7 +186,7 @@ function CategoryTile({ index, label, image, selected, dimmed, isNow, reduce, on
   }));
   const artStyle = useAnimatedStyle(() => ({
     opacity: dim.value,
-    transform: [{ translateY: lift.value }, { rotate: `${tilt.value}deg` }, { scale: grow.value }],
+    transform: [{ translateY: lift.value }, { rotate: `${tilt.value}deg` }],
   }));
   const labelStyle = useAnimatedStyle(() => ({ opacity: 0.55 + 0.45 * dim.value }));
 
@@ -206,14 +204,17 @@ function CategoryTile({ index, label, image, selected, dimmed, isNow, reduce, on
         accessibilityState={{ selected }}
         accessibilityLabel={isNow ? `${label}, fits right now` : label}
         className="items-center rounded-2xl border border-ink-emphasis/10 pb-2.5 pt-3"
-        style={{ borderRadius: RADIUS, borderColor: selected ? "transparent" : undefined }}
+        // Only override the border color when selected: passing undefined
+        // wipes the class's gray and leaves React Native's default black.
+        style={selected ? { borderRadius: RADIUS, borderColor: "transparent" } : { borderRadius: RADIUS }}
       >
         {isNow && <NowDot reduce={reduce} />}
         <Animated.View style={artStyle}>
-          {/* Full resolution (no downscaling to the 56px box), so the hop's
-              scale and tilt stay sharp. The art is transparent (cut out of
-              its old pastel square), so the highlight shows through. */}
-          <Image source={image} style={{ width: ART, height: ART }} contentFit="contain" allowDownscaling={false} />
+          {/* Decoded at its 56px size (a clean downscale), and never left
+              scaled or tilted: a transform stretches the drawn pixels, so the
+              hop only moves it and it rests exactly like the others. The art
+              is transparent, so the highlight shows through. */}
+          <Image source={image} style={{ width: ART, height: ART }} contentFit="contain" />
         </Animated.View>
         <Animated.View style={labelStyle}>
           <AppText variant="bodyMedium" className={`mt-1.5 ${selected ? "font-inter-semibold text-ink-emphasis" : ""}`}>
