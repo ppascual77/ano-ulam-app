@@ -25,6 +25,8 @@ export type ContentSlideData = {
   /** Wrap key phrases in **double asterisks** to highlight them. */
   description: string;
   image?: number;
+  /** A text link under the description that opens an explainer sheet. */
+  link?: "numbers";
 };
 
 export type PreferenceOption = {
@@ -99,7 +101,7 @@ export const onboardingSlides: OnboardingSlideData[] = [
       { text: "Smarter" },
     ],
     description:
-      "Keep an eye on ingredient prices with **Price Watch**, using the **DA's daily market prices**, so you can spot what's affordable before you shop.",
+      "Keep an eye on ingredient prices with **Price Watch**, using the **Department of Agriculture's daily market prices**, so you can spot what's affordable before you shop.",
     image: require("@/assets/onboarding/slide-2.gif"),
   },
   {
@@ -112,7 +114,7 @@ export const onboardingSlides: OnboardingSlideData[] = [
     ],
     description:
       "Meal costs only count **the amount of each ingredient the recipe uses**. If a meal uses 2 tbsp from a ₱120 liter of cooking oil, it counts as **about ₱4**, based on local market prices. You'll still buy the full bottle at the store, but it lasts for many meals.",
-    // TODO: illustration (placeholder renders until an image is set)
+    image: require("@/assets/onboarding/slide-7.gif"),
   },
   {
     id: "4",
@@ -126,6 +128,7 @@ export const onboardingSlides: OnboardingSlideData[] = [
     description:
       "**Balance your macros** and see **what you need to buy**, all in one place. Nutrition is based on **FNRI and USDA** food data whenever available.",
     image: require("@/assets/onboarding/slide-3.gif"),
+    link: "numbers",
   },
   {
     id: "5",
