@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Pressable, Text } from "react-native";
 import { ChevronRight, Store } from "lucide-react-native";
 import * as WebBrowser from "expo-web-browser";
@@ -23,7 +24,7 @@ type PriceDisclaimerProps = {
 
 // The one-line source chip at the top of Price Watch. Tapping it opens the
 // Markets sheet, which holds the full caveat and the DA link.
-export function PriceDisclaimer({ asOf, onOpenMarkets }: PriceDisclaimerProps) {
+function PriceDisclaimerInner({ asOf, onOpenMarkets }: PriceDisclaimerProps) {
   const parts = ["DA daily prices", `${NCR_MARKETS.length} NCR markets`, ...(asOf ? [asOfLabel(asOf)] : [])];
   return (
     <Pressable
@@ -40,3 +41,8 @@ export function PriceDisclaimer({ asOf, onOpenMarkets }: PriceDisclaimerProps) {
     </Pressable>
   );
 }
+
+// Re-renders only when its own props change, not whenever the screen does
+// (a Price Watch re-render, e.g. on a tab switch, cost ~150-200ms when
+// every section re-rendered with it).
+export const PriceDisclaimer = memo(PriceDisclaimerInner);

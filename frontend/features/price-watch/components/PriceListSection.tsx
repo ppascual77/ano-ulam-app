@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { Pressable, Text, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { TrendingDown } from "lucide-react-native";
@@ -28,7 +28,7 @@ type PriceListSectionProps = {
   onSearchBlur?: () => void;
 };
 
-export function PriceListSection({
+function PriceListSectionInner({
   title,
   items,
   loading,
@@ -113,3 +113,8 @@ export function PriceListSection({
     </View>
   );
 }
+
+// Re-renders only when its own props change, not whenever the screen does
+// (a Price Watch re-render, e.g. on a tab switch, cost ~150-200ms when
+// every section re-rendered with it).
+export const PriceListSection = memo(PriceListSectionInner);

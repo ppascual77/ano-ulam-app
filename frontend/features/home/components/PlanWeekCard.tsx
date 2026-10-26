@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
@@ -8,7 +9,7 @@ import { colors } from "@/frontend/constants/theme";
 // a weekly (Pro) task, not a daily destination.
 // TODO: gate behind Pro (useProStore's isPro / the planner's locked
 // state) once Pro is decided; for now it just opens the planner.
-export function PlanWeekCard() {
+function PlanWeekCardInner() {
   return (
     <Pressable
       onPress={() => router.push("/meal-planner")}
@@ -34,3 +35,7 @@ export function PlanWeekCard() {
     </Pressable>
   );
 }
+
+// Skips Home's re-renders (any route change re-renders Home, which reads
+// its URL params), unless its own props change.
+export const PlanWeekCard = memo(PlanWeekCardInner);

@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useState } from "react";
+import { memo, startTransition, useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
@@ -34,7 +34,7 @@ type CategoryGridProps = {
 };
 
 // Tapping the selected tile again (or "See all") goes back to All.
-export function CategoryGrid({ selected, onSelect }: CategoryGridProps) {
+function CategoryGridInner({ selected, onSelect }: CategoryGridProps) {
   const reduce = useReduceMotion();
   // The pick as shown here, ahead of the screen's (slower) update.
   const [current, setCurrent] = useState(selected);
@@ -126,3 +126,8 @@ export function CategoryGrid({ selected, onSelect }: CategoryGridProps) {
     </View>
   );
 }
+
+// Re-renders only when its own props change, not whenever the screen does
+// (a Price Watch re-render, e.g. on a tab switch, cost ~150-200ms when
+// every section re-rendered with it).
+export const CategoryGrid = memo(CategoryGridInner);

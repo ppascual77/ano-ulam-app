@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { View } from "react-native";
 import type { LandingDot } from "@/frontend/components/ui";
 import { BudgetForm } from "./BudgetForm";
@@ -15,7 +15,7 @@ type BudgetSectionProps = {
   categoriesLanding?: LandingDot;
 };
 
-export function BudgetSection({ categoriesLanding }: BudgetSectionProps) {
+function BudgetSectionInner({ categoriesLanding }: BudgetSectionProps) {
   const [suggestion, setSuggestion] = useState<{
     budget: string;
     servings: number;
@@ -38,3 +38,7 @@ export function BudgetSection({ categoriesLanding }: BudgetSectionProps) {
     </View>
   );
 }
+
+// Skips Home's re-renders (any route change re-renders Home, which reads
+// its URL params), unless its own props change.
+export const BudgetSection = memo(BudgetSectionInner);

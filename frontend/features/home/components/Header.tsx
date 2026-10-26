@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Text, View } from "react-native";
 import { Image } from "expo-image";
 import { AppText } from "@/frontend/components/ui";
@@ -9,7 +10,7 @@ type HeaderProps = {
 };
 
 // The avatar (and the admin menu) moved to the bottom nav's Profile tab.
-export function Header({ name }: HeaderProps) {
+function HeaderInner({ name }: HeaderProps) {
   // Reduce motion: the "today?" GIF holds still on its first frame.
   // `autoplay` only applies when the image loads, and Home stays mounted
   // while the setting changes, so the key reloads it either way.
@@ -40,3 +41,7 @@ export function Header({ name }: HeaderProps) {
     </View>
   );
 }
+
+// Skips Home's re-renders (any route change re-renders Home, which reads
+// its URL params), unless its own props change.
+export const Header = memo(HeaderInner);

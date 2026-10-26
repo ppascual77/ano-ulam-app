@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { Easing, type SharedValue, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
@@ -58,7 +58,7 @@ type FreshPicksSectionProps = {
 // page's vertical one it blocked both scroll directions for this whole
 // section (a pan responder conflict). The pan below only takes over once a
 // drag is clearly horizontal, so vertical scrolling still starts on the card.
-export function FreshPicksSection({ picks, loading, onSelect }: FreshPicksSectionProps) {
+function FreshPicksSectionInner({ picks, loading, onSelect }: FreshPicksSectionProps) {
   const { width: windowWidth } = useWindowDimensions();
   const cardWidth = windowWidth - SCREEN_PADDING;
   const step = cardWidth + CARD_GAP;
@@ -185,3 +185,8 @@ export function FreshPicksSection({ picks, loading, onSelect }: FreshPicksSectio
     </View>
   );
 }
+
+// Re-renders only when its own props change, not whenever the screen does
+// (a Price Watch re-render, e.g. on a tab switch, cost ~150-200ms when
+// every section re-rendered with it).
+export const FreshPicksSection = memo(FreshPicksSectionInner);

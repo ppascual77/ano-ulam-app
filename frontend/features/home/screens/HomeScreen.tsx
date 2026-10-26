@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -37,6 +37,8 @@ export default function HomeScreen() {
   const intro = usePageIntro({ enabled: introPending && !reduceMotion });
   const entry =
     params.dotX && params.dotY ? { x: Number(params.dotX), y: Number(params.dotY) } : undefined;
+  // Stable, so the memoized BudgetSection skips Home's other re-renders.
+  const categoriesLanding = useMemo(() => ({ dotRef: intro.targetRef, showDot: intro.landed }), [intro.targetRef, intro.landed]);
   const finishIntro = () => {
     intro.finish();
     setIntroPending(false);
@@ -65,9 +67,7 @@ export default function HomeScreen() {
           <SegmentedSwitch size="lg" options={MODE_OPTIONS} value={mode} onChange={setMode} />
         </View>
         {mode === "budget" ? (
-          <BudgetSection
-            categoriesLanding={{ dotRef: intro.targetRef, showDot: intro.landed }}
-          />
+          <BudgetSection categoriesLanding={categoriesLanding} />
         ) : (
           <PantrySection />
         )}

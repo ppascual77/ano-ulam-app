@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -215,7 +215,7 @@ function pickRandomMeal(excludeId: string | null): MealType {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-export function RandomMealPuller() {
+function RandomMealPullerInner() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [tabVisible, setTabVisible] = useState(false);
   // The flip-card reveal, then (on "View Details") the full sheet.
@@ -485,3 +485,7 @@ export function RandomMealPuller() {
     </>
   );
 }
+
+// Skips Home's re-renders (any route change re-renders Home, which reads
+// its URL params), unless its own props change.
+export const RandomMealPuller = memo(RandomMealPullerInner);
