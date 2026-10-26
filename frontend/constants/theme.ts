@@ -28,10 +28,15 @@ export const colors = {
     navy: "#294E61",
   },
   category: {
-    // Badge-icon colors for the Home Categories section (bg/border pairs
-    // are Tailwind-only, see tailwind.config.js's colors.category).
+    // Badge-icon colors for the Home Categories section.
     dinnerIcon: "#F4A188",
     fastfoodIcon: "#DF6969",
+    // The selected category's highlight fill, animated between categories
+    // (so it needs raw values). Same as tailwind.config.js's colors.category.
+    breakfast: "#FEF1E6",
+    lunch: "#EEEFE2",
+    dinner: "#FDEFE0",
+    fastfood: "#FCEBE1",
   },
   like: "#EF4444",
   // Same as tailwind.config.js's trend (icons take a color prop, not a class).
