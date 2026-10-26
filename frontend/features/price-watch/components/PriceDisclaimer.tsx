@@ -25,7 +25,7 @@ type PriceDisclaimerProps = {
 // The one-line source chip at the top of Price Watch. Tapping it opens the
 // Markets sheet, which holds the full caveat and the DA link.
 function PriceDisclaimerInner({ asOf, onOpenMarkets }: PriceDisclaimerProps) {
-  const parts = ["DA daily prices", `${NCR_MARKETS.length} NCR markets`, ...(asOf ? [asOfLabel(asOf)] : [])];
+  const parts = ["Dept. of Agriculture", `${NCR_MARKETS.length} NCR markets`, ...(asOf ? [asOfLabel(asOf)] : [])];
   return (
     <Pressable
       onPress={onOpenMarkets}

@@ -260,10 +260,10 @@ function DaPriceSourceCard({ source, isBest, change }: { source: DaPriceSourceTy
   return (
     <SourceCard
       icon={<Store color={colors.ink.emphasis} size={20} />}
-      title="DA Bantay Presyo"
+      title="Dept. of Agriculture"
       lines={[
         source.specification ? `${source.commodity} · ${source.specification}` : source.commodity,
-        `Metro Manila wet markets · ${date}`,
+        `Bantay Presyo, Metro Manila wet markets · ${date}`,
       ]}
       url={DA_PRICE_PAGE}
       highlighted={isBest}

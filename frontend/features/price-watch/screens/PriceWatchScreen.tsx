@@ -20,7 +20,7 @@ import { priceWatchCategories } from "../constants/categories";
 
 // DA's daily prices (Admin → DA Daily Prices), compared week over week:
 // fresh picks, best value meals, and every commodity by category.
-// Plays the "Straight from the DA" intro on moving to Price Watch.
+// Plays the "Straight from the Department of Agriculture" intro on moving to Price Watch.
 // TODO: gate this behind a first-time-user flag (the auto tour), e.g. a
 // stored "seen" flag, instead of always.
 const SHOW_INTRO = true;
