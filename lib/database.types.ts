@@ -4,7 +4,6 @@
 //   source .env && curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
 //     "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/types/typescript?included_schemas=public" \
 //     | python3 -c "import json,sys; print(json.load(sys.stdin)['types'])" > lib/database.types.ts
-
 export type Json =
   | string
   | number
@@ -17,7 +16,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -392,6 +391,47 @@ export type Database = {
             columns: ["poster_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_meals: {
+        Row: {
+          id: string
+          meal_data: Json
+          meal_id: string | null
+          meal_key: string
+          saved_at: string
+          serving_size: number
+          synced_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          meal_data: Json
+          meal_id?: string | null
+          meal_key: string
+          saved_at?: string
+          serving_size?: number
+          synced_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          meal_data?: Json
+          meal_id?: string | null
+          meal_key?: string
+          saved_at?: string
+          serving_size?: number
+          synced_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_meals_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
             referencedColumns: ["id"]
           },
         ]
