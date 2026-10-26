@@ -10,7 +10,6 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
-  withRepeat,
   withSequence,
   withSpring,
   withTiming,
@@ -30,9 +29,7 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 //           away on clear); a selection haptic
 //   land    the chosen illustration hops (lifts, wiggles, settles back
 //           untransformed, so it stays as sharp as the rest); the others dim
-// An orange "now" dot marks the meal that fits the time of day, breathing
-// twice when Home appears. Reduce motion: the highlight jumps, no hop,
-// wiggle or breathing.
+// Reduce motion: the highlight jumps, no hop or wiggle.
 
 type CategoryId = "breakfast" | "lunch" | "dinner" | "fastfood";
 
@@ -56,15 +53,6 @@ const SLIDE = { damping: 30, stiffness: 260, mass: 0.8, overshootClamping: true 
 const PRESS = { damping: 15, stiffness: 400, overshootClamping: true };
 const HOP = { damping: 9, stiffness: 260, mass: 0.6 };
 
-// The meal that fits right now: breakfast 4-10am, lunch 10am-3pm, merienda
-// (fastfood) 3-5pm, dinner 5-10pm, late-night fastfood otherwise.
-function mealNow(hour: number): CategoryId {
-  if (hour >= 4 && hour < 10) return "breakfast";
-  if (hour >= 10 && hour < 15) return "lunch";
-  if (hour >= 17 && hour < 22) return "dinner";
-  return "fastfood";
-}
-
 type CategoriesSectionProps = {
   /** The title's period: Home's post-onboarding intro lands its dot here. */
   landing?: LandingDot;
@@ -73,7 +61,6 @@ type CategoriesSectionProps = {
 export function CategoriesSection({ landing }: CategoriesSectionProps) {
   const reduce = useReduceMotion();
   const [selected, setSelected] = useState<CategoryId | null>(null);
-  const [now] = useState(() => mealNow(new Date().getHours()));
   // One tile's width (the row is four equal tiles); the highlight's slot.
   const [tileW, setTileW] = useState(0);
 
@@ -141,7 +128,6 @@ export function CategoriesSection({ landing }: CategoriesSectionProps) {
             image={category.image}
             selected={selected === category.id}
             dimmed={selected != null && selected !== category.id}
-            isNow={now === category.id}
             reduce={reduce}
             onPress={() => choose(category.id)}
           />
@@ -157,12 +143,11 @@ type CategoryTileProps = {
   image: number;
   selected: boolean;
   dimmed: boolean;
-  isNow: boolean;
   reduce: boolean;
   onPress: () => void;
 };
 
-function CategoryTile({ index, label, image, selected, dimmed, isNow, reduce, onPress }: CategoryTileProps) {
+function CategoryTile({ index, label, image, selected, dimmed, reduce, onPress }: CategoryTileProps) {
   // Press squeeze.
   const press = useSharedValue(1);
   // The art's hop on select: lift and wiggle, then rest untransformed.
@@ -206,13 +191,12 @@ function CategoryTile({ index, label, image, selected, dimmed, isNow, reduce, on
         }}
         accessibilityRole="button"
         accessibilityState={{ selected }}
-        accessibilityLabel={isNow ? `${label}, fits right now` : label}
+        accessibilityLabel={label}
         className="items-center rounded-2xl border border-ink-emphasis/10 pb-2.5 pt-3"
         // Only override the border color when selected: passing undefined
         // wipes the class's gray and leaves React Native's default black.
         style={selected ? { borderRadius: RADIUS, borderColor: "transparent" } : { borderRadius: RADIUS }}
       >
-        {isNow && <NowDot reduce={reduce} />}
         <Animated.View style={artStyle}>
           {/* Decoded at its 56px size (a clean downscale), and never left
               scaled or tilted: a transform stretches the drawn pixels, so the
@@ -228,14 +212,4 @@ function CategoryTile({ index, label, image, selected, dimmed, isNow, reduce, on
       </Pressable>
     </Animated.View>
   );
-}
-
-// The "fits right now" dot: breathes twice when Home appears, then rests.
-function NowDot({ reduce }: { reduce: boolean }) {
-  const breathe = useSharedValue(1);
-  useEffect(() => {
-    if (!reduce) breathe.value = withDelay(500, withRepeat(withSequence(withTiming(1.6, { duration: 420 }), withTiming(1, { duration: 420 })), 2));
-  }, [breathe, reduce]);
-  const style = useAnimatedStyle(() => ({ transform: [{ scale: breathe.value }] }));
-  return <Animated.View pointerEvents="none" className="absolute right-2.5 top-2.5 h-1.5 w-1.5 rounded-full bg-accent" style={style} />;
 }
