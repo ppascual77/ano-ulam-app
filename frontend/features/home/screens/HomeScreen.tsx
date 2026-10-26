@@ -74,7 +74,7 @@ export default function HomeScreen() {
       </ScrollView>
       {showSurpriseMe && <RandomMealPuller />}
       {intro.showing && (
-        <HomeIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={finishIntro} entry={entry} />
+        <HomeIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={finishIntro} entry={entry} name={firstName} />
       )}
     </Screen>
   );
