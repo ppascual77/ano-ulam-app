@@ -15,10 +15,12 @@ import {
 } from "../hooks/useMeals";
 import { MealFormFields, type MealFormState } from "../components/MealFormFields";
 import { MealVerifyPanel } from "../components/MealVerifyPanel";
+import { CopyCheckPanel } from "../components/CopyCheckPanel";
 import type { PendingMealIngredient } from "../components/SeedMealIngredientsEditor";
 import { AdminHeader } from "../components/AdminHeader";
 import { Checklist, InlineError } from "../components/AdminUi";
 import { buildMealCalculation } from "../utils/mealCalculation";
+import { findCopiedRuns } from "../utils/verbatimCheck";
 
 function draftIngredientsToPending(draft: ImportedMealDraft): PendingMealIngredient[] {
   return draft.ingredients.map((ing, i) => {
@@ -68,6 +70,8 @@ export default function SeedMealScreen() {
   const [url, setUrl] = useState("");
   const [draft, setDraft] = useState<ImportedMealDraft | null>(null);
   const [form, setForm] = useState<MealFormState | null>(null);
+  // What the recipe page itself says, for the copy check. Never saved.
+  const [sourceText, setSourceText] = useState<string | null>(null);
 
   const importMeal = useImportMealFromUrl();
   const { data: allIngredients, isLoading: ingredientsLoading, isError: ingredientsError } = useIngredientsForMatching();
@@ -79,9 +83,10 @@ export default function SeedMealScreen() {
     const trimmed = url.trim();
     if (!trimmed) return;
     importMeal.mutate(trimmed, {
-      onSuccess: ({ meal }) => {
+      onSuccess: ({ meal, source_text }) => {
         setDraft(meal);
         setForm(draftToFormState(meal));
+        setSourceText(source_text ?? null);
       },
     });
   };
@@ -105,7 +110,24 @@ export default function SeedMealScreen() {
     [allResolved, trimmedIngredients, allIngredients],
   );
   const calculationPasses = !!calculation && calculation.errorCount === 0;
-  const canSave = !!draft && !!form && form.name.trim() !== "" && allResolved && calculationPasses && !createMeal.isPending;
+  // The copy check also gates Confirm Seed: nothing taken word for word
+  // from the source's description or steps (see verbatimCheck.ts).
+  const copiedRuns = useMemo(
+    () =>
+      form && sourceText !== null
+        ? findCopiedRuns(
+            [
+              { label: "Description", text: form.description },
+              ...form.procedure.map((step, i) => ({ label: `Step ${i + 1}`, text: step })),
+            ],
+            sourceText,
+          )
+        : null,
+    [form?.description, form?.procedure, sourceText],
+  );
+  const copyCheckPasses = copiedRuns !== null && copiedRuns.length === 0;
+  const canSave =
+    !!draft && !!form && form.name.trim() !== "" && allResolved && calculationPasses && copyCheckPasses && !createMeal.isPending;
 
   const handleSave = async () => {
     if (!draft || !form) return;
@@ -220,6 +242,8 @@ export default function SeedMealScreen() {
             />
           )}
 
+          <CopyCheckPanel runs={copiedRuns} />
+
           {/* Step 3: what's left before saving, then save. */}
           <View className="gap-4 rounded-2xl border border-ink-emphasis/10 p-5">
             <AppText variant="sectionSubtitle" dot>
@@ -241,6 +265,15 @@ export default function SeedMealScreen() {
                     : calculation
                       ? `${calculation.errorCount} to fix in the Check above.`
                       : "Shows up once every ingredient is linked.",
+                },
+                {
+                  label: "Description and steps are in our own words",
+                  done: copyCheckPasses,
+                  detail: copyCheckPasses
+                    ? undefined
+                    : copiedRuns === null
+                      ? "Couldn't check this import. See the Copy check above."
+                      : `${copiedRuns.length} copied ${copiedRuns.length === 1 ? "passage" : "passages"} to rewrite in the Copy check above.`,
                 },
               ]}
             />
