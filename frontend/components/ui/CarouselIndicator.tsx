@@ -1,5 +1,5 @@
 import { type RefObject, useEffect, useRef } from "react";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import Animated, {
   Easing,
   useSharedValue,
@@ -69,7 +69,7 @@ function HopIndicator({
   activeIndex: number;
   rest: HopRest;
   color: string;
-  markerRef?: RefObject<View | null>;
+  markerRef?: RefObject<ViewInstance | null>;
 }) {
   const step = HOP_STEP[rest];
   const restWidth = rest === "pill" ? HOP_PILL : HOP_BALL;
@@ -179,7 +179,7 @@ type Props = {
   hopColor?: string;
   /** "hop" only. Measure this for where the marker rests (its center), e.g.
    *  to hand the marker off to another screen's animation. */
-  hopMarkerRef?: RefObject<View | null>;
+  hopMarkerRef?: RefObject<ViewInstance | null>;
 };
 
 export function CarouselIndicator({

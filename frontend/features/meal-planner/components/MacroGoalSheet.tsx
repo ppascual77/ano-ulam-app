@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions, type TextInputInstance } from "react-native";
 import Animated, { SlideInLeft, SlideInRight, SlideOutLeft, SlideOutRight, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -127,7 +127,7 @@ function StepProgress({ step }: { step: Step }) {
 // its unit right after it. The whole tile focuses the input; the border
 // turns green while typing.
 function StatTile({ Icon, label, unit, value, onChange, decimal, hint }: { Icon: LucideIcon; label: string; unit: string; value: string; onChange: (v: string) => void; decimal?: boolean; hint?: string }) {
-  const input = useRef<TextInput>(null);
+  const input = useRef<TextInputInstance>(null);
   const [focused, setFocused] = useState(false);
   return (
     <Pressable

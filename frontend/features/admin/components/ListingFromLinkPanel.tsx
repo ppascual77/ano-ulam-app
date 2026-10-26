@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, View, type ScrollViewInstance } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
-import type { ScrollView as RNScrollView } from "react-native";
 import { AppText, Button, LoadingState, SegmentedSwitch, TextField } from "@/frontend/components/ui";
 import { IngredientSearch } from "@/frontend/core/meals/components/IngredientSearch";
 import { ingredientPricePerUnit, packEstimateOf, type IngredientRow, type PriceOption } from "@/api/ingredients";
@@ -92,7 +91,7 @@ export function ListingFromLinkPanel() {
   // Why it switched from SM to the form (informational, not an error).
   const [switchedReason, setSwitchedReason] = useState<string | null>(null);
   const confirmedUpdate = useConfirmedIngredientUpdate();
-  const scrollRef = useRef<RNScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
 
   // Linked DA prices stay among its sources, so a cheaper DA price isn't
   // overwritten by a store one.

@@ -1,5 +1,5 @@
 import { type RefObject, useEffect } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, type ViewInstance } from "react-native";
 import Animated, {
   Easing,
   FadeInDown,
@@ -117,7 +117,7 @@ function WeekScene({ size }: { size: IntroSize }) {
 
 type MealPlannerIntroProps = {
   active: boolean;
-  targetRef: RefObject<View | null>;
+  targetRef: RefObject<ViewInstance | null>;
   onDone: () => void;
 };
 

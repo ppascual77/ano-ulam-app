@@ -1,5 +1,5 @@
 import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import { Modal, Pressable, Text, View, type ViewInstance } from "react-native";
 import { useFocusEffect } from "expo-router";
 import Animated, {
   Easing,
@@ -56,7 +56,7 @@ export function usePageIntro({
 }) {
   const [state, setState] = useState<IntroState>(enabled ? "armed" : "done");
   const [run, setRun] = useState(0);
-  const targetRef = useRef<View>(null);
+  const targetRef = useRef<ViewInstance>(null);
   const onArmRef = useRef(onArm);
   onArmRef.current = onArm;
   const onFinishRef = useRef(onFinish);
@@ -104,7 +104,7 @@ type PageIntroProps = {
   /** false: only the white cover, waiting. true: plays the scene. */
   active: boolean;
   /** Where the dot lands: the page header's dot (see usePageIntro). */
-  targetRef: RefObject<View | null>;
+  targetRef: RefObject<ViewInstance | null>;
   /** Landed, or skipped: show the page. */
   onDone: () => void;
   /** The scene, mounted (and so started) when `active` turns true. It
@@ -138,7 +138,7 @@ export function PageIntro({
   tone = "light",
   accessibilityLabel,
 }: PageIntroProps) {
-  const rootRef = useRef<View>(null);
+  const rootRef = useRef<ViewInstance>(null);
   const [size, setSize] = useState<IntroSize | null>(null);
 
   const dot = useSharedValue(0);

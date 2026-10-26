@@ -1,6 +1,5 @@
 import * as WebBrowser from "expo-web-browser";
 import { makeRedirectUri } from "expo-auth-session";
-import * as QueryParams from "expo-auth-session/build/QueryParams";
 
 import { invokeEdgeFunction, supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
@@ -138,9 +137,21 @@ export function parseUserPreferences(
   };
 }
 
+/** Query + hash params of a redirect URL. Same as expo-auth-session's
+ *  getQueryParams, which SDK 58 no longer lets us import. */
+function getQueryParams(input: string) {
+  const url = new URL(input, "https://phony.example");
+  const errorCode = url.searchParams.get("errorCode");
+  url.searchParams.delete("errorCode");
+  const params: Record<string, string> = {};
+  url.searchParams.forEach((value, key) => (params[key] = value));
+  if (url.hash) new URLSearchParams(url.hash.replace(/^#/, "")).forEach((value, key) => (params[key] = value));
+  return { errorCode, params };
+}
+
 // https://supabase.com/docs/guides/auth/native-mobile-deep-linking
 async function createSessionFromUrl(url: string) {
-  const { params, errorCode } = QueryParams.getQueryParams(url);
+  const { params, errorCode } = getQueryParams(url);
   if (errorCode) throw new Error(errorCode);
 
   const { access_token, refresh_token } = params;

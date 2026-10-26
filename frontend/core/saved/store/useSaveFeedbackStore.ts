@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { ViewInstance } from "react-native";
 import type { View } from "react-native";
 import { router } from "expo-router";
 import type { ImageProps } from "expo-image";
@@ -72,11 +73,11 @@ export function noteTouch(x: number, y: number) {
   lastTouch = { x, y, at: Date.now() };
 }
 
-let profileDot: View | null = null;
+let profileDot: ViewInstance | null = null;
 let tabBarShown = false;
 /** From BottomNav's Profile tab: where the avatar's dot sits, and whether
  *  the tab bar is on screen (not under a pushed screen). */
-export function registerProfileDot(node: View | null, shown: boolean) {
+export function registerProfileDot(node: ViewInstance | null, shown: boolean) {
   profileDot = node;
   tabBarShown = shown;
 }

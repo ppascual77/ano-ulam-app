@@ -5,6 +5,8 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   useWindowDimensions,
+  type ViewInstance,
+  type ScrollViewInstance,
 } from "react-native";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -78,10 +80,10 @@ function renderSlide(slide: OnboardingSlideData, width: number, callbacks: Slide
 
 export default function OnboardingScreen() {
   const { width } = useWindowDimensions();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const topBlobRef = useRef<RotatingBlobHandle>(null);
   const bottomBlobRef = useRef<RotatingBlobHandle>(null);
-  const indicatorDotRef = useRef<View>(null);
+  const indicatorDotRef = useRef<ViewInstance>(null);
   const [index, setIndex] = useState(0);
   const isLast = index === onboardingSlides.length - 1;
 

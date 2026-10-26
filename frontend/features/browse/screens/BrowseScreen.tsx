@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View, type ScrollViewInstance } from "react-native";
 import { router } from "expo-router";
 import { AppText, LandingTitle, Screen, SearchBar, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
 import { CravingTagline } from "@/frontend/features/browse/components/CravingTagline";
@@ -52,7 +52,7 @@ export default function BrowseScreen() {
   // The intro, replayed on every visit to the tab (see usePageIntro): its
   // dot lands as the period of "Browse.". Leaving the tab puts the
   // header back at the top, ready for the next landing.
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   // Never with Reduce motion on (Settings, or the phone's own setting).
   const reduceMotion = useReduceMotion();
   const introOnce = useIntroOnce("browse");

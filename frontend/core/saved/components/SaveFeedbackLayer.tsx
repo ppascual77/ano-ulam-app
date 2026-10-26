@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { Image } from "expo-image";
 import Animated, { Easing, Extrapolation, interpolate, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
@@ -28,7 +28,7 @@ export function SaveFeedbackLayer() {
   }, [reduceMotion]);
 
   const flight = useSaveFeedbackStore((s) => s.flight);
-  const rootRef = useRef<View>(null);
+  const rootRef = useRef<ViewInstance>(null);
   const progress = useSharedValue(0);
   const shown = useSharedValue(0);
   const fromX = useSharedValue(0);

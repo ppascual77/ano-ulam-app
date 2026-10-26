@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, View, type ViewInstance } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, usePathname } from "expo-router";
@@ -101,7 +101,7 @@ function ProfileTabButton() {
   // the Saved tab has been seen.
   const unseen = useSaveFeedbackStore((s) => s.unseen);
   const landed = useSaveFeedbackStore((s) => s.landed);
-  const dotRef = useRef<View>(null);
+  const dotRef = useRef<ViewInstance>(null);
   useEffect(() => {
     registerProfileDot(dotRef.current, TAB_PATHS.includes(pathname));
   }, [pathname]);

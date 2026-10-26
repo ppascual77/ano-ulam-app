@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { RefreshControl, ScrollView, useWindowDimensions, View } from "react-native";
+import { RefreshControl, ScrollView, useWindowDimensions, View, type ScrollViewInstance } from "react-native";
 import { AppText, LandingTitle, Screen, usePageIntro } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { BestValueMealsSection } from "@/frontend/core/meals/components/BestValueMealsSection";
@@ -45,7 +45,7 @@ export default function PriceWatchScreen() {
   });
   const [searchFocused, setSearchFocused] = useState(false);
   const searching = searchFocused || search.trim() !== "";
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const { height: windowHeight } = useWindowDimensions();
   // Where the "All" list section starts in the scroll content.
   const [listY, setListY] = useState(0);
@@ -98,7 +98,7 @@ export default function PriceWatchScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 28 }}
         refreshControl={
-          <RefreshControl refreshing={items.isRefetching} onRefresh={() => items.refetch()} tintColor={colors.primary} />
+          <RefreshControl refreshing={items.isRefetching} onRefresh={() => void items.refetch()} tintColor={colors.primary} />
         }
       >
         <View className="flex-row items-center justify-between">

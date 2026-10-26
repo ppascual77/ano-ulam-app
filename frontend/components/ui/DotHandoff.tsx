@@ -1,5 +1,5 @@
 import { type RefObject, useCallback, useEffect, useRef } from "react";
-import { Dimensions, View } from "react-native";
+import { Dimensions, View, type ViewInstance } from "react-native";
 import { useFocusEffect } from "expo-router";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
@@ -43,21 +43,21 @@ const DOT = 6;
 type HandoffState = {
   enabled: boolean;
   /** Real dots hidden while the flying one stands in for them. */
-  hidden: View[];
+  hidden: ViewInstance[];
   flight: Flight | null;
 };
 
 const useHandoffStore = create<HandoffState>(() => ({ enabled: true, hidden: [], flight: null }));
 
-let departed: { at: number; node: View; spot: Promise<Spot | null> } | null = null;
+let departed: { at: number; node: ViewInstance; spot: Promise<Spot | null> } | null = null;
 let flightCount = 0;
 // Where each title dot was the last time it was seen on screen: the
 // prediction for the next flight to it.
-const lastSpot = new WeakMap<View, Spot>();
+const lastSpot = new WeakMap<ViewInstance, Spot>();
 
 // A dot's center and size in window coordinates, or null when it isn't on
 // screen (scrolled away) or can't be measured (already unmounted).
-function measureSpot(node: View): Promise<Spot | null> {
+function measureSpot(node: ViewInstance): Promise<Spot | null> {
   return new Promise((resolve) => {
     const timer = setTimeout(() => resolve(null), MEASURE_TIMEOUT_MS);
     node.measureInWindow((x, y, w, h) => {
@@ -69,7 +69,7 @@ function measureSpot(node: View): Promise<Spot | null> {
   });
 }
 
-function depart(node: View) {
+function depart(node: ViewInstance) {
   const spot = measureSpot(node);
   spot.then((s) => s && lastSpot.set(node, s));
   departed = { at: Date.now(), node, spot };
@@ -79,7 +79,7 @@ function finishFlight(id: number) {
   if (useHandoffStore.getState().flight?.id === id) useHandoffStore.setState({ hidden: [], flight: null });
 }
 
-async function arrive(node: View, canLand: () => boolean) {
+async function arrive(node: ViewInstance, canLand: () => boolean) {
   const last = departed;
   departed = null;
   if (!last || last.node === node || Date.now() - last.at > FRESH_MS) return;
@@ -117,7 +117,7 @@ async function arrive(node: View, canLand: () => boolean) {
 /** For LandingTitle: hand its dot off between screens. `canLand` is false
  *  while the screen's intro is due to land the dot itself (then it neither
  *  takes a flight nor launches one). */
-export function useDotHandoff(dotRef: RefObject<View | null>, canLand: () => boolean) {
+export function useDotHandoff(dotRef: RefObject<ViewInstance | null>, canLand: () => boolean) {
   const canLandRef = useRef(canLand);
   canLandRef.current = canLand;
   useFocusEffect(
@@ -144,7 +144,7 @@ export function DotHandoffOverlay({ enabled }: { enabled: boolean }) {
   }, [enabled]);
 
   const flight = useHandoffStore((s) => s.flight);
-  const rootRef = useRef<View>(null);
+  const rootRef = useRef<ViewInstance>(null);
   const fly = useSharedValue(0);
   const shown = useSharedValue(0);
   const from = useSharedValue<Spot>({ x: 0, y: 0, size: DOT });

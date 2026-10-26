@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Linking, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
+import { Linking, Platform, Pressable, ScrollView, Text, View, useWindowDimensions, type ScrollViewInstance } from "react-native";
 import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -140,7 +140,7 @@ export default function SettingsScreen() {
 
   // ---- ?section=newsletter --------------------------------------------------
 
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const [newsletterLayout, setNewsletterLayout] = useState<{ y: number; height: number } | null>(null);
   useEffect(() => {
     if (params.section !== "newsletter" || !newsletterLayout) return;

@@ -1,5 +1,5 @@
 import { ReactNode, useRef, useState } from "react";
-import { Modal, Pressable, ScrollView, View, useWindowDimensions } from "react-native";
+import { Modal, Pressable, ScrollView, View, useWindowDimensions, type ViewInstance } from "react-native";
 import { AppText } from "./AppText";
 
 export type DropdownItem = {
@@ -40,7 +40,7 @@ const SCREEN_MARGIN = 16;
 export function Dropdown({ trigger, items, headerLabel, headerIcon, matchTriggerWidth, align = "right", placement = "below" }: DropdownProps) {
   const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState({ top: 0, bottom: 0, right: 0, left: 0, width: 0, maxHeight: 400 });
-  const triggerRef = useRef<View>(null);
+  const triggerRef = useRef<ViewInstance>(null);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
   const open = () => {

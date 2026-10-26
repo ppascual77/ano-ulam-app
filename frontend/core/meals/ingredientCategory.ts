@@ -1,4 +1,4 @@
-import type { ImageSourcePropType } from "react-native";
+import type { ImageSource } from "expo-image";
 import type { IngredientType } from "./mealTypes";
 
 // The app's ingredient categories and their icons (assets/icons/). Shared by
@@ -9,7 +9,7 @@ export type IngredientCategory = "meat" | "fish" | "vegetables" | "fruits" | "gr
 // Filenames as provided in assets/icons/: "vegetable.icon.png" and
 // "egg-icon.jpg" don't follow the other files' "<category>-icon.png"
 // naming, kept as-is rather than renamed.
-export const INGREDIENT_CATEGORY_ICONS: Record<IngredientCategory, ImageSourcePropType> = {
+export const INGREDIENT_CATEGORY_ICONS: Record<IngredientCategory, ImageSource | number> = {
   meat: require("@/assets/icons/meat-icon.png"),
   fish: require("@/assets/icons/fish-icon.png"),
   vegetables: require("@/assets/icons/vegetable.icon.png"),
@@ -92,7 +92,7 @@ const MEAT_KINDS: [RegExp, keyof typeof MEAT_ICONS][] = [
 /** The picture for an ingredient row or sheet: its category's icon, with
  *  meat narrowed to chicken / beef / pork (generic meat icon otherwise) and
  *  fish using the fish photo. */
-export function ingredientCategoryIcon(ingredient: Pick<IngredientType, "name" | "category">): ImageSourcePropType {
+export function ingredientCategoryIcon(ingredient: Pick<IngredientType, "name" | "category">): ImageSource | number {
   const category = ingredientCategory(ingredient);
   if (category === "fish") return FISH_ICON;
   if (category === "meat") {

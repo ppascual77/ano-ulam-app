@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View, type ViewInstance } from "react-native";
 import { Image } from "expo-image";
 import Animated, { SlideInLeft, SlideInRight, SlideOutLeft, SlideOutRight } from "react-native-reanimated";
 import { ArrowLeft, Check } from "lucide-react-native";
@@ -18,7 +18,7 @@ export const PANTRY_SUBTITLE = "Add what you have, we'll find what you can cook.
 // pantry staples to tick off the basics at once. Edits apply to the shared
 // pantry list right away (see usePantryActions). Used from Home's By Pantry
 // and Profile's Pantry tab.
-// Switching views swipes like a navigation push: View all slides the
+// Switching views swipes like a navigation push: ViewInstance all slides the
 // staples in from the right (the main view leaves to the left); back
 // reverses it. Both views animate at once, stacked in the same space.
 const SWIPE_MS = 280;

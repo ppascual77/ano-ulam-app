@@ -1,11 +1,11 @@
-import type { ImageSourcePropType } from "react-native";
+import type { ImageSource } from "expo-image";
 import { INGREDIENT_CATEGORY_ICONS as ICONS } from "@/frontend/core/meals/ingredientCategory";
 import type { PriceCategory } from "@/frontend/core/prices/utils/prices";
 
 export type PriceWatchCategory = {
   id: PriceCategory;
   label: string;
-  icon: ImageSourcePropType;
+  icon: ImageSource | number;
 };
 
 // Icons are shared with the meal page's ingredient rows (see

@@ -1,5 +1,5 @@
 import { type ReactNode, type RefObject, useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, type ViewInstance } from "react-native";
 import Animated, {
   Easing,
   FadeInDown,
@@ -240,7 +240,7 @@ function ChatScene({ size }: { size: IntroSize }) {
 type DiscoverIntroProps = {
   active: boolean;
   /** The Create button's landing spot (see CreateButton's landingRef). */
-  targetRef: RefObject<View | null>;
+  targetRef: RefObject<ViewInstance | null>;
   onDone: () => void;
 };
 
