@@ -20,14 +20,16 @@ export default function TabsLayout() {
         animation: reduceMotion ? "fade" : "shift",
         // The stock fade only animates opacity. Switching from "shift" to it
         // (turning Reduce motion on) left each inactive tab stuck at shift's
-        // last translateX (-50 / +50): an animated style key that disappears
-        // keeps its last native value. Home showed cut off on the left with
-        // a gap on the right. Pinning translateX to 0 overwrites it.
+        // last translateX (-50 / +50): Home showed cut off on the left with a
+        // gap on the right. A plain `translateX: 0` doesn't clear it: shift
+        // runs on the native driver, so JS still thinks the value is 0 and
+        // React never sends the "change". A native-driven interpolation that
+        // always outputs 0 does: attaching it sets the view natively.
         ...(reduceMotion && {
           sceneStyleInterpolator: ({ current }) => ({
             sceneStyle: {
               opacity: current.progress.interpolate({ inputRange: [-1, 0, 1], outputRange: [0, 1, 0] }),
-              transform: [{ translateX: 0 }],
+              transform: [{ translateX: current.progress.interpolate({ inputRange: [-1, 0, 1], outputRange: [0, 0, 0] }) }],
             },
           }),
         }),
