@@ -54,7 +54,7 @@ export function GuestProfileView({ onSignIn, signingIn = false }: GuestProfileVi
 
       <GoogleSignInButton onPress={onSignIn} signingIn={signingIn} />
 
-      <Text className="text-center font-inter-regular text-body leading-5 text-ink-subtle">
+      <Text className="text-center font-inter-regular text-small leading-4 text-ink-subtle">
         By continuing, you agree to our{" "}
         <Text onPress={() => router.push("/terms")} className="font-inter-semibold text-primary">
           Terms of Service
