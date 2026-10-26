@@ -2,7 +2,8 @@ import { useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { savedKeys } from "../queryKeys";
-import { listSavedMeals, saveMeal, syncSavedMeal, unsaveMeal, updateSavedServings } from "../mock/api";
+import { listSavedMeals, saveMeal, syncSavedMeal, unsaveMeal, updateSavedServings } from "../savedMeals";
+import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { SAVED_MEALS_LIMIT, savedKeyOf, type SavedMeal } from "../types";
 import { announceRemoved, announceSaveError, announceSaved } from "../store/useSaveFeedbackStore";
 
@@ -11,8 +12,15 @@ const SAVE_FAILED_MESSAGE = "Couldn't update your saved meals. Please try again.
 
 // The one saved-meals list every save button reads (MealCard, Discover,
 // Meal Details, Profile's Saved tab), so a save anywhere shows everywhere.
+// Saved to the account (public.saved_meals); a guest has none (saving asks
+// them to sign in first).
 export function useSavedMeals() {
-  return useQuery({ queryKey: savedKeys.list, queryFn: listSavedMeals, staleTime: Infinity });
+  const userId = useAuth().session?.user.id ?? null;
+  return useQuery({
+    queryKey: savedKeys.list(userId),
+    queryFn: () => (userId ? listSavedMeals() : Promise.resolve([])),
+    staleTime: Infinity,
+  });
 }
 
 // Lookup + actions on the shared list. Save/unsave are optimistic (the
@@ -24,13 +32,14 @@ export function useSavedMeals() {
 // that track the request.
 export function useSavedMealActions() {
   const queryClient = useQueryClient();
+  const userId = useAuth().session?.user.id ?? null;
   const { data: saved = [] } = useSavedMeals();
 
   const byKey = useMemo(() => new Map(saved.map((entry) => [entry.meal_catalog_id, entry])), [saved]);
   const savedFor = useCallback((meal: MealType | null | undefined) => (meal ? byKey.get(savedKeyOf(meal)) : undefined), [byKey]);
 
-  const read = () => queryClient.getQueryData<SavedMeal[]>(savedKeys.list) ?? [];
-  const write = (next: SavedMeal[]) => queryClient.setQueryData(savedKeys.list, next);
+  const read = () => queryClient.getQueryData<SavedMeal[]>(savedKeys.list(userId)) ?? [];
+  const write = (next: SavedMeal[]) => queryClient.setQueryData(savedKeys.list(userId), next);
 
   // `quiet`: an Undo putting a meal back, which needs no "saved" feedback.
   const save = async (meal: MealType, servings?: number, quiet = false): Promise<string | null> => {
