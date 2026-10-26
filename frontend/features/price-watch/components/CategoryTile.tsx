@@ -1,69 +1,93 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { Pressable } from "react-native";
 import { Image } from "expo-image";
-import Animated, {
-  interpolateColor,
-  useAnimatedStyle,
-  useSharedValue,
-  withSequence,
-  withSpring,
-  withTiming,
-} from "react-native-reanimated";
-import { colors } from "@/frontend/constants/theme";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from "react-native-reanimated";
+import { AppText } from "@/frontend/components/ui";
 import type { PriceWatchCategory } from "../constants/categories";
 
-// Selected = green outline only (no fill), cross-faded from the idle outline.
-const TRANSITION_MS = 220;
-// Same color as border-ink-emphasis/10: interpolateColor needs a literal
-// color value, not a Tailwind opacity modifier.
-const IDLE_BORDER = "rgba(43, 52, 55, 0.1)";
-// The tile just selected dips and springs back.
-const POP_SCALE = 0.94;
-const POP_SPRING = { damping: 9, stiffness: 260, mass: 0.6 };
+// One Price Watch category: a neutral tile (the green highlight behind the
+// selected one is CategoryGrid's). Pressed, it squeezes; selected, its photo
+// hops (lifts, wiggles) and rests untransformed so it stays sharp; the
+// others dim. The photos are transparent cut-outs, so the highlight shows
+// through.
+
+const ART = 40;
+const PRESS = { damping: 15, stiffness: 400, overshootClamping: true };
+const HOP = { damping: 9, stiffness: 260, mass: 0.6 };
 
 type CategoryTileProps = {
+  index: number;
+  width: number;
   category: PriceWatchCategory;
   selected: boolean;
+  dimmed: boolean;
+  reduce: boolean;
   onPress: () => void;
+  /** Reports the tile's height (the grid sizes its highlight from it). */
+  onMeasure?: (height: number) => void;
 };
 
-export function CategoryTile({ category, selected, onPress }: CategoryTileProps) {
-  const progress = useSharedValue(selected ? 1 : 0);
-  const pop = useSharedValue(1);
-  const mounted = useRef(false);
+export function CategoryTile({ index, width, category, selected, dimmed, reduce, onPress, onMeasure }: CategoryTileProps) {
+  const press = useSharedValue(1);
+  const lift = useSharedValue(0);
+  const tilt = useSharedValue(0);
+  const dim = useSharedValue(1);
+  const enter = useSharedValue(reduce ? 1 : 0);
 
   useEffect(() => {
-    progress.value = withTiming(selected ? 1 : 0, { duration: TRANSITION_MS });
-    if (!mounted.current) {
-      mounted.current = true;
-      return;
+    if (!reduce) enter.value = withDelay(index * 40, withTiming(1, { duration: 360, easing: Easing.out(Easing.cubic) }));
+  }, [enter, index, reduce]);
+
+  useEffect(() => {
+    if (selected && !reduce) {
+      lift.value = withSequence(withTiming(-6, { duration: 140, easing: Easing.out(Easing.quad) }), withSpring(0, HOP));
+      tilt.value = withSequence(withTiming(-7, { duration: 90 }), withTiming(5, { duration: 110 }), withSpring(0, HOP));
     }
-    if (selected) pop.value = withSequence(withTiming(POP_SCALE, { duration: 80 }), withSpring(1, POP_SPRING));
-  }, [selected, progress, pop]);
+    dim.value = reduce ? (dimmed ? 0.5 : 1) : withTiming(dimmed ? 0.5 : 1, { duration: 200 });
+  }, [selected, dimmed, reduce, lift, tilt, dim]);
 
   const tileStyle = useAnimatedStyle(() => ({
-    borderColor: interpolateColor(progress.value, [0, 1], [IDLE_BORDER, colors.primary]),
-    transform: [{ scale: pop.value }],
+    opacity: enter.value,
+    transform: [{ translateY: (1 - enter.value) * 8 }, { scale: press.value }],
   }));
-  const labelStyle = useAnimatedStyle(() => ({
-    color: interpolateColor(progress.value, [0, 1], [colors.ink.emphasis, colors.primary]),
+  const artStyle = useAnimatedStyle(() => ({
+    opacity: dim.value,
+    transform: [{ translateY: lift.value }, { rotate: `${tilt.value}deg` }],
   }));
+  const labelStyle = useAnimatedStyle(() => ({ opacity: 0.55 + 0.45 * dim.value }));
 
-  // Plain styles on the Animated nodes (NativeWind can knock out Reanimated's
-  // animated values); the label's className sets only font and size.
   return (
-    <Animated.View style={[{ width: "23%", borderWidth: 1, borderRadius: 16, backgroundColor: colors.white }, tileStyle]}>
+    <Animated.View style={[{ width }, tileStyle]} onLayout={onMeasure ? (e) => onMeasure(e.nativeEvent.layout.height) : undefined}>
       <Pressable
         onPress={onPress}
+        onPressIn={() => {
+          if (!reduce) press.value = withSpring(0.95, PRESS);
+        }}
+        onPressOut={() => {
+          press.value = reduce ? 1 : withSpring(1, PRESS);
+        }}
         accessibilityRole="button"
         accessibilityState={{ selected }}
         accessibilityLabel={`${category.label} category`}
-        className="items-center gap-1 py-3"
+        className="items-center gap-1 rounded-2xl border border-ink-emphasis/10 py-3"
+        // Only override the border color when selected (undefined would wipe
+        // the class's gray to React Native's default black).
+        style={selected ? { borderRadius: 16, borderColor: "transparent" } : { borderRadius: 16 }}
       >
-        <Image source={category.icon} style={{ width: 40, height: 40 }} contentFit="contain" />
-        <Animated.Text style={labelStyle} className="font-inter-regular text-body leading-5">
-          {category.label}
-        </Animated.Text>
+        <Animated.View style={artStyle}>
+          <Image source={category.icon} style={{ width: ART, height: ART }} contentFit="contain" />
+        </Animated.View>
+        <Animated.View style={labelStyle}>
+          <AppText
+            variant="body"
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+            className={`px-1 leading-5 ${selected ? "font-inter-semibold text-primary" : "text-ink-emphasis"}`}
+          >
+            {category.label}
+          </AppText>
+        </Animated.View>
       </Pressable>
     </Animated.View>
   );

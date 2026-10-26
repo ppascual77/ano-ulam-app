@@ -7,7 +7,7 @@ import type { IngredientType } from "./mealTypes";
 export type IngredientCategory = "meat" | "fish" | "vegetables" | "fruits" | "grains" | "eggs" | "spices" | "other" | "condiments";
 
 // Filenames as provided in assets/icons/: "vegetable.icon.png" and
-// "egg-icon.jpg" don't follow the other files' "<category>-icon.png"
+// "egg-icon.png" don't follow the other files' "<category>-icon.png"
 // naming, kept as-is rather than renamed.
 export const INGREDIENT_CATEGORY_ICONS: Record<IngredientCategory, ImageSource | number> = {
   meat: require("@/assets/icons/meat-icon.png"),
@@ -15,7 +15,7 @@ export const INGREDIENT_CATEGORY_ICONS: Record<IngredientCategory, ImageSource |
   vegetables: require("@/assets/icons/vegetable.icon.png"),
   fruits: require("@/assets/icons/fruits-icon.png"),
   grains: require("@/assets/icons/grains-icon.png"),
-  eggs: require("@/assets/icons/egg-icon.jpg"),
+  eggs: require("@/assets/icons/egg-icon.png"),
   spices: require("@/assets/icons/spices-icon.png"),
   other: require("@/assets/icons/other-icon.png"),
   condiments: require("@/assets/icons/oil-icon.png")
