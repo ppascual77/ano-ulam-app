@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Plus } from "lucide-react-native";
 import { LandingTitle, LoadingState } from "@/frontend/components/ui";
@@ -12,7 +12,7 @@ import { PantrySheet } from "./PantrySheet";
 // Everything Pantry mode shows on Home, as one unit: the title with an Add
 // Ingredient button, then the empty state, or "What can you make?" with the
 // pantry as tabs of chips; and the Add Ingredients sheet both open.
-export function PantrySection() {
+function PantrySectionInner() {
   const { data: pantry = [], isPending } = usePantry();
   const actions = usePantryActions();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -54,3 +54,7 @@ export function PantrySection() {
     </View>
   );
 }
+
+// Skips Home's re-renders (any route change re-renders Home, which reads
+// its URL params), unless its own props change.
+export const PantrySection = memo(PantrySectionInner);

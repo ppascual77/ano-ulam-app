@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { MealCarouselSection } from "@/frontend/core/budget/components/MealCarouselSection";
 import { BEST_VALUE_CARD_WIDTH, BestValueMealCard } from "@/frontend/core/prices/components/BestValueMealCard";
 import { useBestValueMeals } from "@/frontend/core/prices/hooks/usePriceMeals";
@@ -6,7 +7,7 @@ import { useBestValueMeals } from "@/frontend/core/prices/hooks/usePriceMeals";
 // detail-sheet plumbing) with BestValueMealCard: what got cheaper and the
 // estimated saving. Meals using ingredients whose DA price dropped vs a week
 // ago (Home and Price Watch); hidden when there are none.
-export function BestValueMealsSection() {
+function BestValueMealsSectionInner() {
   const { meals, loading } = useBestValueMeals();
   if (!loading && meals.length === 0) return null;
   const byId = new Map(meals.map((m) => [m.meal.id, m]));
@@ -26,3 +27,8 @@ export function BestValueMealsSection() {
     />
   );
 }
+
+// Re-renders only when its own props change, not whenever the screen does
+// (a Price Watch re-render, e.g. on a tab switch, cost ~150-200ms when
+// every section re-rendered with it).
+export const BestValueMealsSection = memo(BestValueMealsSectionInner);

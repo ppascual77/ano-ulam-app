@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { RefreshControl, ScrollView, useWindowDimensions, View, type ScrollViewInstance } from "react-native";
 import { AppText, LandingTitle, Screen, usePageIntro } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -51,10 +51,16 @@ export default function PriceWatchScreen() {
   const [listY, setListY] = useState(0);
   // Focusing search parks its section (title, sort chip, search box) at the
   // top of the screen, and the min height below keeps it there as you type.
-  const handleSearchFocus = () => {
+  const handleSearchFocus = useCallback(() => {
     setSearchFocused(true);
     scrollRef.current?.scrollTo({ y: Math.max(0, listY - SEARCH_TOP_GAP), animated: true });
-  };
+  }, [listY]);
+  // Stable callbacks, so the memoized sections below don't re-render for
+  // them (each section is memo()'d: re-rendering them all made switching to
+  // this tab cost ~150-200ms).
+  const openMarkets = useCallback(() => setMarketsOpen(true), []);
+  const toggleSort = useCallback(() => setSortByDrop((v) => !v), []);
+  const blurSearch = useCallback(() => setSearchFocused(false), []);
   const [sortByDrop, setSortByDrop] = useState(true);
   const [selected, setSelected] = useState<PriceItem | null>(null);
   const [marketsOpen, setMarketsOpen] = useState(false);
@@ -78,10 +84,10 @@ export default function PriceWatchScreen() {
   }, [all, q, category, sortByDrop]);
 
   // Searching covers every category.
-  const handleSearch = (text: string) => {
+  const handleSearch = useCallback((text: string) => {
     setSearch(text);
     if (text.trim()) setCategory(null);
-  };
+  }, []);
 
   const title = q || !category ? "All" : priceWatchCategories.find((c) => c.id === category)!.label;
 
@@ -113,7 +119,7 @@ export default function PriceWatchScreen() {
         </View>
 
         <View className="mt-4">
-          <PriceDisclaimer asOf={asOf} onOpenMarkets={() => setMarketsOpen(true)} />
+          <PriceDisclaimer asOf={asOf} onOpenMarkets={openMarkets} />
           {items.isError && (
             <AppText variant="caption" className="mt-2 text-like">
               Couldn&apos;t load prices. Pull to refresh.
@@ -148,10 +154,10 @@ export default function PriceWatchScreen() {
             search={search}
             onSearch={handleSearch}
             sortByDrop={sortByDrop}
-            onToggleSort={() => setSortByDrop((v) => !v)}
+            onToggleSort={toggleSort}
             onSelect={setSelected}
             onSearchFocus={handleSearchFocus}
-            onSearchBlur={() => setSearchFocused(false)}
+            onSearchBlur={blurSearch}
           />
         </View>
       </ScrollView>
