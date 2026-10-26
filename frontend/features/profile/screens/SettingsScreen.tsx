@@ -18,7 +18,6 @@ import {
   SettingsSection,
   SettingsToggle,
 } from "../components/settings/SettingsSection";
-import { WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
 import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenIntrosStore";
@@ -280,8 +279,8 @@ export default function SettingsScreen() {
 
           <SettingsSection title="About">
             <LinkRow label="Send feedback" onPress={sendFeedback} />
-            <LinkRow label="Privacy Policy" onPress={() => void Linking.openURL(`${WEB_APP_URL}/privacy`)} />
-            <LinkRow label="Terms of Service" onPress={() => void Linking.openURL(`${WEB_APP_URL}/terms`)} />
+            <LinkRow label="Privacy Policy" onPress={() => router.push("/privacy")} />
+            <LinkRow label="Terms of Service" onPress={() => router.push("/terms")} />
             <Text className="font-inter-regular text-body text-ink-subtle">Version {APP_VERSION}</Text>
           </SettingsSection>
 
