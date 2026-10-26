@@ -39,7 +39,9 @@ export type ImportedMealDraft = {
   allergens: string[];
   dietary_tags: string[];
   tags: string[];
-  ingredients: { name: string; quantity_text: string }[];
+  // section: the recipe part the line belongs to ("For the sauce"), null
+  // for the main list. Absent on drafts from before the importer had it.
+  ingredients: { name: string; quantity_text: string; section?: string | null }[];
   reference_image_url: string | null;
 };
 
@@ -308,6 +310,9 @@ export type MealIngredientInput = {
   // explanation (e.g. bulk deep-frying oil where only a fraction is
   // actually absorbed) — not oil-specific.
   note?: string | null;
+  // The recipe part this line belongs to ("For the sauce"); meal detail
+  // groups lines under it. Null = the main list.
+  section?: string | null;
   // Overrides the quantity PRICE is computed from, independent of the
   // quantity macros are computed from — e.g. bulk deep-frying oil, where
   // the cook buys/uses a full cup (price) but the dish only absorbs a

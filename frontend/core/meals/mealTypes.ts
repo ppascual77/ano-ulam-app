@@ -77,6 +77,9 @@ export type IngredientType = {
   // only a fraction is actually absorbed). Set by an admin, read by
   // everyone.
   note?: string | null;
+  // The recipe part this line belongs to ("For the sauce"), shown as a
+  // heading over its group in meal detail. Null/undefined = the main list.
+  section?: string | null;
   // The ingredients table's category (e.g. "Pork", "Leafy Green"), for the
   // row's category icon (see core/meals/ingredientCategory.ts). Undefined for
   // mock meals, which fall back to a guess from the name.

@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -92,6 +92,31 @@ function orderIngredients(ingredients: IngredientType[]) {
   const oils = ingredients.filter((it) => it.type === "pantry" && /oil/i.test(it.name));
   const rest = ingredients.filter((it) => it.type === "pantry" && !/oil/i.test(it.name));
   return [...main, ...oils, ...rest];
+}
+
+// Splits a recipe into its parts ("For the sauce", "For seasoning the
+// chicken"): the unlabeled main list first, then each section in the order
+// the recipe first lists it. Each group keeps orderIngredients' order.
+// A meal with no sections comes back as one unlabeled group, unchanged.
+function groupIngredients(ingredients: IngredientType[]) {
+  const groups: { section: string | null; items: IngredientType[] }[] = [];
+  for (const ingredient of ingredients) {
+    const section = ingredient.section?.trim() || null;
+    let group = groups.find((g) => g.section === section);
+    if (!group) {
+      group = { section, items: [] };
+      groups.push(group);
+    }
+    group.items.push(ingredient);
+  }
+  return groups
+    .sort((a, b) => Number(a.section !== null) - Number(b.section !== null))
+    .map((g) => ({ section: g.section, items: orderIngredients(g.items) }));
+}
+
+// Heading over a recipe section's ingredients ("For the sauce").
+function IngredientSectionLabel({ children }: { children: string }) {
+  return <Text className="mt-3 font-inter-semibold text-body text-ink-subtle">{children}</Text>;
 }
 
 type IngredientRowProps = {
@@ -755,20 +780,25 @@ export function MealDetailContent({
           </View>
 
           <View className="mt-2 gap-2">
-            {orderIngredients(meal.ingredients).map((ingredient, i) => {
-              const scaled = scaleIngredient(ingredient, scale);
-              const change = ingredientWeekChange(ingredient, weekChanges.data);
-              return (
-                <IngredientRow
-                  key={i}
-                  ingredient={scaled}
-                  dropPct={change != null && change < 0 ? change : undefined}
-                  // Every ingredient has a sheet to show (at minimum its
-                  // price source), so every card is tappable.
-                  onPress={onSelectIngredient ? () => onSelectIngredient(scaled) : undefined}
-                />
-              );
-            })}
+            {groupIngredients(meal.ingredients).map((group) => (
+              <Fragment key={group.section ?? ""}>
+                {group.section && <IngredientSectionLabel>{group.section}</IngredientSectionLabel>}
+                {group.items.map((ingredient, i) => {
+                  const scaled = scaleIngredient(ingredient, scale);
+                  const change = ingredientWeekChange(ingredient, weekChanges.data);
+                  return (
+                    <IngredientRow
+                      key={i}
+                      ingredient={scaled}
+                      dropPct={change != null && change < 0 ? change : undefined}
+                      // Every ingredient has a sheet to show (at minimum its
+                      // price source), so every card is tappable.
+                      onPress={onSelectIngredient ? () => onSelectIngredient(scaled) : undefined}
+                    />
+                  );
+                })}
+              </Fragment>
+            ))}
           </View>
         </View>
       )}

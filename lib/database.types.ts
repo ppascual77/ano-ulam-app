@@ -232,6 +232,7 @@ export type Database = {
           price_quantity_unit: string | null
           quantity_amount: number | null
           quantity_unit: string | null
+          section: string | null
           sort_order: number
         }
         Insert: {
@@ -245,6 +246,7 @@ export type Database = {
           price_quantity_unit?: string | null
           quantity_amount?: number | null
           quantity_unit?: string | null
+          section?: string | null
           sort_order?: number
         }
         Update: {
@@ -258,6 +260,7 @@ export type Database = {
           price_quantity_unit?: string | null
           quantity_amount?: number | null
           quantity_unit?: string | null
+          section?: string | null
           sort_order?: number
         }
         Relationships: [
