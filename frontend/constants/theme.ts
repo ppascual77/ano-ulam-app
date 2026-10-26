@@ -38,6 +38,9 @@ export const colors = {
     dinner: "#FDEFE0",
     fastfood: "#FCEBE1",
   },
+  // tailwind.config.js's tinted-bg, for animated fills (Price Watch's
+  // category highlight).
+  tintedBg: "#DFF3E3",
   like: "#EF4444",
   // Same as tailwind.config.js's trend (icons take a color prop, not a class).
   trend: { down: "#16A34A", up: "#EF4444", flat: "#EAB308" },
