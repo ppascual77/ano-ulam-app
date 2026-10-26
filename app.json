@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "ano-ulam-mobile",
+    "name": "AnoUlam",
     "slug": "anoulam-mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,10 +12,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -31,7 +29,15 @@
         }
       ],
       "expo-font",
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 120,
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF"
+        }
+      ],
       "expo-secure-store",
       "expo-web-browser",
       [
