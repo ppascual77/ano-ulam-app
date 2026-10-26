@@ -308,8 +308,14 @@ Deno.serve(async (req: Request) => {
     // Taken straight from the page's own structured data, not the LLM — it
     // has no way to know the real photo URL and shouldn't be asked to guess.
     meal.reference_image_url = extraction.tier === "json-ld" ? extraction.image : null;
+    // The source's own wording, for Seed Meal's copy check (the rewrite
+    // must not reuse it verbatim). Compared on the device, never stored.
+    const source_text =
+      extraction.tier === "json-ld"
+        ? [extraction.description ?? "", ...extraction.instructions].join("\n")
+        : extraction.text;
 
-    return new Response(JSON.stringify({ meal, extraction_tier: extraction.tier }), {
+    return new Response(JSON.stringify({ meal, extraction_tier: extraction.tier, source_text }), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err) {

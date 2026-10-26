@@ -160,7 +160,9 @@ export function parseQuantityText(text: string): { amount: string; unit: Quantit
 }
 
 export async function importMealFromUrl(url: string) {
-  return invokeEdgeFunction<{ meal: ImportedMealDraft; extraction_tier: "json-ld" | "raw-text" }>(
+  // source_text: the page's own description + steps, for Seed Meal's copy
+  // check. Missing from deploys before it was added.
+  return invokeEdgeFunction<{ meal: ImportedMealDraft; extraction_tier: "json-ld" | "raw-text"; source_text?: string }>(
     "import-meal-from-url",
     { url },
   );
