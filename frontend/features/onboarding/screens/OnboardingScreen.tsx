@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import {
   View,
   ScrollView,
@@ -18,6 +18,9 @@ import { ContentSlide } from "../components/ContentSlide";
 import { PreferencesSlide } from "../components/PreferencesSlide";
 import { PreferenceGroupsSlide } from "../components/PreferenceGroupsSlide";
 import { AccountPitchSlide } from "../components/AccountPitchSlide";
+import { NumbersExplainerSheet } from "../components/NumbersExplainerSheet";
+import { FlyingDot, PeriodDot, type DotPoint } from "../components/NumbersDot";
+import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { RotatingBlob, type RotatingBlobHandle } from "../components/RotatingBlob";
 import { onboardingSlides, type OnboardingSlideData, type PreferencesSlideData } from "../slides";
 import { useSignInWithGoogle } from "@/frontend/features/auth/hooks/useAuth";
@@ -38,6 +41,9 @@ type SlideCallbacks = {
   onContinueWithGoogle: () => void;
   onContinueWithoutAccount: () => void;
   isSigningIn: boolean;
+  onOpenNumbers: () => void;
+  /** The explainer slide's title period, where "Got it"'s dot lands. */
+  numbersPeriod: ReactNode;
 };
 
 function renderSlide(slide: OnboardingSlideData, width: number, callbacks: SlideCallbacks) {
@@ -74,7 +80,15 @@ function renderSlide(slide: OnboardingSlideData, width: number, callbacks: Slide
         />
       );
     case "content":
-      return <ContentSlide key={slide.id} slide={slide} width={width} />;
+      return (
+        <ContentSlide
+          key={slide.id}
+          slide={slide}
+          width={width}
+          onLinkPress={slide.link === "numbers" ? callbacks.onOpenNumbers : undefined}
+          period={slide.link === "numbers" ? callbacks.numbersPeriod : undefined}
+        />
+      );
   }
 }
 
@@ -89,6 +103,15 @@ export default function OnboardingScreen() {
 
   const [goals, setGoals] = useState<Set<string>>(() => new Set(defaultGoals));
   const [groupSelections, setGroupSelections] = useState<Record<string, string[]>>({});
+  // Slide 4's "Where do our numbers come from?" sheet.
+  const [numbersOpen, setNumbersOpen] = useState(false);
+  // "Got it" shrinks to an orange dot that's tossed back up to the slide
+  // title and lands as its period, with a little pulse. The period stays
+  // empty while the dot is in the air.
+  const reduceMotion = useReduceMotion();
+  const numbersDotRef = useRef<ViewInstance>(null);
+  const [numbersFlight, setNumbersFlight] = useState<DotPoint | null>(null);
+  const [numbersPulse, setNumbersPulse] = useState(0);
 
   const signInWithGoogle = useSignInWithGoogle();
   const updateProfile = useUpdateUserProfile();
@@ -226,6 +249,8 @@ export default function OnboardingScreen() {
               onContinueWithGoogle: handleGoogleSignIn,
               onContinueWithoutAccount: goHome,
               isSigningIn: signInWithGoogle.isPending,
+              onOpenNumbers: () => setNumbersOpen(true),
+              numbersPeriod: <PeriodDot dotRef={numbersDotRef} hidden={!!numbersFlight} pulse={numbersPulse} />,
             }),
           )}
         </ScrollView>
@@ -255,6 +280,26 @@ export default function OnboardingScreen() {
           />
         </View>
       </SafeAreaView>
+
+      <NumbersExplainerSheet
+        visible={numbersOpen}
+        onClose={() => setNumbersOpen(false)}
+        onGotIt={(from) => {
+          setNumbersOpen(false);
+          if (from) setNumbersFlight(from);
+        }}
+        reduceMotion={reduceMotion}
+      />
+      {numbersFlight && (
+        <FlyingDot
+          from={numbersFlight}
+          targetRef={numbersDotRef}
+          onLand={() => {
+            setNumbersFlight(null);
+            setNumbersPulse((n) => n + 1);
+          }}
+        />
+      )}
     </View>
   );
 }
