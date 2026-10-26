@@ -332,7 +332,7 @@ export default function DiscoverScreen() {
                   {item.kind === "meal" ? (
                     <Image source={resolveMealImage(item.meal)} style={{ flex: 1 }} contentFit="cover" />
                   ) : (
-                    <GuestEndCard onCreateAccount={continueWithGoogle} onLogIn={continueWithGoogle} />
+                    <GuestEndCard onSignIn={continueWithGoogle} signingIn={signIn.isPending} />
                   )}
                 </View>
               )}

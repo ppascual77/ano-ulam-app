@@ -66,7 +66,7 @@ export default function UserProfileScreen() {
     <Screen padded={false} edges={["top"]} dismissKeyboardOnTap={false}>
       <BackRow />
       {isGuest || unauthorized ? (
-        <ProfileGate onCreateAccount={() => router.push("/signup")} onLogIn={logIn} />
+        <ProfileGate onSignIn={logIn} signingIn={signIn.isPending} />
       ) : (
         <ProfileScaffold
           header={

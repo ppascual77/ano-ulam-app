@@ -1,14 +1,15 @@
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { CircleUserRound } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
+import { GoogleSignInButton } from "@/frontend/features/auth/components/GoogleSignInButton";
 
 type ProfileGateProps = {
-  onCreateAccount: () => void;
-  onLogIn: () => void;
+  onSignIn: () => void;
+  signingIn?: boolean;
 };
 
 // A guest opening someone's profile: sign in first.
-export function ProfileGate({ onCreateAccount, onLogIn }: ProfileGateProps) {
+export function ProfileGate({ onSignIn, signingIn = false }: ProfileGateProps) {
   return (
     <View className="flex-1 items-center justify-center gap-5 px-6">
       <View className="h-16 w-16 items-center justify-center rounded-full bg-web-divider">
@@ -20,15 +21,9 @@ export function ProfileGate({ onCreateAccount, onLogIn }: ProfileGateProps) {
           Sign in to see community members' profiles and their published recipes.
         </Text>
       </View>
-      <Pressable onPress={onCreateAccount} className="w-full max-w-[320px] items-center rounded-2xl bg-brand-green py-3">
-        <Text className="font-inter-semibold text-body text-white">Create account</Text>
-      </Pressable>
-      <Text className="font-inter-regular text-body text-web-ink-muted">
-        Already have an account?{" "}
-        <Text onPress={onLogIn} className="font-inter-semibold text-brand-green">
-          Log in
-        </Text>
-      </Text>
+      <View className="w-full max-w-[320px]">
+        <GoogleSignInButton onPress={onSignIn} signingIn={signingIn} />
+      </View>
     </View>
   );
 }
