@@ -50,6 +50,7 @@ import {
   useBurstOnActivate,
 } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
+import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { MealInfoPill } from "../MealInfoPill";
 import { MacroSection } from "./MacroSection";
 import { MicronutrientList, hasMicronutrients, type Micronutrients } from "./MicronutrientList";
@@ -266,6 +267,7 @@ type ConsumerFooterProps = Pick<MealDetailContentProps, "meal" | "saved" | "reci
 // review / rejected, then saved (Unsave, or Update Meal once the servings
 // changed), then Save.
 function ConsumerFooter({ meal, servings, saved, recipeOwner }: ConsumerFooterProps) {
+  const reduceMotion = useReduceMotion();
   // Confetti when a save lands: once the spinner finishes, not on the
   // optimistic flip (and never for a save that failed and reverted).
   // MealDetailSheet keys the content by meal id, so opening an
@@ -321,6 +323,8 @@ function ConsumerFooter({ meal, servings, saved, recipeOwner }: ConsumerFooterPr
         icon={<Bookmark color={saved.isSaved ? colors.primary : colors.white} size={16} fill={saved.isSaved ? colors.primary : "none"} />}
         iconPosition="right"
         loading={saved.busy}
+        // Reduce motion: the twirling spiral instead of the wave.
+        loader={reduceMotion ? "spiral" : "wave"}
         // Its own save confetti (above) covers it; unsaving shouldn't burst.
         celebrate={false}
         accessibilityHint={saved.isSaved ? "Removes it from your saved meals" : undefined}
