@@ -7,6 +7,7 @@ import { House, Lock, Search, TrendingUp, Utensils } from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
 import { AppText, Avatar, Dropdown } from "@/frontend/components/ui";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
+import { useDisplayName } from "@/frontend/features/auth/hooks/useDisplayName";
 import { adminMenuItems } from "@/frontend/features/admin/adminMenu";
 import { colors } from "@/frontend/constants/theme";
 import { registerProfileDot, useSaveFeedbackStore } from "@/frontend/core/saved/store/useSaveFeedbackStore";
@@ -79,7 +80,6 @@ const DOT_SIZE = 10;
 
 // Without a session (dev on a device): the same mock name the rest of the
 // app uses.
-const MOCK_NAME = "Patrick";
 const NAV_AVATAR = 28;
 
 // The last tab (it took Meal Planner's spot, 2026-10-10: saved meals, the
@@ -93,7 +93,8 @@ function ProfileTabButton() {
   const active = pathname === "/profile";
   const { session, isAdmin } = useAuth();
   const meta = session?.user.user_metadata ?? {};
-  const name = (meta.full_name as string | undefined) ?? (meta.name as string | undefined) ?? MOCK_NAME;
+  // A guest gets a plain circle (no initials).
+  const name = useDisplayName().fullName ?? "";
   const avatarUrl = (meta.avatar_url as string | undefined) ?? (meta.picture as string | undefined);
 
   // Save feedback (see useSaveFeedbackStore): a saved meal flies into the

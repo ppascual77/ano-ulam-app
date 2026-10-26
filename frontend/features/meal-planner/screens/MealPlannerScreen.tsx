@@ -11,6 +11,7 @@ import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDet
 import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
+import { useDisplayName } from "@/frontend/features/auth/hooks/useDisplayName";
 import { usePlannerStore } from "../store/usePlannerStore";
 import { PLAN_WITH_REAL_MEALS_ONLY, usePlannerPool } from "../hooks/usePlannerPool";
 import { usePlanGroceryList } from "@/frontend/core/grocery/hooks/usePlanGroceryList";
@@ -34,7 +35,6 @@ import { LockedDaySheet, SwapMealSheet } from "../components/PlannerSheets";
 // them (or a day action) opens a light upgrade sheet whose "Unlock
 // Premium" is a mock unlock.
 // No Grocery List yet.
-const MOCK_NAME = "Patrick";
 
 // Plays the "one budget, seven days" intro on opening the planner (setup
 // stage only: that's where the "Let's plan your week." header is).
@@ -48,11 +48,8 @@ export default function MealPlannerScreen() {
   const setPro = useProStore((s) => s.setPro);
   const { pool, isLoading: poolLoading } = usePlannerPool();
   const { session } = useAuth();
-  const meta = session?.user.user_metadata ?? {};
-  // The signed-in user's name; without a session (dev on a device), the
-  // same mock name Home's header uses.
-  const fullName = (meta.full_name as string | undefined) ?? (meta.name as string | undefined) ?? MOCK_NAME;
-  const firstName = fullName.split(" ")[0];
+  // "Hello, <first name>!", or just "Hello!" for a guest.
+  const { firstName } = useDisplayName();
   // The intro's dot lands as the period of "Let's plan your week.".
   // Never with Reduce motion on (Settings, or the phone's own setting).
   const reduceMotion = useReduceMotion();
@@ -146,7 +143,14 @@ export default function MealPlannerScreen() {
                 Let&apos;s plan your week
               </LandingTitle>
               <AppText variant="caption">
-                Hello, <Text className="font-inter-semibold text-primary">{firstName}</Text>! Meals and a grocery list for 7
+                {firstName ? (
+                  <>
+                    Hello, <Text className="font-inter-semibold text-primary">{firstName}</Text>!
+                  </>
+                ) : (
+                  "Hello!"
+                )}{" "}
+                Meals and a grocery list for 7
                 days, built around your budget.
               </AppText>
             </View>
