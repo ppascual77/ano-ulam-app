@@ -7,13 +7,111 @@ import type { Database } from "@/lib/database.types";
 
 export type UserProfile = Database["public"]["Tables"]["users"]["Row"];
 
+/** Pro: an ingredient the user never wants in suggestions. The names travel
+ *  with the id so meals that only list ingredient names can be matched. */
+export type AvoidedIngredient = { id: string; name: string; aliases: string[] };
+
+/** Pro: daily targets. null = not set. */
+export type NutritionGoals = { calories: number | null; protein: number | null; carbs: number | null; fat: number | null };
+
+export type PlannerSlot = "breakfast" | "lunch" | "dinner" | "merienda";
+
+/** Pro: what the Meal Planner starts from. */
+export type PlannerDefaults = {
+  weekly_budget: number | null;
+  people: number;
+  slots: PlannerSlot[];
+  days: 5 | 7;
+  /** Have next week's plan ready when the planner is opened on/after Sunday. */
+  auto_plan: boolean;
+};
+
+/** Pro: price drops to be told about. */
+export type PriceAlerts = {
+  enabled: boolean;
+  ingredients: { id: string; name: string }[];
+  /** "any": any drop; "10pct": only drops of 10% or more. */
+  threshold: "any" | "10pct";
+};
+
+// Pro settings (avoid_ingredients onwards) are saved now but not acted on
+// anywhere yet: the features that use them come later.
 export type UserPreferences = {
   dietary_focus: string;
   allergens: string[];
   goals: string[];
+  avoid_ingredients: AvoidedIngredient[];
+  nutrition_goals: NutritionGoals;
+  planner_defaults: PlannerDefaults;
+  price_alerts: PriceAlerts;
 };
 
-const DEFAULT_PREFERENCES: UserPreferences = { dietary_focus: "none", allergens: [], goals: [] };
+export const DEFAULT_NUTRITION_GOALS: NutritionGoals = { calories: null, protein: null, carbs: null, fat: null };
+export const DEFAULT_PLANNER_DEFAULTS: PlannerDefaults = {
+  weekly_budget: null,
+  people: 1,
+  slots: ["breakfast", "lunch", "dinner"],
+  days: 5,
+  auto_plan: false,
+};
+export const DEFAULT_PRICE_ALERTS: PriceAlerts = { enabled: true, ingredients: [], threshold: "any" };
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  dietary_focus: "none",
+  allergens: [],
+  goals: [],
+  avoid_ingredients: [],
+  nutrition_goals: DEFAULT_NUTRITION_GOALS,
+  planner_defaults: DEFAULT_PLANNER_DEFAULTS,
+  price_alerts: DEFAULT_PRICE_ALERTS,
+};
+
+const record = (v: unknown): Record<string, unknown> | null =>
+  v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+const positive = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null);
+const PLANNER_SLOTS: PlannerSlot[] = ["breakfast", "lunch", "dinner", "merienda"];
+
+function parseNutritionGoals(v: unknown): NutritionGoals {
+  const o = record(v);
+  if (!o) return DEFAULT_NUTRITION_GOALS;
+  return { calories: positive(o.calories), protein: positive(o.protein), carbs: positive(o.carbs), fat: positive(o.fat) };
+}
+
+function parsePlannerDefaults(v: unknown): PlannerDefaults {
+  const o = record(v);
+  if (!o) return DEFAULT_PLANNER_DEFAULTS;
+  const slots = strings(o.slots).filter((x): x is PlannerSlot => (PLANNER_SLOTS as string[]).includes(x));
+  return {
+    weekly_budget: positive(o.weekly_budget),
+    people: positive(o.people) ?? DEFAULT_PLANNER_DEFAULTS.people,
+    slots: slots.length > 0 ? slots : DEFAULT_PLANNER_DEFAULTS.slots,
+    days: o.days === 7 ? 7 : 5,
+    auto_plan: o.auto_plan === true,
+  };
+}
+
+function parsePriceAlerts(v: unknown): PriceAlerts {
+  const o = record(v);
+  if (!o) return DEFAULT_PRICE_ALERTS;
+  const ingredients = Array.isArray(o.ingredients)
+    ? o.ingredients.flatMap((item) => {
+        const i = record(item);
+        return i && typeof i.id === "string" && typeof i.name === "string" ? [{ id: i.id, name: i.name }] : [];
+      })
+    : [];
+  return { enabled: o.enabled !== false, ingredients, threshold: o.threshold === "10pct" ? "10pct" : "any" };
+}
+
+const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+
+function parseAvoided(v: unknown): AvoidedIngredient[] {
+  if (!Array.isArray(v)) return [];
+  return v.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const o = item as Record<string, unknown>;
+    return typeof o.id === "string" && typeof o.name === "string" ? [{ id: o.id, name: o.name, aliases: strings(o.aliases) }] : [];
+  });
+}
 
 // preferences is a jsonb column (typed as Json, not a known shape) — this
 // parses it defensively rather than casting, since a malformed/legacy row
@@ -33,6 +131,10 @@ export function parseUserPreferences(
     goals: Array.isArray(p.goals)
       ? p.goals.filter((v): v is string => typeof v === "string")
       : DEFAULT_PREFERENCES.goals,
+    avoid_ingredients: parseAvoided(p.avoid_ingredients),
+    nutrition_goals: parseNutritionGoals(p.nutrition_goals),
+    planner_defaults: parsePlannerDefaults(p.planner_defaults),
+    price_alerts: parsePriceAlerts(p.price_alerts),
   };
 }
 

@@ -1,3 +1,4 @@
+import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { ChevronRight, Lightbulb, ShoppingCart } from "lucide-react-native";
@@ -33,7 +34,7 @@ function SummaryRow({ dotClassName, label, count }: { dotClassName: string; labe
 export function GroceryTab({ userId }: { userId: string | null }) {
   const grocery = useSavedGroceryList(userId);
   const plan = usePlannerStore((s) => s.plan);
-  const isPremium = usePlannerStore((s) => s.isPremium);
+  const isPremium = useIsPro();
   const planDays = useMemo(() => (isPremium ? [0, 1, 2, 3, 4] : [0]), [isPremium]);
   const planGrocery = usePlanGroceryList(plan, planDays, !!plan);
   const { data: pantry = [] } = usePantry();

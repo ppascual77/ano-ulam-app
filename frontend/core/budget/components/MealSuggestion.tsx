@@ -9,8 +9,7 @@ import { PreferencesSheet } from "./PreferencesSheet";
 import { ActivePreferencesSummary } from "./ActivePreferencesSummary";
 import { mockMeals } from "@/frontend/core/meals/mocks/meals";
 import { MACRO_RULES, NON_MACRO_RULES } from "@/frontend/core/meals/utils/constants";
-import { parseUserPreferences } from "@/api/auth";
-import { useUserProfile, useUpdateUserProfile } from "@/frontend/features/auth/hooks/useUserProfile";
+import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
 
 type MealSuggestionProps = {
   budget?: string;
@@ -23,19 +22,17 @@ export function MealSuggestion({ budget }: MealSuggestionProps) {
   const [showBudgetChip, setShowBudgetChip] = useState(true);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
 
-  const { data: profile } = useUserProfile();
-  const updateProfile = useUpdateUserProfile();
-  const preferences = parseUserPreferences(profile?.preferences);
+  const { prefs: preferences, setPrefs } = usePreferences();
   const dietaryFocus = preferences.dietary_focus !== "none" ? [preferences.dietary_focus] : [];
   const allergens = preferences.allergens;
   const hasPreferences = dietaryFocus.length > 0 || allergens.length > 0;
 
   const handleDietaryFocusChange = (value: string[]) => {
-    updateProfile.mutate({ preferences: { ...preferences, dietary_focus: value[0] ?? "none" } });
+    setPrefs({ ...preferences, dietary_focus: value[0] ?? "none" });
   };
 
   const handleAllergensChange = (value: string[]) => {
-    updateProfile.mutate({ preferences: { ...preferences, allergens: value } });
+    setPrefs({ ...preferences, allergens: value });
   };
 
   const filteredMeals = useMemo(() => {

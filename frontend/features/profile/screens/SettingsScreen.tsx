@@ -6,9 +6,9 @@ import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChevronRight, LogOut, Trash2 } from "lucide-react-native";
 import { AppText, ChipSelect, ConfirmSheet, Screen, Spinner, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { parseUserPreferences, type UserPreferences } from "@/api/auth";
 import { useAuth, useDeleteAccount, useSignOut } from "@/frontend/features/auth/hooks/useAuth";
-import { useUpdateUserProfile, useUserProfile } from "@/frontend/features/auth/hooks/useUserProfile";
+import type { UserPreferences } from "@/api/auth";
+import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
 import { ALLERGEN_OPTIONS, DIETARY_FOCUS_OPTIONS } from "@/frontend/core/preferences/options";
 import { useAccountSettings, useAccountSettingsActions } from "../hooks/useProfile";
 import {
@@ -22,6 +22,13 @@ import { WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
 import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenIntrosStore";
+import { useProStore } from "@/frontend/core/pro/store/useProStore";
+import { ProUpgradeSheet } from "@/frontend/core/pro/components/ProUpgradeSheet";
+import { AvoidIngredientsSheet } from "../components/settings/AvoidIngredientsSheet";
+import { NutritionGoalsSheet } from "../components/settings/NutritionGoalsSheet";
+import { PlannerDefaultsSheet } from "../components/settings/PlannerDefaultsSheet";
+import { PriceAlertsSheet } from "../components/settings/PriceAlertsSheet";
+import { ProSettingRow } from "../components/settings/ProSettingRow";
 
 const LOG_OUT_DELAY_MS = 2000;
 const SUPPORT_EMAIL = "anoulam.app@gmail.com";
@@ -42,6 +49,61 @@ const SCROLL_TO_SECTION_DELAY_MS = 300;
 // /profile/settings, from the gear on your profile: privacy, newsletter,
 // dietary preferences, Home's Surprise me tag, reduce motion, Delete account, About (legal links, feedback,
 // version), and Log out at the very end.
+type ProSettingKey = "alerts" | "avoid" | "planner" | "goals";
+
+const listNames = (names: string[]) =>
+  `${names.slice(0, 3).join(", ")}${names.length > 3 ? ` and ${names.length - 3} more` : ""}`;
+const foodName = (name: string) => name.split(",")[0];
+
+// Settings > Pro, in this order. Each row shows what's set once it's set
+// (`summary`, null when nothing is), otherwise what it does. Saved now, not
+// acted on anywhere yet.
+const PRO_SETTINGS: {
+  key: ProSettingKey;
+  label: string;
+  description: string;
+  summary: (prefs: UserPreferences) => string | null;
+}[] = [
+  {
+    key: "alerts",
+    label: "Price alerts",
+    description: "Get told when what you buy gets cheaper.",
+    summary: ({ price_alerts: a }) =>
+      a.ingredients.length === 0
+        ? null
+        : `${a.enabled ? "Watching" : "Paused:"} ${listNames(a.ingredients.map((i) => foodName(i.name)))}.`,
+  },
+  {
+    key: "avoid",
+    label: "Ingredients to avoid",
+    description: "Hide meals with ingredients you don't eat, everywhere in the app.",
+    summary: ({ avoid_ingredients: list }) => (list.length === 0 ? null : `Avoiding ${listNames(list.map((a) => foodName(a.name)))}.`),
+  },
+  {
+    key: "planner",
+    label: "Meal Planner defaults",
+    description: "Your budget, household size and meals, ready in every new plan.",
+    summary: ({ planner_defaults: d }) =>
+      [
+        d.weekly_budget ? `₱${d.weekly_budget.toLocaleString()}/week` : null,
+        `${d.people} ${d.people === 1 ? "person" : "people"}`,
+        `${d.days} days`,
+        d.auto_plan ? "plans ahead" : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+  },
+  {
+    key: "goals",
+    label: "Nutrition goals",
+    description: "Daily calorie and protein targets for your suggestions and plan.",
+    summary: ({ nutrition_goals: g }) =>
+      [g.calories && `${g.calories.toLocaleString()} kcal`, g.protein && `${g.protein} g protein`, g.carbs && `${g.carbs} g carbs`, g.fat && `${g.fat} g fat`]
+        .filter(Boolean)
+        .join(" · ") || null,
+  },
+];
+
 export default function SettingsScreen() {
   const params = useLocalSearchParams<{ section?: string }>();
   const { height: windowHeight } = useWindowDimensions();
@@ -65,14 +127,16 @@ export default function SettingsScreen() {
 
   // Preferences are real (users.preferences, same as Home's Preferences
   // sheet). Without a session (dev on a device) changes stay local.
-  const profile = useUserProfile();
-  const updateProfile = useUpdateUserProfile();
-  const [localPrefs, setLocalPrefs] = useState<UserPreferences | null>(null);
-  const prefs = localPrefs ?? parseUserPreferences(profile.data?.preferences);
-  const setPrefs = (next: UserPreferences) => {
-    setLocalPrefs(next);
-    if (isSignedIn) updateProfile.mutate({ preferences: next });
-  };
+  const { prefs, setPrefs } = usePreferences();
+
+  // ---- Pro ------------------------------------------------------------------
+  // Pro rows show for everyone (with a lock); without Pro they open the
+  // upsell instead (MOCK Pro: "Unlock" just flips it, see useProStore).
+  const isPro = useProStore((s) => s.isPro);
+  const setPro = useProStore((s) => s.setPro);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [proSheet, setProSheet] = useState<ProSettingKey | null>(null);
+  const closeProSheet = () => setProSheet(null);
 
   // ---- ?section=newsletter --------------------------------------------------
 
@@ -155,6 +219,18 @@ export default function SettingsScreen() {
             </View>
           </SettingsSection>
 
+          <SettingsSection title="Pro">
+            {PRO_SETTINGS.map((setting) => (
+              <ProSettingRow
+                key={setting.key}
+                label={setting.label}
+                description={(isPro && setting.summary(prefs)) || setting.description}
+                locked={!isPro}
+                onPress={() => (isPro ? setProSheet(setting.key) : setUpgradeOpen(true))}
+              />
+            ))}
+          </SettingsSection>
+
           <SettingsSection title="App">
             <SettingsToggle
               label="Surprise me on Home"
@@ -235,6 +311,23 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
 
+      <PriceAlertsSheet visible={proSheet === "alerts"} onClose={closeProSheet} />
+      <AvoidIngredientsSheet visible={proSheet === "avoid"} onClose={closeProSheet} />
+      <PlannerDefaultsSheet visible={proSheet === "planner"} onClose={closeProSheet} />
+      <NutritionGoalsSheet visible={proSheet === "goals"} onClose={closeProSheet} />
+      <ProUpgradeSheet
+        visible={upgradeOpen}
+        title="Make every meal yours"
+        body="Pro tells you when prices drop, hides what you don't eat, plans your week and tracks your goals."
+        onClose={() => setUpgradeOpen(false)}
+        onUnlock={() => {
+          setPro(true);
+          setUpgradeOpen(false);
+          // Not straight into the picker: two native modals at once can
+          // get stuck (see BottomSheet's onClosed).
+          setToast({ id: Date.now(), message: "Pro unlocked (test)", tone: "success" });
+        }}
+      />
       <ConfirmSheet
         visible={confirmUnsubscribe}
         title="Sad to see you go 😢"

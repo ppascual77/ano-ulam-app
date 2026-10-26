@@ -1,3 +1,4 @@
+import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { CalendarDays, ChevronRight } from "lucide-react-native";
@@ -5,7 +6,7 @@ import { colors } from "@/frontend/constants/theme";
 
 // Meal Planner's way in, since Profile took its bottom nav tab: planning is
 // a weekly (Pro) task, not a daily destination.
-// TODO: gate behind Pro (usePlannerStore's isPremium / the planner's locked
+// TODO: gate behind Pro (useProStore's isPro / the planner's locked
 // state) once Pro is decided; for now it just opens the planner.
 export function PlanWeekCard() {
   return (
@@ -23,9 +24,7 @@ export function PlanWeekCard() {
           <Text className="font-inter-bold text-subheading text-ink-emphasis">
             Plan your week<Text className="text-accent">.</Text>
           </Text>
-          <View className="rounded-full bg-accent px-2 py-0.5">
-            <Text className="font-inter-extrabold text-sub text-white">PRO</Text>
-          </View>
+          <ProBadge />
         </View>
         <Text className="mt-0.5 font-inter-regular text-small text-ink-subtle">
           Meals and a grocery list for 7 days, built around your budget.
