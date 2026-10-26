@@ -14,6 +14,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import { Hamburger, Moon, Sun, Sunrise, type LucideIcon } from "lucide-react-native";
 import { AppText, LandingTitle, type LandingDot } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
@@ -29,15 +30,22 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 //           away on clear); a selection haptic
 //   land    the chosen illustration hops (lifts, wiggles, settles back
 //           untransformed, so it stays as sharp as the rest); the others dim
-// Reduce motion: the highlight jumps, no hop or wiggle.
+// Each label carries a small time-of-day icon (sunrise, sun, moon, burger:
+// left to right, the day). Gray at rest, like the label; selected, it takes
+// its color and plays its own beat with the art's hop: the sunrise rises,
+// the sun turns, the moon rocks, the burger squashes and bounces.
+//
+// Reduce motion: the highlight jumps, no hop, wiggle or icon beat (the icon
+// still takes its color).
 
 type CategoryId = "breakfast" | "lunch" | "dinner" | "fastfood";
+type IconBeat = "rise" | "turn" | "rock" | "bounce";
 
-const CATEGORIES: { id: CategoryId; label: string; image: number; tint: string }[] = [
-  { id: "breakfast", label: "Breakfast", image: require("@/assets/icons/breakfast-category-logo.png"), tint: colors.category.breakfast },
-  { id: "lunch", label: "Lunch", image: require("@/assets/icons/lunch-category-logo.png"), tint: colors.category.lunch },
-  { id: "dinner", label: "Dinner", image: require("@/assets/icons/dinner-category-logo.png"), tint: colors.category.dinner },
-  { id: "fastfood", label: "Fastfood", image: require("@/assets/icons/fastfood-category-logo.png"), tint: colors.category.fastfood },
+const CATEGORIES: { id: CategoryId; label: string; image: number; tint: string; icon: LucideIcon; iconColor: string; beat: IconBeat }[] = [
+  { id: "breakfast", label: "Breakfast", image: require("@/assets/icons/breakfast-category-logo.png"), tint: colors.category.breakfast, icon: Sunrise, iconColor: colors.accent, beat: "rise" },
+  { id: "lunch", label: "Lunch", image: require("@/assets/icons/lunch-category-logo.png"), tint: colors.category.lunch, icon: Sun, iconColor: colors.primary, beat: "turn" },
+  { id: "dinner", label: "Dinner", image: require("@/assets/icons/dinner-category-logo.png"), tint: colors.category.dinner, icon: Moon, iconColor: colors.category.dinnerIcon, beat: "rock" },
+  { id: "fastfood", label: "Fastfood", image: require("@/assets/icons/fastfood-category-logo.png"), tint: colors.category.fastfood, icon: Hamburger, iconColor: colors.category.fastfoodIcon, beat: "bounce" },
 ];
 const TINTS = CATEGORIES.map((c) => c.tint);
 const STOPS = CATEGORIES.map((_, i) => i);
@@ -45,6 +53,7 @@ const STOPS = CATEGORIES.map((_, i) => i);
 const GAP = 10;
 const RADIUS = 16;
 const ART = 56;
+const ICON = 12;
 // No overshoot on anything that sizes or moves a tile or the highlight: the
 // row runs edge to edge inside Home's scroll view, which clips, so a spring
 // past the outer tiles (or past 100%) got sliced off. The slide is
@@ -126,6 +135,9 @@ export function CategoriesSection({ landing }: CategoriesSectionProps) {
             index={i}
             label={category.label}
             image={category.image}
+            icon={category.icon}
+            iconColor={category.iconColor}
+            beat={category.beat}
             selected={selected === category.id}
             dimmed={selected != null && selected !== category.id}
             reduce={reduce}
@@ -141,13 +153,16 @@ type CategoryTileProps = {
   index: number;
   label: string;
   image: number;
+  icon: LucideIcon;
+  iconColor: string;
+  beat: IconBeat;
   selected: boolean;
   dimmed: boolean;
   reduce: boolean;
   onPress: () => void;
 };
 
-function CategoryTile({ index, label, image, selected, dimmed, reduce, onPress }: CategoryTileProps) {
+function CategoryTile({ index, label, image, icon, iconColor, beat, selected, dimmed, reduce, onPress }: CategoryTileProps) {
   // Press squeeze.
   const press = useSharedValue(1);
   // The art's hop on select: lift and wiggle, then rest untransformed.
@@ -204,12 +219,63 @@ function CategoryTile({ index, label, image, selected, dimmed, reduce, onPress }
               is transparent, so the highlight shows through. */}
           <Image source={image} style={{ width: ART, height: ART }} contentFit="contain" />
         </Animated.View>
-        <Animated.View style={labelStyle}>
-          <AppText variant="bodyMedium" className={`mt-1.5 ${selected ? "font-inter-semibold text-ink-emphasis" : ""}`}>
+        <Animated.View style={labelStyle} className="mt-1.5 flex-row items-center px-1">
+          <TimeIcon icon={icon} color={iconColor} beat={beat} selected={selected} reduce={reduce} />
+          {/* Four tiles are ~78px wide: shrinks a touch rather than wrap. */}
+          <AppText
+            variant="bodyMedium"
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+            className={`ml-1 shrink ${selected ? "font-inter-semibold text-ink-emphasis" : ""}`}
+          >
             {label}
           </AppText>
         </Animated.View>
       </Pressable>
+    </Animated.View>
+  );
+}
+
+// The label's time-of-day icon: gray at rest; selected, its color fades in
+// and it plays its beat (sunrise rises, sun turns, moon rocks, burger
+// squashes and bounces), then rests untransformed. Two stacked copies, gray
+// and colored, cross-fade (an icon's color isn't animatable).
+function TimeIcon({ icon: Icon, color, beat, selected, reduce }: { icon: LucideIcon; color: string; beat: IconBeat; selected: boolean; reduce: boolean }) {
+  const on = useSharedValue(selected ? 1 : 0);
+  const y = useSharedValue(0);
+  const turn = useSharedValue(0);
+  const squash = useSharedValue(1);
+
+  useEffect(() => {
+    on.value = reduce ? (selected ? 1 : 0) : withTiming(selected ? 1 : 0, { duration: 220 });
+    if (!selected || reduce) return;
+    if (beat === "rise") {
+      y.value = withSequence(withTiming(4, { duration: 0 }), withSpring(0, HOP));
+    } else if (beat === "turn") {
+      // A quarter turn of an 8-ray sun lands looking the same; then reset.
+      turn.value = withSequence(withTiming(90, { duration: 520, easing: Easing.out(Easing.cubic) }), withTiming(0, { duration: 0 }));
+    } else if (beat === "rock") {
+      turn.value = withSequence(withTiming(-20, { duration: 120 }), withTiming(12, { duration: 140 }), withSpring(0, HOP));
+    } else {
+      squash.value = withSequence(withTiming(0.7, { duration: 90 }), withSpring(1, HOP));
+      y.value = withSequence(withTiming(0, { duration: 90 }), withTiming(-4, { duration: 110 }), withSpring(0, HOP));
+    }
+  }, [selected, reduce, beat, on, y, turn, squash]);
+
+  const motion = useAnimatedStyle(() => ({
+    transform: [{ translateY: y.value }, { rotate: `${turn.value}deg` }, { scaleY: squash.value }, { scaleX: 2 - squash.value }],
+  }));
+  const gray = useAnimatedStyle(() => ({ opacity: 1 - on.value }));
+  const colored = useAnimatedStyle(() => ({ opacity: on.value }));
+  return (
+    <Animated.View style={[{ width: ICON, height: ICON }, motion]}>
+      <Animated.View style={[{ position: "absolute" }, gray]}>
+        <Icon color={colors.ink.subtle} size={ICON} strokeWidth={2} />
+      </Animated.View>
+      <Animated.View style={[{ position: "absolute" }, colored]}>
+        <Icon color={color} size={ICON} strokeWidth={2.2} />
+      </Animated.View>
     </Animated.View>
   );
 }
