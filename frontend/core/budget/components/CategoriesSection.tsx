@@ -210,7 +210,10 @@ function CategoryTile({ index, label, image, selected, dimmed, isNow, reduce, on
       >
         {isNow && <NowDot reduce={reduce} />}
         <Animated.View style={artStyle}>
-          <Image source={image} style={{ width: ART, height: ART }} contentFit="contain" />
+          {/* Full resolution (no downscaling to the 56px box), so the hop's
+              scale and tilt stay sharp. The art is transparent (cut out of
+              its old pastel square), so the highlight shows through. */}
+          <Image source={image} style={{ width: ART, height: ART }} contentFit="contain" allowDownscaling={false} />
         </Animated.View>
         <Animated.View style={labelStyle}>
           <AppText variant="bodyMedium" className={`mt-1.5 ${selected ? "font-inter-semibold text-ink-emphasis" : ""}`}>
