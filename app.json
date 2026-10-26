@@ -39,7 +39,10 @@
         {
           "photosPermission": "AnoUlam accesses your photos so an admin can set a meal's photo."
         }
-      ]
+      ],
+      "expo-audio",
+      "expo-image",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true

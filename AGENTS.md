@@ -1,9 +1,21 @@
 # Expo HAS CHANGED
 
-Read the exact versioned docs at https://docs.expo.dev/versions/v54.0.0/ before writing any code.
-Currently pinned to Expo SDK 54 because the public App Store build of Expo Go is stuck there
-(Apple review backlog on newer SDKs, no ETA as of 2026-08-19). Re-check this before assuming a
-later SDK is safe to upgrade to — verify Expo Go's actual store version, don't just trust the docs.
+Read the exact versioned docs at https://docs.expo.dev/versions/v58.0.0/ before writing any code.
+On Expo SDK 58 (RN 0.88, React 19.3) since 2026-10-26. We develop in the App Store build of Expo
+Go, which only runs the one SDK it was built for and auto-updates on the phone, so the project's
+SDK has to follow it: when Expo Go jumps a version, the app stops opening until we upgrade. Check
+Expo Go's actual store version before upgrading or holding back, don't just trust the docs.
+
+SDK 58 notes:
+- RN's strict TS API is on: type refs as `ViewInstance` / `ScrollViewInstance` /
+  `TextInputInstance` (from `react-native`), not `View` / `ScrollView` / `TextInput`. No deep
+  imports from `react-native/Libraries/*` or from packages' `build/` folders.
+- Image sources are typed `ImageSource | number` from `expo-image` (RN's `ImageSourcePropType`
+  no longer fits expo-image's `source` prop).
+- gesture-handler is v3. The existing `Gesture.Pan()/Tap()` builder code is v3's legacy API and
+  still works; v3's hook API (`usePanGesture` etc.) is the new style but don't mix the two in
+  one gesture relation.
+- Node must be an even LTS (22.13+, 24.3+) or 26+; odd releases like 25 are unsupported.
 
 # Folder structure
 

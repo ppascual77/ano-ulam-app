@@ -1,5 +1,5 @@
 import { type RefObject, useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View, type ViewInstance } from "react-native";
 import Animated, {
   Easing,
   useAnimatedProps,
@@ -66,7 +66,7 @@ type CreateButtonProps = {
   variant: keyof typeof variants;
   /** An invisible spot at the + circle's center: where Discover's intro
    *  dot lands, into the button (see usePageIntro's targetRef). */
-  landingRef?: RefObject<View | null>;
+  landingRef?: RefObject<ViewInstance | null>;
   /** Bump to run the highlight: the + pulses with an orange flush, then
    *  its border runs one orange lap. */
   highlightId?: number;

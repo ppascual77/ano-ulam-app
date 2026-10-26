@@ -1,12 +1,12 @@
 import { type RefObject, useCallback, useRef } from "react";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { AppText } from "./AppText";
 import { useDotHandoff } from "./DotHandoff";
 
 export type LandingDot = {
   /** The period: a page intro's dot flies here and lands on it
    *  (see usePageIntro's targetRef). */
-  dotRef?: RefObject<View | null>;
+  dotRef?: RefObject<ViewInstance | null>;
   /** false hides the period until the intro's dot has landed. */
   showDot?: boolean;
 };
@@ -21,10 +21,10 @@ type LandingTitleProps = LandingDot & {
 // glyph, so a PageIntro has a spot to land on, and the dot can fly between
 // screens' titles (see DotHandoff).
 export function LandingTitle({ children, dotRef, showDot = true, className = "" }: LandingTitleProps) {
-  const ownRef = useRef<View | null>(null);
+  const ownRef = useRef<ViewInstance | null>(null);
   // One View, two refs: the intro's (when there is one) and the handoff's.
   const setRef = useCallback(
-    (node: View | null) => {
+    (node: ViewInstance | null) => {
       ownRef.current = node;
       if (dotRef) dotRef.current = node;
     },

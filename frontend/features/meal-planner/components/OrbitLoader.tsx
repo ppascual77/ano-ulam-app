@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { type ImageSourcePropType, View } from "react-native";
-import { Image } from "expo-image";
+import { View } from "react-native";
+import { Image, type ImageSource } from "expo-image";
 import Animated, {
   Easing,
   type SharedValue,
@@ -31,21 +31,21 @@ const PULSE_SCALE = 1.08;
 const PHOTO_STAGGER_MS = 70;
 const POP_SPRING = { damping: 9, stiffness: 180, mass: 0.6 };
 // Used when no meal in the pool has a photo yet.
-const FALLBACK_PHOTOS: ImageSourcePropType[] = [require("@/assets/mock-adobo-meal.jpg"), require("@/assets/mock-kaldereta-meal.jpg")];
+const FALLBACK_PHOTOS: (ImageSource | number)[] = [require("@/assets/mock-adobo-meal.jpg"), require("@/assets/mock-kaldereta-meal.jpg")];
 
-function hasPhoto(src: ImageSourcePropType) {
-  return typeof src === "number" || (!Array.isArray(src) && !!src.uri);
+function hasPhoto(src: ImageSource | number) {
+  return typeof src === "number" || (!!src.uri);
 }
 
 /** Up to PHOTO_COUNT photos from the meals being planned with, repeating
  *  them if there are fewer. */
-function pickPhotos(meals: MealType[]): ImageSourcePropType[] {
+function pickPhotos(meals: MealType[]): (ImageSource | number)[] {
   const photos = meals.map(resolveMealImage).filter(hasPhoto);
   const source = photos.length ? photos : FALLBACK_PHOTOS;
   return Array.from({ length: PHOTO_COUNT }, (_, i) => source[i % source.length]);
 }
 
-function OrbitPhoto({ source, index, turn }: { source: ImageSourcePropType; index: number; turn: SharedValue<number> }) {
+function OrbitPhoto({ source, index, turn }: { source: ImageSource | number; index: number; turn: SharedValue<number> }) {
   const pop = useSharedValue(0);
   useEffect(() => {
     pop.value = withDelay(index * PHOTO_STAGGER_MS, withSpring(1, POP_SPRING));

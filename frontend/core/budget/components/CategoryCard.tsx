@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { ImageSourcePropType, Pressable, View } from "react-native";
-import { Image } from "expo-image";
+import { Pressable, View } from "react-native";
+import { Image, type ImageSource } from "expo-image";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import type { LucideIcon } from "lucide-react-native";
 import { AppText } from "@/frontend/components/ui";
@@ -11,7 +11,7 @@ const FADE = { duration: 220, easing: Easing.out(Easing.quad) };
 
 type Props = {
   label: string;
-  image: ImageSourcePropType;
+  image: ImageSource | number;
   badgeIcon: LucideIcon;
   badgeColor: string;
   bgClassName: string;

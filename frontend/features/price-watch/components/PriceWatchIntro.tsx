@@ -1,5 +1,5 @@
 import { type RefObject, useEffect, useMemo } from "react";
-import { Text, View } from "react-native";
+import { Text, View, type ViewInstance } from "react-native";
 import Animated, {
   Easing,
   FadeInDown,
@@ -142,7 +142,7 @@ function DaScene({ size }: { size: IntroSize }) {
 
 type PriceWatchIntroProps = {
   active: boolean;
-  targetRef: RefObject<View | null>;
+  targetRef: RefObject<ViewInstance | null>;
   onDone: () => void;
 };
 

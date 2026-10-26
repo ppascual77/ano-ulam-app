@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Pressable, Text, View, type ViewToken } from "react-native";
+import { FlatList, Pressable, Text, View, type ListViewToken } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { setStatusBarStyle } from "expo-status-bar";
@@ -135,7 +135,7 @@ export default function DiscoverScreen() {
   // the current setter.
   const setActiveIndexRef = useRef(feed.setActiveIndex);
   setActiveIndexRef.current = feed.setActiveIndex;
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ListViewToken[] }) => {
     const first = viewableItems[0];
     if (first?.index != null) setActiveIndexRef.current(first.index);
   }).current;

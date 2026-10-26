@@ -1,5 +1,5 @@
 import { type RefObject, useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, type ViewInstance } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import Animated, {
@@ -69,8 +69,8 @@ type Point = { x: number; y: number };
 const center = (size: IntroSize) => ({ x: size.w / 2, y: size.h / 2 });
 
 function WelcomeScene({ size, entry, onBang }: { size: IntroSize; entry?: Point; onBang: (p: Point) => void }) {
-  const sceneRef = useRef<View>(null);
-  const bangDotRef = useRef<View>(null);
+  const sceneRef = useRef<ViewInstance>(null);
+  const bangDotRef = useRef<ViewInstance>(null);
   // Where the "!"'s dot sits (scene coordinates); the collapse shrinks
   // everything into it.
   const [bang, setBang] = useState<Point | null>(null);
@@ -252,7 +252,7 @@ function WelcomeScene({ size, entry, onBang }: { size: IntroSize; entry?: Point;
 
 type HomeIntroProps = {
   active: boolean;
-  targetRef: RefObject<View | null>;
+  targetRef: RefObject<ViewInstance | null>;
   onDone: () => void;
   /** Where onboarding's indicator dot was, in window coordinates. Without
    *  it the "!"'s dot just pops in. */
