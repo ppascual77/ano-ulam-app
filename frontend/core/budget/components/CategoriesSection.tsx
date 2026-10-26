@@ -55,10 +55,10 @@ const RADIUS = 16;
 const ART = 56;
 const ICON = 12;
 // No overshoot on anything that sizes or moves a tile or the highlight: the
-// row runs edge to edge inside Home's scroll view, which clips, so a spring
-// past the outer tiles (or past 100%) got sliced off. The slide is
-// critically damped (a glide that eases exactly into place).
-const SLIDE = { damping: 30, stiffness: 260, mass: 0.8, overshootClamping: true };
+// row runs edge to edge inside Home's scroll view, which clips, so anything
+// past the outer tiles (or past 100%) got sliced off. The highlight glides
+// (a quick ease-out that lands exactly) and starts from the tap itself.
+const GLIDE = { duration: 240, easing: Easing.out(Easing.cubic) };
 const PRESS = { damping: 15, stiffness: 400, overshootClamping: true };
 const HOP = { damping: 9, stiffness: 260, mass: 0.6 };
 
@@ -77,8 +77,8 @@ export function CategoriesSection({ landing }: CategoriesSectionProps) {
   // shown it is, and its color (blended by the same position).
   const index = useSharedValue(0);
   const shown = useSharedValue(0);
-  useEffect(() => {
-    const i = selected ? CATEGORIES.findIndex((c) => c.id === selected) : -1;
+  const moveTo = (id: CategoryId | null) => {
+    const i = id ? CATEGORIES.findIndex((c) => c.id === id) : -1;
     if (i < 0) {
       shown.value = reduce ? 0 : withTiming(0, { duration: 180 });
       return;
@@ -86,11 +86,11 @@ export function CategoriesSection({ landing }: CategoriesSectionProps) {
     if (shown.value < 0.05 || reduce) {
       // From nothing: appear at the tile rather than slide in from another.
       index.value = i;
-      shown.value = reduce ? 1 : withSpring(1, SLIDE);
+      shown.value = reduce ? 1 : withTiming(1, GLIDE);
     } else {
-      index.value = withSpring(i, SLIDE);
+      index.value = withTiming(i, GLIDE);
     }
-  }, [selected, reduce, index, shown]);
+  };
 
   const highlight = useAnimatedStyle(() => ({
     opacity: shown.value,
@@ -98,9 +98,13 @@ export function CategoriesSection({ landing }: CategoriesSectionProps) {
     transform: [{ translateX: index.value * (tileW + GAP) }, { scale: 0.88 + 0.12 * shown.value }],
   }));
 
+  const pick = (next: CategoryId | null) => {
+    moveTo(next);
+    setSelected(next);
+  };
   const choose = (id: CategoryId) => {
     void Haptics.selectionAsync();
-    setSelected((prev) => (prev === id ? null : id));
+    pick(selected === id ? null : id);
   };
 
   return (
@@ -110,7 +114,7 @@ export function CategoriesSection({ landing }: CategoriesSectionProps) {
         {/* Only while a category is picked: clears the pick. */}
         {selected && (
           <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(150)}>
-            <Pressable onPress={() => setSelected(null)} hitSlop={8} accessibilityLabel="Clear category">
+            <Pressable onPress={() => pick(null)} hitSlop={8} accessibilityLabel="Clear category">
               <AppText variant="bodyMedium" className="text-primary">
                 Clear
               </AppText>
