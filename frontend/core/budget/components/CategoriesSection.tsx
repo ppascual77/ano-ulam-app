@@ -48,8 +48,12 @@ const STOPS = CATEGORIES.map((_, i) => i);
 const GAP = 10;
 const RADIUS = 16;
 const ART = 56;
-const SLIDE = { damping: 20, stiffness: 240, mass: 0.8 };
-const PRESS = { damping: 15, stiffness: 400 };
+// No overshoot on anything that sizes or moves a tile or the highlight: the
+// row runs edge to edge inside Home's scroll view, which clips, so a spring
+// past the outer tiles (or past 100%) got sliced off. The slide is
+// critically damped (a glide that eases exactly into place).
+const SLIDE = { damping: 30, stiffness: 260, mass: 0.8, overshootClamping: true };
+const PRESS = { damping: 15, stiffness: 400, overshootClamping: true };
 const HOP = { damping: 9, stiffness: 260, mass: 0.6 };
 
 // The meal that fits right now: breakfast 4-10am, lunch 10am-3pm, merienda
