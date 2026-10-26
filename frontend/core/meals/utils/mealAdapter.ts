@@ -210,6 +210,7 @@ function mealIngredientToIngredientType(mi: MealIngredientRow): IngredientType &
     sourceRefId: mi.ingredient.source_ref_id,
     sourceDescription: mi.ingredient.source_description,
     note: mi.note,
+    section: mi.section,
     category: mi.ingredient.category,
     priceSource: mi.ingredient.price_source,
     priceSources: parsePriceSources(mi.ingredient.price_sources),

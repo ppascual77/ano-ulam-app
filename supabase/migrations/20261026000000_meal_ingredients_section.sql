@@ -1,0 +1,11 @@
+-- Recipe sub-lists ("For the sauce", "For seasoning the chicken"). Many
+-- recipes split their ingredients by use, and the same ingredient can
+-- appear once per part (3 tsp paprika to season the chicken, 2 tsp in the
+-- sauce). Without a label those lines read as duplicates. Meal detail
+-- shows each section under its own heading.
+--
+-- Null = the main list (no heading). Free text, set by the admin or
+-- suggested by the URL importer; not an enum, since recipes name their
+-- parts freely. Distinct from `note`, which explains a single line (e.g.
+-- frying oil where only part is absorbed).
+alter table public.meal_ingredients add column if not exists section text;

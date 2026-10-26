@@ -46,6 +46,7 @@ function mealToFormState(meal: MealWithIngredients): MealFormState {
           : "g") as QuantityUnit,
         displayText: mi.display_text,
         note: mi.note ?? "",
+        section: mi.section ?? "",
         priceQuantityAmount: mi.price_quantity_amount != null ? mi.price_quantity_amount.toString() : "",
         priceQuantityUnit: (mi.price_quantity_unit && UNIT_VALUES.includes(mi.price_quantity_unit as QuantityUnit)
           ? mi.price_quantity_unit
@@ -116,6 +117,7 @@ export default function EditMealScreen() {
         quantity_unit: item.quantityAmount.trim() === "" ? null : item.quantityUnit,
         display_text: item.displayText.trim() || item.name,
         note: item.note.trim() || null,
+        section: item.section.trim() || null,
         price_quantity_amount: item.priceQuantityAmount.trim() === "" ? null : Number(item.priceQuantityAmount),
         price_quantity_unit: item.priceQuantityAmount.trim() === "" ? null : item.priceQuantityUnit,
         sort_order: i,

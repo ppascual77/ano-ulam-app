@@ -45,6 +45,9 @@ export type PendingMealIngredient = {
   // short explanation — e.g. bulk deep-frying oil where only a fraction is
   // actually absorbed.
   note: string;
+  // The recipe part this line belongs to ("For the sauce"); meal detail
+  // groups lines under it. Empty string = the main list.
+  section: string;
   // Overrides the quantity PRICE is computed from, independent of
   // quantityAmount/quantityUnit (which macros always use). Empty string =
   // no override, price falls back to the same quantity as macros — the
@@ -73,6 +76,7 @@ export function newPendingIngredient(): PendingMealIngredient {
     quantityUnit: "g",
     displayText: "",
     note: "",
+    section: "",
     priceQuantityAmount: "",
     priceQuantityUnit: "",
     ingredientId: null,
@@ -530,6 +534,11 @@ function IngredientRowCard({
             value={item.note}
             onChangeText={(v) => onChange({ note: v })}
             multiline
+          />
+          <TextField
+            label={'Section (optional, e.g. "For the sauce")'}
+            value={item.section}
+            onChangeText={(v) => onChange({ section: v })}
           />
         </View>
 

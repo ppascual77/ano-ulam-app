@@ -182,7 +182,7 @@ type MealDraft = {
   allergens: string[];
   dietary_tags: string[];
   tags: string[];
-  ingredients: { name: string; quantity_text: string }[];
+  ingredients: { name: string; quantity_text: string; section: string | null }[];
   // The source page's own recipe photo, taken straight from JSON-LD (never
   // LLM-generated — set programmatically below, not part of the prompt's
   // output shape). Reference-only for AI meal-photo generation later; never
@@ -197,6 +197,12 @@ LEGAL/REWRITE RULES (important — this is what makes the output usable, not a c
 - Never mention the source, the original site, or attribute the recipe to anyone.
 - Despite the rewrite requirement, you MUST preserve every fact: every ingredient the source lists must still appear in your ingredients array, and every distinct sub-step in the source must still get its own procedure step. Dropping an ingredient or merging two distinct steps into one is a data-loss bug, not a valid rewrite.
 - Ingredient names and quantities are facts, not expression — copy those faithfully (just normalize phrasing/casing), do not paraphrase amounts.
+
+INGREDIENT SECTIONS — many recipes split ingredients by use, and the same ingredient can appear once per part (e.g. paprika to season the chicken AND paprika in the sauce). Keep each as its own line (never merge them, the procedure uses each amount separately) and give every line a "section":
+- null for the main list.
+- A short label starting with "For", e.g. "For the sauce", "For the marinade", "For seasoning the chicken", "For garnish", when the source groups the ingredient under a heading or marks its use (e.g. "1 tbsp olive oil (for seasoning)").
+- Lines that share a use share the exact same label. Don't invent sections the source doesn't imply; a recipe with one plain list has every section null.
+- Leave the "(for ...)" usage out of the name and quantity_text once it's captured in section.
 
 DIETARY_TAGS — derive these by actually checking the full ingredients list, don't default to empty:
 1. Scan every ingredient for meat, poultry, fish, shellfish/seafood, gelatin, and animal-derived stock/sauce (fish sauce, oyster sauce, lard).
@@ -227,7 +233,7 @@ OUTPUT SHAPE — return ONLY a JSON object (no markdown fences) matching exactly
   "allergens": string[],            // apply the ALLERGENS rules above
   "dietary_tags": string[],         // apply the DIETARY_TAGS rules above — e.g. ["vegetarian", "vegan"], ["pescatarian"], [] only if meat/poultry/fish present
   "tags": string[],                 // apply the TAGS rules above — e.g. ["highProtein", "quick", "grilled"]
-  "ingredients": [ { "name": string, "quantity_text": string } ]  // quantity_text is a short human string like "500 grams", "3 cloves", "to taste" — do not convert units
+  "ingredients": [ { "name": string, "quantity_text": string, "section": string | null } ]  // quantity_text is a short human string like "500 grams", "3 cloves", "to taste" — do not convert units; section per the INGREDIENT SECTIONS rules above
 }
 
 If the source content isn't actually a recipe, or you cannot identify real ingredients/steps, return {"error": "reason"} instead.`;
