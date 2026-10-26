@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View, type ScrollViewInstance } from "react-native";
-import { router } from "expo-router";
 import { AppText, LandingTitle, Screen, SearchBar, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
 import { CravingTagline } from "@/frontend/features/browse/components/CravingTagline";
 import { MoodSelection } from "@/frontend/features/browse/components/MoodSelection";
@@ -144,7 +143,7 @@ export default function BrowseScreen() {
   if (isGuest && search.limitReached) {
     return (
       <Screen edges={["top"]}>
-        <GuestLimitGate onCreateAccount={() => router.push("/signup")} onLogIn={continueWithGoogle} />
+        <GuestLimitGate onSignIn={continueWithGoogle} signingIn={signIn.isPending} />
       </Screen>
     );
   }

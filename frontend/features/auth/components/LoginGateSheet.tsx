@@ -1,6 +1,6 @@
 import { Text, View } from "react-native";
-import { Image } from "expo-image";
-import { AppText, BottomSheet, Button } from "@/frontend/components/ui";
+import { AppText, BottomSheet } from "@/frontend/components/ui";
+import { GoogleSignInButton } from "./GoogleSignInButton";
 
 export type LoginGateReason = "save" | "like" | "create";
 
@@ -70,13 +70,7 @@ export function LoginGateSheet({
         </AppText>
         <Text className="mt-3 font-inter-regular text-body text-web-ink-muted">{copy.description}</Text>
         <View className="mt-8">
-          <Button
-            label={isSigningIn ? "Signing in..." : "Continue with Google"}
-            variant="social"
-            disabled={isSigningIn}
-            icon={<Image source={require("@/assets/icons/google-logo.png")} style={{ width: 18, height: 18 }} contentFit="contain" />}
-            onPress={onContinueWithGoogle}
-          />
+          <GoogleSignInButton onPress={onContinueWithGoogle} signingIn={isSigningIn} />
         </View>
       </View>
     </BottomSheet>

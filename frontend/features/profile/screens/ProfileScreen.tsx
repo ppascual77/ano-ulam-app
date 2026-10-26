@@ -167,7 +167,6 @@ export default function ProfileScreen() {
         <ScrollView showsVerticalScrollIndicator={false}>
           <GuestProfileView
             onSignIn={signInWithGoogle}
-            onCreateAccount={() => router.push("/signup")}
             signingIn={signIn.isPending}
           />
         </ScrollView>
