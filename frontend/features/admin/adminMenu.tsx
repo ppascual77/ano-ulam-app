@@ -3,11 +3,6 @@ import { ClipboardCheck, Carrot, Landmark, Sprout, User, Users, Utensils } from 
 import type { DropdownItem } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 
-// TODO: replace with a real check (e.g. profile.tier === "admin") once the
-// backend session is reliably testable — hardcoded true for now so the admin
-// menu can be built/tested ahead of that.
-export const isAdmin = true;
-
 // The admin menu, opened from the Profile tab's avatar in the bottom nav
 // (it used to hang off Home's header avatar).
 export function adminMenuItems(): DropdownItem[] {

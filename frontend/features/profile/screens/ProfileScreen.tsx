@@ -28,11 +28,9 @@ import { RecipeLimitSheet } from "../components/created/RecipeLimitSheet";
 import { GroceryTab } from "../components/grocery/GroceryTab";
 import { PantryTab } from "../components/pantry/PantryTab";
 
-// TEMP (dev only): show the signed-in profile without a session, since
-// Google sign-in can't complete in Expo Go on a device. The DEV chip in
-// the top bar cycles signed in -> official account -> guest (a mock auth
-// switch, like the spec's). Remove once sign-in is reliable.
-const DEV_FORCE_SIGNED_IN = __DEV__;
+// Signed out: the guest view (sign in / create account), like the web's.
+// Dev only: the DEV chip in the top bar cycles signed in -> official
+// account -> guest, to preview the other views while signed in.
 type DevAccount = "user" | "official" | "guest";
 const NEXT_DEV_ACCOUNT: Record<DevAccount, DevAccount> = { user: "official", official: "guest", guest: "user" };
 const DEV_ACCOUNT_LABEL: Record<DevAccount, string> = { user: "signed in", official: "official", guest: "guest" };
@@ -52,7 +50,7 @@ export default function ProfileScreen() {
   const me = useMe();
 
   const [devAccount, setDevAccount] = useState<DevAccount>("user");
-  const isGuest = devAccount === "guest" || (!isSignedIn && !DEV_FORCE_SIGNED_IN);
+  const isGuest = !isSignedIn || devAccount === "guest";
   const isOfficial = !isGuest && devAccount === "official";
 
   const [tab, setTab] = useState<ProfileTab>(

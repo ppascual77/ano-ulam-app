@@ -7,7 +7,7 @@ import { House, Lock, Search, TrendingUp, Utensils } from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
 import { AppText, Avatar, Dropdown } from "@/frontend/components/ui";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
-import { adminMenuItems, isAdmin } from "@/frontend/features/admin/adminMenu";
+import { adminMenuItems } from "@/frontend/features/admin/adminMenu";
 import { colors } from "@/frontend/constants/theme";
 import { registerProfileDot, useSaveFeedbackStore } from "@/frontend/core/saved/store/useSaveFeedbackStore";
 
@@ -91,7 +91,7 @@ const NAV_AVATAR = 28;
 function ProfileTabButton() {
   const pathname = usePathname();
   const active = pathname === "/profile";
-  const { session } = useAuth();
+  const { session, isAdmin } = useAuth();
   const meta = session?.user.user_metadata ?? {};
   const name = (meta.full_name as string | undefined) ?? (meta.name as string | undefined) ?? MOCK_NAME;
   const avatarUrl = (meta.avatar_url as string | undefined) ?? (meta.picture as string | undefined);
