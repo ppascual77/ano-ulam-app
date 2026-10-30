@@ -42,7 +42,7 @@ const IMAGE_MODEL = Deno.env.get("IMAGE_MODEL") ?? "gpt-image-2.5-flare";
 // actually has rice on the plate (describeReferenceStyle is allowed to
 // state that one fact, unlike every other specific food it's told to never
 // name).
-const BASE_PROMPT = `Photograph this Filipino home-cooked dish in cool, neutral daylight — like a candid phone photo taken near a bright window on an overcast or daytime afternoon, NOT under warm kitchen/tungsten/incandescent bulb lighting. Color temperature must read as true daylight (roughly 5500-6500K): anything white in the shot must look truly white, never cream, yellow, or amber. No warm/orange/golden-hour color cast anywhere in the image — if in doubt, shift cooler, not warmer. Not a staged studio shot either. Strict: no drinks, no separate side dishes, no dipping sauce on the side. Rice is the one exception to "dish only" — include a portion of rice alongside it ONLY if the dish's own name/description below is a rice-paired dish (e.g. a "-silog" breakfast plate, anything named/described as served with or over rice, fried rice, sinangag, etc.) or the reference style note below says rice is present in the reference photo; otherwise, no rice. Natural, slightly imperfect plating; avoid symmetrical arrangement or magazine-style styling. Only include a garnish, condiment, or utensil if it's genuinely something a Filipino household would have right there in that moment — skip it entirely if it doesn't belong, don't force a prop into every shot. A single wisp of steam only if the dish is actually served hot. Follow the SCENE below exactly for the vessel, surface, angle, light direction and framing: it is chosen fresh for every photo so the catalog doesn't look like one repeated shot.`;
+const BASE_PROMPT = `Photograph this Filipino home-cooked dish in cool, neutral daylight — like a candid phone photo taken near a bright window on an overcast or daytime afternoon, NOT under warm kitchen/tungsten/incandescent bulb lighting. Color temperature must read as true daylight (roughly 5500-6500K): anything white in the shot must look truly white, never cream, yellow, or amber. No warm/orange/golden-hour color cast anywhere in the image — if in doubt, shift cooler, not warmer. Not a staged studio shot either. Strict: no drinks, no separate side dishes, no dipping sauce on the side. Rice is the one exception to "dish only" — include a portion of rice alongside it ONLY if the dish's own name/description below is a rice-paired dish (e.g. a "-silog" breakfast plate, anything named/described as served with or over rice, fried rice, sinangag, etc.) or the reference style note below says rice is present in the reference photo; otherwise, no rice. Natural, slightly imperfect plating; avoid symmetrical arrangement or magazine-style styling. Only include a garnish, condiment, or utensil if it's genuinely something a Filipino household would have right there in that moment — skip it entirely if it doesn't belong, don't force a prop into every shot. A single wisp of steam only if the dish is actually served hot. Never shoot straight down from overhead (no flat lay). Follow the SCENE below exactly for the vessel, surface, angle, light direction and framing: it is chosen fresh for every photo so the catalog doesn't look like one repeated shot.`;
 
 // Every generation used to come out as the same white plate on light gray
 // at the same 3/4 angle, because the prompt pinned a light background and
@@ -77,11 +77,12 @@ const SURFACES = [
   "a white tiled kitchen counter",
   "a fresh banana leaf laid on the table",
 ];
+// No top-down/flat-lay: Patrick found overhead shots not enticing
+// (2026-10-30). Every angle shows the food's height and texture.
 const ANGLES = [
-  "straight top-down (flat lay)",
   "a 45-degree angle, like someone about to eat",
   "a low side angle, almost level with the rim",
-  "a slightly high three-quarter angle",
+  "a three-quarter angle from slightly above the rim",
 ];
 const LIGHT = [
   "soft window light from the left",
@@ -97,14 +98,16 @@ const FRAMING = [
 
 const pick = <T,>(list: T[]): T => list[Math.floor(Math.random() * list.length)];
 
-function sceneFor(name: string, description: string | null | undefined): string {
+// `framing` lets the admin ask for a specific shot on a regenerate ("zoom
+// in closer"); everything else stays random.
+function sceneFor(name: string, description: string | null | undefined, framing?: string | null): string {
   const soupy = SOUP_PATTERN.test(`${name} ${description ?? ""}`);
   return [
     `Vessel: ${pick(soupy ? BOWLS : PLATES)}.`,
     `Surface/background: ${pick(SURFACES)}.`,
     `Camera angle: ${pick(ANGLES)}.`,
     `Light: ${pick(LIGHT)}, still neutral daylight color.`,
-    `Framing: ${pick(FRAMING)}.`,
+    `Framing: ${framing?.trim() || pick(FRAMING)}.`,
   ].join(" ");
 }
 
@@ -210,7 +213,7 @@ Deno.serve(async (req: Request) => {
       BASE_PROMPT,
       "",
       `Dish: ${name.trim()}${description ? ` — ${description.trim()}` : ""}`,
-      `SCENE: ${sceneFor(name, description)}`,
+      `SCENE: ${sceneFor(name, description, typeof body?.framing === "string" ? body.framing : null)}`,
       styleDescription
         ? `Reference note, for how the food itself is plated only (the SCENE above decides vessel, surface, angle, light and framing; do not copy or reproduce any specific photo, brand, watermark, or text, and do not add any side dish/drink/dipping sauce — the rice exception above still follows whatever this note says about rice): ${styleDescription}`
         : "",
