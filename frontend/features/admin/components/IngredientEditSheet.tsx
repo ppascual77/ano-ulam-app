@@ -102,7 +102,12 @@ type FormState = {
   piece_verified: boolean;
   density_verified: boolean;
   bridge_note: string;
+  // Macros lock and price check (see isMacrosVerified / isPriceVerified).
+  macros_verified: boolean;
+  price_verified: boolean;
 };
+
+const MACRO_FORM_FIELDS = ["calories", "protein", "carbohydrates", "fat", "sugar", "fiber", "sodium", "basis_amount", "basis_unit"] as const;
 
 function toFormState(ingredient: IngredientRow): FormState {
   return {
@@ -136,6 +141,8 @@ function toFormState(ingredient: IngredientRow): FormState {
     piece_verified: ingredient.piece_verified_at != null,
     density_verified: ingredient.density_verified_at != null,
     bridge_note: ingredient.bridge_note ?? "",
+    macros_verified: ingredient.macros_verified_at != null,
+    price_verified: ingredient.price_verified_at != null,
   };
 }
 
@@ -176,6 +183,8 @@ function draftFormState(draft: Partial<IngredientRow> & { canonical_name: string
     piece_verified: false,
     density_verified: false,
     bridge_note: "",
+    macros_verified: false,
+    price_verified: false,
   };
 }
 
@@ -201,6 +210,21 @@ function buildPatch(form: FormState, original: IngredientRow | null): Partial<In
   const gramsPerMl = numOrNull(form.grams_per_ml);
   const gramsPerPiece = numOrNull(form.grams_per_piece);
   const pieceLabel = textOrNull(form.piece_label);
+  const estimatedPrice = numOrNull(form.estimated_price);
+  const priceUnit = textOrNull(form.estimated_price_unit);
+  const priceSource = form.price_source[0] ?? "manual";
+  const macros = {
+    calories: numOrNull(form.calories),
+    protein: numOrNull(form.protein),
+    carbohydrates: numOrNull(form.carbohydrates),
+    fat: numOrNull(form.fat),
+    sugar: numOrNull(form.sugar),
+    fiber: numOrNull(form.fiber),
+    sodium: numOrNull(form.sodium),
+    basis_amount: numOrNull(form.basis_amount) ?? 100,
+    basis_unit: textOrNull(form.basis_unit) ?? "g",
+  };
+  const macrosChanged = MACRO_FORM_FIELDS.some((f) => macros[f] !== original?.[f]);
   return {
     canonical_name: form.canonical_name.trim(),
     display_name: textOrNull(form.display_name),
@@ -212,18 +236,10 @@ function buildPatch(form: FormState, original: IngredientRow | null): Partial<In
     food_group: textOrNull(form.food_group),
     role: form.role[0] ?? null,
     state: form.state[0] ?? null,
-    estimated_price: numOrNull(form.estimated_price),
-    estimated_price_unit: textOrNull(form.estimated_price_unit),
-    price_source: form.price_source[0] ?? "manual",
-    basis_amount: numOrNull(form.basis_amount) ?? 100,
-    basis_unit: textOrNull(form.basis_unit) ?? "g",
-    calories: numOrNull(form.calories),
-    protein: numOrNull(form.protein),
-    carbohydrates: numOrNull(form.carbohydrates),
-    fat: numOrNull(form.fat),
-    sugar: numOrNull(form.sugar),
-    fiber: numOrNull(form.fiber),
-    sodium: numOrNull(form.sodium),
+    estimated_price: estimatedPrice,
+    estimated_price_unit: priceUnit,
+    price_source: priceSource,
+    ...macros,
     source: form.source[0] ?? null,
     source_ref_id: textOrNull(form.source_ref_id),
     source_description: textOrNull(form.source_description),
@@ -245,6 +261,13 @@ function buildPatch(form: FormState, original: IngredientRow | null): Partial<In
       gramsPerMl !== original?.grams_per_ml,
     ),
     bridge_note: textOrNull(form.bridge_note),
+    macros_verified_at: lockStamp(form.macros_verified, macros.calories, original?.macros_verified_at ?? null, macrosChanged),
+    price_verified_at: lockStamp(
+      form.price_verified,
+      estimatedPrice,
+      original?.price_verified_at ?? null,
+      priceUnit !== original?.estimated_price_unit || priceSource !== original?.price_source,
+    ),
   };
 }
 
@@ -450,6 +473,12 @@ export function IngredientEditSheet({
             value={form.price_source}
             onChange={(v) => set("price_source", v)}
           />
+          <VerifiedToggle
+            label="Price sources checked"
+            checked={form.price_verified}
+            disabled={numOrNull(form.estimated_price) == null}
+            onToggle={() => set("price_verified", !form.price_verified)}
+          />
         </Section>
 
         <Section title="Nutrition basis">
@@ -465,6 +494,12 @@ export function IngredientEditSheet({
           <NumberField label="Sugar (g)" value={form.sugar} onChangeText={(v) => set("sugar", v)} />
           <NumberField label="Fiber (g)" value={form.fiber} onChangeText={(v) => set("fiber", v)} />
           <NumberField label="Sodium (mg)" value={form.sodium} onChangeText={(v) => set("sodium", v)} />
+          <VerifiedToggle
+            label="Macros verified"
+            checked={form.macros_verified}
+            disabled={numOrNull(form.calories) == null}
+            onToggle={() => set("macros_verified", !form.macros_verified)}
+          />
         </Section>
 
         <Section title="Grounding / source">

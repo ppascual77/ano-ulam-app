@@ -4,7 +4,7 @@ import { ScrollView } from "react-native-gesture-handler";
 import { ExternalLink } from "lucide-react-native";
 import { AppText, Button, LoadingState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { applyUsdaMatch, getUsdaSourceUrl, type IngredientRow, type UsdaGroundingResult } from "@/api/ingredients";
+import { applyUsdaMatch, getUsdaSourceUrl, isMacrosVerified, type IngredientRow, type UsdaGroundingResult } from "@/api/ingredients";
 import { useGroundIngredientsUsda, useIngredients, useMarkUsdaGroundingAttempted } from "../hooks/useIngredients";
 import { useConfirmedIngredientUpdate, type PendingIngredientChange } from "../hooks/useConfirmedIngredientUpdate";
 import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
@@ -15,8 +15,9 @@ export function UsdaGroundingPanel() {
   // Ingredients still tagged manual — the pool a fresh batch seed lands in.
   // Never re-ground something already sourced from FNRI/USDA this way (use
   // the per-ingredient "Fetch from USDA" in Edit for a deliberate re-run).
+  // Verified macros are locked, so an approved estimate stays out too.
   const manualIngredients = useMemo(
-    () => (ingredients ?? []).filter((i) => i.source === "manual" || i.source === null),
+    () => (ingredients ?? []).filter((i) => (i.source === "manual" || i.source === null) && !isMacrosVerified(i)),
     [ingredients],
   );
   // Of those, the ones never run through a grounding attempt at all —

@@ -4,7 +4,7 @@ import { ScrollView } from "react-native-gesture-handler";
 import { Check } from "lucide-react-native";
 import { AppText, Button, LoadingState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { applyFnriMatch, type IngredientRow } from "@/api/ingredients";
+import { applyFnriMatch, isMacrosVerified, type IngredientRow } from "@/api/ingredients";
 import { useIngredients } from "../hooks/useIngredients";
 import { useConfirmedIngredientUpdate, type PendingIngredientChange } from "../hooks/useConfirmedIngredientUpdate";
 import { ConfirmIngredientUpdateSheet } from "./ConfirmIngredientUpdateSheet";
@@ -15,18 +15,21 @@ type RowState =
   | "new" //       manual today: gets grounded for the first time
   | "upgrade" //   USDA today: FNRI is preferred for local foods
   | "applied" //   already FNRI-sourced, nothing to do
+  | "verified" //  macros verified by the admin: locked, kept as they are
   | "missing"; //  no active ingredient by that name (renamed or archived)
 
 const STATE_LABEL: Record<RowState, { label: string; tone: string }> = {
   new: { label: "Manual → FNRI", tone: "text-primary" },
   upgrade: { label: "USDA → FNRI", tone: "text-accent" },
   applied: { label: "Applied", tone: "text-ink-subtle" },
+  verified: { label: "Verified, kept", tone: "text-ink-subtle" },
   missing: { label: "Ingredient not found", tone: "text-like" },
 };
 
 function stateOf(ingredient: IngredientRow | undefined): RowState {
   if (!ingredient) return "missing";
   if (ingredient.source === "FNRI") return "applied";
+  if (isMacrosVerified(ingredient)) return "verified";
   return ingredient.source === "USDA" ? "upgrade" : "new";
 }
 
@@ -104,6 +107,7 @@ export function FnriGroundingPanel() {
       </AppText>
       <AppText variant="bodyBold" className="mb-3">
         {count("new")} manual → FNRI · {count("upgrade")} USDA → FNRI · {count("applied")} applied
+        {count("verified") > 0 ? ` · ${count("verified")} verified, kept` : ""}
         {count("missing") > 0 ? ` · ${count("missing")} not found` : ""}
       </AppText>
 

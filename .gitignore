@@ -43,3 +43,6 @@ yarn-error.*
 
 # local-only reference material (its own separate git repo, not ours to track)
 /ano-ulam-reference
+
+# /seed-meal sessions (meal being built, generated images)
+.claude/seed-sessions/

@@ -1,6 +1,6 @@
 import { supabase, invokeEdgeFunction } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
-import { isBridgeLocked, type IngredientRow } from "./ingredients";
+import { isBridgeLocked, isMacrosVerified, type IngredientRow } from "./ingredients";
 import type { DaCommodityRow } from "./daPrices";
 
 export type MealRow = Database["public"]["Tables"]["meals"]["Row"];
@@ -749,7 +749,8 @@ export function calculationProblems(
     problems.push({ level: "warning", message: `${density} g per ml looks off (water is 1, oil about 0.92). Check it in Manage Ingredients.` });
   }
 
-  if (ingredient.source === "manual" && missing.length === 0) {
+  // Verified macros are a fact (even an estimate the admin approved).
+  if (ingredient.source === "manual" && missing.length === 0 && !isMacrosVerified(ingredient)) {
     const fromMacros = 4 * (ingredient.protein ?? 0) + 4 * (ingredient.carbohydrates ?? 0) + 9 * (ingredient.fat ?? 0);
     const calories = ingredient.calories ?? 0;
     if (fromMacros > 0 && Math.abs(calories - fromMacros) / Math.max(calories, fromMacros) > 0.35) {

@@ -13,6 +13,18 @@ export function isBridgeLocked(ingredient: IngredientRow, field: BridgeField): b
   return field === "grams_per_ml" ? ingredient.density_verified_at != null : ingredient.piece_verified_at != null;
 }
 
+// Macros the admin verified: locked like bridges (see the armour migration),
+// and skipped by batch USDA/FNRI grounding.
+export function isMacrosVerified(ingredient: IngredientRow): boolean {
+  return ingredient.macros_verified_at != null;
+}
+
+// The price's sources and unit were checked. Not a lock: the amount still
+// follows its sources (DA refreshes), checks just don't question the source.
+export function isPriceVerified(ingredient: IngredientRow): boolean {
+  return ingredient.price_verified_at != null;
+}
+
 export type IngredientFilters = {
   role?: string;
   foodGroup?: string;

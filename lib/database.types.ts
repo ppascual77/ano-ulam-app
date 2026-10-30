@@ -125,6 +125,7 @@ export type Database = {
           grams_per_piece: number | null
           id: string
           last_verified_at: string | null
+          macros_verified_at: string | null
           match_type: string | null
           piece_label: string | null
           piece_verified_at: string | null
@@ -132,6 +133,7 @@ export type Database = {
           price_last_updated_at: string | null
           price_source: string
           price_sources: Json | null
+          price_verified_at: string | null
           protein: number | null
           role: string | null
           sodium: number | null
@@ -166,6 +168,7 @@ export type Database = {
           grams_per_piece?: number | null
           id?: string
           last_verified_at?: string | null
+          macros_verified_at?: string | null
           match_type?: string | null
           piece_label?: string | null
           piece_verified_at?: string | null
@@ -173,6 +176,7 @@ export type Database = {
           price_last_updated_at?: string | null
           price_source?: string
           price_sources?: Json | null
+          price_verified_at?: string | null
           protein?: number | null
           role?: string | null
           sodium?: number | null
@@ -207,6 +211,7 @@ export type Database = {
           grams_per_piece?: number | null
           id?: string
           last_verified_at?: string | null
+          macros_verified_at?: string | null
           match_type?: string | null
           piece_label?: string | null
           piece_verified_at?: string | null
@@ -214,6 +219,7 @@ export type Database = {
           price_last_updated_at?: string | null
           price_source?: string
           price_sources?: Json | null
+          price_verified_at?: string | null
           protein?: number | null
           role?: string | null
           sodium?: number | null
@@ -283,6 +289,32 @@ export type Database = {
             foreignKeyName: "meal_ingredients_meal_id_fkey"
             columns: ["meal_id"]
             isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meal_sources: {
+        Row: {
+          imported_at: string
+          meal_id: string
+          url: string
+        }
+        Insert: {
+          imported_at?: string
+          meal_id: string
+          url: string
+        }
+        Update: {
+          imported_at?: string
+          meal_id?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_sources_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: true
             referencedRelation: "meals"
             referencedColumns: ["id"]
           },
