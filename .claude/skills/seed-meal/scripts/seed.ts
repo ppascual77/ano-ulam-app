@@ -625,6 +625,27 @@ async function cmdStatus() {
   );
 }
 
+// Same Storage path scheme as uploadMealImage (`<mealId>/<timestamp>`),
+// so deleteMeal's cleanup finds it.
+async function uploadImage(mealId: string, imagePath: string) {
+  const path = `${mealId}/${Date.now()}.jpg`;
+  const { error } = await supabase.storage
+    .from("meal-images")
+    .upload(path, readFileSync(imagePath), { contentType: "image/jpeg", upsert: true });
+  if (error) throw error;
+  await updateMeal(mealId, { image_url: supabase.storage.from("meal-images").getPublicUrl(path).data.publicUrl });
+}
+
+// A photo for a meal this session already saved (generated after saving,
+// or a replacement).
+async function cmdAttachImage() {
+  const session = load();
+  if (!session.savedMealId) fail("Not saved yet: `save` uploads the image itself.");
+  if (!session.imagePath) fail("No image yet. Run `image` first.");
+  await uploadImage(session.savedMealId!, session.imagePath!);
+  out(`Photo set on meal ${session.savedMealId}.`);
+}
+
 // Same gates as Seed Meal's Confirm Seed, plus this flow's own: every line
 // approved, copy approved, fresh-eyes review done.
 async function cmdSave() {
@@ -652,12 +673,11 @@ async function cmdSave() {
   if (sourceError) out(`Warning: couldn't record the source link: ${sourceError.message}`);
 
   if (session.imagePath) {
-    const path = `${meal.id}/${Date.now()}.jpg`;
-    const { error } = await supabase.storage
-      .from("meal-images")
-      .upload(path, readFileSync(session.imagePath), { contentType: "image/jpeg", upsert: true });
-    if (error) out(`Warning: image upload failed: ${error.message}. Add one in Edit Meal.`);
-    else await updateMeal(meal.id, { image_url: supabase.storage.from("meal-images").getPublicUrl(path).data.publicUrl });
+    try {
+      await uploadImage(meal.id, session.imagePath);
+    } catch (err) {
+      out(`Warning: image upload failed: ${err instanceof Error ? err.message : err}. Run \`attach-image\` or add one in Edit Meal.`);
+    }
   }
 
   session.savedMealId = meal.id;
@@ -702,6 +722,7 @@ const commands: Record<string, (...a: string[]) => Promise<void>> = {
   preview: cmdPreview,
   "mark-reviewed": cmdMarkReviewed,
   image: cmdImage,
+  "attach-image": cmdAttachImage,
   status: cmdStatus,
   save: cmdSave,
   use: cmdUse,
