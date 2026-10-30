@@ -963,6 +963,9 @@ async function cmdProposeFix(json: string | undefined) {
     const columns = new Set(Object.keys(sample ?? {}));
     const unknown = Object.keys(fix.patch).filter((k) => !columns.has(k));
     if (columns.size && unknown.length) fail(`Not ingredient columns: ${unknown.join(", ")} (e.g. carbohydrates, not carbs)`);
+    // The app matches these exactly (source chips, price source labels).
+    if ("source" in fix.patch && !["USDA", "FNRI", "manual"].includes(String(fix.patch.source))) fail('source must be "USDA", "FNRI" or "manual"');
+    if ("price_source" in fix.patch && !["manual", "price_watch", "supermarket", "da"].includes(String(fix.patch.price_source))) fail("price_source must be manual, price_watch, supermarket or da");
   }
   const fixes = session.fixes ?? [];
   const id = `f${fixes.length + 1}`;
@@ -1106,8 +1109,12 @@ async function cmdArmourApproved() {
     const i = byId.get(item.ingredientId);
     if (!i) continue;
     const fields = wanted.get(i.id) ?? new Set<string>();
-    if (!isMacrosVerified(i) && i.calories != null) fields.add("macros");
-    if (!isPriceVerified(i) && i.estimated_price != null) fields.add("price");
+    // Never verify a guess: AI-estimated macros and estimate-only prices
+    // stay unverified until grounded (plain water is a fact, not a guess).
+    const macrosSourced = i.source === "USDA" || i.source === "FNRI" || /plain water/i.test(i.source_description ?? "");
+    const priceSourced = i.price_source !== "manual" || i.estimated_price === 0;
+    if (!isMacrosVerified(i) && i.calories != null && macrosSourced) fields.add("macros");
+    if (!isPriceVerified(i) && i.estimated_price != null && priceSourced) fields.add("price");
     const unit = item.quantityAmount.trim() ? item.quantityUnit : null;
     if (unit === "piece" && i.grams_per_piece != null && !isBridgeLocked(i, "grams_per_piece")) fields.add("piece");
     const crossesDomain = ((unit === "ml" || unit === "L") && i.basis_unit === "g") || ((unit === "g" || unit === "kg") && i.basis_unit === "ml");
