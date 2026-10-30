@@ -301,6 +301,11 @@ async function cmdIngredient(id: string | undefined) {
     `  DA commodities: ${(da ?? []).map((c) => `${c.commodity} ${c.specification} ₱${c.latest_price ?? "–"}/${c.unit}${c.unit_size ? ` (${c.unit_size})` : ""} {${c.id}}`).join("; ") || "none linked"}`,
     `  used by ${meals.length} meal(s): ${meals.map((m) => m.name).join(", ") || "none"}`,
   );
+  // Each listing in full, so a review can tell what product a price is.
+  const listings = Array.isArray(i.price_sources) ? (i.price_sources as Record<string, unknown>[]) : [];
+  listings.forEach((s, n) =>
+    out(`  listing ${n}: ${s.store ?? (s.estimate ? "pack estimate" : "?")} · ${s.productTitle ?? "–"} · ₱${s.packPrice ?? "–"} for ${s.packSize ?? "?"}${s.packUnit ?? ""} = ₱${s.pricePerUnit}/${s.unit}${s.url ? ` · ${s.url}` : ""}`),
+  );
 }
 
 async function cmdUsda(name: string | undefined) {
@@ -554,6 +559,12 @@ async function cmdSetMeal(json: string | undefined) {
     if (bad.length) fail(`mealTimes must be breakfast, lunch or dinner (got ${bad.join(", ")})`);
     session.form.tags = withMealTimes(session.form.tags, times);
     delete patch.mealTimes;
+  }
+  // Same vocabulary as the meal form's allergen chips.
+  const ALLERGENS = ["nuts", "gluten", "dairy", "egg", "shellfish", "fish", "soy", "coconut", "sesame"];
+  if (Array.isArray(patch.allergens)) {
+    const bad = patch.allergens.map(String).filter((a) => !ALLERGENS.includes(a));
+    if (bad.length) fail(`Unknown allergen(s) ${bad.join(", ")}; use ${ALLERGENS.join(", ")}`);
   }
   for (const [field, value] of Object.entries(patch)) {
     if (!(MEAL_FIELDS as readonly string[]).includes(field)) fail(`set-meal only takes ${MEAL_FIELDS.join(", ")}`);
@@ -946,6 +957,13 @@ async function cmdProposeFix(json: string | undefined) {
   if (fix.kind === "da-link" && !fix.commodityId) fail("da-link needs commodityId");
   if ((fix.kind === "update" || fix.kind === "create") && !fix.patch) fail(`${fix.kind} needs patch`);
   if (!fix.reason) fail("A fix needs a reason");
+  // Catch a misspelled column now, not when Patrick approves it.
+  if (fix.patch) {
+    const { data: sample } = await supabase.from("ingredients").select("*").limit(1).single();
+    const columns = new Set(Object.keys(sample ?? {}));
+    const unknown = Object.keys(fix.patch).filter((k) => !columns.has(k));
+    if (columns.size && unknown.length) fail(`Not ingredient columns: ${unknown.join(", ")} (e.g. carbohydrates, not carbs)`);
+  }
   const fixes = session.fixes ?? [];
   const id = `f${fixes.length + 1}`;
   fixes.push({ ...fix, lines: fix.lines ?? [], id, status: "proposed" });
