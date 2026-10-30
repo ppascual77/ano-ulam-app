@@ -54,16 +54,17 @@ Run `import <url>`. Tell Patrick the dish, servings and times in one or two line
 ### 2. The ingredient list
 Run `lines` and show Patrick the full list as a short table: recipe line → your proposed match, with **✓** for fully verified ingredients (macros, price, and the bridge this line uses all armoured).
 
-### 3. Verified lines first, as one group
-For lines whose proposed ingredient is fully verified and where the recipe text clearly means that ingredient: link them, then ask once (AskUserQuestion, multiSelect) which of them to approve as-is. Their values are facts; only the **quantity** and the **match** are up for review.
+### 3 + 4. Research every line, then one table to approve
+One question per line was too slow (Patrick, first run). Research **all** lines first (batch the `ingredient` / `candidates` calls into one tool call), then ask **once** with a table of every line: recipe text, your pick, counted amount, line ₱. Put that table in the AskUserQuestion option's `preview` (the question box covers the chat, so a table above it can't be seen), with options **Approve all** / **Change some** (he types line numbers and changes). Fixes a line needs to work (e.g. a broken price) go in the same preview. Lines with a genuinely open choice (two equally good entries) can be a second question in the same call.
 
-### 4. New lines, one at a time
-For each remaining line, investigate before asking:
+Side issues that don't block this meal (duplicate entries, a DA link that would be nicer, overlapping aliases) go on a **follow-up list** shown at save time, never as a question mid-review.
+
+For each line, investigate:
 1. `candidates` for the line (try the Tagalog and English names). `ingredient <id>` for the one you'd pick, to see its data and which meals use it.
 2. Decide the **match** from the recipe's own words: state and form must fit (raw vs cooked, fresh vs dried, canned/drained vs dry, leaves vs whole, the cut). Word overlap alone is not a match.
 3. Decide the **quantity** from the recipe text only. Convert cups/tbsp through the ingredient's grams per ml (1 cup = 240 ml, 1 tbsp = 15 ml, 1 tsp = 5 ml). Size words ("large onion", "small tomato") change this line's quantity in grams, never the shared piece weight. "To taste"/"for garnish"/"pinch" lines get no quantity.
 4. Check the ingredient's **macros source** (USDA/FNRI reference record vs manual estimate; does the record fit, e.g. not a cooked record for a raw ingredient), **price source** (listings, DA commodity, or estimate; per kg/L, sane for 2026 Philippines), and the **bridge this line needs** (piece weight for pieces, grams per ml for volumes on a per-gram ingredient).
-5. Show the evidence **in chat first**, as a short card, never packed into the question (the question box renders it as one hard-to-read line):
+5. When a single line does need its own question, keep the evidence out of the question text (the box renders it as one hard-to-read line). Put it in the option's `preview` as a small aligned block, like this card:
 
    ```
    **2 cloves garlic → Garlic, raw**
