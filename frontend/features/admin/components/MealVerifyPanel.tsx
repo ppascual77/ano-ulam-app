@@ -3,8 +3,8 @@ import { View, Text } from "react-native";
 import { AlertTriangle, ArrowRight, Check, CheckCircle2, Sparkles } from "lucide-react-native";
 import { AppText, Button, NoticeBanner, Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { type IngredientRow } from "@/api/ingredients";
-import { parseMealBridgeFix, verifyMealIngredients, type MealBridgeIssue } from "@/api/meals";
+import { isBridgeLocked, type IngredientRow } from "@/api/ingredients";
+import { bridgeFixAsRowQuantity, parseMealBridgeFix, verifyMealIngredients, type MealBridgeIssue } from "@/api/meals";
 import { errorMessage } from "@/lib/errorMessage";
 import { useConfirmedIngredientUpdate } from "../hooks/useConfirmedIngredientUpdate";
 import type { MealCalculation, CalcRow } from "../utils/mealCalculation";
@@ -20,7 +20,10 @@ import { ActionChip, InlineError, StatTiles, StatusChip } from "./AdminUi";
 // - Bridge check: optional AI pass over piece weights, densities and
 //   quantities vs the recipe text. Never macros, never prices.
 // Ingredient fixes go through the confirm sheet (other saved meals may use
-// the same ingredient); a quantity fix only edits this recipe's row.
+// the same ingredient); a quantity fix only edits this recipe's row. A
+// piece-weight or density suggestion offers "this recipe only" first,
+// since the usual cause is this recipe's piece size, not the shared value.
+// Verified bridges never get suggestions (see isBridgeLocked).
 
 type FixState = "applying" | "applied" | "skipped" | "error";
 
@@ -38,6 +41,17 @@ const SOURCE_CHIP: Record<string, { label: string; tone: "success" | "neutral" }
 
 const formatAmount = (amount: number) => (amount < 10 ? Math.round(amount * 10) / 10 : Math.round(amount)).toString();
 const formatPeso = (price: number) => `₱${price < 10 ? price.toFixed(2) : Math.round(price).toLocaleString()}`;
+
+// The verified bridge this row's math actually goes through, if any.
+function verifiedBridgeLabel(row: CalcRow): string | null {
+  if (!row.ingredient || !row.quantity) return null;
+  const { unit } = row.quantity;
+  if (unit === "piece") return isBridgeLocked(row.ingredient, "grams_per_piece") ? "Piece verified" : null;
+  const crossesDomain =
+    ((unit === "ml" || unit === "L") && row.ingredient.basis_unit === "g") ||
+    ((unit === "g" || unit === "kg") && row.ingredient.basis_unit === "ml");
+  return crossesDomain && isBridgeLocked(row.ingredient, "grams_per_ml") ? "Density verified" : null;
+}
 
 function rowSummary(row: CalcRow): string {
   if (row.notCounted) return `${row.displayText} · not counted`;
@@ -153,6 +167,11 @@ export function MealVerifyPanel({ mealName, servingSize, calculation, onUpdateIt
     await requestIngredientFix(id, ingredient, parsed.patch);
   };
 
+  const handleApplyToRow = (index: number, issue: MealBridgeIssue, quantity: { quantityAmount: string; quantityUnit: PendingMealIngredient["quantityUnit"] }) => {
+    onUpdateItem(issue.key, quantity);
+    setFix(`ai:${index}`, "applied");
+  };
+
   const fixStatus = (id: string) => {
     const state = fixStates[id];
     if (state === "applying") {
@@ -222,6 +241,7 @@ export function MealVerifyPanel({ mealName, servingSize, calculation, onUpdateIt
         {rows.map((row) => {
           const source = row.ingredient?.source ?? null;
           const chip = (source ? SOURCE_CHIP[source] : undefined) ?? { label: "Estimated", tone: "neutral" as const };
+          const bridgeChip = verifiedBridgeLabel(row);
           return (
             <View key={row.key} className="gap-1.5 border-b border-ink-emphasis/5 pb-3">
               <View className="flex-row flex-wrap items-center gap-1.5">
@@ -229,6 +249,7 @@ export function MealVerifyPanel({ mealName, servingSize, calculation, onUpdateIt
                   {row.ingredient?.canonical_name ?? row.name}
                 </Text>
                 {row.ingredient && <StatusChip label={chip.label} tone={chip.tone} icon={null} />}
+                {bridgeChip && <StatusChip label={bridgeChip} tone="success" />}
               </View>
               <Text className="font-inter-regular text-body text-ink-subtle">{rowSummary(row)}</Text>
               {row.problems.map((problem, i) => {
@@ -281,6 +302,8 @@ export function MealVerifyPanel({ mealName, servingSize, calculation, onUpdateIt
         {issues?.map((issue, index) => {
           const id = `ai:${index}`;
           const fieldLabel = issue.field === "quantity" ? "quantity" : issue.field.replace(/_/g, " ");
+          const issueRow = rows.find((r) => r.key === issue.key);
+          const rowQuantity = issueRow ? bridgeFixAsRowQuantity(issue, issueRow) : null;
           return (
             <View key={id} className="gap-3 rounded-2xl border border-ink-emphasis/10 bg-white p-4">
               <View className="flex-row flex-wrap items-center gap-1.5">
@@ -301,13 +324,30 @@ export function MealVerifyPanel({ mealName, servingSize, calculation, onUpdateIt
                   <Text className="font-inter-semibold text-body text-primary">{issue.suggestedValue}</Text>
                 </View>
               </View>
+              {!fixStates[id] && rowQuantity && (
+                <AppText variant="caption" className="text-ink-subtle">
+                  This value is shared by every meal using {issue.ingredientName}. If only this recipe&apos;s is a
+                  different size, set this line to {rowQuantity.quantityAmount} g instead.
+                </AppText>
+              )}
               {!fixStates[id] && (
-                <View className="flex-row gap-2">
-                  <ActionChip
-                    label="Accept fix"
-                    icon={<Check color={colors.primary} size={15} strokeWidth={2.5} />}
-                    onPress={() => handleApplyBridgeFix(index, issue)}
-                  />
+                <View className="flex-row flex-wrap gap-2">
+                  {rowQuantity ? (
+                    <>
+                      <ActionChip
+                        label={`This recipe: ${rowQuantity.quantityAmount} g`}
+                        icon={<Check color={colors.primary} size={15} strokeWidth={2.5} />}
+                        onPress={() => handleApplyToRow(index, issue, rowQuantity)}
+                      />
+                      <ActionChip label="Change for all meals" tone="neutral" onPress={() => handleApplyBridgeFix(index, issue)} />
+                    </>
+                  ) : (
+                    <ActionChip
+                      label="Accept fix"
+                      icon={<Check color={colors.primary} size={15} strokeWidth={2.5} />}
+                      onPress={() => handleApplyBridgeFix(index, issue)}
+                    />
+                  )}
                   <ActionChip label="Skip" tone="neutral" onPress={() => setFix(id, "skipped")} />
                 </View>
               )}

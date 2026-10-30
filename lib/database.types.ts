@@ -108,11 +108,13 @@ export type Database = {
           archived_at: string | null
           basis_amount: number
           basis_unit: string
+          bridge_note: string | null
           calories: number | null
           canonical_name: string
           carbohydrates: number | null
           category: string | null
           created_at: string
+          density_verified_at: string | null
           display_name: string | null
           estimated_price: number | null
           estimated_price_unit: string | null
@@ -125,6 +127,7 @@ export type Database = {
           last_verified_at: string | null
           match_type: string | null
           piece_label: string | null
+          piece_verified_at: string | null
           price_last_attempted_at: string | null
           price_last_updated_at: string | null
           price_source: string
@@ -146,11 +149,13 @@ export type Database = {
           archived_at?: string | null
           basis_amount?: number
           basis_unit?: string
+          bridge_note?: string | null
           calories?: number | null
           canonical_name: string
           carbohydrates?: number | null
           category?: string | null
           created_at?: string
+          density_verified_at?: string | null
           display_name?: string | null
           estimated_price?: number | null
           estimated_price_unit?: string | null
@@ -163,6 +168,7 @@ export type Database = {
           last_verified_at?: string | null
           match_type?: string | null
           piece_label?: string | null
+          piece_verified_at?: string | null
           price_last_attempted_at?: string | null
           price_last_updated_at?: string | null
           price_source?: string
@@ -184,11 +190,13 @@ export type Database = {
           archived_at?: string | null
           basis_amount?: number
           basis_unit?: string
+          bridge_note?: string | null
           calories?: number | null
           canonical_name?: string
           carbohydrates?: number | null
           category?: string | null
           created_at?: string
+          density_verified_at?: string | null
           display_name?: string | null
           estimated_price?: number | null
           estimated_price_unit?: string | null
@@ -201,6 +209,7 @@ export type Database = {
           last_verified_at?: string | null
           match_type?: string | null
           piece_label?: string | null
+          piece_verified_at?: string | null
           price_last_attempted_at?: string | null
           price_last_updated_at?: string | null
           price_source?: string

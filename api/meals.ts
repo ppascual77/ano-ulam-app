@@ -1,6 +1,6 @@
 import { supabase, invokeEdgeFunction } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
-import type { IngredientRow } from "./ingredients";
+import { isBridgeLocked, type IngredientRow } from "./ingredients";
 import type { DaCommodityRow } from "./daPrices";
 
 export type MealRow = Database["public"]["Tables"]["meals"]["Row"];
@@ -805,12 +805,42 @@ export async function verifyMealIngredients(
       gramsPerPiece: item.ingredient.grams_per_piece,
       pieceLabel: item.ingredient.piece_label,
       gramsPerMl: item.ingredient.grams_per_ml,
+      pieceVerified: isBridgeLocked(item.ingredient, "grams_per_piece"),
+      densityVerified: isBridgeLocked(item.ingredient, "grams_per_ml"),
     })),
   });
-  const keys = new Set(items.map((i) => i.key));
+  const byKey = new Map(items.map((i) => [i.key, i.ingredient]));
   // Defense in depth: only the fields this check is allowed to touch, on
-  // rows that exist.
-  return (data.issues ?? []).filter((issue) => keys.has(issue.key) && MEAL_BRIDGE_FIELDS.has(issue.field));
+  // rows that exist, and never a bridge the admin verified (the prompt
+  // says so too, but this holds even if the model ignores it).
+  return (data.issues ?? []).filter((issue) => {
+    const ingredient = byKey.get(issue.key);
+    if (!ingredient || !MEAL_BRIDGE_FIELDS.has(issue.field)) return false;
+    return issue.field === "quantity" || !isBridgeLocked(ingredient, issue.field);
+  });
+}
+
+// A shared bridge fix restated for one recipe line: "this recipe's onion is
+// 150 g", instead of changing the piece weight every other meal uses.
+// Only for fixes that convert cleanly into a weight on this line.
+export function bridgeFixAsRowQuantity(
+  issue: MealBridgeIssue,
+  row: { quantity: { amount: number; unit: QuantityUnit } | null; ingredient: IngredientRow | null },
+): { quantityAmount: string; quantityUnit: QuantityUnit } | null {
+  if (!row.quantity || !row.ingredient) return null;
+  const parsed = parseMealBridgeFix(issue.field, issue.suggestedValue);
+  if (!parsed.ok || parsed.target !== "ingredient") return null;
+  const { amount, unit } = row.quantity;
+  let grams: number | null = null;
+  if (issue.field === "grams_per_piece" && unit === "piece" && parsed.patch.grams_per_piece) {
+    grams = amount * parsed.patch.grams_per_piece;
+  } else if (issue.field === "grams_per_ml" && (unit === "ml" || unit === "L") && parsed.patch.grams_per_ml) {
+    // Grams only mean something here when the macros are per gram.
+    if (row.ingredient.basis_unit !== "g") return null;
+    grams = (unit === "L" ? amount * 1000 : amount) * parsed.patch.grams_per_ml;
+  }
+  if (grams == null || grams <= 0) return null;
+  return { quantityAmount: String(Math.round(grams)), quantityUnit: "g" };
 }
 
 export type MealBridgeFixParse =

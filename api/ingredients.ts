@@ -3,6 +3,16 @@ import type { Database } from "@/lib/database.types";
 
 export type IngredientRow = Database["public"]["Tables"]["ingredients"]["Row"];
 
+export type BridgeField = "grams_per_piece" | "piece_label" | "grams_per_ml";
+
+// Whether the admin verified this bridge (see the bridge locks migration).
+// A verified bridge is a fact: checks may question a recipe's quantity
+// against it, never the bridge itself. The DB rejects edits to it that
+// don't re-stamp the lock.
+export function isBridgeLocked(ingredient: IngredientRow, field: BridgeField): boolean {
+  return field === "grams_per_ml" ? ingredient.density_verified_at != null : ingredient.piece_verified_at != null;
+}
+
 export type IngredientFilters = {
   role?: string;
   foodGroup?: string;
