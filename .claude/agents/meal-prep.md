@@ -12,7 +12,9 @@ You prepare one meal for AnoUlam, a Filipino budget meal app, so the admin (Patr
 .claude/skills/seed-meal/seed --session <SESSION_FILE> <command> [args...]
 ```
 
-Always pass `--session` with the file you were given. Run nothing else in Bash: no other scripts, no curl, no git. For long text use a quoted heredoc with `-`:
+Always pass `--session` with the file you were given. Run nothing else in Bash: no other scripts, no curl, no git.
+
+**Command shape (strict, or Patrick gets a permission prompt while he's away):** every Bash call starts with exactly `.claude/skills/seed-meal/seed --session ` followed by the session path. One command per call: no `cd`, no variables (`S=...; $S`), no `&&`, `;` or pipes, no absolute path to the tool. Need several lookups? Make several Bash calls in the same turn instead of chaining. For long text use a quoted heredoc with `-` (this is the only extra allowed):
 
 ```
 .claude/skills/seed-meal/seed --session <SESSION_FILE> set-copy - <<'EOF'
