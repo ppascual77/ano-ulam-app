@@ -20,6 +20,12 @@
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const CHAT_URL = "https://api.openai.com/v1/chat/completions";
 const IMAGE_URL = "https://api.openai.com/v1/images/generations";
+// OpenAI retires image models on its own schedule (gpt-image-1 shut down
+// 2026-10-23 and broke this function). Overridable with the IMAGE_MODEL
+// secret, so the next swap is `supabase secrets set IMAGE_MODEL=...`
+// instead of a code change. Flare is the fast generation variant of the
+// official replacements; sunburst is the slower one meant for precise edits.
+const IMAGE_MODEL = Deno.env.get("IMAGE_MODEL") ?? "gpt-image-2.5-flare";
 
 // Revised after the first version's results looked too uniformly "AI" —
 // mandatory garnish/utensil/smoke on every single dish, regardless of
@@ -85,7 +91,7 @@ async function generateImage(prompt: string): Promise<{ imageBase64: string; mim
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-image-1",
+      model: IMAGE_MODEL,
       prompt,
       size: "1536x1024",
       quality: "medium",
@@ -95,7 +101,7 @@ async function generateImage(prompt: string): Promise<{ imageBase64: string; mim
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`OpenAI image request failed: ${res.status} ${body}`);
+    throw new Error(`OpenAI image request failed (${IMAGE_MODEL}): ${res.status} ${body}`);
   }
 
   const data = await res.json();
@@ -104,8 +110,8 @@ async function generateImage(prompt: string): Promise<{ imageBase64: string; mim
     return { imageBase64: b64, mimeType: "image/png" };
   }
 
-  // gpt-image-1 always returns b64_json, but fall back to fetching a url if
-  // a future response shape ever includes one instead.
+  // GPT Image models return b64_json, but fall back to fetching a url if a
+  // future response shape ever includes one instead.
   const url = data.data?.[0]?.url;
   if (typeof url === "string" && url) {
     const imgRes = await fetch(url);

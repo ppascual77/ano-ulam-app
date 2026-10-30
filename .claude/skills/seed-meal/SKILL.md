@@ -40,6 +40,7 @@ Every step goes through one command (allow it once):
 | `preview` | The meal as a user sees it (input for the review) |
 | `mark-reviewed` | Record that the fresh-eyes review is done and its concerns handled |
 | `image` | Generate our own image (source photo is only a private reference) |
+| `attach-image` | Set the image on a meal this session already saved |
 | `status` / `save` / `use <file>` | Progress, save (refuses until every gate passes), resume a session |
 
 JSON args can be inline or a path to a .json file. For anything long (copy), write the JSON to the scratchpad and pass the path.
