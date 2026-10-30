@@ -3,6 +3,7 @@ import { Plus, Trash2 } from "lucide-react-native";
 import { AppText, Button, ChipSelect, TextField } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import type { IngredientRow } from "@/api/ingredients";
+import { MEAL_TIME_IDS, MEAL_TIME_OPTIONS } from "@/frontend/core/meals/utils/mealTimes";
 import { PILL_TAG_IDS, PILL_TAG_OPTIONS } from "../utils/pillTags";
 import { SeedMealIngredientsEditor, type PendingMealIngredient } from "./SeedMealIngredientsEditor";
 import { FieldLabel } from "./AdminUi";
@@ -109,8 +110,9 @@ export function MealFormFields({ value, onChange, allIngredients }: Props) {
     set("procedure", value.procedure.filter((_, i) => i !== index));
   };
 
-  // tags holds two independent groups of values merged into one array —
-  // toggling one group must never clobber the other's current selection.
+  // tags holds independent groups of values merged into one array (pills,
+  // cooking method, meal time) — toggling one group must never clobber
+  // another's current selection.
   const setTagGroup = (groupIds: Set<string>, next: string[]) => {
     set("tags", [...value.tags.filter((t) => !groupIds.has(t)), ...next]);
   };
@@ -182,6 +184,16 @@ export function MealFormFields({ value, onChange, allIngredients }: Props) {
       </Section>
 
       <Section title="Tags & dietary">
+        <View className="gap-2">
+          <FieldLabel hint="Drives Home's Breakfast / Lunch / Dinner categories. Pick every one that fits.">Meal time</FieldLabel>
+          <ChipSelect
+            mode="multi"
+            options={[...MEAL_TIME_OPTIONS]}
+            value={value.tags.filter((t) => MEAL_TIME_IDS.has(t))}
+            onChange={(v) => setTagGroup(new Set(MEAL_TIME_IDS), v)}
+          />
+        </View>
+
         <View className="gap-2">
           <FieldLabel>Dietary tags</FieldLabel>
           <ChipSelect mode="multi" options={DIETARY_TAG_OPTIONS} value={value.dietaryTags} onChange={(v) => set("dietaryTags", v)} />

@@ -19,7 +19,7 @@ import {
   type MealIngredientRow,
   type MealRow,
 } from "@/api/meals";
-import { computePillTags, PILL_TAG_IDS } from "../utils/pillTags";
+import { syncedPillTags } from "../utils/pillTags";
 
 const mealKeys = {
   list: (filters: MealFilters) => ["admin", "meals", filters] as const,
@@ -139,14 +139,10 @@ export function useRecomputeMealTotals() {
       // Keep the nutrition/style pill tags in sync with the macros that
       // were just recomputed — same rules getMealPills renders a badge
       // with, so `tags` never shows a pill that doesn't match the meal's
-      // actual numbers. Cooking-method and any other non-pill tags (not
-      // derivable from macros) are left exactly as the admin set them.
-      const pillTags = computePillTags(meal);
-      const otherTags = meal.tags.filter((t) => !PILL_TAG_IDS.has(t));
-      const nextTags = [...otherTags, ...pillTags];
-      const changed =
-        nextTags.length !== meal.tags.length || !nextTags.every((t) => meal.tags.includes(t));
-      return changed ? updateMeal(mealId, { tags: nextTags }) : meal;
+      // actual numbers. Cooking-method, meal-time and any other non-pill
+      // tags (not derivable from macros) are left exactly as the admin set them.
+      const nextTags = syncedPillTags(meal);
+      return nextTags ? updateMeal(mealId, { tags: nextTags }) : meal;
     },
     onSuccess: (_data, mealId) => {
       queryClient.invalidateQueries({ queryKey: mealKeys.detail(mealId) });
