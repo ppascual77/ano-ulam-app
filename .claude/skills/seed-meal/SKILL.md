@@ -34,6 +34,7 @@ Every step goes through one command (allow it once):
 | `prices <id>` / `apply-prices <id> <0,1>` | Supermarket listing search / apply chosen listings |
 | `da-search <text>` / `da-link <commodity-id> <id>` | Find / link a DA commodity (re-picks the cheapest price) |
 | `calc` | The app's calculation check, per line and totals |
+| `table` | The review table: every line with counted amount, line ₱, macros source (FNRI / USDA / AI est.) and price source (DA / Landers / SM / estimate), ✓ verified, ⚠ flags. Use it for every lines review |
 | `source` | The source page's own description + steps (for the copy check, never to copy from) |
 | `meal-times <meal-id> <breakfast,lunch,dinner \| none>` | Set meal times on an already-saved meal (and refresh its pill tags) |
 | `set-meal <json>` | Meal fields: `mealTimes` (breakfast, lunch, dinner; stored in tags, other tags kept), `servingSize`, `prepTime`, `totalTime`, `difficulty` (array), `proteinType`, `budgetRange`, `dietaryTags`, `tags`, `allergens` (nuts, gluten, dairy, egg, shellfish, fish, soy, coconut, sesame) |
@@ -73,7 +74,7 @@ All tables go in AskUserQuestion option `preview`s (the question box hides the c
 1. **Ready?** One question, preview = the `batch-status` summary as a table (meal, lines, flags, ₱ and kcal per serving, review verdict, duplicates, failed imports). Options: **Start review** / **Later**.
 2. **Shared fixes** (skip if none). One question per fix group from `fixes batch` (up to 4 per call), preview = what changes, why, which meals. Options: **Apply** / **Skip**. Apply with `--session <file> apply-fix <id>` once per group; it marks the twins in other meals applied. A skipped fix: `drop-fix` in each session, and its lines stay flagged.
 3. **One call per meal**, up to 4 questions as tabs, one submit:
-   - **Lines:** table of every line (recipe text, pick, counted amount, line ₱, prep's flags marked ⚠), plus the meal times prep set (e.g. "Meal time: lunch, dinner"). Approve all / Change some.
+   - **Lines:** the output of `--session <file> table`, pasted as is (every line's pick, counted amount, line ₱, **macros source** and **price source** with ✓ for verified, ⚠ for prep flags, totals, meal times), then one short note per ⚠. Approve all / Change some.
    - **Steps:** source vs ours, side by side. Approve / Change some.
    - **Review:** the reviewer's verdict and concerns, sorted into concerns and challenges to verified values (`lines` shows ✓), each with your one-line view. Options to accept the suggested changes or keep as is; he can type specifics.
    - **Image:** say it's ready and where; show it with Read right before this call. Use / Regenerate / Skip.
@@ -93,7 +94,7 @@ Run `import <url>`. Tell Patrick the dish, servings and times in one or two line
 Run `lines` and show Patrick the full list as a short table: recipe line → your proposed match, with **✓** for fully verified ingredients (macros, price, and the bridge this line uses all armoured).
 
 ### 3 + 4. Research every line, then one table to approve
-One question per line was too slow (Patrick, first run). Research **all** lines first (batch the `ingredient` / `candidates` calls into one tool call), then ask **once** with a table of every line: recipe text, your pick, counted amount, line ₱. Put that table in the AskUserQuestion option's `preview` (the question box covers the chat, so a table above it can't be seen), with options **Approve all** / **Change some** (he types line numbers and changes). Fixes a line needs to work (e.g. a broken price) go in the same preview. Lines with a genuinely open choice (two equally good entries) can be a second question in the same call.
+One question per line was too slow (Patrick, first run). Research **all** lines first (batch the `ingredient` / `candidates` calls into one tool call), then `link` your picks (session only) and ask **once** with the `table` output (recipe text, pick, counted amount, line ₱, macros and price source). Put that table in the AskUserQuestion option's `preview` (the question box covers the chat, so a table above it can't be seen), with options **Approve all** / **Change some** (he types line numbers and changes). Fixes a line needs to work (e.g. a broken price) go in the same preview. Lines with a genuinely open choice (two equally good entries) can be a second question in the same call.
 
 Side issues that don't block this meal (duplicate entries, a DA link that would be nicer, overlapping aliases) go on a **follow-up list** shown at save time, never as a question mid-review.
 
