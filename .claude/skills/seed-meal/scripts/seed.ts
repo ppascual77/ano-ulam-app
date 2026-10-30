@@ -786,6 +786,73 @@ async function cmdUse(path: string | undefined) {
 
 // ---- dispatch ---------------------------------------------------------------
 
+// ---- review table -------------------------------------------------------------
+// The lines table Patrick reviews, with where every number comes from:
+// macros (FNRI / USDA / AI estimate) and price (DA / the store whose listing
+// set it / estimate). ✓ = already verified.
+
+const STORE_NAMES: [RegExp, string][] = [
+  [/landers/i, "Landers"],
+  [/s&r|snrshopping/i, "S&R"],
+  [/waltermart/i, "Waltermart"],
+  [/sm ?markets|smmarkets|savemore|sm supermarket/i, "SM"],
+  [/puregold/i, "Puregold"],
+  [/robinsons/i, "Robinsons"],
+];
+const shortStore = (store: string) => STORE_NAMES.find(([re]) => re.test(store))?.[1] ?? store.split(/[ (.]/)[0];
+
+function macrosSourceLabel(i: IngredientRow): string {
+  const base =
+    i.source === "USDA" || i.source === "FNRI" ? i.source
+    : /plain water/i.test(i.source_description ?? "") ? "n/a"
+    : /ai-estimated|ai estimated/i.test(i.source_description ?? "") ? "AI est."
+    : "manual";
+  return `${base}${isMacrosVerified(i) ? " ✓" : ""}`;
+}
+
+function priceSourceLabel(i: IngredientRow): string {
+  let base: string;
+  if (i.price_source === "da") base = "DA";
+  else if (i.price_source === "supermarket") {
+    // The listing that set the price: the one at (about) this ₱/unit.
+    const sources = Array.isArray(i.price_sources) ? (i.price_sources as Record<string, unknown>[]) : [];
+    const match = sources.find((s) => typeof s.pricePerUnit === "number" && Math.abs(s.pricePerUnit - (i.estimated_price ?? NaN)) < 0.01);
+    base = match && typeof match.store === "string" ? shortStore(match.store) : "store";
+  } else if (i.price_source === "price_watch") base = "Price Watch";
+  else base = i.estimated_price === 0 ? "free" : "estimate";
+  return `${base}${isPriceVerified(i) ? " ✓" : ""}`;
+}
+
+const pad = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s.padEnd(n));
+
+async function cmdTable() {
+  const session = load();
+  const all = await getIngredientsForMatching();
+  const byId = new Map(all.map((i) => [i.id, i]));
+  const items = filledIngredients(session.form);
+  const calc = items.every((i) => i.ingredientId) ? buildMealCalculation(items, all) : null;
+  out(
+    `${pad("#", 3)}${pad("RECIPE SAYS", 22)}${pad("PICK", 22)}${pad("COUNTED", 11)}${pad("LINE", 8)}${pad("MACROS", 11)}PRICE`,
+    `${"-".repeat(2)} ${"-".repeat(21)} ${"-".repeat(21)} ${"-".repeat(10)} ${"-".repeat(7)} ${"-".repeat(10)} ${"-".repeat(12)}`,
+  );
+  items.forEach((item, n) => {
+    const i = item.ingredientId ? byId.get(item.ingredientId) : undefined;
+    const row = calc?.rows.find((r) => r.key === item.key);
+    const counted = row?.notCounted ? "to taste" : row?.used ? `${round(row.used.amount, row.used.amount < 10 ? 1 : 0)} ${row.used.unit}` : "–";
+    const flag = session.notes?.[item.key]?.flag ? " ⚠" : "";
+    const price = row?.computed?.price;
+    out(
+      `${pad(String(n + 1), 3)}${pad(`${item.displayText} ${item.name}`, 22)}${pad(i?.canonical_name ?? "UNLINKED", 22)}` +
+        `${pad(counted + flag, 11)}${pad(price == null ? "–" : peso(price), 8)}${pad(i ? macrosSourceLabel(i) : "–", 11)}${i ? priceSourceLabel(i) : "–"}`,
+    );
+  });
+  if (calc) {
+    const servings = Math.max(Number(session.form.servingSize) || 1, 1);
+    out("", `Whole recipe ${Math.round(calc.totals.calories)} kcal · ${peso(calc.totals.price)} · per serving (${servings}): ${Math.round(calc.totals.calories / servings)} kcal · ${peso(calc.totals.price / servings)}`);
+  }
+  out(`Meal time: ${mealTimesOf(session.form.tags).join(", ") || "none set"} · allergens: ${session.form.allergens.join(", ") || "none"}`, "✓ = already verified · ⚠ = prep flag");
+}
+
 // ---- batch mode -------------------------------------------------------------
 // Prep runs unattended per session (`--session <file>`): it may link lines
 // in its session file, write notes, propose fixes, write copy, generate an
@@ -1049,6 +1116,7 @@ if (argv[0] === "--session") {
 }
 const [command, ...args] = argv;
 const commands: Record<string, (...a: string[]) => Promise<void>> = {
+  table: cmdTable,
   "batch-start": cmdBatchStart,
   "batch-status": cmdBatchStatus,
   note: cmdNote,
