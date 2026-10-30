@@ -686,13 +686,17 @@ async function cmdMarkReviewed() {
 // Generated with the same edge function as Edit Meal (the source photo only
 // steers a neutral text description, never copied), then compressed to a
 // ~150 KB JPEG with macOS sips, like the app's compressImageForUpload.
-async function cmdImage() {
+// Optional words after `image` set the framing, e.g. `image tight close-up,
+// the food filling the whole frame`; otherwise the function picks one.
+async function cmdImage(...framingWords: string[]) {
   const session = load();
-  const { imageBase64, mimeType } = await generateMealImage({
+  const request = {
     name: session.form.name,
     description: session.form.description || null,
     referenceImageUrl: session.draft.reference_image_url,
-  });
+    framing: framingWords.join(" ") || null,
+  };
+  const { imageBase64, mimeType } = await generateMealImage(request);
   const base = sessionPath().replace(/\.json$/, "");
   const raw = `${base}-image.${mimeType.split("/")[1] ?? "png"}`;
   writeFileSync(raw, Buffer.from(imageBase64, "base64"));
@@ -1099,7 +1103,11 @@ async function cmdApproveAll() {
 // plus the bridge that line actually uses (pieces → piece weight, volume
 // on a per-gram ingredient or weight on a per-ml one → grams per ml).
 // Skips what's already verified or has no value.
-async function cmdArmourApproved() {
+// `--skip-price <id,...>` leaves those ingredients' prices unverified (one
+// Patrick kept "for now", or a reviewer doubted).
+async function cmdArmourApproved(...args: string[]) {
+  const skipAt = args.indexOf("--skip-price");
+  const skipPrice = new Set(skipAt >= 0 ? (args[skipAt + 1] ?? "").split(",").map((s) => s.trim()) : []);
   const session = load();
   const all = await getIngredientsForMatching();
   const byId = new Map(all.map((i) => [i.id, i]));
@@ -1114,7 +1122,7 @@ async function cmdArmourApproved() {
     const macrosSourced = i.source === "USDA" || i.source === "FNRI" || /plain water/i.test(i.source_description ?? "");
     const priceSourced = i.price_source !== "manual" || i.estimated_price === 0;
     if (!isMacrosVerified(i) && i.calories != null && macrosSourced) fields.add("macros");
-    if (!isPriceVerified(i) && i.estimated_price != null && priceSourced) fields.add("price");
+    if (!isPriceVerified(i) && i.estimated_price != null && priceSourced && !skipPrice.has(i.id)) fields.add("price");
     const unit = item.quantityAmount.trim() ? item.quantityUnit : null;
     if (unit === "piece" && i.grams_per_piece != null && !isBridgeLocked(i, "grams_per_piece")) fields.add("piece");
     const crossesDomain = ((unit === "ml" || unit === "L") && i.basis_unit === "g") || ((unit === "g" || unit === "kg") && i.basis_unit === "ml");
