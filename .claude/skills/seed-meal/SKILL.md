@@ -1,6 +1,6 @@
 ---
 name: seed-meal
-description: Seed one AnoUlam meal from a recipe URL together with Patrick, line by line. Imports the recipe, checks for duplicates, proposes a link for every ingredient (match, quantity, macros source, price source, bridges) for him to approve one at a time, verifies (armours) what he approves, writes the steps and description fresh in our own words, runs the app's calculation and copy checks, gets a fresh-eyes credibility review, and saves the meal to the catalog. Use when he runs /seed-meal <url> or asks to seed/import a meal through the agent instead of the admin Seed Meal screen.
+description: Seed AnoUlam meals from recipe URLs together with Patrick. One URL runs interactively; 2 to 5 URLs run batch mode (unattended prep by meal-prep subagents, then one review sitting). Imports the recipe, checks for duplicates, proposes a link for every ingredient (match, quantity, macros source, price source, bridges) for him to approve one at a time, verifies (armours) what he approves, writes the steps and description fresh in our own words, runs the app's calculation and copy checks, gets a fresh-eyes credibility review, and saves the meal to the catalog. Use when he runs /seed-meal <url> or asks to seed/import a meal through the agent instead of the admin Seed Meal screen.
 ---
 
 # Seed a meal, together
@@ -42,10 +42,44 @@ Every step goes through one command (allow it once):
 | `image` | Generate our own image (source photo is only a private reference) |
 | `attach-image` | Set the image on a meal this session already saved |
 | `status` / `save` / `use <file>` | Progress, save (refuses until every gate passes), resume a session |
+| `--session <file> <command>` | Run any command on that session instead of the current one (batch mode) |
+| `batch-start <urls...>` / `batch-status` | Import up to 5 into a batch / one-line summary per meal |
+| `note <key> <json>` | Prep's evidence for a line: `{"confidence":"high\|medium\|low","why":"...","flag":"..."}` |
+| `propose-fix <json>` / `fixes [batch]` / `apply-fix <id>` / `drop-fix <id>` | Proposed ingredient changes (`update`, `prices`, `da-link`, `create`), applied only after approval |
+| `set-review -` / `review` | Store / show the reviewer's answer |
+| `approve-all` / `armour-approved` | Approve every linked line / verify what the approved lines use |
 
 JSON args can be inline or a path to a .json file. For anything long (copy), write the JSON to the scratchpad and pass the path.
 
-## The flow
+## Batch mode (2 to 5 URLs)
+
+`/seed-meal <url1> <url2> ...` with more than one URL. More than 5: take the first 5 and say so.
+
+Patrick starts it and walks away. **Prep asks nothing.** The first thing he sees when he's back is one "ready?" prompt.
+
+### Prep (unattended)
+1. `batch-start <urls...>`: imports each into its own session, flags same-link and same-dish duplicates (in the batch and the catalog), records failures. Don't stop for duplicates; they go in the review.
+2. Spawn one **meal-prep** subagent per session, 2 or 3 at a time (`run_in_background: true`), each prompted with just: *"Prepare the meal in session file `<path>`."* Wait for each batch of agents before spawning more. They link lines in their session file, write notes and flags, propose fixes, fix plain meal facts, write the copy, generate the image. They write nothing shared.
+3. When a prep agent finishes: run `--session <file> preview` and spawn the **meal-credibility-reviewer** with only that preview (same no-hints rule as below), then store its answer with `--session <file> set-review - <<'EOF' ... EOF`.
+4. Keep each prep report's side issues for the follow-up list.
+5. When every meal is prepped and reviewed, `batch-status` and `fixes batch`, then the first prompt.
+
+### Review (Patrick is back)
+All tables go in AskUserQuestion option `preview`s (the question box hides the chat). Keep question text to one short line.
+
+1. **Ready?** One question, preview = the `batch-status` summary as a table (meal, lines, flags, ₱ and kcal per serving, review verdict, duplicates, failed imports). Options: **Start review** / **Later**.
+2. **Shared fixes** (skip if none). One question per fix group from `fixes batch` (up to 4 per call), preview = what changes, why, which meals. Options: **Apply** / **Skip**. Apply with `--session <file> apply-fix <id>` once per group; it marks the twins in other meals applied. A skipped fix: `drop-fix` in each session, and its lines stay flagged.
+3. **One call per meal**, up to 4 questions as tabs, one submit:
+   - **Lines:** table of every line (recipe text, pick, counted amount, line ₱, prep's flags marked ⚠). Approve all / Change some.
+   - **Steps:** source vs ours, side by side. Approve / Change some.
+   - **Review:** the reviewer's verdict and concerns, sorted into concerns and challenges to verified values (`lines` shows ✓), each with your one-line view. Options to accept the suggested changes or keep as is; he can type specifics.
+   - **Image:** say it's ready and where; show it with Read right before this call. Use / Regenerate / Skip.
+   Then apply his answers: line changes (`link`, `set-line`, re-run `calc`; only re-run the reviewer for a big change like a different main ingredient or servings), `set-meal` / `set-copy` for accepted review points, and on approval `approve-all`, `armour-approved`, `approve-copy`, `mark-reviewed`. Regenerate → `image`, then show it again in the next call.
+4. **Save.** One question, preview = what gets saved (meal, ₱ and kcal per serving, image yes/no) and the follow-up list. Options: **Save all ready meals** / **Pick** (he types which). `--session <file> save` for each.
+
+A meal that isn't ready (unlinked lines, a skipped fix it needs, calc errors) stays unsaved; say so and leave its session for a later `/seed-meal` sitting with `use <file>`.
+
+## The flow (one URL)
 
 ### 1. Import and duplicates
 Run `import <url>`. Tell Patrick the dish, servings and times in one or two lines.

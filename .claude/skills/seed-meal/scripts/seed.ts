@@ -70,7 +70,36 @@ type Session = {
   savedMealId: string | null;
   // Price lookups kept between `prices` and `apply-prices`.
   priceLookups?: Record<string, PriceGroundingCandidate[]>;
+  // Batch mode: the batch manifest this session belongs to.
+  batch?: string;
+  // Prep's reasoning per line, shown at review.
+  notes?: Record<string, LineNote>;
+  // Ingredient changes prep proposes; nothing shared is written until the
+  // admin approves one (apply-fix).
+  fixes?: Fix[];
+  // The fresh-eyes reviewer's answer, verbatim.
+  review?: string | null;
 };
+
+type LineNote = { confidence: "high" | "medium" | "low"; why: string; flag?: string };
+
+type Fix = {
+  id: string;
+  kind: "update" | "prices" | "da-link" | "create";
+  ingredientId?: string;
+  // update: ingredient patch · create: the full new row
+  patch?: Record<string, unknown>;
+  // prices: indexes into this session's priceLookups[ingredientId]
+  listings?: number[];
+  // da-link
+  commodityId?: string;
+  // Lines this fix unblocks; a created ingredient gets linked to them.
+  lines: string[];
+  reason: string;
+  status: "proposed" | "applied" | "dropped";
+};
+
+type BatchManifest = { createdAt: string; sessions: string[]; failed: { url: string; error: string }[] };
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -83,7 +112,12 @@ const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").repla
 const round = (n: number | null | undefined, digits = 1) => (n == null ? "–" : String(Math.round(n * 10 ** digits) / 10 ** digits));
 const peso = (n: number | null | undefined) => (n == null ? "₱–" : `₱${n < 10 ? n.toFixed(2) : Math.round(n).toLocaleString()}`);
 
+// `--session <file>` before the command targets that session instead of
+// the current one, so batch prep agents can work side by side.
+let sessionOverride: string | null = null;
+
 function sessionPath(): string {
+  if (sessionOverride) return sessionOverride;
   if (!existsSync(CURRENT)) fail("No current session. Run `import <url>` first.");
   return readFileSync(CURRENT, "utf8").trim();
 }
@@ -93,9 +127,17 @@ function load(): Session {
 function save(session: Session) {
   writeFileSync(sessionPath(), JSON.stringify(session, null, 2));
 }
+function loadAt(path: string): Session {
+  return JSON.parse(readFileSync(path, "utf8")) as Session;
+}
+// "-" reads stdin (a heredoc), so long text needs no temp file.
+function readTextArg(arg: string | undefined, what: string): string {
+  if (!arg) return fail(`Missing ${what} (inline, "-" for stdin, or a file path)`);
+  if (arg === "-") return readFileSync(0, "utf8");
+  return existsSync(arg) && statSync(arg).isFile() ? readFileSync(arg, "utf8") : arg;
+}
 function readJsonArg(arg: string | undefined, what: string): Record<string, unknown> {
-  if (!arg) return fail(`Missing ${what} (inline JSON or a path to a .json file)`);
-  const text = existsSync(arg) && statSync(arg).isFile() ? readFileSync(arg, "utf8") : arg;
+  const text = readTextArg(arg, what);
   try {
     return JSON.parse(text);
   } catch {
@@ -147,13 +189,26 @@ function describeIngredient(i: IngredientRow): string[] {
 
 // ---- commands ---------------------------------------------------------------
 
-async function cmdImport(url: string | undefined) {
-  if (!url) fail("Usage: import <url>");
-  const { meal: draft, source_text, extraction_tier } = await importMealFromUrl(url!);
+function similarNames(name: string, others: string[]): string[] {
+  const words = new Set(significantWords(name));
+  return others.filter((other) => {
+    const ow = significantWords(other);
+    const overlap = ow.filter((w) => words.has(w)).length;
+    return overlap > 0 && overlap >= Math.min(words.size, ow.length) * 0.6;
+  });
+}
+
+// Imports one URL into a new session file and reports duplicates: the same
+// link imported before, or a catalog meal sharing most of the dish's
+// significant words (any status, archived included).
+async function importSession(url: string, batch?: string): Promise<{ path: string; summary: string[] }> {
+  const { meal: draft, source_text, extraction_tier } = await importMealFromUrl(url);
   mkdirSync(SESSIONS, { recursive: true });
-  const path = join(SESSIONS, `${new Date().toISOString().slice(0, 10)}-${slugify(draft.name)}.json`);
+  const base = join(SESSIONS, `${new Date().toISOString().slice(0, 10)}-${slugify(draft.name)}`);
+  let path = `${base}.json`;
+  for (let n = 2; existsSync(path); n++) path = `${base}-${n}.json`;
   const session: Session = {
-    url: url!,
+    url,
     sourceText: source_text ?? null,
     draft,
     form: draftToFormState(draft),
@@ -162,33 +217,35 @@ async function cmdImport(url: string | undefined) {
     reviewed: false,
     imagePath: null,
     savedMealId: null,
+    batch,
+    notes: {},
+    fixes: [],
+    review: null,
   };
   writeFileSync(path, JSON.stringify(session, null, 2));
-  writeFileSync(CURRENT, path);
 
-  // Duplicates: the same link imported before, or a catalog meal sharing
-  // most of this dish's significant words (any status, archived included).
-  const { data: sameUrl } = await supabase.from("meal_sources").select("meal_id").eq("url", url!);
+  const { data: sameUrl } = await supabase.from("meal_sources").select("meal_id").eq("url", url);
   const { data: meals } = await supabase.from("meals").select("id, name, status, archived_at");
-  const words = new Set(significantWords(draft.name));
-  const similar = (meals ?? []).filter((m) => {
-    const mw = significantWords(m.name);
-    const overlap = mw.filter((w) => words.has(w)).length;
-    return overlap > 0 && overlap >= Math.min(words.size, mw.length) * 0.6;
-  });
+  const similar = similarNames(draft.name, (meals ?? []).map((m) => `${m.name} (${m.status}${m.archived_at ? ", archived" : ""})`));
+  return {
+    path,
+    summary: [
+      `Session: ${path}`,
+      `Imported "${draft.name}" (${extraction_tier}) · serves ${draft.servings ?? "?"} · prep ${draft.prep_time ?? "?"} / total ${draft.total_time ?? "?"} min`,
+      `Protein ${draft.protein_type ?? "–"} · difficulty ${draft.difficulty ?? "–"} · tags ${draft.tags.join(", ") || "–"}`,
+      sameUrl?.length ? `DUPLICATE LINK: already imported as meal ${sameUrl.map((r) => r.meal_id).join(", ")}` : "Link not imported before.",
+      similar.length ? `SIMILAR MEALS: ${similar.join("; ")}` : "No similar meal names in the catalog.",
+      source_text ? "Copy check: source text captured." : "Copy check: NO source text (import-meal-from-url needs redeploy); save will be blocked.",
+      `${session.form.ingredients.length} ingredient lines, ${draft.procedure.length} steps.`,
+    ],
+  };
+}
 
-  out(
-    `Session: ${path}`,
-    `Imported "${draft.name}" (${extraction_tier}) · serves ${draft.servings ?? "?"} · prep ${draft.prep_time ?? "?"} / total ${draft.total_time ?? "?"} min`,
-    `Protein ${draft.protein_type ?? "–"} · difficulty ${draft.difficulty ?? "–"} · tags ${draft.tags.join(", ") || "–"}`,
-    sameUrl?.length ? `DUPLICATE LINK: already imported as meal ${sameUrl.map((r) => r.meal_id).join(", ")}` : "Link not imported before.",
-    similar.length
-      ? `SIMILAR MEALS: ${similar.map((m) => `${m.name} (${m.status}${m.archived_at ? ", archived" : ""})`).join("; ")}`
-      : "No similar meal names in the catalog.",
-    source_text ? "Copy check: source text captured." : "Copy check: NO source text (import-meal-from-url needs redeploy); save will be blocked.",
-    "",
-    `${session.form.ingredients.length} ingredient lines, ${draft.procedure.length} steps. Next: \`lines\`.`,
-  );
+async function cmdImport(url: string | undefined) {
+  if (!url) fail("Usage: import <url>");
+  const { path, summary } = await importSession(url!);
+  writeFileSync(CURRENT, path);
+  out(...summary, "Next: `lines`.");
 }
 
 async function cmdLines() {
@@ -199,6 +256,8 @@ async function cmdLines() {
     const approved = session.approved.includes(item.key) ? "APPROVED" : "pending";
     const qty = item.quantityAmount ? `${item.quantityAmount} ${item.quantityUnit}` : "no qty";
     out(`[${item.key}] ${item.name} · "${item.displayText}"  →  ${qty}${item.section ? ` · section "${item.section}"` : ""} · ${approved}`);
+    const note = session.notes?.[item.key];
+    if (note) out(`    prep (${note.confidence}): ${note.why}${note.flag ? ` · FLAG: ${note.flag}` : ""}`);
     if (item.ingredientId) {
       const linked = byId.get(item.ingredientId);
       out(`    linked: ${linked ? `${linked.canonical_name} (${armour(linked)})${fullyArmoured(linked, item.quantityUnit) ? " FULLY VERIFIED" : ""}` : "missing!"}`);
@@ -620,10 +679,13 @@ async function cmdStatus() {
     `Lines: ${items.length} · linked ${items.length - unlinked.length} · approved ${items.length - unapproved.length}${unapproved.length ? ` (pending: ${unapproved.map((i) => i.key).join(", ")})` : ""}`,
     `Calculation check: ${calc ? (calc.errorCount === 0 ? "passes" : `${calc.errorCount} error(s)`) : "waiting on links"}`,
     `Copy check: ${runs === null ? "no source text" : runs.length === 0 ? "passes" : `${runs.length} copied passage(s)`} · copy approved: ${session.copyApproved ? "yes" : "no"}`,
-    `Fresh-eyes review: ${session.reviewed ? "done" : "not yet"} · image: ${session.imagePath ?? "none"}`,
+    `Fresh-eyes review: ${session.reviewed ? "done" : session.review ? `answered, not discussed yet (${verdictOf(session.review)})` : "not yet"} · image: ${session.imagePath ?? "none"}`,
+    `Prep flags: ${Object.entries(session.notes ?? {}).filter(([, n]) => n.flag || n.confidence !== "high").length} · fixes proposed: ${(session.fixes ?? []).filter((f) => f.status === "proposed").length}`,
     session.savedMealId ? `SAVED as meal ${session.savedMealId}` : "Not saved.",
   );
 }
+
+const verdictOf = (review: string | null | undefined) => review?.match(/VERDICT:\s*(.+)/)?.[1]?.trim() ?? "no verdict";
 
 // Same Storage path scheme as uploadMealImage (`<mealId>/<timestamp>`),
 // so deleteMeal's cleanup finds it.
@@ -693,8 +755,280 @@ async function cmdUse(path: string | undefined) {
 
 // ---- dispatch ---------------------------------------------------------------
 
-const [command, ...args] = process.argv.slice(2);
+// ---- batch mode -------------------------------------------------------------
+// Prep runs unattended per session (`--session <file>`): it may link lines
+// in its session file, write notes, propose fixes, write copy, generate an
+// image. It never writes anything shared. The admin then reviews and the
+// main session applies what was approved.
+
+function manifestPath(arg: string | undefined): string {
+  if (arg) return resolve(ROOT, arg);
+  const latest = join(SESSIONS, "batch-latest");
+  if (!existsSync(latest)) return fail("No batch yet. Run `batch-start <url...>`.");
+  return readFileSync(latest, "utf8").trim();
+}
+function loadManifest(arg?: string): { path: string; manifest: BatchManifest } {
+  const path = manifestPath(arg);
+  return { path, manifest: JSON.parse(readFileSync(path, "utf8")) as BatchManifest };
+}
+
+async function cmdBatchStart(...urls: string[]) {
+  if (urls.length === 0 || urls.length > 5) fail("Usage: batch-start <url> [up to 5 urls]");
+  mkdirSync(SESSIONS, { recursive: true });
+  const path = join(SESSIONS, `batch-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
+  const manifest: BatchManifest = { createdAt: new Date().toISOString(), sessions: [], failed: [] };
+  const seenUrls = new Set<string>();
+  for (const url of urls) {
+    if (seenUrls.has(url)) {
+      manifest.failed.push({ url, error: "same link twice in this batch" });
+      continue;
+    }
+    seenUrls.add(url);
+    try {
+      const { path: sessionFile, summary } = await importSession(url, path);
+      manifest.sessions.push(sessionFile);
+      out(...summary, "");
+    } catch (err) {
+      manifest.failed.push({ url, error: err instanceof Error ? err.message : String(err) });
+      out(`FAILED ${url}: ${manifest.failed.at(-1)!.error}`, "");
+    }
+  }
+  // The same dish twice in one batch (two adobo links).
+  const names = manifest.sessions.map((s) => loadAt(s).form.name);
+  names.forEach((name, i) => {
+    const twins = similarNames(name, names.filter((_, j) => j !== i));
+    if (twins.length) out(`IN-BATCH DUPLICATE: "${name}" looks like ${twins.map((t) => `"${t}"`).join(", ")}`);
+  });
+  writeFileSync(path, JSON.stringify(manifest, null, 2));
+  writeFileSync(join(SESSIONS, "batch-latest"), path);
+  out(`Batch: ${path}`, `${manifest.sessions.length} imported, ${manifest.failed.length} failed.`);
+}
+
+async function cmdBatchStatus(manifestArg?: string) {
+  const { path, manifest } = loadManifest(manifestArg);
+  const all = await getIngredientsForMatching();
+  out(`Batch ${path}`);
+  for (const file of manifest.sessions) {
+    const s = loadAt(file);
+    const items = filledIngredients(s.form);
+    const linked = items.filter((i) => i.ingredientId).length;
+    const calc = linked === items.length ? buildMealCalculation(items, all) : null;
+    const servings = Math.max(Number(s.form.servingSize) || 1, 1);
+    const flags = Object.values(s.notes ?? {}).filter((n) => n.flag || n.confidence !== "high").length;
+    const fixes = (s.fixes ?? []).filter((f) => f.status === "proposed").length;
+    const runs = copyRuns(s);
+    out(
+      `- ${s.form.name} · ${items.length} lines, ${linked} linked, ${flags} flagged, ${fixes} fix(es) · ` +
+        (calc ? `${peso(calc.totals.price / servings)} · ${Math.round(calc.totals.calories / servings)} kcal per serving (${servings}) · calc ${calc.errorCount ? `${calc.errorCount} error(s)` : "ok"}` : "totals pending") +
+        ` · copy ${runs === null ? "unchecked" : runs.length ? "FAILS" : "ok"} · review ${s.review ? verdictOf(s.review) : "none"} · image ${s.imagePath ? "yes" : "no"}` +
+        (s.savedMealId ? ` · SAVED ${s.savedMealId}` : ""),
+      `    ${file}`,
+    );
+  }
+  for (const f of manifest.failed) out(`- FAILED ${f.url}: ${f.error}`);
+}
+
+async function cmdNote(key: string | undefined, json: string | undefined) {
+  if (!key) fail("Usage: note <line-key> <json {confidence, why, flag?}>");
+  const session = load();
+  line(session, key!);
+  const note = readJsonArg(json, "note") as LineNote;
+  if (!["high", "medium", "low"].includes(note.confidence) || !note.why) fail("A note needs confidence (high|medium|low) and why");
+  session.notes = { ...(session.notes ?? {}), [key!]: note };
+  save(session);
+  out(`Noted [${key}] (${note.confidence})`);
+}
+
+async function cmdProposeFix(json: string | undefined) {
+  const session = load();
+  const fix = readJsonArg(json, "fix") as Omit<Fix, "id" | "status">;
+  if (!["update", "prices", "da-link", "create"].includes(fix.kind)) fail("kind must be update | prices | da-link | create");
+  if (fix.kind !== "create" && !fix.ingredientId) fail("ingredientId is required");
+  if (fix.kind === "prices" && !(fix.listings?.length && session.priceLookups?.[fix.ingredientId!])) fail("prices needs listings from a `prices` lookup in this session");
+  if (fix.kind === "da-link" && !fix.commodityId) fail("da-link needs commodityId");
+  if ((fix.kind === "update" || fix.kind === "create") && !fix.patch) fail(`${fix.kind} needs patch`);
+  if (!fix.reason) fail("A fix needs a reason");
+  const fixes = session.fixes ?? [];
+  const id = `f${fixes.length + 1}`;
+  fixes.push({ ...fix, lines: fix.lines ?? [], id, status: "proposed" });
+  session.fixes = fixes;
+  save(session);
+  out(`Proposed ${id}: ${fix.kind} ${fix.ingredientId ?? (fix.patch?.canonical_name as string) ?? ""} · ${fix.reason}`);
+}
+
+function describeFix(f: Fix): string {
+  const what =
+    f.kind === "update" ? `update ${JSON.stringify(f.patch)}`
+    : f.kind === "prices" ? `apply listings ${f.listings!.join(",")}`
+    : f.kind === "da-link" ? `link DA commodity ${f.commodityId}`
+    : `create ${JSON.stringify(f.patch)}`;
+  return `${f.id} [${f.status}] ${f.kind}${f.ingredientId ? ` ${f.ingredientId}` : ""}: ${what} · lines ${f.lines.join(", ") || "–"} · ${f.reason}`;
+}
+
+async function cmdFixes(manifestArg?: string) {
+  // One session (default), or every session in a batch with `fixes batch`,
+  // grouped so the same change proposed by two meals shows once.
+  if (manifestArg !== "batch") {
+    const s = load();
+    if (!s.fixes?.length) return out("No fixes proposed.");
+    return out(...s.fixes.map(describeFix));
+  }
+  const { manifest } = loadManifest();
+  const groups = new Map<string, { file: string; name: string; fix: Fix }[]>();
+  for (const file of manifest.sessions) {
+    const s = loadAt(file);
+    for (const fix of s.fixes ?? []) {
+      if (fix.status !== "proposed") continue;
+      const key = `${fix.kind}:${fix.ingredientId ?? fix.patch?.canonical_name}`;
+      groups.set(key, [...(groups.get(key) ?? []), { file, name: s.form.name, fix }]);
+    }
+  }
+  if (groups.size === 0) return out("No fixes proposed in this batch.");
+  for (const [key, entries] of groups) {
+    out(`${key} (${entries.length} meal${entries.length > 1 ? "s" : ""}: ${entries.map((e) => e.name).join(", ")})`);
+    for (const e of entries) out(`    ${describeFix(e.fix)}`, `      --session ${e.file}`);
+  }
+}
+
+// Applies one approved fix through the same paths as the single flow, then
+// marks the same change proposed by other meals in the batch as applied.
+async function cmdApplyFix(id: string | undefined) {
+  if (!id) fail("Usage: apply-fix <fix-id>");
+  const session = load();
+  const fix = session.fixes?.find((f) => f.id === id) ?? fail(`No fix ${id}`);
+  if (fix.status !== "proposed") fail(`${id} is already ${fix.status}`);
+  if (fix.kind === "update") await cmdUpdateIngredient(fix.ingredientId, JSON.stringify(fix.patch));
+  else if (fix.kind === "prices") await cmdApplyPrices(fix.ingredientId, fix.listings!.join(","));
+  else if (fix.kind === "da-link") await cmdDaLink(fix.commodityId, fix.ingredientId);
+  else {
+    const created = await createIngredient({ source: "manual", price_source: "manual", verification_status: "NEEDS_REVIEW", ...(fix.patch as Partial<IngredientRow>), canonical_name: String(fix.patch!.canonical_name) });
+    fix.ingredientId = created.id;
+    out("Created:", ...describeIngredient(created));
+  }
+  const fresh = load(); // apply-prices may have saved the session meanwhile
+  const target = fresh.fixes!.find((f) => f.id === id)!;
+  target.status = "applied";
+  target.ingredientId = fix.ingredientId;
+  if (fix.kind === "create") {
+    for (const key of fix.lines) {
+      const item = line(fresh, key);
+      item.ingredientId = fix.ingredientId!;
+      item.ingredientName = String(fix.patch!.canonical_name);
+    }
+  }
+  save(fresh);
+  if (fresh.batch && existsSync(fresh.batch)) {
+    const manifest = JSON.parse(readFileSync(fresh.batch, "utf8")) as BatchManifest;
+    for (const file of manifest.sessions) {
+      if (resolve(file) === resolve(sessionPath())) continue;
+      const other = loadAt(file);
+      let changed = false;
+      for (const f of other.fixes ?? []) {
+        const same = f.status === "proposed" && f.kind === fix.kind && (fix.kind === "create" ? f.patch?.canonical_name === fix.patch?.canonical_name : f.ingredientId === fix.ingredientId);
+        if (!same) continue;
+        f.status = "applied";
+        f.ingredientId = fix.ingredientId;
+        if (fix.kind === "create") {
+          for (const key of f.lines) {
+            const item = other.form.ingredients.find((i) => i.key === key);
+            if (item) {
+              item.ingredientId = fix.ingredientId!;
+              item.ingredientName = String(fix.patch!.canonical_name);
+            }
+          }
+        }
+        changed = true;
+        out(`Also covers ${f.id} in "${other.form.name}".`);
+      }
+      if (changed) writeFileSync(file, JSON.stringify(other, null, 2));
+    }
+  }
+  out(`Applied ${id}.`);
+}
+
+async function cmdDropFix(id: string | undefined) {
+  const session = load();
+  const fix = session.fixes?.find((f) => f.id === id) ?? fail(`No fix ${id}`);
+  fix.status = "dropped";
+  save(session);
+  out(`Dropped ${id}.`);
+}
+
+async function cmdSetReview(text: string | undefined) {
+  const session = load();
+  session.review = readTextArg(text, "review").trim();
+  save(session);
+  out(`Review stored: ${verdictOf(session.review)}`);
+}
+
+async function cmdReview() {
+  const session = load();
+  out(session.review ?? "No review stored.");
+}
+
+async function cmdApproveAll() {
+  const session = load();
+  const items = filledIngredients(session.form);
+  const unlinked = items.filter((i) => !i.ingredientId);
+  if (unlinked.length) fail(`Not linked yet: ${unlinked.map((i) => i.key).join(", ")}`);
+  session.approved = items.map((i) => i.key);
+  save(session);
+  out(`Approved all ${items.length} lines.`);
+}
+
+// After approval: verify, on each line's ingredient, its macros and price
+// plus the bridge that line actually uses (pieces → piece weight, volume
+// on a per-gram ingredient or weight on a per-ml one → grams per ml).
+// Skips what's already verified or has no value.
+async function cmdArmourApproved() {
+  const session = load();
+  const all = await getIngredientsForMatching();
+  const byId = new Map(all.map((i) => [i.id, i]));
+  const wanted = new Map<string, Set<string>>();
+  for (const item of filledIngredients(session.form)) {
+    if (!session.approved.includes(item.key) || !item.ingredientId) continue;
+    const i = byId.get(item.ingredientId);
+    if (!i) continue;
+    const fields = wanted.get(i.id) ?? new Set<string>();
+    if (!isMacrosVerified(i) && i.calories != null) fields.add("macros");
+    if (!isPriceVerified(i) && i.estimated_price != null) fields.add("price");
+    const unit = item.quantityAmount.trim() ? item.quantityUnit : null;
+    if (unit === "piece" && i.grams_per_piece != null && !isBridgeLocked(i, "grams_per_piece")) fields.add("piece");
+    const crossesDomain = ((unit === "ml" || unit === "L") && i.basis_unit === "g") || ((unit === "g" || unit === "kg") && i.basis_unit === "ml");
+    if (crossesDomain && i.grams_per_ml != null && !isBridgeLocked(i, "grams_per_ml")) fields.add("density");
+    wanted.set(i.id, fields);
+  }
+  for (const [id, fields] of wanted) {
+    if (fields.size) await cmdArmour(id, [...fields].join(","));
+  }
+  out("Verified everything the approved lines use.");
+}
+
+// Output piped into `head` etc. closes early; that's not an error.
+process.stdout.on("error", (err: NodeJS.ErrnoException) => {
+  if (err.code === "EPIPE") process.exit(0);
+  throw err;
+});
+
+const argv = process.argv.slice(2);
+if (argv[0] === "--session") {
+  if (!argv[1] || !existsSync(resolve(ROOT, argv[1]))) fail("Usage: --session <session-file> <command> ...");
+  sessionOverride = resolve(ROOT, argv[1]);
+  argv.splice(0, 2);
+}
+const [command, ...args] = argv;
 const commands: Record<string, (...a: string[]) => Promise<void>> = {
+  "batch-start": cmdBatchStart,
+  "batch-status": cmdBatchStatus,
+  note: cmdNote,
+  "propose-fix": cmdProposeFix,
+  fixes: cmdFixes,
+  "apply-fix": cmdApplyFix,
+  "drop-fix": cmdDropFix,
+  "set-review": cmdSetReview,
+  review: cmdReview,
+  "approve-all": cmdApproveAll,
+  "armour-approved": cmdArmourApproved,
   import: cmdImport,
   lines: cmdLines,
   candidates: (...a) => cmdCandidates(a.join(" ")),
