@@ -15,6 +15,12 @@
 // nearly always "found" something. Now it's told an empty answer is the
 // normal one, and only sees the bridge fields.
 //
+// Since 2026-10-30 bridges can be verified (locked). It judged the shared
+// piece weight against one recipe's "large onion", so each new meal
+// "corrected" the last one's value. Now a piece weight means a typical
+// piece, recipe-size differences are quantity fixes, and verified bridges
+// are never flagged (the client drops those issues too).
+//
 // Writes nothing. The admin accepts or skips each issue in MealVerifyPanel.
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
@@ -32,6 +38,9 @@ type BridgeInput = {
   gramsPerPiece: number | null;
   pieceLabel: string | null;
   gramsPerMl: number | null;
+  // The admin verified these (ingredient bridge locks): facts, not guesses.
+  pieceVerified?: boolean;
+  densityVerified?: boolean;
 };
 
 type BridgeField = "grams_per_piece" | "grams_per_ml" | "piece_label" | "quantity";
@@ -55,15 +64,19 @@ Each ingredient gives you:
 - usedAmount + usedUnit: what that became for the math, in grams or ml.
 - gramsPerPiece + pieceLabel: weight of ONE piece, used when quantityUnit is "piece".
 - gramsPerMl: density, used to turn ml into grams or back.
+- pieceVerified / densityVerified: true when the admin already checked that bridge.
+
+gramsPerPiece, pieceLabel and gramsPerMl belong to the INGREDIENT and are shared by every meal that uses it. gramsPerPiece always means one TYPICAL piece (a medium onion, one clove). So when this recipe's piece is bigger or smaller than typical ("1 large onion", "2 small tomatoes"), the bridge is not wrong: flag "quantity" for this recipe instead (e.g. "1 large onion" entered as 1 piece of a 110 g onion → suggest "160 g").
 
 Flag an ingredient ONLY when usedAmount is clearly wrong for displayText, off by roughly 30% or more, and you can say exactly which value causes it:
-- "quantity": the entered amount/unit doesn't match the text (e.g. "2 cups rice" entered as 2 g; "1 can" entered as 1 kg). suggestedValue is "<number> <unit>" with unit one of g, kg, ml, L, piece, e.g. "370 g" or "2 piece".
-- "grams_per_piece": the piece weight is unrealistic (a garlic clove is about 5 g, a medium onion about 110 g, an egg about 55 g). suggestedValue is a plain number of grams.
-- "grams_per_ml": the density is unrealistic (water 1, cooking oil about 0.92, honey about 1.42). suggestedValue is a plain number.
-- "piece_label": only if it's wrong for this food (e.g. "clove" on an onion). suggestedValue is a short lowercase noun.
+- "quantity": the entered amount/unit doesn't match the text (e.g. "2 cups rice" entered as 2 g; "1 can" entered as 1 kg; "1 large onion" counted as a typical one). suggestedValue is "<number> <unit>" with unit one of g, kg, ml, L, piece, e.g. "370 g" or "2 piece".
+- "grams_per_piece": the typical piece weight itself is unrealistic for this food, regardless of this recipe (a garlic clove is about 5 g, a medium onion about 110 g, an egg about 55 g). suggestedValue is a plain number of grams. Never when pieceVerified is true.
+- "grams_per_ml": the density is unrealistic (water 1, cooking oil about 0.92, honey about 1.42). suggestedValue is a plain number. Never when densityVerified is true.
+- "piece_label": only if it's wrong for this food (e.g. "clove" on an onion). Never when pieceVerified is true. suggestedValue is a short lowercase noun.
 
 Rules:
 - Most recipes have NO issues. An empty list is the normal, expected answer. Do not flag ordinary variation (a "medium onion" of 100 g vs 120 g is fine).
+- A verified bridge is a fact. If the counted amount looks wrong for an ingredient with a verified bridge, the fix is always "quantity".
 - Never comment on calories, macros, prices, or which ingredient was linked.
 - At most ${MAX_ISSUES} issues, the clearest ones first.
 - "issue" is one plain sentence a cook would understand, naming the recipe text and the resulting amount. "currentValue" is the current value of that field.
@@ -90,11 +103,19 @@ async function checkBridges(meal: unknown, ingredients: BridgeInput[]): Promise<
   const raw = data.choices?.[0]?.message?.content;
   if (!raw) throw new Error("OpenAI returned no content");
   const parsed = JSON.parse(raw);
-  const keys = new Set(ingredients.map((i) => i.key));
+  const byKey = new Map(ingredients.map((i) => [i.key, i]));
+  // Verified bridges are facts; drop anything aimed at one before the cap,
+  // so it can't crowd out a real quantity issue.
+  const locked = (i: { key: string; field: BridgeField }) => {
+    const ing = byKey.get(i.key);
+    if (!ing) return true;
+    if (i.field === "grams_per_ml") return !!ing.densityVerified;
+    return (i.field === "grams_per_piece" || i.field === "piece_label") && !!ing.pieceVerified;
+  };
   const issues: BridgeIssue[] = [];
   for (const i of Array.isArray(parsed.issues) ? parsed.issues : []) {
     if (
-      i && keys.has(i.key) && FIELDS.has(i.field) &&
+      i && byKey.has(i.key) && FIELDS.has(i.field) && !locked(i) &&
       typeof i.issue === "string" && typeof i.suggestedValue === "string" && i.suggestedValue.trim() !== ""
     ) {
       issues.push({

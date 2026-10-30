@@ -13,6 +13,7 @@ import {
 } from "@/api/ingredients";
 import { getMealsUsingIngredients } from "@/api/meals";
 import { ActionChip, FieldLabel, InlineError, StatusChip } from "./AdminUi";
+import { Checkbox } from "./Checkbox";
 
 type Props = {
   visible: boolean;
@@ -97,6 +98,10 @@ type FormState = {
   grams_per_ml: string;
   grams_per_piece: string;
   piece_label: string;
+  // Bridge locks (see isBridgeLocked); saved as timestamps.
+  piece_verified: boolean;
+  density_verified: boolean;
+  bridge_note: string;
 };
 
 function toFormState(ingredient: IngredientRow): FormState {
@@ -128,6 +133,9 @@ function toFormState(ingredient: IngredientRow): FormState {
     grams_per_ml: ingredient.grams_per_ml?.toString() ?? "",
     grams_per_piece: ingredient.grams_per_piece?.toString() ?? "",
     piece_label: ingredient.piece_label ?? "",
+    piece_verified: ingredient.piece_verified_at != null,
+    density_verified: ingredient.density_verified_at != null,
+    bridge_note: ingredient.bridge_note ?? "",
   };
 }
 
@@ -164,7 +172,19 @@ function draftFormState(draft: Partial<IngredientRow> & { canonical_name: string
     grams_per_ml: draft.grams_per_ml?.toString() ?? "",
     grams_per_piece: draft.grams_per_piece?.toString() ?? "",
     piece_label: draft.piece_label ?? "",
+    // An estimate is never pre-verified.
+    piece_verified: false,
+    density_verified: false,
+    bridge_note: "",
   };
+}
+
+// A lock's timestamp: kept while the bridge is unchanged, re-stamped when
+// the admin edits a verified value (the DB only accepts edits to a locked
+// bridge that re-stamp it), cleared when unchecked or the value is blank.
+function lockStamp(verified: boolean, value: unknown, previousStamp: string | null, changed: boolean): string | null {
+  if (!verified || value == null) return null;
+  return previousStamp && !changed ? previousStamp : new Date().toISOString();
 }
 
 function numOrNull(value: string): number | null {
@@ -177,7 +197,10 @@ function textOrNull(value: string): string | null {
   return value.trim() === "" ? null : value.trim();
 }
 
-function buildPatch(form: FormState): Partial<IngredientRow> {
+function buildPatch(form: FormState, original: IngredientRow | null): Partial<IngredientRow> {
+  const gramsPerMl = numOrNull(form.grams_per_ml);
+  const gramsPerPiece = numOrNull(form.grams_per_piece);
+  const pieceLabel = textOrNull(form.piece_label);
   return {
     canonical_name: form.canonical_name.trim(),
     display_name: textOrNull(form.display_name),
@@ -206,9 +229,22 @@ function buildPatch(form: FormState): Partial<IngredientRow> {
     source_description: textOrNull(form.source_description),
     match_type: form.match_type[0] ?? null,
     verification_status: form.verification_status[0] ?? "UNRESOLVED",
-    grams_per_ml: numOrNull(form.grams_per_ml),
-    grams_per_piece: numOrNull(form.grams_per_piece),
-    piece_label: textOrNull(form.piece_label),
+    grams_per_ml: gramsPerMl,
+    grams_per_piece: gramsPerPiece,
+    piece_label: pieceLabel,
+    piece_verified_at: lockStamp(
+      form.piece_verified,
+      gramsPerPiece,
+      original?.piece_verified_at ?? null,
+      gramsPerPiece !== original?.grams_per_piece || pieceLabel !== original?.piece_label,
+    ),
+    density_verified_at: lockStamp(
+      form.density_verified,
+      gramsPerMl,
+      original?.density_verified_at ?? null,
+      gramsPerMl !== original?.grams_per_ml,
+    ),
+    bridge_note: textOrNull(form.bridge_note),
   };
 }
 
@@ -234,6 +270,33 @@ function NumberField({
 }) {
   return (
     <TextField label={label} value={value} onChangeText={onChangeText} keyboardType="numeric" />
+  );
+}
+
+// Nothing to verify without a value, so the box reads unchecked and
+// disabled while the field is blank.
+function VerifiedToggle({
+  label,
+  checked,
+  disabled,
+  onToggle,
+}: {
+  label: string;
+  checked: boolean;
+  disabled: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onToggle}
+      disabled={disabled}
+      className={`flex-row items-center gap-3 ${disabled ? "opacity-40" : ""}`}
+    >
+      <Checkbox checked={checked && !disabled} />
+      <AppText variant="body" className="flex-1">
+        {label}
+      </AppText>
+    </Pressable>
   );
 }
 
@@ -300,7 +363,7 @@ export function IngredientEditSheet({
       }
       return;
     }
-    onSave(buildPatch(form));
+    onSave(buildPatch(form, ingredient));
   };
 
   // Re-searches using the CURRENT form name (not the original DB value), so
@@ -493,9 +556,31 @@ export function IngredientEditSheet({
         </Section>
 
         <Section title="Unit conversion">
-          <NumberField label="Grams per mL" value={form.grams_per_ml} onChangeText={(v) => set("grams_per_ml", v)} />
+          <AppText variant="caption" className="text-ink-subtle">
+            Shared by every meal using this ingredient. A piece means a typical one (a medium onion, one clove); a
+            recipe&apos;s large or small piece is set on that meal&apos;s line. Verified values are never changed by
+            the AI bridge check.
+          </AppText>
           <NumberField label="Grams per piece" value={form.grams_per_piece} onChangeText={(v) => set("grams_per_piece", v)} />
           <TextField label="Piece label (e.g. clove, medium egg)" value={form.piece_label} onChangeText={(v) => set("piece_label", v)} />
+          <VerifiedToggle
+            label="Piece weight verified"
+            checked={form.piece_verified}
+            disabled={numOrNull(form.grams_per_piece) == null}
+            onToggle={() => set("piece_verified", !form.piece_verified)}
+          />
+          <NumberField label="Grams per mL" value={form.grams_per_ml} onChangeText={(v) => set("grams_per_ml", v)} />
+          <VerifiedToggle
+            label="Grams per mL verified"
+            checked={form.density_verified}
+            disabled={numOrNull(form.grams_per_ml) == null}
+            onToggle={() => set("density_verified", !form.density_verified)}
+          />
+          <TextField
+            label="Bridge source (e.g. USDA: 1 medium = 110 g)"
+            value={form.bridge_note}
+            onChangeText={(v) => set("bridge_note", v)}
+          />
         </Section>
 
         {confirming && (
