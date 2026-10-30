@@ -49,7 +49,9 @@ Every step goes through one command (allow it once):
 | `set-review -` / `review` | Store / show the reviewer's answer |
 | `approve-all` / `armour-approved` | Approve every linked line / verify what the approved lines use |
 
-JSON args can be inline or a path to a .json file. For anything long (copy), write the JSON to the scratchpad and pass the path.
+JSON args can be inline, `-` with a quoted heredoc, or a path to a .json file.
+
+**Command shape:** the allow rule only matches commands that *start* with `.claude/skills/seed-meal/seed`. Every Bash call (yours and the prep agents') is exactly one such command: no `cd`, no variables like `T=...; $T`, no `&&` / `;` chaining, no pipes. Run independent lookups as parallel Bash calls instead. Anything else interrupts Patrick with a permission prompt, which defeats batch mode.
 
 ## Batch mode (2 to 5 URLs)
 
