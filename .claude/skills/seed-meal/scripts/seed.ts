@@ -47,6 +47,8 @@ import {
   mealIngredientInput,
   mealInsertFromForm,
 } from "@/frontend/features/admin/utils/mealDraft";
+import { syncedPillTags } from "@/frontend/features/admin/utils/pillTags";
+import { MEAL_TIME_IDS, mealTimesOf, withMealTimes } from "@/frontend/core/meals/utils/mealTimes";
 import type { MealFormState } from "@/frontend/features/admin/components/MealFormFields";
 import type { PendingMealIngredient } from "@/frontend/features/admin/components/SeedMealIngredientsEditor";
 
@@ -545,12 +547,37 @@ const MEAL_FIELDS = ["servingSize", "prepTime", "totalTime", "difficulty", "prot
 async function cmdSetMeal(json: string | undefined) {
   const session = load();
   const patch = readJsonArg(json, "meal fields");
+  // Meal times live in tags; this replaces just those, keeping the rest.
+  if ("mealTimes" in patch) {
+    const times = Array.isArray(patch.mealTimes) ? patch.mealTimes.map(String) : [];
+    const bad = times.filter((t) => !MEAL_TIME_IDS.has(t));
+    if (bad.length) fail(`mealTimes must be breakfast, lunch or dinner (got ${bad.join(", ")})`);
+    session.form.tags = withMealTimes(session.form.tags, times);
+    delete patch.mealTimes;
+  }
   for (const [field, value] of Object.entries(patch)) {
     if (!(MEAL_FIELDS as readonly string[]).includes(field)) fail(`set-meal only takes ${MEAL_FIELDS.join(", ")}`);
     (session.form as Record<string, unknown>)[field] = Array.isArray(value) ? value.map(String) : String(value);
   }
   save(session);
-  out(`Updated: ${MEAL_FIELDS.map((f) => `${f} ${JSON.stringify(session.form[f])}`).join(" · ")}`);
+  out(
+    `Updated: ${MEAL_FIELDS.map((f) => `${f} ${JSON.stringify(session.form[f])}`).join(" · ")} · meal times ${JSON.stringify(mealTimesOf(session.form.tags))}`,
+  );
+}
+
+// Meal times on a meal that's already saved (any session or none), then
+// the same pill-tag refresh the app runs after a recompute.
+async function cmdMealTimes(mealId: string | undefined, times: string | undefined) {
+  if (!mealId || times === undefined) fail("Usage: meal-times <meal-id> <breakfast,lunch,dinner | none>");
+  const list = times === "none" ? [] : times!.split(",").map((t) => t.trim());
+  const bad = list.filter((t) => !MEAL_TIME_IDS.has(t));
+  if (bad.length) fail(`Meal times must be breakfast, lunch or dinner (got ${bad.join(", ")})`);
+  const { data: meal, error } = await supabase.from("meals").select("*").eq("id", mealId!).single();
+  if (error || !meal) fail(`No meal ${mealId}`);
+  const tagged = { ...meal!, tags: withMealTimes(meal!.tags, list) };
+  const tags = syncedPillTags(tagged) ?? tagged.tags;
+  const updated = await updateMeal(mealId!, { tags });
+  out(`${updated.name}: tags ${JSON.stringify(updated.tags)}`);
 }
 
 function copyRuns(session: Session) {
@@ -730,7 +757,11 @@ async function cmdSave() {
 
   const meal = await createMeal(mealInsertFromForm(session.draft, session.form));
   for (let i = 0; i < items.length; i++) await addMealIngredient(meal.id, mealIngredientInput(items[i], i));
-  await recomputeMealTotals(meal.id);
+  // Same as the app's useRecomputeMealTotals: refresh the pill tags from
+  // the recomputed totals, keeping cooking method and meal times.
+  const recomputed = await recomputeMealTotals(meal.id);
+  const tags = syncedPillTags(recomputed);
+  if (tags) await updateMeal(meal.id, { tags });
   const { error: sourceError } = await supabase.from("meal_sources").insert({ meal_id: meal.id, url: session.url });
   if (sourceError) out(`Warning: couldn't record the source link: ${sourceError.message}`);
 
@@ -1050,6 +1081,7 @@ const commands: Record<string, (...a: string[]) => Promise<void>> = {
   calc: cmdCalc,
   "set-copy": cmdSetCopy,
   "set-meal": cmdSetMeal,
+  "meal-times": cmdMealTimes,
   "copy-check": cmdCopyCheck,
   source: cmdSource,
   "approve-copy": cmdApproveCopy,

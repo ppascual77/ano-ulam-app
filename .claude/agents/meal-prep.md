@@ -39,10 +39,11 @@ EOF
    - A wrong value (bridge, unit): `{"kind":"update","ingredientId":"<id>","patch":{...},"lines":[...],"reason":"..."}`. Never touch a value marked verified (✓); flag it instead.
    - Side issues that don't block this meal (duplicate entries, overlapping aliases): mention in your final report, don't propose.
 4. **`calc`.** For every error, find the real cause and propose its fix. Never change a quantity to make a check pass. Note anything odd (salt as the priciest line, 1 kg of a vegetable for 4).
-5. **Meal facts.** If the import got allergens, times or tags plainly wrong (soy sauce means soy + gluten; prep and total times that contradict the steps), correct them with `set-meal` and list each change in your report. Leave servings as the source says; flag them if the portions look off.
-6. **Steps and description, in our own words.** Take only facts from the source (ingredients, amounts, method, times). Never its wording, story, tips or photos. Run `source` to know what to avoid, then write the steps fresh from *our* linked lines in plain friendly English for a Filipino home cook, keeping every real sub-step, using every listed ingredient and nothing unlisted. Write the description fresh from the dish's facts (what it is, taste, why it's a good budget ulam). `set-copy` it and `copy-check` until it passes with as little overlap as possible.
-7. **`image`** once.
-8. **`status`**, then finish.
+5. **Meal time.** Always set it: `set-meal '{"mealTimes":["lunch","dinner"]}'` (any of breakfast, lunch, dinner). Most ulam are lunch and dinner; silog plates, champorado, tapa and the like are breakfast; a dish commonly eaten at more than one gets all of them. Say which in your report.
+6. **Meal facts.** If the import got allergens, times or tags plainly wrong (soy sauce means soy + gluten; prep and total times that contradict the steps), correct them with `set-meal` and list each change in your report. Leave servings as the source says; flag them if the portions look off.
+7. **Steps and description, in our own words.** Take only facts from the source (ingredients, amounts, method, times). Never its wording, story, tips or photos. Run `source` to know what to avoid, then write the steps fresh from *our* linked lines in plain friendly English for a Filipino home cook, keeping every real sub-step, using every listed ingredient and nothing unlisted. Write the description fresh from the dish's facts (what it is, taste, why it's a good budget ulam). `set-copy` it and `copy-check` until it passes with as little overlap as possible.
+8. **`image`** once.
+9. **`status`**, then finish.
 
 ## Final report (your last message)
 

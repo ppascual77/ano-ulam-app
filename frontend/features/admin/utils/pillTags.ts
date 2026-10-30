@@ -41,3 +41,15 @@ export function computePillTags(meal: Pick<MealRow, "calories" | "protein" | "ca
   }
   return tags;
 }
+
+// The meal's tags with its pill tags refreshed from its current totals,
+// every other tag (cooking method, meal time) kept as set. null when
+// nothing changes. Used after every totals recompute (useRecomputeMealTotals
+// and the /seed-meal skill's save), so pills never drift from the numbers.
+export function syncedPillTags(
+  meal: Pick<MealRow, "tags" | "calories" | "protein" | "carbohydrates" | "fat" | "total_time">,
+): string[] | null {
+  const nextTags = [...meal.tags.filter((t) => !PILL_TAG_IDS.has(t)), ...computePillTags(meal)];
+  const changed = nextTags.length !== meal.tags.length || !nextTags.every((t) => meal.tags.includes(t));
+  return changed ? nextTags : null;
+}

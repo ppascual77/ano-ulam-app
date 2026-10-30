@@ -35,7 +35,8 @@ Every step goes through one command (allow it once):
 | `da-search <text>` / `da-link <commodity-id> <id>` | Find / link a DA commodity (re-picks the cheapest price) |
 | `calc` | The app's calculation check, per line and totals |
 | `source` | The source page's own description + steps (for the copy check, never to copy from) |
-| `set-meal <json>` | Meal fields: `servingSize`, `prepTime`, `totalTime`, `difficulty` (array), `proteinType`, `budgetRange`, `dietaryTags`, `tags`, `allergens` (nuts, gluten, dairy, egg, shellfish, fish, soy, coconut, sesame) |
+| `meal-times <meal-id> <breakfast,lunch,dinner \| none>` | Set meal times on an already-saved meal (and refresh its pill tags) |
+| `set-meal <json>` | Meal fields: `mealTimes` (breakfast, lunch, dinner; stored in tags, other tags kept), `servingSize`, `prepTime`, `totalTime`, `difficulty` (array), `proteinType`, `budgetRange`, `dietaryTags`, `tags`, `allergens` (nuts, gluten, dairy, egg, shellfish, fish, soy, coconut, sesame) |
 | `set-copy <json>` / `copy-check` / `approve-copy` | Replace description/steps, run the 8-word copy check, record approval |
 | `preview` | The meal as a user sees it (input for the review) |
 | `mark-reviewed` | Record that the fresh-eyes review is done and its concerns handled |
@@ -72,7 +73,7 @@ All tables go in AskUserQuestion option `preview`s (the question box hides the c
 1. **Ready?** One question, preview = the `batch-status` summary as a table (meal, lines, flags, ₱ and kcal per serving, review verdict, duplicates, failed imports). Options: **Start review** / **Later**.
 2. **Shared fixes** (skip if none). One question per fix group from `fixes batch` (up to 4 per call), preview = what changes, why, which meals. Options: **Apply** / **Skip**. Apply with `--session <file> apply-fix <id>` once per group; it marks the twins in other meals applied. A skipped fix: `drop-fix` in each session, and its lines stay flagged.
 3. **One call per meal**, up to 4 questions as tabs, one submit:
-   - **Lines:** table of every line (recipe text, pick, counted amount, line ₱, prep's flags marked ⚠). Approve all / Change some.
+   - **Lines:** table of every line (recipe text, pick, counted amount, line ₱, prep's flags marked ⚠), plus the meal times prep set (e.g. "Meal time: lunch, dinner"). Approve all / Change some.
    - **Steps:** source vs ours, side by side. Approve / Change some.
    - **Review:** the reviewer's verdict and concerns, sorted into concerns and challenges to verified values (`lines` shows ✓), each with your one-line view. Options to accept the suggested changes or keep as is; he can type specifics.
    - **Image:** say it's ready and where; show it with Read right before this call. Use / Regenerate / Skip.
@@ -123,6 +124,8 @@ For each line, investigate:
 7. "Pick another": show the next 2-3 candidates with the same evidence, or search USDA / create a new ingredient if none fit (creating is its own approval: show the full proposed row first).
 
 **Changing a shared ingredient** (`update-ingredient`, `apply-prices`, `da-link`, `create-ingredient`) affects every meal using it: run `ingredient <id>` first and tell Patrick which meals will be recomputed. A verified field only changes if the patch also re-stamps its lock (e.g. `{"grams_per_piece": 110, "piece_verified_at": "<now ISO>"}`), and only after Patrick explicitly approved changing a verified value.
+
+Put your proposed **meal time** (breakfast, lunch, dinner; any that fit, most ulam are lunch + dinner) in the same lines preview, and set it with `set-meal '{"mealTimes":[...]}'` once approved. It drives Home's Breakfast / Lunch / Dinner categories.
 
 ### 5. Calculation check
 Run `calc` once every line is linked. Errors block saving: fix their cause (with Patrick) instead of adjusting a quantity to make it pass. Read the per-line kcal and ₱ for anything odd (salt being the priciest line, a vegetable at 1 kg for 4 servings) and raise it.
