@@ -5,7 +5,7 @@ import { router } from "expo-router";
 import { ClipboardCheck, Link2 } from "lucide-react-native";
 import { AppText, Button, ErrorState, LoadingState, Screen, TextField } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { parseQuantityText, type ImportedMealDraft } from "@/api/meals";
+import type { ImportedMealDraft } from "@/api/meals";
 import {
   useAddMealIngredient,
   useCreateMeal,
@@ -21,50 +21,7 @@ import { AdminHeader } from "../components/AdminHeader";
 import { Checklist, InlineError } from "../components/AdminUi";
 import { buildMealCalculation } from "../utils/mealCalculation";
 import { findCopiedRuns } from "../utils/verbatimCheck";
-
-function draftIngredientsToPending(draft: ImportedMealDraft): PendingMealIngredient[] {
-  return draft.ingredients.map((ing, i) => {
-    // Best-effort prefill from the LLM's free-text quantity ("2 pieces",
-    // "500 g") — the amount is a fact about this recipe, not something the
-    // ingredients DB can supply, so this is a parse of what's already in
-    // the text, not a calculation. Units this schema doesn't model fall
-    // through and stay blank for the admin to set.
-    const parsed = parseQuantityText(ing.quantity_text);
-    return {
-      key: `imported-${i}`,
-      name: ing.name,
-      quantityAmount: parsed?.amount ?? "",
-      quantityUnit: parsed?.unit ?? "g",
-      displayText: ing.quantity_text,
-      note: "",
-      section: ing.section?.trim() ?? "",
-      priceQuantityAmount: "",
-      priceQuantityUnit: "",
-      ingredientId: null,
-      ingredientName: null,
-    };
-  });
-}
-
-function draftToFormState(draft: ImportedMealDraft): MealFormState {
-  return {
-    name: draft.name,
-    description: draft.description,
-    prepTime: draft.prep_time?.toString() ?? "",
-    totalTime: draft.total_time?.toString() ?? "",
-    servingSize: draft.servings?.toString() ?? "1",
-    difficulty: draft.difficulty ? [draft.difficulty] : [],
-    proteinType: draft.protein_type ?? "",
-    restaurant: "",
-    source: "",
-    budgetRange: "",
-    dietaryTags: draft.dietary_tags,
-    tags: draft.tags,
-    allergens: draft.allergens,
-    procedure: draft.procedure,
-    ingredients: draftIngredientsToPending(draft),
-  };
-}
+import { draftToFormState, filledIngredients, mealIngredientInput, mealInsertFromForm } from "../utils/mealDraft";
 
 export default function SeedMealScreen() {
   const [url, setUrl] = useState("");
@@ -97,10 +54,7 @@ export default function SeedMealScreen() {
       prev ? { ...prev, ingredients: prev.ingredients.map((i) => (i.key === key ? { ...i, ...patch } : i)) } : prev,
     );
 
-  const trimmedIngredients = useMemo(
-    () => (form?.ingredients ?? []).filter((i) => i.name.trim() !== ""),
-    [form?.ingredients],
-  );
+  const trimmedIngredients = useMemo(() => (form ? filledIngredients(form) : []), [form?.ingredients]);
   const allResolved = trimmedIngredients.length > 0 && trimmedIngredients.every((i) => i.ingredientId);
   // The calculation check (no AI) gates Confirm Seed: anything that would
   // silently zero out an ingredient's kcal or ₱ has to be fixed first. The
@@ -131,42 +85,10 @@ export default function SeedMealScreen() {
 
   const handleSave = async () => {
     if (!draft || !form) return;
-    const meal = await createMeal.mutateAsync({
-      name: form.name.trim(),
-      description: form.description.trim() || null,
-      category: draft.category,
-      difficulty: form.difficulty[0] ?? null,
-      protein_type: form.proteinType.trim() || null,
-      restaurant: form.restaurant.trim() || null,
-      source: form.source.trim() || null,
-      budget_range: form.budgetRange.trim() || null,
-      prep_time: form.prepTime ? Number(form.prepTime) : null,
-      total_time: form.totalTime ? Number(form.totalTime) : null,
-      serving_size: Number(form.servingSize) || 1,
-      procedure: form.procedure.map((s) => s.trim()).filter(Boolean),
-      allergens: form.allergens,
-      dietary_tags: form.dietaryTags,
-      tags: form.tags,
-      source_type: "ai_estimated",
-      reference_image_url: draft.reference_image_url,
-    });
+    const meal = await createMeal.mutateAsync(mealInsertFromForm(draft, form));
 
     for (let i = 0; i < trimmedIngredients.length; i++) {
-      const item = trimmedIngredients[i];
-      await addMealIngredient.mutateAsync({
-        mealId: meal.id,
-        input: {
-          ingredient_id: item.ingredientId as string,
-          quantity_amount: item.quantityAmount.trim() === "" ? null : Number(item.quantityAmount),
-          quantity_unit: item.quantityAmount.trim() === "" ? null : item.quantityUnit,
-          display_text: item.displayText.trim() || item.name,
-          note: item.note.trim() || null,
-          section: item.section.trim() || null,
-          price_quantity_amount: item.priceQuantityAmount.trim() === "" ? null : Number(item.priceQuantityAmount),
-          price_quantity_unit: item.priceQuantityAmount.trim() === "" ? null : item.priceQuantityUnit,
-          sort_order: i,
-        },
-      });
+      await addMealIngredient.mutateAsync({ mealId: meal.id, input: mealIngredientInput(trimmedIngredients[i], i) });
     }
 
     await recomputeMealTotals.mutateAsync(meal.id);

@@ -1,0 +1,11 @@
+{
+  "extends": "../../../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "module": "esnext",
+    "target": "es2022",
+    "moduleResolution": "bundler",
+    "types": ["node"]
+  },
+  "include": ["*.ts", "../../../../expo-env.d.ts", "../../../../nativewind-env.d.ts"]
+}

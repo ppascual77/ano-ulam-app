@@ -1,0 +1,6 @@
+#!/bin/sh
+# /seed-meal's tool runner: `.claude/skills/seed-meal/seed <command> [args...]`
+# One stable command shape, so it can be allowed once in settings.
+cd "$(dirname "$0")/../../.." || exit 1
+exec node --env-file=.env --no-warnings --import ./.claude/skills/seed-meal/scripts/register.mjs \
+  .claude/skills/seed-meal/scripts/seed.ts "$@"
