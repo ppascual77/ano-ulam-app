@@ -51,7 +51,8 @@ export function usePageIntro({
 }: {
   enabled: boolean;
   onArm?: () => void;
-  /** Landed or skipped (e.g. to remember it's been seen). */
+  /** Landed, skipped, or left partway (switching away mid-intro): any of
+   *  these counts as seen, e.g. to remember it so it plays only once. */
   onFinish?: () => void;
 }) {
   const [state, setState] = useState<IntroState>(enabled ? "armed" : "done");
@@ -67,7 +68,9 @@ export function usePageIntro({
       if (!enabled) return;
       setState("playing");
       return () => {
-        // Leaving the page: re-arm while it's hidden, ready for next time.
+        // Leaving the page: it's been seen, even if it didn't finish. Re-arm
+        // while hidden in case it's still due (a page that plays every visit).
+        onFinishRef.current?.();
         onArmRef.current?.();
         setRun((n) => n + 1);
         setState("armed");

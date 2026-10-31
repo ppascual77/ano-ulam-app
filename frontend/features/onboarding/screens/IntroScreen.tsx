@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { View, Text } from "react-native";
 import { Image } from "expo-image";
-import { router, useFocusEffect } from "expo-router";
+import { Redirect, router, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppText, DotMorphButton } from "@/frontend/components/ui";
 import { RotatingBlob } from "../components/RotatingBlob";
@@ -13,18 +13,31 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 // opens onto onboarding (DotReveal).
 const HANDOFF_MS = 50;
 
+// The native splash (app.json's expo-splash-screen: splash-icon.png, 120 wide,
+// centered on white), drawn again so a signed-in user's start goes splash ->
+// Home with nothing in between.
+const SPLASH_ICON_WIDTH = 120;
+const SPLASH_ICON_RATIO = 358 / 512;
+
+function SplashStandIn() {
+  return (
+    <View className="absolute inset-0 items-center justify-center bg-white">
+      <Image
+        source={require("@/assets/splash-icon.png")}
+        style={{ width: SPLASH_ICON_WIDTH, height: SPLASH_ICON_WIDTH / SPLASH_ICON_RATIO }}
+        contentFit="contain"
+      />
+    </View>
+  );
+}
+
 export default function IntroScreen() {
   const { isSignedIn } = useAuth();
+  // Whether they were signed in when the app opened. Signing in later
+  // happens inside onboarding, which takes them to Home itself (with the
+  // welcome intro), so this screen mustn't redirect then too.
+  const [returningUser] = useState(isSignedIn);
   const reduceMotion = useReduceMotion();
-
-  // app/_layout.tsx already waits for the initial session check before
-  // rendering any screen, so by the time this mounts `isSignedIn` is settled —
-  // skip the onboarding carousel entirely for a returning signed-in user.
-  useEffect(() => {
-    if (isSignedIn) {
-      router.replace("/home");
-    }
-  }, [isSignedIn]);
 
   // The button's own dot hides once the overlay's has taken over from it.
   const [handedOff, setHandedOff] = useState(false);
@@ -40,6 +53,20 @@ export default function IntroScreen() {
       setRun((n) => n + 1);
     }, []),
   );
+
+  // app/_layout.tsx waits for the initial session check before rendering
+  // any screen, so `isSignedIn` is settled on the first render. A returning
+  // signed-in user goes straight to Home, before the first paint (an effect
+  // would show Get Started for a moment first), with the splash standing in
+  // while Home fades in.
+  if (returningUser) {
+    return (
+      <>
+        <SplashStandIn />
+        <Redirect href="/home" />
+      </>
+    );
+  }
 
   return (
     <View style={{ flex: 1 }} className="bg-white">

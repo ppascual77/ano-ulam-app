@@ -3,8 +3,8 @@ import { create } from "zustand";
 
 // Page intros (Browse, Price Watch, Discover, Meal Planner) play once: the
 // first visit to each page. Remembered on the device, like other device
-// preferences. Finishing or skipping counts as seen; leaving mid-intro
-// doesn't (it plays again next visit).
+// preferences, in dev builds too (Settings' "Replay page intros" plays them
+// again). Finishing, skipping or leaving mid-intro all count as seen.
 const STORAGE_KEY = "anoulam.seenIntros";
 
 export type IntroId = "browse" | "price-watch" | "discover" | "meal-planner";
@@ -22,12 +22,6 @@ export const useSeenIntrosStore = create<SeenIntrosState>((set, get) => ({
   seen: new Set(),
   loaded: false,
   load: async () => {
-    // Dev builds forget on every reload, so the intros can be checked again
-    // without "Replay page intros". Each still plays only once per session.
-    if (__DEV__) {
-      set({ loaded: true });
-      return;
-    }
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (raw) set({ seen: new Set(JSON.parse(raw) as IntroId[]) });
