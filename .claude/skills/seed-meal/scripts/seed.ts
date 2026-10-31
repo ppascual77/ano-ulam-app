@@ -553,11 +553,13 @@ async function cmdSetMeal(json: string | undefined) {
   const session = load();
   const patch = readJsonArg(json, "meal fields");
   // Meal times live in tags; this replaces just those, keeping the rest.
+  // Applied after the other fields, so a `tags` in the same call can't
+  // wipe the meal times out.
+  let mealTimes: string[] | null = null;
   if ("mealTimes" in patch) {
-    const times = Array.isArray(patch.mealTimes) ? patch.mealTimes.map(String) : [];
-    const bad = times.filter((t) => !MEAL_TIME_IDS.has(t));
+    mealTimes = Array.isArray(patch.mealTimes) ? patch.mealTimes.map(String) : [];
+    const bad = mealTimes.filter((t) => !MEAL_TIME_IDS.has(t));
     if (bad.length) fail(`mealTimes must be breakfast, lunch or dinner (got ${bad.join(", ")})`);
-    session.form.tags = withMealTimes(session.form.tags, times);
     delete patch.mealTimes;
   }
   // Same vocabulary as the meal form's allergen chips.
@@ -570,6 +572,7 @@ async function cmdSetMeal(json: string | undefined) {
     if (!(MEAL_FIELDS as readonly string[]).includes(field)) fail(`set-meal only takes ${MEAL_FIELDS.join(", ")}`);
     (session.form as Record<string, unknown>)[field] = Array.isArray(value) ? value.map(String) : String(value);
   }
+  if (mealTimes) session.form.tags = withMealTimes(session.form.tags, mealTimes);
   save(session);
   out(
     `Updated: ${MEAL_FIELDS.map((f) => `${f} ${JSON.stringify(session.form[f])}`).join(" · ")} · meal times ${JSON.stringify(mealTimesOf(session.form.tags))}`,
