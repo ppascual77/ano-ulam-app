@@ -32,8 +32,8 @@ import { LockedDaySheet, SwapMealSheet } from "../components/PlannerSheets";
 // Meal Planner (test build of the flow): setup (budget, people, optional
 // macro goal) -> a short timed "Planning your week" checklist -> a 5-day
 // plan from today. Free users get day 1; days 2-5 are locked, and tapping
-// them (or a day action) opens a light upgrade sheet whose "Unlock
-// Premium" is a mock unlock.
+// them (or a day action) opens a light upgrade sheet, which leads to the
+// full Pro page.
 // No Grocery List yet.
 
 // Plays the "one budget, seven days" intro on opening the planner (setup
@@ -45,7 +45,6 @@ const SHOW_INTRO = true;
 export default function MealPlannerScreen() {
   const store = usePlannerStore();
   const isPro = useProStore((s) => s.isPro);
-  const setPro = useProStore((s) => s.setPro);
   const { pool, isLoading: poolLoading } = usePlannerPool();
   const { session } = useAuth();
   // "Hello, <first name>!", or just "Hello!" for a guest.
@@ -117,11 +116,6 @@ export default function MealPlannerScreen() {
     showToast("New meals for this day");
   };
 
-  const unlock = () => {
-    setPro(true);
-    setLockedOpen(false);
-    showToast("Pro unlocked (test)");
-  };
 
 
   return (
@@ -348,7 +342,7 @@ export default function MealPlannerScreen() {
         pantry={pantry}
       />
 
-      <LockedDaySheet visible={lockedOpen} lockedDays={PLAN_DAYS - 1} onClose={() => setLockedOpen(false)} onUnlock={unlock} />
+      <LockedDaySheet visible={lockedOpen} lockedDays={PLAN_DAYS - 1} onClose={() => setLockedOpen(false)} onOpenPro={() => router.push("/pro")} />
 
       <SwapMealSheet
         slot={swap?.slot ?? null}

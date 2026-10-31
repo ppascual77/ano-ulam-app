@@ -130,6 +130,8 @@ export default function RootLayout() {
                     the screen (DotReveal), so no transition of its own. With
                     reduce motion there's no dot: a plain fade. */}
                 <Stack.Screen name="onboarding" options={{ animation: reduceMotionOn ? "fade" : "none" }} />
+                {/* The full Pro page slides up over whatever opened it. */}
+                <Stack.Screen name="pro" options={{ presentation: "fullScreenModal" }} />
               </Stack>
               {/* Above every screen: a title dot flying to the next screen's. */}
               <DotHandoffOverlay enabled={!reduceMotionOn} />

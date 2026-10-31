@@ -1,19 +1,26 @@
 import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
 import { PhilippinePeso, Utensils } from "lucide-react-native";
+import { Text, View } from "react-native";
 import { AppText, Button, Stepper, TextField } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 
+type SuggestParams = { budget: string; servings: number };
+
 type BudgetFormProps = {
-  onSuggestMeals?: (params: { budget: string; servings: number }) => void;
+  onSuggestMeals?: (params: SuggestParams) => void;
+  /** Checked before suggesting (e.g. the daily limit): false skips the
+   *  "thinking" and the suggestion, and the caller shows why. */
+  beforeSuggest?: (params: SuggestParams) => Promise<boolean>;
+  /** A quiet line under the button, e.g. "2 suggestions left today". */
+  hint?: string | null;
 };
 
 // Forced "thinking" time before suggestions show, so the button's wave
 // loading state actually gets seen (the suggestion itself is instant).
 const SUGGEST_DELAY_MS = 2000;
 
-export function BudgetForm({ onSuggestMeals }: BudgetFormProps) {
+export function BudgetForm({ onSuggestMeals, beforeSuggest, hint }: BudgetFormProps) {
   const [budget, setBudget] = useState("");
   const [servings, setServings] = useState(1);
   const [isSuggesting, setIsSuggesting] = useState(false);
@@ -22,7 +29,9 @@ export function BudgetForm({ onSuggestMeals }: BudgetFormProps) {
 
   useEffect(() => () => clearTimeout(timeout.current), []);
 
-  const handleSuggest = () => {
+  const handleSuggest = async () => {
+    if (isSuggesting) return;
+    if (beforeSuggest && !(await beforeSuggest({ budget, servings }))) return;
     setIsSuggesting(true);
     timeout.current = setTimeout(() => {
       setIsSuggesting(false);
@@ -68,6 +77,7 @@ export function BudgetForm({ onSuggestMeals }: BudgetFormProps) {
         loader={reduceMotion ? "spiral" : "wave"}
         onPress={handleSuggest}
       />
+      {hint && <Text className="-mt-2 text-center font-inter-regular text-small text-ink-subtle">{hint}</Text>}
     </View>
   );
 }

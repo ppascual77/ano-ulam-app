@@ -1,5 +1,11 @@
 import { memo, useState } from "react";
 import { View } from "react-native";
+import { router } from "expo-router";
+import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
+import { useIsPro } from "@/frontend/core/pro/store/useProStore";
+import { FREE_DAILY_SUGGESTIONS, GUEST_DAILY_SUGGESTIONS, dailyLimitFor } from "@/frontend/core/pro/proContent";
+import { leftHint, useDailyLimit } from "@/frontend/core/pro/dailyLimits";
+import { DailyLimitSheet } from "@/frontend/core/pro/components/DailyLimitSheet";
 import type { LandingDot } from "@/frontend/components/ui";
 import { BudgetForm } from "./BudgetForm";
 import { MealSuggestion } from "./MealSuggestion";
@@ -21,9 +27,21 @@ function BudgetSectionInner({ categoriesLanding }: BudgetSectionProps) {
     servings: number;
   } | null>(null);
 
+  // Suggest by Budget's daily limit (see dailyLimits): a new budget and
+  // servings counts once; asking again for the same today is free.
+  const isPro = useIsPro();
+  const { isSignedIn } = useAuth();
+  const daily = useDailyLimit("budget", dailyLimitFor({ isPro, isGuest: !isSignedIn }, GUEST_DAILY_SUGGESTIONS, FREE_DAILY_SUGGESTIONS));
+  const [limitSheetOpen, setLimitSheetOpen] = useState(false);
+  const beforeSuggest = async ({ budget, servings }: { budget: string; servings: number }) => {
+    const ok = await daily.use(JSON.stringify([budget.trim(), servings]));
+    if (!ok) setLimitSheetOpen(true);
+    return ok;
+  };
+
   return (
     <View className="gap-6 mb-10">
-      <BudgetForm onSuggestMeals={setSuggestion} />
+      <BudgetForm onSuggestMeals={setSuggestion} beforeSuggest={beforeSuggest} hint={leftHint(daily.left, "suggestion")} />
 
       {suggestion ? (
         <MealSuggestion budget={suggestion.budget} />
@@ -35,6 +53,14 @@ function BudgetSectionInner({ categoriesLanding }: BudgetSectionProps) {
           <BestValueMealsSection />
         </>
       )}
+
+      <DailyLimitSheet
+        visible={limitSheetOpen}
+        what="budget suggestions"
+        limit={daily.limit}
+        onClose={() => setLimitSheetOpen(false)}
+        onOpenPro={() => router.push("/pro")}
+      />
     </View>
   );
 }

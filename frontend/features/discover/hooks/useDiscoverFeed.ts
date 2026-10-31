@@ -124,7 +124,7 @@ export function useDiscoverFeed({ isGuest }: { isGuest: boolean }) {
     }
   };
 
-  // Returns an error message for the caller to toast (the 15-meal limit),
+  // Returns an error message for the caller to toast (the saved meals limit),
   // or null. Caller handles the guest login gate before calling this.
   const toggleSave = async (meal: MealType): Promise<string | null> => {
     const key = mealKey(meal);

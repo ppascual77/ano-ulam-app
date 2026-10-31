@@ -1,12 +1,12 @@
 import { useEffect } from "react";
 import { Text, View } from "react-native";
-import { router } from "expo-router";
 import Svg, { Circle } from "react-native-svg";
 import Animated, { Easing, useAnimatedProps, useSharedValue, withTiming } from "react-native-reanimated";
 import { Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { PANTRY_MIN_FOR_SUGGESTIONS, type PantryIngredient } from "../mock/api";
 import { usePantryMatches } from "../hooks/usePantryMatches";
+import { usePantryResultsGate } from "../hooks/usePantryResultsGate";
 
 const RING_SIZE = 112;
 const RING_STROKE = 10;
@@ -55,12 +55,9 @@ export function PantryMatchCard({ pantry }: { pantry: PantryIngredient[] }) {
   const needed = PANTRY_MIN_FOR_SUGGESTIONS - pantry.length;
   const ready = needed <= 0;
 
-  const seeMeals = () =>
-    router.push({
-      pathname: "/pantry-results",
-      // JSON: ingredient names can contain commas ("Chicken, thigh").
-      params: { ids: JSON.stringify(pantry.map((p) => p.id)), names: JSON.stringify(pantry.map((p) => p.name)) },
-    });
+  // The count and match % stay free; opening the meals counts toward the
+  // daily limit (usePantryResultsGate).
+  const gate = usePantryResultsGate();
 
   return (
     <View className="flex-row items-center gap-4 rounded-3xl bg-mood-bg p-5">
@@ -81,8 +78,10 @@ export function PantryMatchCard({ pantry }: { pantry: PantryIngredient[] }) {
           )}
         </Text>
         <View className="mt-3">
-          <Button label="See meals" shape="fullPill" onPress={seeMeals} disabled={!ready || matchedMeals === 0} />
+          <Button label="See meals" shape="fullPill" onPress={() => void gate.openResults(pantry)} disabled={!ready || matchedMeals === 0} />
         </View>
+        {ready && gate.hint && <View className="mt-2">{gate.hint}</View>}
+        {gate.limitSheet}
       </View>
       <MatchRing percent={ready ? averageMatch : 0} />
     </View>

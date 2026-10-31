@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
-import { Image } from "expo-image";
 import { AppText, BottomSheet } from "@/frontend/components/ui";
-import { ingredientCategoryIcon } from "../../ingredientCategory";
 import { capitalize } from "../../utils/dietary";
 import { MicronutrientSection, NutritionSection, NutritionSourceSection, PriceSourceSection, hasNutrition } from "./IngredientDetailSections";
 import type { IngredientType } from "../../mealTypes";
@@ -17,13 +15,15 @@ type IngredientDetailSheetProps = {
    *  content below that and scrolls above it. MealDetailSheet sets this
    *  relative to its own height. */
   maxHeightPercent: number;
+  /** A free user tapping locked micronutrients: open the Pro upsell. */
+  onLockedPro?: () => void;
 };
 
 // Opened by tapping an ingredient card in MealDetailContent. Always rendered
 // "inline" inside MealDetailSheet's own overlay slot: it sits on top of an
 // already-open sheet, and two native Modals don't stack reliably (see
 // BottomSheet's `overlay` / `presentation` docs).
-export function IngredientDetailSheet({ ingredient, onClose, maxHeightPercent }: IngredientDetailSheetProps) {
+export function IngredientDetailSheet({ ingredient, onClose, maxHeightPercent, onLockedPro }: IngredientDetailSheetProps) {
   // Keep the last ingredient rendered while the sheet animates closed, so
   // it doesn't go blank before it's off-screen (same as MealDetailSheet).
   const [rendered, setRendered] = useState(ingredient);
@@ -46,12 +46,10 @@ export function IngredientDetailSheet({ ingredient, onClose, maxHeightPercent }:
     >
       {rendered && (
         <View className="px-5 pt-8 pb-8">
-          {/* Category icon on the left, centered on the two lines beside it:
-              name with price (same heading size, top-aligned so a wrapped
+          {/* Name with price (same heading size, top-aligned so a wrapped
               name keeps the price on its first line), then quantity + pill
               with "Estimated cost". */}
           <View className="flex-row items-center gap-3">
-            <Image source={ingredientCategoryIcon(rendered)} style={{ width: 48, height: 48 }} contentFit="contain" />
             <View className="flex-1 gap-2">
               <View className="flex-row items-start justify-between gap-3">
                 <AppText variant="sectionTitle" dot className="flex-1">
@@ -80,7 +78,7 @@ export function IngredientDetailSheet({ ingredient, onClose, maxHeightPercent }:
           </View>
 
           <NutritionSection item={rendered} />
-          <MicronutrientSection item={rendered} />
+          <MicronutrientSection item={rendered} onLockedPro={onLockedPro} />
           {hasNutrition(rendered) && <NutritionSourceSection item={rendered} />}
           <PriceSourceSection item={rendered} />
         </View>

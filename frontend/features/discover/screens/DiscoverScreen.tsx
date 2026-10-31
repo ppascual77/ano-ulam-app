@@ -7,7 +7,8 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronUp } from "lucide-react-native";
-import { Spinner, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
+import { Spinner, Toast, isModalSheetOpen, usePageIntro, type ToastState } from "@/frontend/components/ui";
+import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { colors } from "@/frontend/constants/theme";
@@ -27,6 +28,8 @@ import { LoginGateSheet, type LoginGateReason } from "@/frontend/features/auth/c
 import { CommunityFeed } from "../components/CommunityFeed";
 import { CreateButton } from "../components/CreateButton";
 import { DiscoverIntro } from "../components/DiscoverIntro";
+import { EarnProSheet, type EarnProChoice } from "../components/EarnProSheet";
+import { canShowEarnProPrompt, useEarnProPromptStore } from "../store/useEarnProPromptStore";
 import { CreateSheet, type CreateChoice } from "@/frontend/core/posts/components/CreateSheet";
 import { CreatePostSheet } from "@/frontend/core/posts/components/CreatePostSheet";
 import { openProfile } from "@/frontend/core/users/openProfile";
@@ -63,6 +66,8 @@ const DEV_FORCE_COMMUNITY_SIGNED_IN = __DEV__;
 // TODO: gate this behind a first-time-user flag (the auto tour), e.g. a
 // stored "seen" flag, instead of always.
 const SHOW_INTRO = true;
+// Reels watched in one visit before "Your recipe could earn you Pro" may show.
+const EARN_PRO_AFTER_REELS = 6;
 
 type Page = { kind: "meal"; meal: MealType } | { kind: "end" };
 
@@ -292,6 +297,42 @@ export default function DiscoverScreen() {
     // Only on a new visit.
   }, [params.at]);
 
+  // ---- "Your recipe could earn you Pro" --------------------------------------
+  // For signed-in free users, once they've watched EARN_PRO_AFTER_REELS reels
+  // in one visit (they've just seen what others share), when nothing else is
+  // open. At most once a day; gone for good after 3 dismissals (the store).
+
+  const isPro = useIsPro();
+  const [earnProOpen, setEarnProOpen] = useState(false);
+  const reelsSeen = useRef(new Set<number>());
+  const loadEarnPro = useEarnProPromptStore((s) => s.load);
+  useEffect(() => {
+    void loadEarnPro();
+  }, [loadEarnPro]);
+  // Counts per visit.
+  useFocusEffect(
+    useCallback(() => {
+      reelsSeen.current = new Set();
+    }, []),
+  );
+  useEffect(() => {
+    if (tab !== "recipes" || isGuest || isPro || !activeMeal) return;
+    reelsSeen.current.add(feed.activeIndex);
+    if (reelsSeen.current.size < EARN_PRO_AFTER_REELS) return;
+    if (earnProOpen || intro.showing || detailOpen || gate || composer.open || createSheetOpen || isModalSheetOpen()) return;
+    if (!canShowEarnProPrompt()) return;
+    useEarnProPromptStore.getState().markShown();
+    setEarnProOpen(true);
+    // On each reel change only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feed.activeIndex]);
+
+  const afterEarnProClosed = (choice: EarnProChoice | null) => {
+    if (choice === "recipe") router.push("/add-recipe");
+    else if (choice === "post") setComposer({ open: true, editPost: null });
+    else useEarnProPromptStore.getState().markDismissed();
+  };
+
   const likeEntry = activeKey ? feed.likes[activeKey] : undefined;
 
   const closeGate = () => {
@@ -506,6 +547,8 @@ export default function DiscoverScreen() {
         }}
         onClosed={afterCreateSheetClosed}
       />
+
+      <EarnProSheet visible={earnProOpen} onClose={() => setEarnProOpen(false)} onClosed={afterEarnProClosed} />
 
       <CreatePostSheet
         visible={composer.open}

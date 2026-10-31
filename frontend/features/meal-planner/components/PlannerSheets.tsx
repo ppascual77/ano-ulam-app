@@ -13,11 +13,12 @@ type LockedDaySheetProps = {
   /** How many days are locked (for the title). */
   lockedDays: number;
   onClose: () => void;
-  onUnlock: () => void;
+  /** Off to the full Pro page (plans live there). */
+  onOpenPro: () => void;
 };
 
 // Free user tapping a locked day (or Swap): the shared Pro upsell.
-export function LockedDaySheet({ visible, lockedDays, onClose, onUnlock }: LockedDaySheetProps) {
+export function LockedDaySheet({ visible, lockedDays, onClose, onOpenPro }: LockedDaySheetProps) {
   return (
     <ProUpgradeSheet
       visible={visible}
@@ -28,7 +29,7 @@ export function LockedDaySheet({ visible, lockedDays, onClose, onUnlock }: Locke
       }
       body="Unlock the full 5-day plan with AnoUlam Pro."
       onClose={onClose}
-      onUnlock={onUnlock}
+      onOpenPro={onOpenPro}
     />
   );
 }

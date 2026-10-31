@@ -1,106 +1,37 @@
-import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
-import { router } from "expo-router";
-import { Plus, Utensils, X } from "lucide-react-native";
-import { AppText, Button, LoadingState } from "@/frontend/components/ui";
+import { useEffect } from "react";
+import { View } from "react-native";
+import { Plus, Refrigerator } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
-import { PANTRY_LOADING_LABEL, usePantry, usePantryActions } from "@/frontend/core/pantry/hooks/usePantry";
-import { PANTRY_MIN_FOR_SUGGESTIONS } from "@/frontend/core/pantry/mock/api";
-import { PANTRY_SUBTITLE, PantrySheet } from "@/frontend/core/pantry/components/PantrySheet";
+import { usePantryActions } from "@/frontend/core/pantry/hooks/usePantry";
+import { PantrySection } from "@/frontend/core/pantry/components/PantrySection";
+import { EmptyState } from "../EmptyState";
 
-function addLabel(count: number) {
-  if (count === 0) return "Add ingredients from your kitchen";
-  if (count < PANTRY_MIN_FOR_SUGGESTIONS) {
-    return `${count} added, add ${PANTRY_MIN_FOR_SUGGESTIONS - count} more to suggest`;
-  }
-  return `${count} ingredient${count === 1 ? "" : "s"} added`;
-}
-
-// What's in the user's kitchen. Saved when "Find Meals" is tapped and when
-// the tab goes away (switching tabs or leaving Profile).
+// What's in the user's kitchen: the same pantry section as Home's Pantry
+// mode, with a section title and count instead of a page title, and
+// Profile's own empty state (like Saved and Created) instead of Home's. Saved when
+// the Add Ingredients sheet closes, and when the tab goes away (switching
+// tabs or leaving Profile).
 export function PantryTab() {
-  const { data: pantry = [], isPending } = usePantry();
   const actions = usePantryActions();
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const canSuggest = pantry.length >= PANTRY_MIN_FOR_SUGGESTIONS;
-
   useEffect(() => {
     return () => void actions.persist();
     // Save once, on unmount.
   }, []);
 
-  const findMeals = async () => {
-    await actions.persist();
-    router.push({
-      pathname: "/pantry-results",
-      // JSON: ingredient names can contain commas ("Chicken, thigh").
-      params: { ids: JSON.stringify(pantry.map((p) => p.id)), names: JSON.stringify(pantry.map((p) => p.name)) },
-    });
-  };
-
   return (
-    <View className="gap-5 pb-6">
-      <View>
-        <View className="flex-row items-baseline gap-1.5">
-          <AppText variant="sectionSubtitle" dot>
-            Your pantry
-          </AppText>
-          {pantry.length > 0 && <Text className="font-inter-semibold text-body text-ink-subtle">{pantry.length}</Text>}
-        </View>
-        <Text className="mt-1 font-inter-regular text-body text-ink-subtle">{PANTRY_SUBTITLE}</Text>
-      </View>
-
-      {/* Loading first, so an empty pantry never flashes before the real one. */}
-      {isPending ? (
-        <LoadingState variant="spiral" label={PANTRY_LOADING_LABEL} />
-      ) : (
-        <>
-          <Pressable
-            onPress={() => setSheetOpen(true)}
-            className="flex-row items-center gap-3 rounded-2xl border border-dashed border-ink-emphasis/25 px-4 py-3.5 active:border-primary active:bg-primary/5"
-          >
-            <View className="h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-              <Plus color={colors.primary} size={18} strokeWidth={2.5} />
-            </View>
-            <Text className="flex-1 font-inter-medium text-body-lg text-ink">{addLabel(pantry.length)}</Text>
-          </Pressable>
-
-          {pantry.length > 0 && (
-            <View className="flex-row flex-wrap gap-2">
-              {pantry.map((item) => (
-                <View key={item.id} className="flex-row items-center gap-1.5 rounded-full bg-primary/10 py-1.5 pl-3.5 pr-2">
-                  <Text className="font-inter-semibold text-body text-primary">{item.name}</Text>
-                  <Pressable
-                    onPress={() => actions.remove(item.id)}
-                    hitSlop={8}
-                    accessibilityLabel={`Remove ${item.name}`}
-                    className="h-5 w-5 items-center justify-center rounded-full active:bg-primary/15"
-                  >
-                    <X color={colors.primary} size={14} strokeWidth={2.5} />
-                  </Pressable>
-                </View>
-              ))}
-            </View>
-          )}
-
-          <View className="gap-2">
-            <Button
-              label="Find meals I can cook"
-              icon={<Utensils color={colors.white} size={18} />}
-              iconPosition="right"
-              onPress={findMeals}
-              disabled={!canSuggest}
-            />
-            {!canSuggest && (
-              <Text className="text-center font-inter-regular text-small text-ink-subtle">
-                Add at least {PANTRY_MIN_FOR_SUGGESTIONS} ingredients to find meals.
-              </Text>
-            )}
-          </View>
-        </>
-      )}
-
-      <PantrySheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
+    <View className="pb-6">
+      <PantrySection
+        title="section"
+        renderEmpty={(openAdd) => (
+          <EmptyState
+            Icon={Refrigerator}
+            iconColor={colors.brandGreen.DEFAULT}
+            title="Your pantry is empty"
+            body="Add what's in your kitchen and we'll find meals you can cook."
+            action={{ label: "Add Ingredients", Icon: Plus, onPress: openAdd }}
+          />
+        )}
+      />
     </View>
   );
 }

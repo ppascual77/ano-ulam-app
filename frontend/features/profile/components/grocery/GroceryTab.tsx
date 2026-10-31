@@ -1,7 +1,8 @@
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { ChevronRight, Lightbulb, ShoppingCart } from "lucide-react-native";
+import { router } from "expo-router";
+import { ChevronRight, Lightbulb, ShoppingCart, Utensils } from "lucide-react-native";
 import { AppText, Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
@@ -11,6 +12,7 @@ import { usePlanGroceryList } from "@/frontend/core/grocery/hooks/usePlanGrocery
 // shows here only when the user has built a plan.
 import { usePlannerStore } from "@/frontend/features/meal-planner/store/usePlannerStore";
 import { useCountUp } from "../../hooks/useCountUp";
+import { EmptyState } from "../EmptyState";
 import { GroceryRow, formatPeso } from "@/frontend/core/grocery/components/GroceryRow";
 import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
 import { GrocerySectionHeader, splitGroceryItems } from "@/frontend/core/grocery/components/GrocerySection";
@@ -81,13 +83,14 @@ export function GroceryTab({ userId }: { userId: string | null }) {
             <Spinner size={20} color={colors.brandGreen.DEFAULT} trackColor={colors.webDivider} />
           </View>
         ) : items.length === 0 ? (
-          <View className="items-center gap-1.5 py-10">
-            <ShoppingCart color={colors.brandGreen.DEFAULT} size={26} />
-            <Text className="font-inter-bold text-body text-web-ink-soft">Your list is empty</Text>
-            <Text className="max-w-[200px] text-center font-inter-regular text-small text-web-ink-muted">
-              Save home-cooked meals and your ingredients will appear here automatically.
-            </Text>
-          </View>
+          // The same empty state as the other profile tabs.
+          <EmptyState
+            Icon={ShoppingCart}
+            iconColor={colors.brandOrange}
+            title="Your list is empty"
+            body="Save home-cooked meals and their ingredients will show up here automatically."
+            action={{ label: "Explore Meals", Icon: Utensils, onPress: () => router.navigate("/browse") }}
+          />
         ) : (
           // The whole preview opens the full list (its rows aren't checked
           // off here).
@@ -124,34 +127,31 @@ export function GroceryTab({ userId }: { userId: string | null }) {
         )}
       </View>
 
-      <View className="gap-3">
-        <Text className="font-inter-semibold text-body text-web-ink-body">Shopping Summary</Text>
-        {items.length === 0 ? (
-          <Text className="font-inter-regular text-body text-web-ink-muted">Save home-cooked meals to see your grocery summary.</Text>
-        ) : (
-          <>
-            <View className="gap-3 rounded-2xl border border-web-divider p-4">
-              <View>
-                <Text className="font-inter-bold text-heading text-web-ink">₱{formatPeso(total, 0)}</Text>
-                <Text className="font-inter-regular text-small text-web-ink-muted">Estimated total for main ingredients</Text>
-              </View>
-              <View className="h-px bg-web-divider" />
-              <SummaryRow dotClassName="bg-brand-green" label="To buy" count={mains.length} />
-              <SummaryRow dotClassName="bg-web-ink-faint" label="Pantry staples" count={staples.length} />
+      {/* Only once there's a list: empty, the empty state above says it all. */}
+      {items.length > 0 && (
+        <View className="gap-3">
+          <Text className="font-inter-semibold text-body text-web-ink-body">Shopping Summary</Text>
+          <View className="gap-3 rounded-2xl border border-web-divider p-4">
+            <View>
+              <Text className="font-inter-bold text-heading text-web-ink">₱{formatPeso(total, 0)}</Text>
+              <Text className="font-inter-regular text-small text-web-ink-muted">Estimated total for main ingredients</Text>
             </View>
-            <View className="rounded-2xl bg-notice-bg p-4">
-              <View className="flex-row items-center gap-1.5">
-                <Lightbulb color={colors.notice.icon} size={14} />
-                <Text className="font-inter-semibold text-body text-web-ink">Tips</Text>
-              </View>
-              <Text className="mt-1 font-inter-regular text-small text-web-ink-body">
-                Prices are estimates based on ingredient quantities used. Actual spend may be higher since some items are sold
-                as whole units.
-              </Text>
+            <View className="h-px bg-web-divider" />
+            <SummaryRow dotClassName="bg-brand-green" label="To buy" count={mains.length} />
+            <SummaryRow dotClassName="bg-web-ink-faint" label="Pantry staples" count={staples.length} />
+          </View>
+          <View className="rounded-2xl bg-notice-bg p-4">
+            <View className="flex-row items-center gap-1.5">
+              <Lightbulb color={colors.notice.icon} size={14} />
+              <Text className="font-inter-semibold text-body text-web-ink">Tips</Text>
             </View>
-          </>
-        )}
-      </View>
+            <Text className="mt-1 font-inter-regular text-small text-web-ink-body">
+              Prices are estimates based on ingredient quantities used. Actual spend may be higher since some items are sold
+              as whole units.
+            </Text>
+          </View>
+        </View>
+      )}
 
       <FullGroceryListSheet
         visible={fullOpen}
