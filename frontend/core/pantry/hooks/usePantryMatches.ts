@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getIngredientsForMatching, getMealIngredientIndex } from "@/api/meals";
-import type { PantryIngredient } from "../mock/api";
+import type { PantryIngredient } from "../types";
 import { pantryGroupOf, type PantryGroup } from "../pantryGroups";
 
 // Water is in many recipes but isn't something you "have", so it never

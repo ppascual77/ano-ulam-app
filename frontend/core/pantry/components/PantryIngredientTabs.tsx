@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { ActivePill } from "@/frontend/components/ui";
-import type { PantryIngredient } from "../mock/api";
+import type { PantryIngredient } from "../types";
 import { usePantryGroups } from "../hooks/usePantryMatches";
 import { PANTRY_GROUPS, type PantryGroup } from "../pantryGroups";
 import { PantryChip } from "./PantryChip";

@@ -4,7 +4,7 @@ import Svg, { Circle } from "react-native-svg";
 import Animated, { Easing, useAnimatedProps, useSharedValue, withTiming } from "react-native-reanimated";
 import { Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { PANTRY_MIN_FOR_SUGGESTIONS, type PantryIngredient } from "../mock/api";
+import { PANTRY_MIN_FOR_SUGGESTIONS, type PantryIngredient } from "../types";
 import { usePantryMatches } from "../hooks/usePantryMatches";
 import { usePantryResultsGate } from "../hooks/usePantryResultsGate";
 

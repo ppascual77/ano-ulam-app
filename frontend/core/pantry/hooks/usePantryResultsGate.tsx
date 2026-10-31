@@ -6,7 +6,7 @@ import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { FREE_DAILY_SUGGESTIONS, GUEST_DAILY_SUGGESTIONS, dailyLimitFor } from "@/frontend/core/pro/proContent";
 import { leftHint, useDailyLimit } from "@/frontend/core/pro/dailyLimits";
 import { DailyLimitSheet } from "@/frontend/core/pro/components/DailyLimitSheet";
-import type { PantryIngredient } from "../mock/api";
+import type { PantryIngredient } from "../types";
 
 // Suggest by Pantry's daily limit (see dailyLimits), for both ways into the
 // results: Home's "What can you make?" card and Profile's Pantry tab. The
