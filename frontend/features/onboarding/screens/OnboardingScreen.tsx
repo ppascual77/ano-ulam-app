@@ -1,4 +1,4 @@
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   View,
   ScrollView,
@@ -22,6 +22,7 @@ import { NumbersExplainerSheet } from "../components/NumbersExplainerSheet";
 import { FlyingDot, PeriodDot, type DotPoint } from "../components/NumbersDot";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { RotatingBlob, type RotatingBlobHandle } from "../components/RotatingBlob";
+import { setDotRevealTarget, useDotRevealArriving } from "../components/DotReveal";
 import { onboardingSlides, type OnboardingSlideData, type PreferencesSlideData } from "../slides";
 import { useSignInWithGoogle } from "@/frontend/features/auth/hooks/useAuth";
 import { useUpdateUserProfile } from "@/frontend/features/auth/hooks/useUserProfile";
@@ -112,6 +113,14 @@ export default function OnboardingScreen() {
   const numbersDotRef = useRef<ViewInstance>(null);
   const [numbersFlight, setNumbersFlight] = useState<DotPoint | null>(null);
   const [numbersPulse, setNumbersPulse] = useState(0);
+
+  // Arriving from Get Started: its orange dot is shrinking onto the
+  // indicator (DotReveal), so the marker stays hidden until it lands.
+  const arriving = useDotRevealArriving();
+  useEffect(() => {
+    if (arriving) setDotRevealTarget(indicatorDotRef);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const signInWithGoogle = useSignInWithGoogle();
   const updateProfile = useUpdateUserProfile();
@@ -264,6 +273,7 @@ export default function OnboardingScreen() {
             total={onboardingSlides.length}
             activeIndex={index}
             hopMarkerRef={indicatorDotRef}
+            hopMarkerHidden={arriving}
           />
           <Button
             icon={

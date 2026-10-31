@@ -31,6 +31,7 @@ import { DotHandoffOverlay, GlobalToast } from "@/frontend/components/ui";
 import { SaveFeedbackLayer } from "@/frontend/core/saved/components/SaveFeedbackLayer";
 import { noteTouch, useSaveFeedbackStore } from "@/frontend/core/saved/store/useSaveFeedbackStore";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
+import { DotRevealOverlay } from "@/frontend/features/onboarding/components/DotReveal";
 
 // Required for the Google sign-in browser-redirect flow's web fallback path;
 // harmless no-op on native. https://supabase.com/docs/guides/auth/native-mobile-deep-linking
@@ -125,9 +126,15 @@ export default function RootLayout() {
                     indicator dot appears to stay put as Home's welcome
                     intro takes it over. */}
                 <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
+                {/* Swapped in under Get Started's orange dot while it fills
+                    the screen (DotReveal), so no transition of its own. With
+                    reduce motion there's no dot: a plain fade. */}
+                <Stack.Screen name="onboarding" options={{ animation: reduceMotionOn ? "fade" : "none" }} />
               </Stack>
               {/* Above every screen: a title dot flying to the next screen's. */}
               <DotHandoffOverlay enabled={!reduceMotionOn} />
+              {/* Get Started's dot opening onto onboarding. */}
+              <DotRevealOverlay />
               {/* A saved meal flying into the Profile tab. */}
               <SaveFeedbackLayer />
               {/* App-wide toasts (e.g. "Saved to your Profile"). */}

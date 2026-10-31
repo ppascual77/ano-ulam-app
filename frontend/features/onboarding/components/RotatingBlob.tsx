@@ -24,6 +24,11 @@ const PULSE_BOOST_DEGREES = 40;
 const PULSE_DURATION_MS = 500;
 const PULSE_EASING = Easing.bezier(0.42, 0, 0.58, 1);
 
+// Every blob's spin is set by one shared clock (unless pulsed), so screens
+// with the same backdrop (intro, onboarding) line up exactly and can fade
+// into each other without the blobs ghosting.
+const EPOCH = Date.now();
+
 export type RotatingBlobHandle = {
   /** Briefly speeds up the rotation, then eases back to the normal pace. */
   pulse: () => void;
@@ -50,8 +55,10 @@ export const RotatingBlob = forwardRef<RotatingBlobHandle, Props>(function Rotat
   const rotation = useSharedValue(0);
 
   useEffect(() => {
+    const start = (((Date.now() - EPOCH) % ROTATION_DURATION_MS) / ROTATION_DURATION_MS) * 360;
+    rotation.value = start;
     rotation.value = withRepeat(
-      withTiming(360, { duration: ROTATION_DURATION_MS, easing: Easing.linear }),
+      withTiming(start + 360, { duration: ROTATION_DURATION_MS, easing: Easing.linear }),
       -1,
       false,
     );

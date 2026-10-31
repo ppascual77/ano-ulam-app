@@ -64,12 +64,14 @@ function HopIndicator({
   rest,
   color,
   markerRef,
+  hidden,
 }: {
   total: number;
   activeIndex: number;
   rest: HopRest;
   color: string;
   markerRef?: RefObject<ViewInstance | null>;
+  hidden: boolean;
 }) {
   const step = HOP_STEP[rest];
   const restWidth = rest === "pill" ? HOP_PILL : HOP_BALL;
@@ -150,7 +152,7 @@ function HopIndicator({
           style={{ left: centerOf(i) - HOP_DOT / 2, top: (HOP_BALL - HOP_DOT) / 2 }}
         />
       ))}
-      <Animated.View style={[{ position: "absolute", left: 0, top: 0, backgroundColor: color }, markerStyle]} />
+      <Animated.View style={[{ position: "absolute", left: 0, top: 0, backgroundColor: color, opacity: hidden ? 0 : 1 }, markerStyle]} />
       {/* A still 1px spot at the active page's center (the marker itself
           moves by transform, which measuring doesn't reliably include). */}
       {markerRef && (
@@ -180,6 +182,9 @@ type Props = {
   /** "hop" only. Measure this for where the marker rests (its center), e.g.
    *  to hand the marker off to another screen's animation. */
   hopMarkerRef?: RefObject<ViewInstance | null>;
+  /** "hop" only. Hides the marker (the faint dots stay), e.g. while another
+   *  animation's dot is flying in to become it. */
+  hopMarkerHidden?: boolean;
 };
 
 export function CarouselIndicator({
@@ -189,9 +194,10 @@ export function CarouselIndicator({
   hopRest = "dot",
   hopColor = colors.accent,
   hopMarkerRef,
+  hopMarkerHidden = false,
 }: Props) {
   if (variant === "hop") {
-    return <HopIndicator total={total} activeIndex={activeIndex} rest={hopRest} color={hopColor} markerRef={hopMarkerRef} />;
+    return <HopIndicator total={total} activeIndex={activeIndex} rest={hopRest} color={hopColor} markerRef={hopMarkerRef} hidden={hopMarkerHidden} />;
   }
   return (
     <View className="flex-row gap-2">
