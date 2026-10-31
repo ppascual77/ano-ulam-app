@@ -1,5 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import { AppText, BottomSheet } from "@/frontend/components/ui";
+import { useIsPro } from "@/frontend/core/pro/store/useProStore";
+import { RECIPE_REWARD_DAYS } from "@/frontend/core/pro/proContent";
 
 export type CreateChoice = "post" | "recipe";
 
@@ -19,6 +21,8 @@ const ROWS: { choice: CreateChoice; title: string; subtitle: string }[] = [
 
 // "Create" chooser, opened by the Create button's second tap.
 export function CreateSheet({ visible, onClose, onChoose, onClosed }: CreateSheetProps) {
+  // Free users: a quiet reminder that an approved recipe earns Pro days.
+  const isPro = useIsPro();
   return (
     <BottomSheet visible={visible} onClose={onClose} onClosed={onClosed} heightPercent={0.5} fitContent>
       <View className="px-6 pb-6 pt-12">
@@ -31,7 +35,14 @@ export function CreateSheet({ visible, onClose, onChoose, onClosed }: CreateShee
             onPress={() => onChoose(row.choice)}
             className={`py-4 ${i > 0 ? "border-t border-web-divider" : ""}`}
           >
-            <Text className="font-inter-semibold text-body text-web-ink">{row.title}</Text>
+            <View className="flex-row items-center gap-2">
+              <Text className="font-inter-semibold text-body text-web-ink">{row.title}</Text>
+              {row.choice === "recipe" && !isPro && (
+                <View className="rounded-full bg-accent/10 px-2 py-0.5">
+                  <Text className="font-inter-extrabold text-sub text-accent">+{RECIPE_REWARD_DAYS} DAYS PRO</Text>
+                </View>
+              )}
+            </View>
             <Text className="mt-0.5 font-inter-regular text-small text-web-ink-muted">{row.subtitle}</Text>
           </Pressable>
         ))}

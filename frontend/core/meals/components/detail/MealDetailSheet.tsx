@@ -1,12 +1,15 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Sparkles } from "lucide-react-native";
 import { BottomSheet, ConfirmSheet } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
 import { MealDetailContent } from "./MealDetailContent";
 import { IngredientDetailSheet } from "./IngredientDetailSheet";
+import { ProUpgradeSheet } from "@/frontend/core/pro/components/ProUpgradeSheet";
+import { ProPage } from "@/frontend/core/pro/components/ProPage";
 import type { IngredientType, MealType } from "../../mealTypes";
 
 // The meal detail is full screen; the ingredient sheet tops out at 75% of
@@ -43,7 +46,7 @@ type MealDetailSheetProps = {
   /** The viewer's own recipe (see MealDetailContent's `recipeOwner`).
    *  Applies to `meal` only. */
   recipeOwner?: { onEditRecipe: () => void; onDeleteRecipe: () => void };
-  /** Toasts from the save footer: the 15-meal limit, a failed save, and
+  /** Toasts from the save footer: the saved meals limit, a failed save, and
    *  "{name} updated" after a servings update. Callers without a Toast can
    *  leave it out. */
   onNotify?: (message: string, tone: "success" | "error") => void;
@@ -80,6 +83,12 @@ export function MealDetailSheet({
   // The ingredient whose detail sheet is open on top of this one, already
   // scaled to the servings shown when it was tapped. null = closed.
   const [selectedIngredient, setSelectedIngredient] = useState<IngredientType | null>(null);
+  // Locked micronutrients (meal or ingredient) tapped by a free user.
+  const [proUpsellOpen, setProUpsellOpen] = useState(false);
+  // The full Pro page, from the upsell's "See all Pro features": shown in
+  // this sheet's overlay, since a /pro screen would open behind it.
+  const [proPageOpen, setProPageOpen] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (meal) {
@@ -157,6 +166,7 @@ export function MealDetailSheet({
             ingredient={selectedIngredient}
             onClose={() => setSelectedIngredient(null)}
             maxHeightPercent={INGREDIENT_SHEET_HEIGHT_PERCENT}
+            onLockedPro={() => setProUpsellOpen(true)}
           />
           <ConfirmSheet
             presentation="inline"
@@ -180,6 +190,30 @@ export function MealDetailSheet({
             onCancel={() => setPendingServings(null)}
             onConfirm={confirmUpdate}
           />
+          {/* Above the ingredient sheet, which can open it too. */}
+          <ProUpgradeSheet
+            presentation="inline"
+            visible={proUpsellOpen}
+            title={
+              <>
+                Know what's in <Text className="text-brand-orange">every</Text> meal
+              </>
+            }
+            body="Pro shows fiber, sugar and sodium for every meal and ingredient, measured against a day's recommended amount."
+            onClose={() => setProUpsellOpen(false)}
+            onOpenPro={() => setProPageOpen(true)}
+          />
+          <BottomSheet visible={proPageOpen} onClose={() => setProPageOpen(false)} presentation="inline" fullScreen>
+            <View style={{ flex: 1, paddingTop: insets.top, paddingBottom: insets.bottom }}>
+              <ProPage
+                onClose={() => setProPageOpen(false)}
+                onStarted={() => {
+                  setProPageOpen(false);
+                  onNotify?.("Pro unlocked (test)", "success");
+                }}
+              />
+            </View>
+          </BottomSheet>
           {overlay}
           {/* White status bar over the photo while open. As an element (not
               setStatusBarStyle) it restores whatever style was there before
@@ -209,6 +243,7 @@ export function MealDetailSheet({
           onArchive={onArchive}
           onDelete={onDelete}
           onSelectIngredient={setSelectedIngredient}
+          onLockedPro={() => setProUpsellOpen(true)}
           like={meal && renderedMeal?.id === meal.id ? like : undefined}
           review={review}
         />

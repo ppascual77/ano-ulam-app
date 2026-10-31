@@ -155,7 +155,7 @@ export function announceRemoved(meal: MealType, undo: () => void) {
 
 export function announceSaveError(message: string, isLimit: boolean) {
   showGlobalToast({
-    message: isLimit ? `You've saved ${SAVED_MEALS_LIMIT} meals, the max. Remove one to save more.` : message,
+    message: isLimit ? `You've saved ${SAVED_MEALS_LIMIT} meals, the free max. Remove one, or go Pro for unlimited.` : message,
     tone: "error",
     action: isLimit ? { label: "Manage", onPress: openSavedTab } : undefined,
   });

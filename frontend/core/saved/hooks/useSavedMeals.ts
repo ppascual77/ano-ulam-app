@@ -4,10 +4,12 @@ import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { savedKeys } from "../queryKeys";
 import { listSavedMeals, saveMeal, syncSavedMeal, unsaveMeal, updateSavedServings } from "../savedMeals";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
-import { SAVED_MEALS_LIMIT, savedKeyOf, type SavedMeal } from "../types";
+import { useIsPro } from "@/frontend/core/pro/store/useProStore";
+import { SAVED_MEALS_LIMIT, savedKeyOf, savedMealsLimit, type SavedMeal } from "../types";
 import { announceRemoved, announceSaveError, announceSaved } from "../store/useSaveFeedbackStore";
 
-export const SAVED_LIMIT_MESSAGE = `You've reached the limit of ${SAVED_MEALS_LIMIT} saved meals. Remove one to add more.`;
+// Only free accounts ever hit it in practice (Pro's cap is a technical one).
+export const SAVED_LIMIT_MESSAGE = `You've reached the free limit of ${SAVED_MEALS_LIMIT} saved meals. Remove one, or go Pro for unlimited.`;
 const SAVE_FAILED_MESSAGE = "Couldn't update your saved meals. Please try again.";
 
 // The one saved-meals list every save button reads (MealCard, Discover,
@@ -38,6 +40,8 @@ export function useSavedMealActions() {
   const byKey = useMemo(() => new Map(saved.map((entry) => [entry.meal_catalog_id, entry])), [saved]);
   const savedFor = useCallback((meal: MealType | null | undefined) => (meal ? byKey.get(savedKeyOf(meal)) : undefined), [byKey]);
 
+  const limit = savedMealsLimit(useIsPro());
+
   const read = () => queryClient.getQueryData<SavedMeal[]>(savedKeys.list(userId)) ?? [];
   const write = (next: SavedMeal[]) => queryClient.setQueryData(savedKeys.list(userId), next);
 
@@ -46,7 +50,7 @@ export function useSavedMealActions() {
     const before = read();
     const key = savedKeyOf(meal);
     if (before.some((entry) => entry.meal_catalog_id === key)) return null;
-    if (before.length >= SAVED_MEALS_LIMIT) {
+    if (before.length >= limit) {
       announceSaveError(SAVED_LIMIT_MESSAGE, true);
       return SAVED_LIMIT_MESSAGE;
     }

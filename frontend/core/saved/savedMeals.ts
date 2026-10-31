@@ -66,7 +66,7 @@ export async function listSavedMeals(): Promise<SavedMeal[]> {
   return rows.map((row) => toSaved(row, statusOf(row, row.meal_data as unknown as MealType, live)));
 }
 
-// Throws Error("limit") at SAVED_MEALS_LIMIT. Saving an already-saved meal
+// Throws Error("limit") at the limit (the database trigger's). Saving an already-saved meal
 // returns the existing entry.
 export async function saveMeal(meal: MealType, servings?: number): Promise<SavedMeal> {
   const full = await withIngredients(meal);

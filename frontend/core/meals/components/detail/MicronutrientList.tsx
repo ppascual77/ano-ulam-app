@@ -1,5 +1,7 @@
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import { Lock } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
+import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 
 // Fiber / sugar / sodium rows: dot, amount, a bar filled to the share of the
 // daily value, and a verdict chip. Shared by the ingredient sheet (one
@@ -79,3 +81,51 @@ export function MicronutrientList({ values, shareOf = values, shareNote }: Micro
     </View>
   );
 }
+
+// Sample fills for the locked bars: a believable spread, never the meal's
+// real values (nothing to read off a locked row).
+const SAMPLE_FILLS = ["45%", "62%", "34%"] as const;
+
+type LockedMicronutrientsProps = {
+  /** Which rows this meal or ingredient has (only their labels show). */
+  values: Micronutrients;
+  /** Opens the Pro upsell. Without it the unlock row is just a label. */
+  onUnlock?: () => void;
+};
+
+/** Micronutrients for a free user: the same rows (dot and label real), with
+ *  the amounts as soft placeholders and faded sample bars, then a way into
+ *  Pro. Shows what Pro adds without showing the numbers. */
+export function LockedMicronutrients({ values, onUnlock }: LockedMicronutrientsProps) {
+  return (
+    <View className="gap-4">
+      <View className="gap-4" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        {MICROS.filter((m) => values[m.key] != null).map((m, i) => (
+          <View key={m.key}>
+            <View className="flex-row items-center gap-2">
+              <View className="h-3 w-3 rounded-full" style={{ backgroundColor: m.color }} />
+              <Text className="font-inter-semibold text-body text-ink-emphasis">{m.label}</Text>
+              <View className="ml-auto h-3.5 w-14 rounded-full bg-ink-emphasis/10" />
+            </View>
+            <View className="mt-2 h-2 overflow-hidden rounded-full bg-web-divider">
+              <View className="h-2 rounded-full" style={{ width: SAMPLE_FILLS[i % SAMPLE_FILLS.length], backgroundColor: m.color, opacity: 0.25 }} />
+            </View>
+            <View className="mt-1.5 h-2.5 w-24 self-end rounded-full bg-ink-emphasis/5" />
+          </View>
+        ))}
+      </View>
+      <Pressable
+        onPress={onUnlock}
+        disabled={!onUnlock}
+        accessibilityRole="button"
+        accessibilityLabel="Fiber, sugar and sodium are part of Pro. See them with Pro."
+        className="flex-row items-center gap-3 rounded-2xl border border-accent/20 bg-accent/5 px-4 py-3 active:opacity-70"
+      >
+        <Lock color={colors.accent} size={16} />
+        <Text className="flex-1 font-inter-semibold text-body text-ink-emphasis">See fiber, sugar and sodium</Text>
+        <ProBadge />
+      </Pressable>
+    </View>
+  );
+}
+

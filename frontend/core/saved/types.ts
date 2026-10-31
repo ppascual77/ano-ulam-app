@@ -17,8 +17,12 @@ export type SavedMeal = MealType & {
   catalog_status: CatalogStatus;
 };
 
-// Saves are capped like the web app.
-export const SAVED_MEALS_LIMIT = 15;
+// Free accounts keep up to SAVED_MEALS_LIMIT saves; Pro is unlimited
+// (PRO_SAVED_MEALS_LIMIT is only a technical cap, shown as "Unlimited").
+// The saved_meals_limit trigger in the database matches.
+export const SAVED_MEALS_LIMIT = 10;
+export const PRO_SAVED_MEALS_LIMIT = 500;
+export const savedMealsLimit = (isPro: boolean) => (isPro ? PRO_SAVED_MEALS_LIMIT : SAVED_MEALS_LIMIT);
 
 export function savedKeyOf(meal: MealType): string {
   return meal.id ?? meal.normalized_name ?? meal.name;

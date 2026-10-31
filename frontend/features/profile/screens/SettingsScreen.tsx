@@ -132,7 +132,6 @@ export default function SettingsScreen() {
   // Pro rows show for everyone (with a lock); without Pro they open the
   // upsell instead (MOCK Pro: "Unlock" just flips it, see useProStore).
   const isPro = useProStore((s) => s.isPro);
-  const setPro = useProStore((s) => s.setPro);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [proSheet, setProSheet] = useState<ProSettingKey | null>(null);
   const closeProSheet = () => setProSheet(null);
@@ -219,6 +218,15 @@ export default function SettingsScreen() {
           </SettingsSection>
 
           <SettingsSection title="Pro">
+            {!isPro && (
+              <Pressable onPress={() => router.push("/pro")} accessibilityRole="button" className="flex-row items-center gap-3 active:opacity-60">
+                <View className="flex-1">
+                  <SettingsRowLabel>See everything in Pro</SettingsRowLabel>
+                  <SettingsRowDescription>Compare Free and Pro, and pick a plan.</SettingsRowDescription>
+                </View>
+                <ChevronRight color={colors.ink.subtle} size={18} />
+              </Pressable>
+            )}
             {PRO_SETTINGS.map((setting) => (
               <ProSettingRow
                 key={setting.key}
@@ -319,13 +327,7 @@ export default function SettingsScreen() {
         title="Make every meal yours"
         body="Pro tells you when prices drop, hides what you don't eat, plans your week and tracks your goals."
         onClose={() => setUpgradeOpen(false)}
-        onUnlock={() => {
-          setPro(true);
-          setUpgradeOpen(false);
-          // Not straight into the picker: two native modals at once can
-          // get stuck (see BottomSheet's onClosed).
-          setToast({ id: Date.now(), message: "Pro unlocked (test)", tone: "success" });
-        }}
+        onOpenPro={() => router.push("/pro")}
       />
       <ConfirmSheet
         visible={confirmUnsubscribe}

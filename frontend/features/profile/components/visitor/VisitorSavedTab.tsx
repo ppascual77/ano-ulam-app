@@ -28,7 +28,6 @@ export function VisitorSavedTab({ profile, onToast }: VisitorSavedTabProps) {
       <EmptyState
         Icon={Lock}
         iconColor={colors.webInk.muted}
-        badge={false}
         title="Saved meals are private"
         body="This user hasn't made their saved meals public."
       />
@@ -39,7 +38,6 @@ export function VisitorSavedTab({ profile, onToast }: VisitorSavedTabProps) {
       <EmptyState
         Icon={Bookmark}
         iconColor={colors.webInk.muted}
-        badge={false}
         title="No saved meals yet"
         body="This user hasn't saved any meals yet."
       />

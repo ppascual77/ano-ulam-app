@@ -6,7 +6,8 @@ import { colors } from "@/frontend/constants/theme";
 import { getUsdaSourceUrl } from "@/api/ingredients";
 import { useDaWeekChanges, type DaWeekChange } from "@/frontend/core/prices/hooks/useDaWeekChanges";
 import type { DaPriceSourceType, IngredientType, PackEstimateType, PriceSourceType } from "../../mealTypes";
-import { MicronutrientList, hasMicronutrients } from "./MicronutrientList";
+import { useIsPro } from "@/frontend/core/pro/store/useProStore";
+import { LockedMicronutrients, MicronutrientList, hasMicronutrients } from "./MicronutrientList";
 
 // The three sections of IngredientDetailSheet: what this amount contains,
 // where that nutrition data comes from, and where the price comes from.
@@ -78,12 +79,14 @@ export function NutritionSection({ item }: { item: NutritionItem }) {
 // Micronutrients
 // ---------------------------------------------------------------------------
 
-export function MicronutrientSection({ item }: { item: Pick<IngredientType, "fiber" | "sugar" | "sodium"> }) {
+// Pro: free users get LockedMicronutrients (`onLockedPro` opens the upsell).
+export function MicronutrientSection({ item, onLockedPro }: { item: Pick<IngredientType, "fiber" | "sugar" | "sodium">; onLockedPro?: () => void }) {
+  const isPro = useIsPro();
   if (!hasMicronutrients(item)) return null;
   return (
     <Section title="Micronutrients" description="Share of a day's recommended amount, based on a 2,000-calorie diet.">
       <View className="rounded-2xl border border-web-divider bg-web-divider/40 p-4">
-        <MicronutrientList values={item} />
+        {isPro ? <MicronutrientList values={item} /> : <LockedMicronutrients values={item} onUnlock={onLockedPro} />}
       </View>
     </Section>
   );

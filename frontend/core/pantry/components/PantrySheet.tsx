@@ -12,8 +12,6 @@ import { usePantryStaples } from "../hooks/usePantryStaples";
 import { usePantryGroups } from "../hooks/usePantryMatches";
 import { PantryChip } from "./PantryChip";
 
-export const PANTRY_SUBTITLE = "Add what you have, we'll find what you can cook.";
-
 // Add Ingredients: search the ingredient catalog, or "View all" the common
 // pantry staples to tick off the basics at once. Edits apply to the shared
 // pantry list right away (see usePantryActions). Used from Home's By Pantry

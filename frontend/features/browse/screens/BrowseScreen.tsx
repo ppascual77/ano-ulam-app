@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View, type ScrollViewInstance } from "react-native";
+import { router } from "expo-router";
 import { AppText, LandingTitle, Screen, SearchBar, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
+import { useIsPro } from "@/frontend/core/pro/store/useProStore";
+import { DailyLimitSheet } from "@/frontend/core/pro/components/DailyLimitSheet";
+import { leftHint } from "@/frontend/core/pro/dailyLimits";
 import { CravingTagline } from "@/frontend/features/browse/components/CravingTagline";
 import { MoodSelection } from "@/frontend/features/browse/components/MoodSelection";
 import { TodaysPickCard } from "@/frontend/core/meals/components/card/TodaysPickCard";
@@ -39,15 +43,22 @@ type LikeEntry = { liked: boolean; count: number };
 
 // Browse: the default view (Today's pick, moods) until the user searches or
 // filters, then "Search Results" grouped into Luto / Snacks / Fast food
-// rows from the real catalog. Guests get login gates for like/save and 3
-// searches a day.
+// rows from the real catalog. Guests get login gates for like/save; searches
+// are limited per day (guests 3, free accounts 10, Pro none: useBrowseSearch).
 export default function BrowseScreen() {
   const { isSignedIn } = useAuth();
   const signIn = useSignInWithGoogle();
   const [devGuest, setDevGuest] = useState(false);
   const isGuest = devGuest || (!isSignedIn && !DEV_FORCE_SIGNED_IN);
 
-  const search = useBrowseSearch({ isGuest });
+  const isPro = useIsPro();
+  const search = useBrowseSearch({ isGuest, isPro });
+  // Free accounts out of searches for the day (guests get GuestLimitGate).
+  const [limitSheetOpen, setLimitSheetOpen] = useState(false);
+  useEffect(() => {
+    if (search.limitReached && !isGuest) setLimitSheetOpen(true);
+  }, [search.limitReached, isGuest]);
+  const searchesLeftHint = !isGuest && !search.limitReached ? leftHint(search.left, "search", "searches") : null;
   // The intro, replayed on every visit to the tab (see usePageIntro): its
   // dot lands as the period of "Browse.". Leaving the tab puts the
   // header back at the top, ready for the next landing.
@@ -193,6 +204,7 @@ export default function BrowseScreen() {
           />
           <FilterButton count={countFilters(search.applied)} onPress={() => setFiltersOpen(true)} />
         </View>
+        {searchesLeftHint && <Text className="ml-1 mt-2 font-inter-regular text-small text-ink-subtle">{searchesLeftHint}</Text>}
 
         {search.isSearchMode ? (
           <View className="mb-6 mt-6">
@@ -245,6 +257,13 @@ export default function BrowseScreen() {
       />
 
       <Toast toast={toast} onHide={() => setToast(null)} />
+      <DailyLimitSheet
+        visible={limitSheetOpen}
+        what="searches"
+        limit={search.limit}
+        onClose={() => setLimitSheetOpen(false)}
+        onOpenPro={() => router.push("/pro")}
+      />
       {intro.showing && <BrowseIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={intro.finish} />}
     </Screen>
   );

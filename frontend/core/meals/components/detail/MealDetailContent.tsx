@@ -53,10 +53,11 @@ import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { MealInfoPill } from "../MealInfoPill";
 import { MacroSection } from "./MacroSection";
-import { MicronutrientList, hasMicronutrients, type Micronutrients } from "./MicronutrientList";
+import { LockedMicronutrients, MicronutrientList, hasMicronutrients, type Micronutrients } from "./MicronutrientList";
+import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
+import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { RelatedMeals } from "./RelatedMeals";
 import { resolveMealImage } from "../../resolveMealImage";
-import { ingredientCategoryIcon } from "../../ingredientCategory";
 import { scaleIngredient } from "../../utils/scaleMeal";
 import { DIETARY_ICONS, capitalize } from "../../utils/dietary";
 import type { IngredientType, MealType } from "../../mealTypes";
@@ -151,9 +152,6 @@ function IngredientRow({ ingredient, onPress: onPressProp, dropPct }: Ingredient
   const content = (
     <View className="flex-row items-center justify-between">
       <View className="flex-1 flex-row items-center gap-3 pr-2">
-        {/* Category icon (meat, fish, vegetables, ...), fixed size so the
-            names after it stay lined up. */}
-        <Image source={ingredientCategoryIcon(ingredient)} style={{ width: 32, height: 32 }} contentFit="contain" />
         <View className="flex-1 gap-1">
           {/* Quantity right after the name, a size smaller and a weight
               lighter so the name still leads. One Text (not two side by
@@ -262,6 +260,9 @@ type MealDetailContentProps = {
   /** Tapping an ingredient card. Receives the ingredient already scaled to
    *  the current servings. MealDetailSheet opens IngredientDetailSheet. */
   onSelectIngredient?: (ingredient: IngredientType) => void;
+  /** A free user tapping locked micronutrients (they're Pro): open the
+   *  upsell. MealDetailSheet shows ProUpgradeSheet. */
+  onLockedPro?: () => void;
   /** Controlled like state. When passed, the heart shows and toggles this
    *  instead of the sheet's own local state, so a caller that tracks likes
    *  (Discover's reel) stays in sync both ways. Omitted everywhere else. */
@@ -382,6 +383,7 @@ export function MealDetailContent({
   onArchive,
   onDelete,
   onSelectIngredient,
+  onLockedPro,
   like,
   preview = false,
   review,
@@ -458,6 +460,7 @@ export function MealDetailContent({
   // the shown total, since "% of daily value" only means something for one
   // person's plate; so it doesn't change with the servings stepper.
   const [showMicros, setShowMicros] = useState(false);
+  const isPro = useIsPro();
   // Water is left out on both sides: no micronutrients to sum or be missing.
   const nonWater = (meal.ingredients ?? []).filter((it) => !PLAIN_WATER.test(it.name.trim()));
   const microIngredients = nonWater.filter(hasMicronutrients);
@@ -739,24 +742,30 @@ export function MealDetailContent({
                 <Text className="font-inter-semibold text-body text-primary">
                   {showMicros ? "Hide micronutrients" : "Show micronutrients"}
                 </Text>
+                {!isPro && <ProBadge />}
                 {showMicros ? <ChevronUp color={colors.primary} size={16} /> : <ChevronDown color={colors.primary} size={16} />}
               </Pressable>
               {showMicros && (
                 <Animated.View entering={FadeIn.duration(200)} className="mt-3 px-1">
-                  {/* Same pop as the donut when All / Per serving switches. */}
-                  <Animated.View style={macroPulseStyle}>
-                    <Text className="mb-3 font-inter-regular text-small text-ink-subtle">
-                      {showPerServing || servings === 1 ? "% of daily value, per serving." : `Totals for ${servings} servings.`}
-                      {microIngredients.length < totalIngredients
-                        ? ` From ${microIngredients.length} of ${totalIngredients} ingredients.`
-                        : ""}
-                    </Text>
-                    <MicronutrientList
-                      values={shownMicros}
-                      shareOf={mealMicros}
-                      shareNote={showPerServing || servings === 1 ? undefined : "per serving"}
-                    />
-                  </Animated.View>
+                  {!isPro ? (
+                    // Pro: the rows as a preview, numbers hidden.
+                    <LockedMicronutrients values={mealMicros} onUnlock={onLockedPro} />
+                  ) : (
+                    // Same pop as the donut when All / Per serving switches.
+                    <Animated.View style={macroPulseStyle}>
+                      <Text className="mb-3 font-inter-regular text-small text-ink-subtle">
+                        {showPerServing || servings === 1 ? "% of daily value, per serving." : `Totals for ${servings} servings.`}
+                        {microIngredients.length < totalIngredients
+                          ? ` From ${microIngredients.length} of ${totalIngredients} ingredients.`
+                          : ""}
+                      </Text>
+                      <MicronutrientList
+                        values={shownMicros}
+                        shareOf={mealMicros}
+                        shareNote={showPerServing || servings === 1 ? undefined : "per serving"}
+                      />
+                    </Animated.View>
+                  )}
                 </Animated.View>
               )}
             </>

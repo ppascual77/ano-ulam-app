@@ -52,7 +52,6 @@ export function VisitorCreatedTab({ userId, loadMoreSignal, onToast }: VisitorCr
         <EmptyState
           Icon={ChefHat}
           iconColor={colors.webInk.muted}
-          badge={false}
           title="No recipes yet"
           body="This user hasn't published any recipes yet."
         />

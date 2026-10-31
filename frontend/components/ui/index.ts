@@ -29,7 +29,7 @@ export { Confetti, useBurstOnActivate } from "./Confetti";
 export { Spinner } from "./Spinner";
 export { SelectField } from "./SelectField";
 export { useFieldErrorAnimation } from "./TextField";
-export { BoilingDoodle, DOODLE_COLORS, DOODLE_LIST, TREND_DOODLES, drawBoilPair, type DoodleVersion } from "./doodles";
+export { BoilingDoodle, DOODLE_COLORS, DOODLE_LIST, TREND_DOODLES, drawBoilPair, type Doodle, type DoodleVersion } from "./doodles";
 export { PulsePressable } from "./PulsePressable";
 export { RollingText } from "./RollingText";
 export { INTRO_DOT_REST_MS, PageIntro, usePageIntro, type IntroSize } from "./PageIntro";

@@ -1,31 +1,25 @@
 import { useEffect, useRef, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { browseMeals } from "@/api/meals";
 import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
+import { FREE_DAILY_SEARCHES, GUEST_DAILY_SEARCHES, dailyLimitFor } from "@/frontend/core/pro/proContent";
+import { useDailyLimit } from "@/frontend/core/pro/dailyLimits";
 import { EMPTY_FILTERS, hasQueryFilters, type MealFilters } from "../utils/filters";
 
 const DEBOUNCE_MS = 400;
-// Guests get this many searches per 24h, like the web. There's no server
-// counter in this app (the query goes straight to Supabase), so it's kept
-// on the device: a soft limit, not a security boundary.
-const GUEST_DAILY_LIMIT = 3;
-const GUEST_LIMIT_KEY = "browse_guest_searches";
-const DAY_MS = 24 * 60 * 60 * 1000;
 
-// Counts one guest search; false once today's limit is used up.
-async function countGuestSearch(): Promise<boolean> {
-  try {
-    const raw = await AsyncStorage.getItem(GUEST_LIMIT_KEY);
-    const now = Date.now();
-    let state: { since: number; count: number } = raw ? JSON.parse(raw) : { since: now, count: 0 };
-    if (now - state.since > DAY_MS) state = { since: now, count: 0 };
-    if (state.count >= GUEST_DAILY_LIMIT) return false;
-    await AsyncStorage.setItem(GUEST_LIMIT_KEY, JSON.stringify({ ...state, count: state.count + 1 }));
-    return true;
-  } catch {
-    return true;
-  }
+// A search's signature for the daily limit: its words and filters.
+const signatureOf = (q: string, filters: string) => JSON.stringify([q, filters]);
+
+// Whether a search only refines the last one (free): the same words with
+// other filters, or one query a prefix of the other ("sini" -> "sinigang",
+// or back) under the same filters.
+function refines(lastSignature: string, nextSignature: string) {
+  const [lastQ, lastFilters] = JSON.parse(lastSignature) as [string, string];
+  const [q, filters] = JSON.parse(nextSignature) as [string, string];
+  if (lastQ === q) return true;
+  if (lastFilters !== filters || !lastQ || !q) return false;
+  return q.startsWith(lastQ) || lastQ.startsWith(q);
 }
 
 function shuffle<T>(items: T[]): T[] {
@@ -47,7 +41,9 @@ function order(meals: MealType[], sort: MealFilters["sortByPrice"]) {
 // search started, and sorts on the device (otherwise results are
 // shuffled). Sort alone isn't a search: it keeps the default view (the
 // web showed an empty state there).
-export function useBrowseSearch({ isGuest }: { isGuest: boolean }) {
+export function useBrowseSearch({ isGuest, isPro }: { isGuest: boolean; isPro: boolean }) {
+  // Daily searches: guests, free accounts, none for Pro (see dailyLimits).
+  const daily = useDailyLimit("search", dailyLimitFor({ isPro, isGuest }, GUEST_DAILY_SEARCHES, FREE_DAILY_SEARCHES));
   const [query, setQuery] = useState("");
   const [applied, setApplied] = useState<MealFilters>(EMPTY_FILTERS);
   const [results, setResults] = useState<MealType[]>([]);
@@ -55,10 +51,8 @@ export function useBrowseSearch({ isGuest }: { isGuest: boolean }) {
   const [limitReached, setLimitReached] = useState(false);
   const requestId = useRef(0);
 
-  // Signing in lifts the guest limit.
-  useEffect(() => {
-    if (!isGuest) setLimitReached(false);
-  }, [isGuest]);
+  // A new tier (signing in, going Pro) starts clear.
+  useEffect(() => setLimitReached(false), [daily.limit]);
 
   const trimmed = query.trim();
   const isSearchMode = trimmed !== "" || hasQueryFilters(applied);
@@ -72,13 +66,15 @@ export function useBrowseSearch({ isGuest }: { isGuest: boolean }) {
     }
     setLoading(true);
     const timer = setTimeout(async () => {
-      if (isGuest && !(await countGuestSearch())) {
+      const filtersKey = JSON.stringify([applied.dietaryTags, applied.tags, applied.restaurants, applied.priceRange]);
+      if (!(await daily.use(signatureOf(trimmed.toLowerCase(), filtersKey), refines))) {
         if (id === requestId.current) {
           setLimitReached(true);
           setLoading(false);
         }
         return;
       }
+      setLimitReached(false);
       let next: MealType[] = [];
       try {
         const rows = await browseMeals({
@@ -98,7 +94,7 @@ export function useBrowseSearch({ isGuest }: { isGuest: boolean }) {
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
     // Sort is applied below without a new request.
-  }, [trimmed, applied.dietaryTags, applied.tags, applied.restaurants, applied.priceRange, isGuest, isSearchMode]);
+  }, [trimmed, applied.dietaryTags, applied.tags, applied.restaurants, applied.priceRange, daily.limit, isSearchMode]);
 
   return {
     query,
@@ -109,5 +105,9 @@ export function useBrowseSearch({ isGuest }: { isGuest: boolean }) {
     loading,
     results: order(results, applied.sortByPrice),
     limitReached,
+    /** Today's limit for this user, null for Pro. */
+    limit: daily.limit,
+    /** Searches left today, null for Pro (or before it's read). */
+    left: daily.left,
   };
 }
