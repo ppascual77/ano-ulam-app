@@ -18,23 +18,26 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 // one focal point at a time, always centered.
 //
 //   0.0s   "Pork belly" types in, big and centered; its orange period lands
-//   0.9s   it rises; USDA and FNRI chips appear under it
-//   1.3s   a scan line sweeps across the chips, lighting each as it passes
-//   2.0s   USDA locks (✓, green), FNRI dims; "380 kcal / 100 g" rolls in
-//   3.0s   that result tucks into a tag under the word
-//   3.3s   two price rows slide in, digits rolling: Dept. of Agriculture
+//   0.9s   it rises; "Calories: checked in food databases" says what's next
+//   1.25s  USDA and FNRI chips appear, each saying what it is ("U.S. food
+//          data", "PH food data"), with a beat to read them
+//   1.9s   a scan line sweeps across the chips, lighting each as it passes
+//   2.6s   USDA locks (✓, green), FNRI dims; "380 kcal / 100 g" rolls in
+//   3.6s   that result tucks into a tag under the word
+//   3.8s   "Price: checked at markets and stores"
+//   4.05s  two price rows slide in, digits rolling: Dept. of Agriculture
 //          ₱366/kg, Landers ₱419/kg
-//   4.0s   a scan line sweeps down the rows; the cheapest locks in orange,
+//   4.9s   a scan line sweeps down the rows; the cheapest locks in orange,
 //          the other dims; "₱366 / kg" tucks into a second tag
-//   5.2s   word and tags snap into one tidy card: one ingredient, done
-//   6.5s   the card gives way to the dish: Pork Adobo's ingredients drop in
+//   6.1s   word and tags snap into one tidy card: one ingredient, done
+//   7.4s   the card gives way to the dish: Pork Adobo's ingredients drop in
 //          as checked lines, like a receipt filling up
-//   7.7s   each line turns into a dot (its text fades, its check becomes
+//   8.6s   each line turns into a dot (its text fades, its check becomes
 //          the dot), the dots move out into a ring and circle around
-//   9.0s   the ring pulls in and merges into one green dot
-//   9.6s   "Every ulam, backed by real data." comes in, and the dot flies
+//   9.9s   the ring pulls in and merges into one green dot
+//   10.5s  "Every ulam, backed by real data." comes in, and the dot flies
 //          up to land as its period, turning orange
-//   11.8s  crossfades to the summary (holds)
+//   12.7s  crossfades to the summary (holds)
 //
 // Real numbers: "Pork belly, raw" (USDA, 380.45 kcal/100 g); the DA's Oct
 // 10 2026 Liempo (Local) price (₱365.94/kg) and the Landers listing
@@ -45,47 +48,56 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 // color.
 
 const STAGE_HEIGHT = 360;
-const MAP_MS = 11800;
+const MAP_MS = 12700;
 const MAP_EXIT_MS = 400;
 
 const WORD = "Pork belly";
 const TYPE_MS = 55;
 const WORD_UP_AT = 900;
 const WORD_UP_MS = 450;
-const NUTRI_AT = 1000;
-const NUTRI_SCAN_AT = 1300;
+// Each lookup opens with a caption saying what's being checked, then a beat
+// to read the sources before the scan.
+const NUTRI_CAPTION_AT = 1000;
+const NUTRI_AT = 1250;
+const NUTRI_SCAN_AT = 1900;
 const NUTRI_SCAN_MS = 600;
-const NUTRI_LOCK_AT = 2000;
-const KCAL_AT = 2100;
+const NUTRI_LOCK_AT = 2600;
+const KCAL_AT = 2700;
 const KCAL_MS = 700;
-const NUTRI_TUCK_AT = 3000;
-const PRICE_AT = 3300;
+const NUTRI_TUCK_AT = 3600;
+// Gone before the kcal tag takes its spot (NUTRI_TUCK_AT + 150).
+const NUTRI_CAPTION_OUT_AT = NUTRI_TUCK_AT - 400;
+const PRICE_CAPTION_AT = 3800;
+const PRICE_AT = 4050;
 const PRICE_ROW_STAGGER = 120;
 const PRICE_ROLL_MS = 700;
-const PRICE_SCAN_AT = 4000;
+const PRICE_SCAN_AT = 4900;
 const PRICE_SCAN_MS = 500;
-const PRICE_LOCK_AT = 4600;
-const PRICE_TUCK_AT = 4900;
-const CARD_AT = 5200;
-const DISH_AT = 6500;
+const PRICE_LOCK_AT = 5500;
+const PRICE_TUCK_AT = 5800;
+const CARD_AT = 6100;
+const DISH_AT = 7400;
 const DISH_ROW_STAGGER = 110;
-const DISH_DOTS_AT = 7700;
+const DISH_DOTS_AT = 8600;
 const DISH_DOTS_STAGGER = 40;
-const RING_AT = 7900;
+const RING_AT = 8800;
 const RING_MOVE_MS = 650;
-const COMBINE_AT = 9000;
+const COMBINE_AT = 9900;
 const COMBINE_MS = 420;
-const LINE_AT = 9600;
-const FLIGHT_AT = 9800;
+const LINE_AT = 10500;
+const FLIGHT_AT = 10700;
 const FLIGHT_MS = 520;
 
 // Where things sit (y, in the stage).
 const WORD_START_Y = 150;
 const WORD_Y = 52;
-const CHIPS_Y = 132;
-const RESULT_Y = 196;
+const NUTRI_CAPTION_Y = 98;
+const CHIPS_Y = 140;
+const RESULT_Y = 204;
 const TAGS_Y = 98;
-const PRICE_ROWS_Y = [150, 196];
+// Below the kcal tag, which is showing by then.
+const PRICE_CAPTION_Y = 132;
+const PRICE_ROWS_Y = [170, 216];
 const PRICE_ROW_W = 250;
 const DISH_TOP = 34;
 const DISH_ROW_H = 24;
@@ -128,7 +140,7 @@ function useShown({ t, reduce }: Beat, at: number, until?: number, rise = 10) {
 
 // A source being checked: lights up as the scan passes, then either locks
 // (✓, solid) or dims.
-function SourceChip({ t, reduce, label, scanAt, lockAt, wins, hideAt }: Beat & { label: string; scanAt: number; lockAt: number; wins: boolean; hideAt: number }) {
+function SourceChip({ t, reduce, label, sub, scanAt, lockAt, wins, hideAt }: Beat & { label: string; sub: string; scanAt: number; lockAt: number; wins: boolean; hideAt: number }) {
   const lit = useAnimatedStyle(() => ({ opacity: Math.sin(Math.PI * progress(t.value, scanAt, 300)) }));
   const lock = useAnimatedStyle(() => {
     const p = easeOut(progress(t.value, lockAt, 300));
@@ -143,8 +155,27 @@ function SourceChip({ t, reduce, label, scanAt, lockAt, wins, hideAt }: Beat & {
         <Animated.View pointerEvents="none" style={[{ position: "absolute", top: -1, bottom: -1, left: -1, right: -1, borderRadius: 12, backgroundColor: `${colors.primary}14`, borderWidth: 1.5, borderColor: colors.primary }, lit]} />
         <Animated.View pointerEvents="none" style={[{ position: "absolute", top: -1, bottom: -1, left: -1, right: -1, borderRadius: 12, backgroundColor: `${colors.primary}1A`, borderWidth: 1.5, borderColor: colors.primary }, solid]} />
         {wins ? <LockIcon t={t} at={lockAt} color={colors.primary} Icon={Database} /> : <Database color={colors.ink.subtle} size={14} />}
-        <Text className="font-inter-semibold text-body text-ink-emphasis">{label}</Text>
+        <View>
+          <Text className="font-inter-semibold text-body text-ink-emphasis">{label}</Text>
+          <Text className="font-inter-regular text-small text-ink-subtle">{sub}</Text>
+        </View>
       </Animated.View>
+    </Animated.View>
+  );
+}
+
+// What a lookup is about to check, in plain words, so the sources that
+// follow make sense ("Calories: checked in food databases").
+function Caption({ t, reduce, at, hideAt, y, color, children }: Beat & { at: number; hideAt: number; y: number; color: string; children: string }) {
+  const shown = useShown({ t, reduce }, at, hideAt, 8);
+  return (
+    <Animated.View pointerEvents="none" style={[{ position: "absolute", top: y - 10, left: 0, right: 0, alignItems: "center" }, shown]}>
+      <View className="flex-row items-center gap-2">
+        <View className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+        <Text numberOfLines={1} className="font-inter-medium text-body text-ink-subtle">
+          {children}
+        </Text>
+      </View>
     </Animated.View>
   );
 }
@@ -209,7 +240,7 @@ function ScanLine({ t, at, ms, color, from, to, vertical }: { t: SharedValue<num
       pointerEvents="none"
       style={[
         vertical
-          ? { position: "absolute", left: 0, top: CHIPS_Y - 26, width: 2, height: 52, borderRadius: 1, ...glow }
+          ? { position: "absolute", left: 0, top: CHIPS_Y - 30, width: 2, height: 60, borderRadius: 1, ...glow }
           : { position: "absolute", left: 0, right: 0, top: 0, height: 2, borderRadius: 1, ...glow },
         style,
       ]}
@@ -379,13 +410,16 @@ function MapScene({ width }: { width: number }) {
       </Animated.View>
 
       {/* Nutrition lookup. */}
-      <View style={{ position: "absolute", top: CHIPS_Y - 20, left: 0, right: 0, alignItems: "center" }}>
+      <Caption {...beat} at={NUTRI_CAPTION_AT} hideAt={NUTRI_CAPTION_OUT_AT} y={NUTRI_CAPTION_Y} color={colors.primary}>
+        Calories: checked in food databases
+      </Caption>
+      <View style={{ position: "absolute", top: CHIPS_Y - 26, left: 0, right: 0, alignItems: "center" }}>
         <View className="flex-row gap-3">
-          <SourceChip {...beat} label="USDA" scanAt={NUTRI_SCAN_AT + NUTRI_SCAN_MS * 0.3} lockAt={NUTRI_LOCK_AT} wins hideAt={NUTRI_TUCK_AT} />
-          <SourceChip {...beat} label="FNRI" scanAt={NUTRI_SCAN_AT + NUTRI_SCAN_MS * 0.7} lockAt={NUTRI_LOCK_AT} wins={false} hideAt={NUTRI_TUCK_AT} />
+          <SourceChip {...beat} label="USDA" sub="U.S. food data" scanAt={NUTRI_SCAN_AT + NUTRI_SCAN_MS * 0.3} lockAt={NUTRI_LOCK_AT} wins hideAt={NUTRI_TUCK_AT} />
+          <SourceChip {...beat} label="FNRI" sub="PH food data" scanAt={NUTRI_SCAN_AT + NUTRI_SCAN_MS * 0.7} lockAt={NUTRI_LOCK_AT} wins={false} hideAt={NUTRI_TUCK_AT} />
         </View>
       </View>
-      {!reduce && <ScanLine t={t} at={NUTRI_SCAN_AT} ms={NUTRI_SCAN_MS} color={colors.primary} from={cx - 110} to={cx + 110} vertical />}
+      {!reduce && <ScanLine t={t} at={NUTRI_SCAN_AT} ms={NUTRI_SCAN_MS} color={colors.primary} from={cx - 140} to={cx + 140} vertical />}
       <Animated.View pointerEvents="none" style={[{ position: "absolute", top: RESULT_Y - 22, left: 0, right: 0, alignItems: "center" }, resultStyle]}>
         <Text style={{ fontVariant: ["tabular-nums"] }} className="font-inter-extrabold text-heading-lg text-primary">
           {Math.round(kcal)} kcal
@@ -394,6 +428,9 @@ function MapScene({ width }: { width: number }) {
       </Animated.View>
 
       {/* Price lookup. */}
+      <Caption {...beat} at={PRICE_CAPTION_AT} hideAt={PRICE_TUCK_AT} y={PRICE_CAPTION_Y} color={colors.accent}>
+        Price: checked at markets and stores
+      </Caption>
       <PriceRow {...beat} store="Dept. of Agriculture" perKg={366} at={PRICE_AT} scanAt={PRICE_SCAN_AT + PRICE_SCAN_MS * 0.25} wins hideAt={PRICE_TUCK_AT} y={PRICE_ROWS_Y[0]} />
       <PriceRow {...beat} store="Landers" perKg={419} at={PRICE_AT + PRICE_ROW_STAGGER} scanAt={PRICE_SCAN_AT + PRICE_SCAN_MS * 0.75} wins={false} hideAt={PRICE_TUCK_AT} y={PRICE_ROWS_Y[1]} />
       {!reduce && (
@@ -511,7 +548,7 @@ export function NumbersReel() {
     <View
       style={{ height: STAGE_HEIGHT }}
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-      accessibilityLabel="Pork belly is looked up: its calories in USDA and FNRI food data (380 kcal per 100 g, from USDA), its price at the Department of Agriculture and Landers (the cheapest, ₱366 per kg). Then every ingredient of the dish is checked the same way. Every ulam is backed by real data: nutrition from FNRI and USDA, prices from the Department of Agriculture and groceries, every ingredient added up for the servings you cook."
+      accessibilityLabel="Pork belly is looked up: its calories in two food databases, USDA (U.S. food data) and FNRI (Philippine food data), giving 380 kcal per 100 g from USDA; its price at markets and stores, the Department of Agriculture and Landers (the cheapest, ₱366 per kg). Then every ingredient of the dish is checked the same way. Every ulam is backed by real data: nutrition from FNRI and USDA, prices from the Department of Agriculture and groceries, every ingredient added up for the servings you cook."
     >
       {width > 0 && (
         <>

@@ -1,14 +1,21 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text } from "react-native";
 import { Image } from "expo-image";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { AppText, Button } from "@/frontend/components/ui";
+import { AppText, DotMorphButton } from "@/frontend/components/ui";
 import { RotatingBlob } from "../components/RotatingBlob";
+import { startDotReveal } from "../components/DotReveal";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
+import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
+
+// Get Started shrinks to an orange dot, which swells to fill the screen and
+// opens onto onboarding (DotReveal).
+const HANDOFF_MS = 50;
 
 export default function IntroScreen() {
   const { isSignedIn } = useAuth();
+  const reduceMotion = useReduceMotion();
 
   // app/_layout.tsx already waits for the initial session check before
   // rendering any screen, so by the time this mounts `isSignedIn` is settled —
@@ -18,6 +25,21 @@ export default function IntroScreen() {
       router.replace("/home");
     }
   }, [isSignedIn]);
+
+  // The button's own dot hides once the overlay's has taken over from it.
+  const [handedOff, setHandedOff] = useState(false);
+
+  // Back from onboarding: a fresh button.
+  const [run, setRun] = useState(0);
+  const launched = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!launched.current) return;
+      launched.current = false;
+      setHandedOff(false);
+      setRun((n) => n + 1);
+    }, []),
+  );
 
   return (
     <View style={{ flex: 1 }} className="bg-white">
@@ -61,12 +83,25 @@ export default function IntroScreen() {
           <Text className="text-ink-emphasis">today?</Text>
         </Text>
 
-        <View className="mt-20">
-          <Button
+        <View className="mt-20" style={{ opacity: handedOff ? 0 : 1 }}>
+          <DotMorphButton
+            key={run}
             label="GET STARTED"
-            variant="primary"
             shape="pill"
-            onPress={() => router.push("/onboarding")}
+            reduceMotion={reduceMotion}
+            onPress={() => {
+              launched.current = true;
+            }}
+            onDone={(spot) => {
+              if (!spot) {
+                router.push("/onboarding");
+                return;
+              }
+              startDotReveal(spot, () => router.push("/onboarding"));
+              // A few frames later, once the overlay's dot is drawn over it,
+              // so there's never a frame with no dot at all.
+              setTimeout(() => setHandedOff(true), HANDOFF_MS);
+            }}
           />
         </View>
       </SafeAreaView>

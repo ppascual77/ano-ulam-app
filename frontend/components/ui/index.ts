@@ -35,3 +35,4 @@ export { RollingText } from "./RollingText";
 export { INTRO_DOT_REST_MS, PageIntro, usePageIntro, type IntroSize } from "./PageIntro";
 export { LandingTitle, type LandingDot } from "./LandingTitle";
 export { DotHandoffOverlay } from "./DotHandoff";
+export { DotMorphButton, type DotSpot } from "./DotMorphButton";
