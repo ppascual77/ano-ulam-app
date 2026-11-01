@@ -2,7 +2,7 @@ import { useProStore } from "@/frontend/core/pro/store/useProStore";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import Animated, { FadeIn, FadeInRight, FadeInUp } from "react-native-reanimated";
 import { ArrowLeft, Pencil, RefreshCw } from "lucide-react-native";
 import { AppText, Button, ConfirmSheet, LandingTitle, LoadingState, Screen, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
@@ -78,7 +78,14 @@ export default function MealPlannerScreen() {
     // store.setTargets is stable; the inputs below are what matter.
   }, [store.stage, goalTargets, goalsOff]);
   const usingGoals = !!goalTargets && !goalsOff && !!store.targets && JSON.stringify(store.targets) === JSON.stringify(goalTargets);
-  const [selectedDay, setSelectedDay] = useState(0);
+  // ?day=N (Home's "Today's plan"): open on that day of the plan.
+  const params = useLocalSearchParams<{ day?: string }>();
+  const [selectedDay, setSelectedDay] = useState(() => Math.max(0, Number(params.day) || 0));
+  useEffect(() => {
+    const day = Number(params.day);
+    if (Number.isInteger(day) && day >= 0 && store.plan && day < store.plan.days.length) setSelectedDay(day);
+    // On a new link, or once the saved plan has loaded.
+  }, [params.day, store.plan?.days.length]);
   // Which of the day's meals is in the hero (and highlighted in the list).
   const [selectedMeal, setSelectedMeal] = useState(0);
   const hero = useMeasuredWidth();
@@ -258,13 +265,13 @@ export default function MealPlannerScreen() {
           <DateSelector plan={plan} selected={selectedDay} isPremium={isPro} onSelect={selectDay} onLocked={() => setLockedOpen(true)} />
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="gap-4 px-5 pb-10 pt-4">
-            <SummaryRow plan={plan} day={plan.days[selectedDay]} />
+            <SummaryRow plan={plan} day={plan.days[Math.min(selectedDay, plan.days.length - 1)]} />
 
             {/* Keyed by day: switching days slides the new day in. */}
             <Animated.View key={selectedDay} entering={FadeInRight.duration(220)} className="gap-4" onLayout={hero.onLayout}>
               {hero.width > 0 && (
                 <HeroCarousel
-                  day={plan.days[selectedDay]}
+                  day={plan.days[Math.min(selectedDay, plan.days.length - 1)]}
                   servings={plan.servings}
                   dayIndex={selectedDay}
                   width={hero.width}
@@ -275,7 +282,7 @@ export default function MealPlannerScreen() {
               )}
 
               <View className="gap-2">
-                {plan.days[selectedDay].meals.map((item, i) => (
+                {plan.days[Math.min(selectedDay, plan.days.length - 1)].meals.map((item, i) => (
                   <MealListRow
                     key={item.slot}
                     item={item}
@@ -294,7 +301,7 @@ export default function MealPlannerScreen() {
               onRegenerate={() => (isPro ? regenerate() : setLockedOpen(true))}
               onSwap={() =>
                 isPro
-                  ? setSwap({ dayIndex: selectedDay, slot: plan.days[selectedDay].meals[selectedMeal].slot })
+                  ? setSwap({ dayIndex: selectedDay, slot: plan.days[Math.min(selectedDay, plan.days.length - 1)].meals[selectedMeal].slot })
                   : setLockedOpen(true)
               }
               onEdit={() => (isPro ? showToast("Editing a day is coming soon") : setLockedOpen(true))}
