@@ -1,7 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Sparkles } from "lucide-react-native";
 import { BottomSheet, ConfirmSheet } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -84,7 +83,6 @@ export function MealDetailSheet({
   // The full Pro page, from the upsell's "See all Pro features": shown in
   // this sheet's overlay, since a /pro screen would open behind it.
   const [proPageOpen, setProPageOpen] = useState(false);
-  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (meal) {
@@ -200,15 +198,8 @@ export function MealDetailSheet({
             onOpenPro={() => setProPageOpen(true)}
           />
           <BottomSheet visible={proPageOpen} onClose={() => setProPageOpen(false)} presentation="inline" fullScreen>
-            <View style={{ flex: 1, paddingTop: insets.top, paddingBottom: insets.bottom }}>
-              <ProPage
-                onClose={() => setProPageOpen(false)}
-                onStarted={() => {
-                  setProPageOpen(false);
-                  onNotify?.("Pro unlocked (test)", "success");
-                }}
-              />
-            </View>
+            {/* No links: they'd navigate under this sheet. */}
+            <ProPage allowLinks={false} onClose={() => setProPageOpen(false)} onStarted={() => setProPageOpen(false)} />
           </BottomSheet>
           {overlay}
           {/* White status bar over the photo while open. As an element (not

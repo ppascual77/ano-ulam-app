@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Linking, Platform, Pressable, ScrollView, Text, View, useWindowDimensions, type ScrollViewInstance } from "react-native";
 import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChevronRight, LogOut, Trash2 } from "lucide-react-native";
 import { AppText, ChipSelect, ConfirmSheet, Screen, Spinner, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -22,6 +22,8 @@ import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferenc
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
+import { ProPlanCard } from "../components/settings/ProPlanCard";
+import { ManagePlanSheet } from "../components/settings/ManagePlanSheet";
 import { ProUpgradeSheet } from "@/frontend/core/pro/components/ProUpgradeSheet";
 import { AvoidIngredientsSheet } from "../components/settings/AvoidIngredientsSheet";
 import { NutritionGoalsSheet } from "../components/settings/NutritionGoalsSheet";
@@ -104,7 +106,9 @@ const PRO_SETTINGS: {
 ];
 
 export default function SettingsScreen() {
-  const params = useLocalSearchParams<{ section?: string }>();
+  // section=newsletter scrolls to it; pro=<setting> opens that Pro sheet (the
+  // unlock screen's try-it links); plan=1 opens Manage your plan.
+  const params = useLocalSearchParams<{ section?: string; pro?: string; plan?: string }>();
   const { height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { isSignedIn } = useAuth();
@@ -130,11 +134,29 @@ export default function SettingsScreen() {
 
   // ---- Pro ------------------------------------------------------------------
   // Pro rows show for everyone (with a lock); without Pro they open the
-  // upsell instead (MOCK Pro: "Unlock" just flips it, see useProStore).
+  // upsell instead. With a (mock) subscription, its plan card sits on top
+  // and opens Manage your plan (see useProStore).
   const isPro = useProStore((s) => s.isPro);
+  const subscription = useProStore((s) => s.subscription);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [proSheet, setProSheet] = useState<ProSettingKey | null>(null);
   const closeProSheet = () => setProSheet(null);
+  const [manageOpen, setManageOpen] = useState(false);
+  // A trial that ended or a cancelled plan that ran out, while away.
+  useFocusEffect(useCallback(() => useProStore.getState().refresh(), []));
+  // Deep links, once Settings has settled in (a sheet opening mid-push
+  // looks rushed).
+  useEffect(() => {
+    const key = params.pro as ProSettingKey | undefined;
+    const openPlan = params.plan === "1";
+    if (!openPlan && !(key && PRO_SETTINGS.some((s) => s.key === key))) return;
+    const timer = setTimeout(() => {
+      if (openPlan) setManageOpen(true);
+      else if (key) (isPro ? setProSheet(key) : setUpgradeOpen(true));
+    }, SCROLL_TO_SECTION_DELAY_MS);
+    return () => clearTimeout(timer);
+    // Only for a new link.
+  }, [params.pro, params.plan]);
 
   // ---- ?section=newsletter --------------------------------------------------
 
@@ -218,6 +240,7 @@ export default function SettingsScreen() {
           </SettingsSection>
 
           <SettingsSection title="Pro">
+            {subscription && <ProPlanCard subscription={subscription} onPress={() => setManageOpen(true)} />}
             {!isPro && (
               <Pressable onPress={() => router.push("/pro")} accessibilityRole="button" className="flex-row items-center gap-3 active:opacity-60">
                 <View className="flex-1">
@@ -227,9 +250,10 @@ export default function SettingsScreen() {
                 <ChevronRight color={colors.ink.subtle} size={18} />
               </Pressable>
             )}
-            {PRO_SETTINGS.map((setting) => (
+            {PRO_SETTINGS.map((setting, index) => (
               <ProSettingRow
                 key={setting.key}
+                index={index}
                 label={setting.label}
                 description={(isPro && setting.summary(prefs)) || setting.description}
                 locked={!isPro}
@@ -322,6 +346,7 @@ export default function SettingsScreen() {
       <AvoidIngredientsSheet visible={proSheet === "avoid"} onClose={closeProSheet} />
       <PlannerDefaultsSheet visible={proSheet === "planner"} onClose={closeProSheet} />
       <NutritionGoalsSheet visible={proSheet === "goals"} onClose={closeProSheet} />
+      <ManagePlanSheet visible={manageOpen} onClose={() => setManageOpen(false)} />
       <ProUpgradeSheet
         visible={upgradeOpen}
         title="Make every meal yours"
