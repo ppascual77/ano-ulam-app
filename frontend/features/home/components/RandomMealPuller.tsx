@@ -13,7 +13,8 @@ import Animated, {
 import { scheduleOnRN } from "react-native-worklets";
 import * as Haptics from "expo-haptics";
 import { BoilingDoodle, DOODLE_COLORS, DOODLE_LIST, drawBoilPair, type DoodleVersion } from "@/frontend/components/ui";
-import { mockMeals } from "@/frontend/core/meals/mocks/meals";
+import { usePreferredMeals } from "@/frontend/core/meals/hooks/usePreferredMeals";
+import { useFullMeal } from "@/frontend/core/meals/hooks/useFullMeal";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { MealRevealCard } from "./MealRevealCard";
@@ -210,9 +211,12 @@ function ConfettiPiece({ config, screenHeight }: { config: ConfettiPieceConfig; 
   );
 }
 
-function pickRandomMeal(excludeId: string | null): MealType {
-  const pool = excludeId ? mockMeals.filter((m) => m.id !== excludeId) : mockMeals;
-  return pool[Math.floor(Math.random() * pool.length)];
+// A random real meal (following preferences), not the one shown last time
+// when there's another to show.
+function pickRandomMeal(meals: MealType[], excludeId: string | null): MealType | null {
+  const others = excludeId ? meals.filter((m) => m.id !== excludeId) : meals;
+  const pool = others.length > 0 ? others : meals;
+  return pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : null;
 }
 
 function RandomMealPullerInner() {
@@ -221,6 +225,13 @@ function RandomMealPullerInner() {
   // The flip-card reveal, then (on "View Details") the full sheet.
   const [revealedMeal, setRevealedMeal] = useState<MealType | null>(null);
   const [detailMeal, setDetailMeal] = useState<MealType | null>(null);
+  // With its ingredients: the picks come from the bulk list.
+  const fullDetailMeal = useFullMeal(detailMeal);
+  // The real catalog, following preferences; read through a ref by the
+  // gesture/timer callbacks.
+  const { meals: catalog } = usePreferredMeals();
+  const catalogRef = useRef(catalog);
+  catalogRef.current = catalog;
   // Slot reel for the current reveal; it lands on revealedMeal.
   const [reel, setReel] = useState<Reel | undefined>(undefined);
   const [confettiPieces, setConfettiPieces] = useState<ConfettiPieceConfig[] | null>(null);
@@ -244,7 +255,10 @@ function RandomMealPullerInner() {
 
   function scheduleNextAppearance() {
     const delay = APPEAR_DELAY_MIN_MS + Math.random() * (APPEAR_DELAY_MAX_MS - APPEAR_DELAY_MIN_MS);
-    appearTimeoutRef.current = setTimeout(() => setTabVisible(true), delay);
+    // Only once there's a real meal to land on.
+    appearTimeoutRef.current = setTimeout(() => {
+      if (catalogRef.current.length > 0) setTabVisible(true);
+    }, delay);
   }
 
   useEffect(() => {
@@ -328,10 +342,11 @@ function RandomMealPullerInner() {
     retractTimeoutRef.current = setTimeout(retract, IGNORE_TIMEOUT_MS);
   }
   function openMealSheet() {
-    const meal = pickRandomMeal(lastMealIdRef.current);
+    const meal = pickRandomMeal(catalogRef.current, lastMealIdRef.current);
+    if (!meal) return;
     lastMealIdRef.current = meal.id ?? null;
     // The reel spins through the available meals and always lands on this one.
-    setReel(buildReel(meal.name, mockMeals.map((m) => m.name)));
+    setReel(buildReel(meal.name, catalogRef.current.map((m) => m.name)));
     setRevealedMeal(meal);
   }
   function burstConfetti() {
@@ -476,7 +491,7 @@ function RandomMealPullerInner() {
       />
 
       <MealDetailSheet
-        meal={detailMeal}
+        meal={fullDetailMeal}
         onClose={() => {
           setDetailMeal(null);
           scheduleNextAppearance();

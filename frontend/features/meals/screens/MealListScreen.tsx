@@ -9,7 +9,7 @@ import {
 import { router, useLocalSearchParams } from "expo-router";
 import Animated, { FadeIn, FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
-import { ArrowLeft, ChevronRight, Search } from "lucide-react-native";
+import { ArrowLeft } from "lucide-react-native";
 import { AppText, Button, Screen } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { BottomNav } from "@/frontend/components/navigation/BottomNav";
@@ -28,16 +28,12 @@ const SCREEN_PADDING = 28 * 2; // matches Screen's px-7
 const COLUMN_GAP = 12;
 
 export default function MealListScreen() {
-  const { title, ids, budget, servings: servingsParam, browse, chip, card } = useLocalSearchParams<{
+  const { title, ids, budget, servings: servingsParam, card } = useLocalSearchParams<{
     title: string;
     ids: string;
     budget?: string;
     /** From a budget suggestion: show the meals priced for these servings. */
     servings?: string;
-    /** "1": end with "Browse all meals" (a short sample, e.g. Recommendations). */
-    browse?: string;
-    /** What these meals are, as a chip, e.g. the picked category. */
-    chip?: string;
     /** "bestValue": the same card as Home's best value row. */
     card?: string;
   }>();
@@ -113,14 +109,8 @@ export default function MealListScreen() {
         </AppText>
 
         {/* Everything below the title scrolls with the meals (nothing
-            sticks): the chips, the Browse banner, Quick Filters, the grid. */}
+            sticks): the budget pill, Quick Filters, the grid. */}
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-          {chip && (
-            <View className="mt-5 self-start rounded-full border border-primary px-3 py-1.5">
-              <Text className="font-inter-semibold text-caption text-primary">{chip}</Text>
-            </View>
-          )}
-
           {budget && (
             <View className="mt-5 self-start rounded-full border border-primary px-3 py-1.5">
               <Text className="font-inter-semibold text-caption text-primary">
@@ -128,26 +118,6 @@ export default function MealListScreen() {
                 {servings ? ` · ${servings} ${servings === 1 ? "serving" : "servings"}` : ""}
               </Text>
             </View>
-          )}
-
-          {/* These are only a sample (e.g. Recommendations): the way to
-              everything, before the filters. */}
-          {browse === "1" && (
-            <Pressable
-              onPress={() => router.navigate("/browse")}
-              accessibilityRole="button"
-              accessibilityLabel="Just a few picks. Browse all meals."
-              className="mt-5 flex-row items-center gap-3 rounded-2xl bg-primary/5 px-4 py-3.5 active:bg-primary/10"
-            >
-              <View className="h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                <Search color={colors.primary} size={18} />
-              </View>
-              <View className="flex-1">
-                <Text className="font-inter-semibold text-body text-ink-emphasis">Looking for something else?</Text>
-                <Text className="font-inter-regular text-small text-ink-subtle">Search every meal in Browse</Text>
-              </View>
-              <ChevronRight color={colors.primary} size={20} />
-            </Pressable>
           )}
 
           <View className="mb-4 mt-5">

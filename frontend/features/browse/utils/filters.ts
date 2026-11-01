@@ -4,6 +4,8 @@
 export type SortByPrice = "asc" | "desc";
 
 export type MealFilters = {
+  /** Meal protein_type values (see PROTEIN_OPTIONS). */
+  proteinTypes: string[];
   dietaryTags: string[];
   tags: string[];
   restaurants: string[];
@@ -11,7 +13,7 @@ export type MealFilters = {
   priceRange: [number, number] | null;
 };
 
-export const EMPTY_FILTERS: MealFilters = { dietaryTags: [], tags: [], restaurants: [], sortByPrice: null, priceRange: null };
+export const EMPTY_FILTERS: MealFilters = { proteinTypes: [], dietaryTags: [], tags: [], restaurants: [], sortByPrice: null, priceRange: null };
 
 export const PRICE_MIN = 50;
 export const PRICE_MAX = 700;
@@ -22,6 +24,17 @@ export type FilterOption = { label: string; value: string };
 export const SORT_OPTIONS: { label: string; value: SortByPrice }[] = [
   { label: "Price: Low to High", value: "asc" },
   { label: "Price: High to Low", value: "desc" },
+];
+
+// The meal's main protein (meals.protein_type). "Vegetable" also matches
+// meals typed "vegetarian" (api/meals.ts's PROTEIN_VARIANTS).
+export const PROTEIN_OPTIONS: FilterOption[] = [
+  { label: "Chicken", value: "chicken" },
+  { label: "Pork", value: "pork" },
+  { label: "Beef", value: "beef" },
+  { label: "Seafood", value: "seafood" },
+  { label: "Egg", value: "egg" },
+  { label: "Vegetable", value: "vegetable" },
 ];
 
 export const MEAL_STYLE_OPTIONS: FilterOption[] = [
@@ -56,11 +69,14 @@ export const RESTAURANT_OPTIONS: FilterOption[] = [
 // The price range only applies alongside another filter (sort doesn't
 // count): with none picked, the slider is locked and the range dropped.
 export function isPriceUnlocked(filters: MealFilters) {
-  return filters.tags.length > 0 || filters.dietaryTags.length > 0 || filters.restaurants.length > 0;
+  return (
+    filters.proteinTypes.length > 0 || filters.tags.length > 0 || filters.dietaryTags.length > 0 || filters.restaurants.length > 0
+  );
 }
 
 export function countFilters(filters: MealFilters) {
   return (
+    filters.proteinTypes.length +
     filters.dietaryTags.length +
     filters.tags.length +
     filters.restaurants.length +

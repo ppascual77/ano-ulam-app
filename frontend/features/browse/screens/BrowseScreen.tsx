@@ -12,7 +12,6 @@ import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
-import { mockMeals } from "@/frontend/core/meals/mocks/meals";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
 import { useAuth, useSignInWithGoogle } from "@/frontend/features/auth/hooks/useAuth";
@@ -20,14 +19,13 @@ import { LoginGateSheet, type LoginGateReason } from "@/frontend/features/auth/c
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { useBrowseSearch } from "../hooks/useBrowseSearch";
+import { useTodaysPick } from "../hooks/useTodaysPick";
 import { countFilters } from "../utils/filters";
 import { FilterButton } from "../components/FilterButton";
 import { FilterSheet } from "../components/FilterSheet";
 import { SearchResults } from "../components/SearchResults";
 import { EmptyMealView, GuestLimitGate } from "../components/EmptyStates";
 import { BrowseIntro } from "../components/BrowseIntro";
-
-const todaysPick = mockMeals.find((meal) => meal.normalized_name === "bananaandpeanutbutter");
 
 // TEMP (dev only): act signed in without a session (Google sign-in can't
 // complete in Expo Go on a device). The DEV pill flips to guest, to test
@@ -72,7 +70,8 @@ export default function BrowseScreen() {
     onFinish: introOnce.markSeen,
   });
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [selectedMeal, setSelectedMeal] = useState<MealType | null>(null);
+  // Today's pick: one real meal a day.
+  const { meal: todaysPick } = useTodaysPick();
   const detail = useMealDetail();
   const savedMeals = useSavedMealActions();
 
@@ -225,21 +224,19 @@ export default function BrowseScreen() {
                 <AppText variant="sectionTitle" dot className="mb-3">
                   Today&apos;s pick
                 </AppText>
-                <TodaysPickCard meal={todaysPick} onPress={() => setSelectedMeal(todaysPick)} />
+                <TodaysPickCard meal={todaysPick} onPress={() => detail.open(todaysPick.id)} />
               </View>
             )}
 
             <View className="mb-6">
-              <MoodSelection onSelectMeal={setSelectedMeal} />
+              <MoodSelection onSelectMeal={(meal) => detail.open(meal.id)} />
             </View>
           </>
         )}
       </ScrollView>
 
-      {/* Default view's mock meals (already complete). */}
-      <MealDetailSheet meal={selectedMeal} onClose={() => setSelectedMeal(null)} />
-
-      {/* A search result, fetched with its ingredients on open. */}
+      {/* Any meal opened here (search results, Today's pick, moods), fetched
+          with its ingredients on open. */}
       <MealDetailSheet
         meal={detailMeal}
         onClose={detail.close}
