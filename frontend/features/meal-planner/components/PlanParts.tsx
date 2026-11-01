@@ -17,14 +17,15 @@ type DateSelectorProps = {
   selected: number;
   isPremium: boolean;
   onSelect: (index: number) => void;
-  /** A Free user tapping day 2-5. */
+  /** A Free user tapping a day after the first. */
   onLocked: () => void;
 };
 
-// Five equal day pills. Free users see days 2-5 locked.
+// Equal day pills, one per day (5, or 7 for a Pro plan; a tighter gap for
+// 7 so "Today" still fits). Free users see every day after the first locked.
 export function DateSelector({ plan, selected, isPremium, onSelect, onLocked }: DateSelectorProps) {
   return (
-    <View className="flex-row gap-1.5 px-5">
+    <View className={`flex-row px-5 ${plan.days.length > 5 ? "gap-1" : "gap-1.5"}`}>
       {plan.days.map((day, i) => {
         const locked = !isPremium && i > 0;
         const active = i === selected;
