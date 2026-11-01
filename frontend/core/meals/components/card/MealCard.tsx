@@ -2,21 +2,18 @@ import { ReactNode, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import {
-  Bookmark,
   ChevronRight,
   Clock,
-  Heart,
   ShieldCheck,
   Store,
 } from "lucide-react-native";
-import { AppText, Button, Chips, Confetti, useBurstOnActivate } from "@/frontend/components/ui";
+import { AppText, Button, Chips } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealInfoPill } from "../MealInfoPill";
 import { MacroBreakdown } from "./MacroBreakdown";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
-import { useMealLike } from "@/frontend/core/likes/hooks/useMealLikes";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
-import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
+import { MealSaveButton } from "./MealSaveButton";
 
 const CARD_WIDTH = 250;
 const IMAGE_HEIGHT = 150;
@@ -39,18 +36,14 @@ type MealCardProps = {
    *  this meal?" before unsaving). Saved state still comes from the shared
    *  saved list. */
   onBookmarkPress?: () => void;
-  /** Controlled like state, so a caller that tracks likes (Browse, kept in
-   *  sync with Meal Details) owns it. Omitted = the card's own local like. */
-  like?: { liked: boolean; count: number; onToggle: () => void };
-  /** Hide the like/bookmark stack (e.g. a recipe still under review). */
+  /** Hide the bookmark (e.g. a recipe still under review). */
   hideActions?: boolean;
-  /** Hide just one of the two (official profile: bookmark only; someone
-   *  else's saved list: like only). */
-  hideLike?: boolean;
+  /** Hide just the bookmark button, keeping its count (someone else's
+   *  saved list). */
   hideBookmark?: boolean;
   /** Overlays on the photo: a badge top-left (recipe status), a control
-   *  top-right (owner menu), and a strip along the bottom edge (saved
-   *  meal's catalog status). */
+   *  top-right beside the bookmark (owner menu), and a strip along the
+   *  bottom edge (saved meal's catalog status). */
   topLeft?: ReactNode;
   topRight?: ReactNode;
   imageFooter?: ReactNode;
@@ -69,9 +62,7 @@ export function MealCard({
   showDescription = false,
   onViewDetails,
   onBookmarkPress,
-  like,
   hideActions = false,
-  hideLike = false,
   hideBookmark = false,
   topLeft,
   topRight,
@@ -79,25 +70,6 @@ export function MealCard({
   dimmed = false,
 }: MealCardProps) {
   const isGrid = layout === "grid";
-  const saved = useSavedMealActions();
-  const isSaved = !!saved.savedFor(meal);
-  // The shared, saved like (useMealLike), unless a caller controls it.
-  const ownLike = useMealLike(meal);
-  // Confetti when a like/save lands (not on unlike/unsave, not on mount).
-  const liked = like ? like.liked : ownLike.liked;
-  const shownLikeCount = like ? like.count : ownLike.count;
-  const likeBurstId = useBurstOnActivate(liked);
-  const saveBurstId = useBurstOnActivate(isSaved);
-
-  const toggleLike = () => (like ? like.onToggle() : ownLike.toggle());
-
-  // Save feedback (flight to Profile, toasts, errors) comes from the
-  // shared actions, the same as every other save button.
-  const toggleSave = () => {
-    if (onBookmarkPress) return onBookmarkPress();
-    void saved.toggle(meal);
-  };
-
   return (
     <Pressable
       onPress={onPress}
@@ -111,99 +83,70 @@ export function MealCard({
           contentFit="cover"
         />
 
+        {/* Scrim so the plain white calorie text (no chip background) stays readable over any photo. */}
         {isGrid && !topLeft && (
-          <>
-            {/* Scrim so the plain white calorie text (no chip background) stays readable over any photo. */}
-            <View className="absolute left-0 right-0 top-0 h-10 bg-black/10" />
-            <View className="absolute left-2 top-2">
-              <Text className="font-inter-extrabold text-caption text-white">{meal.calories} kcal</Text>
-            </View>
-          </>
+          <View className="absolute left-0 right-0 top-0 h-10 bg-black/10" />
         )}
 
-        {topRight ? null : !isFastFood ? (
-          <View className="absolute right-2 top-2">
+        {/* Top-left: time, grid calories, fast-food chips, a badge. Stops
+            short of the bookmark, wrapping instead of running under it. */}
+        <View className="absolute left-2 right-12 top-2 min-h-9 flex-row flex-wrap items-center gap-1">
+          {!isFastFood && (
             <Chips
               label={`${meal.total_time} min`}
               icon={<Clock color={colors.white} size={10} strokeWidth={2} />}
             />
-          </View>
-        ) : (
-          <View className={`absolute left-2 flex-row gap-1 ${isGrid ? "top-8" : "top-2"}`}>
-            <Chips
-              label={meal.restaurant ?? ""}
-              icon={<Store color={colors.white} size={10} strokeWidth={2} />}
-              bgClassName="bg-accent"
-            />
-            {meal.source_type === "official" && (
+          )}
+          {isGrid && !topLeft && (
+            <Text className="font-inter-extrabold text-caption text-white">
+              {meal.calories} kcal
+            </Text>
+          )}
+          {isFastFood && (
+            <>
               <Chips
-                label="Verified Macros"
-                icon={
-                  <ShieldCheck color={colors.white} size={10} strokeWidth={2} />
-                }
+                label={meal.restaurant ?? ""}
+                icon={<Store color={colors.white} size={10} strokeWidth={2} />}
+                bgClassName="bg-accent"
               />
-            )}
+              {meal.source_type === "official" && (
+                <Chips
+                  label="Verified Macros"
+                  icon={
+                    <ShieldCheck
+                      color={colors.white}
+                      size={10}
+                      strokeWidth={2}
+                    />
+                  }
+                />
+              )}
+            </>
+          )}
+          {topLeft}
+        </View>
+
+        {/* Top-right: a control (owner menu), then the bookmark with its
+            save count under it. */}
+        <View className="absolute right-2 top-2 flex-row items-start gap-1.5">
+          {topRight}
+          {!hideActions && (
+            <MealSaveButton meal={meal} onPress={onBookmarkPress} hideButton={hideBookmark} />
+          )}
+        </View>
+
+        {imageFooter && (
+          <View className="absolute bottom-0 left-0 right-0">
+            {imageFooter}
           </View>
         )}
 
-        {imageFooter && <View className="absolute bottom-0 left-0 right-0">{imageFooter}</View>}
-        {topLeft && <View className="absolute left-2 top-2">{topLeft}</View>}
-        {topRight && <View className="absolute right-2 top-2">{topRight}</View>}
-
         <View
-          className="absolute left-1 right-1 flex-row items-end justify-between"
+          className="absolute left-1"
           // Sits above the footer strip when there is one.
           style={{ bottom: imageFooter ? 26 : 4 }}
         >
           <MealInfoPill meal={meal} iconOnly={isGrid} />
-
-          {!hideActions && <View className="mr-1 items-center gap-1.5">
-            {meal.id && !hideLike && (
-              <Pressable onPress={toggleLike} className="items-center gap-0.5">
-                <View>
-                  <Confetti burstId={likeBurstId} />
-                  <View
-                    className={`h-9 w-9 items-center justify-center rounded-full border ${
-                      liked
-                        ? "border-like bg-like"
-                        : "border-white/20 bg-white/15"
-                    }`}
-                  >
-                    <Heart
-                      color={colors.white}
-                      size={16}
-                      fill={liked ? colors.white : "none"}
-                    />
-                  </View>
-                </View>
-                <Text
-                  className={`text-[10px] font-semibold leading-none text-white ${
-                    shownLikeCount > 0 ? "opacity-100" : "opacity-0"
-                  }`}
-                >
-                  {shownLikeCount}
-                </Text>
-              </Pressable>
-            )}
-
-            {!hideBookmark && <View>
-              <Confetti burstId={saveBurstId} />
-              <Pressable
-                onPress={toggleSave}
-                className={`h-9 w-9 items-center justify-center rounded-full border ${
-                  isSaved
-                    ? "border-primary bg-primary"
-                    : "border-white/20 bg-white/15"
-                }`}
-              >
-                <Bookmark
-                  color={colors.white}
-                  size={16}
-                  fill={isSaved ? colors.white : "none"}
-                />
-              </Pressable>
-            </View>}
-          </View>}
         </View>
       </View>
 

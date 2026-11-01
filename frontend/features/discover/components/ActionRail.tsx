@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
-import { Bookmark, Heart, Link } from "lucide-react-native";
+import { Bookmark, Link } from "lucide-react-native";
 import { Confetti, Spinner, useBurstOnActivate } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 
@@ -38,39 +38,25 @@ function RailButton({
 }
 
 type ActionRailProps = {
-  liked: boolean;
-  likeCount: number;
   saved: boolean;
-  /** Like/save request in flight for the active meal. */
+  /** How many people saved the meal (meals.save_count). */
+  saveCount: number;
+  /** Save request in flight for the active meal. */
   busy: boolean;
-  onLike: () => void;
   onSave: () => void;
   onShare: () => void;
 };
 
 // Right-side vertical rail on the Recipes reel. Each button sits in a
-// fixed-height column so the rail doesn't shift when the like count appears.
-// Like/save burst confetti when they land; the screen keys this by meal so
-// swiping onto an already-liked meal doesn't count as a new like.
-export function ActionRail({ liked, likeCount, saved, busy, onLike, onSave, onShare }: ActionRailProps) {
-  const likeBurstId = useBurstOnActivate(liked);
+// fixed-height column so the rail doesn't shift when the save count appears.
+// A save bursts confetti when it lands; the screen keys this by meal so
+// swiping onto an already-saved meal doesn't count as a new save.
+export function ActionRail({ saved, saveCount, busy, onSave, onShare }: ActionRailProps) {
   const saveBurstId = useBurstOnActivate(saved);
 
   return (
     <View className="items-center gap-5">
       <View className="h-16 items-center gap-1">
-        <View>
-          <Confetti burstId={likeBurstId} />
-          <RailButton onPress={onLike} active={liked} activeClassName="border-like bg-like" busy={busy} label="Like">
-            <Heart color={colors.white} fill={liked ? colors.white : "none"} size={20} />
-          </RailButton>
-        </View>
-        {/* Space kept even at 0 so the rail doesn't jump. */}
-        <Text className={`font-inter-semibold text-small text-white ${likeCount > 0 ? "" : "opacity-0"}`}>
-          {likeCount}
-        </Text>
-      </View>
-      <View className="h-16 items-center">
         <View>
           <Confetti burstId={saveBurstId} />
           <RailButton
@@ -83,6 +69,9 @@ export function ActionRail({ liked, likeCount, saved, busy, onLike, onSave, onSh
             <Bookmark color={colors.white} fill={saved ? colors.white : "none"} size={20} />
           </RailButton>
         </View>
+        {/* How many people saved it; space kept even at 0 so the rail
+            doesn't jump. */}
+        <Text className={`font-inter-semibold text-small text-white ${saveCount > 0 ? "" : "opacity-0"}`}>{saveCount}</Text>
       </View>
       <View className="h-16 items-center">
         <RailButton onPress={onShare} label="Share">

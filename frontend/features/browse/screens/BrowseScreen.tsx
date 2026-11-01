@@ -19,7 +19,6 @@ import { LoginGateSheet, type LoginGateReason } from "@/frontend/features/auth/c
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { useBrowseSearch } from "../hooks/useBrowseSearch";
-import { useMealLikes } from "@/frontend/core/likes/hooks/useMealLikes";
 import { useTodaysPick } from "../hooks/useTodaysPick";
 import { countFilters } from "../utils/filters";
 import { FilterButton } from "../components/FilterButton";
@@ -41,7 +40,7 @@ const SHOW_INTRO = true;
 
 // Browse: the default view (Today's pick, moods) until the user searches or
 // filters, then "Search Results" grouped into Luto / Snacks / Fast food
-// rows from the real catalog. Guests get login gates for like/save; searches
+// rows from the real catalog. Guests get a login gate for saving; searches
 // are limited per day (guests 3, free accounts 10, Pro none: useBrowseSearch).
 export default function BrowseScreen() {
   const { isSignedIn } = useAuth();
@@ -78,17 +77,6 @@ export default function BrowseScreen() {
   const [toast, setToast] = useState<ToastState | null>(null);
   const toastError = (message: string) => setToast({ id: Date.now(), message, tone: "error" });
 
-  // ---- likes: the shared, saved likes (useMealLikes), the same on the
-  // cards, Meal Details and everywhere else.
-  const mealLikes = useMealLikes();
-  const likeOf = mealLikes.likeOf;
-  const toggleLike = (meal: MealType) => {
-    if (!meal.id) return;
-    if (isGuest) return setGate("like");
-    void mealLikes.toggle(meal).then((result) => {
-      if (result === "error") toastError("Couldn't update your like. Please try again.");
-    });
-  };
 
   // ---- login gates ----------------------------------------------------------
 
@@ -135,7 +123,6 @@ export default function BrowseScreen() {
       showDescription
       onPress={() => detail.open(meal.id)}
       onViewDetails={() => detail.open(meal.id)}
-      like={{ ...likeOf(meal), onToggle: () => toggleLike(meal) }}
       onBookmarkPress={
         isGuest
           ? () => {
@@ -238,7 +225,6 @@ export default function BrowseScreen() {
         meal={detailMeal}
         onClose={detail.close}
         onNotify={(message, tone) => setToast({ id: Date.now(), message, tone })}
-        like={detailMeal ? { ...likeOf(detailMeal), onToggle: () => toggleLike(detailMeal) } : undefined}
         overlay={detailOpen ? renderGate("inline") : undefined}
       />
       {!detailOpen && renderGate("modal")}

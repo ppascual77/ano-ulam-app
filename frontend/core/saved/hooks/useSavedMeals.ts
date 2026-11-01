@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
+import { realMealKeys } from "@/frontend/core/meals/hooks/useRealMeals";
 import { savedKeys } from "../queryKeys";
 import { listSavedMeals, saveMeal, syncSavedMeal, unsaveMeal, updateSavedServings } from "../savedMeals";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
@@ -45,6 +46,18 @@ export function useSavedMealActions() {
   const read = () => queryClient.getQueryData<SavedMeal[]>(savedKeys.list(userId)) ?? [];
   const write = (next: SavedMeal[]) => queryClient.setQueryData(savedKeys.list(userId), next);
 
+  // The catalog's save count (its popularity) is kept by the database; nudge
+  // the cached copy so the count under the bookmark moves right away, and
+  // the next refetch brings the real number.
+  const bumpSaveCount = (meal: MealType, delta: 1 | -1) =>
+    queryClient.setQueryData<MealType[]>(realMealKeys.list, (meals) =>
+      meals?.map((m) =>
+        (meal.id ? m.id === meal.id : savedKeyOf(m) === savedKeyOf(meal))
+          ? { ...m, save_count: Math.max((m.save_count ?? 0) + delta, 0) }
+          : m,
+      ),
+    );
+
   // `quiet`: an Undo putting a meal back, which needs no "saved" feedback.
   const save = async (meal: MealType, servings?: number, quiet = false): Promise<string | null> => {
     const before = read();
@@ -69,6 +82,7 @@ export function useSavedMealActions() {
     try {
       const entry = await saveMeal(meal, servings);
       write(read().map((e) => (e.meal_catalog_id === key ? entry : e)));
+      bumpSaveCount(meal, 1);
       return null;
     } catch (error) {
       write(read().filter((e) => e.meal_catalog_id !== key));
@@ -84,6 +98,7 @@ export function useSavedMealActions() {
     write(before.filter((e) => e.saved_id !== entry.saved_id));
     try {
       await unsaveMeal(entry.saved_id);
+      bumpSaveCount(entry, -1);
       announceRemoved(entry, () => void save(entry, entry.serving_size, true));
       return null;
     } catch {

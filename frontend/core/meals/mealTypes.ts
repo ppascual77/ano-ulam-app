@@ -134,14 +134,14 @@ export type MealType = {
   normalized_name?: string;
   ingredient_sig?: string;
   image_attribution?: string | null;
-  like_count?: number;
+  /** How many people saved it (meals.save_count): its popularity. */
+  save_count?: number;
   poster_id?: string | null;
   serving_size?: number;
   status?: string;
   rejection_reason?: string | null;
   updated_at?: string;
   ingredients_synced_at?: string | null;
-  liked_by_me?: boolean;
 };
 
 export type MacroType = {
