@@ -5,6 +5,7 @@ import type { PriceAlerts } from "@/api/auth";
 import { IngredientSearch } from "@/frontend/core/meals/components/IngredientSearch";
 import { PantryChip } from "@/frontend/core/pantry/components/PantryChip";
 import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
+import { usePriceItems } from "@/frontend/core/prices/hooks/usePriceItems";
 import { ProSettingSheet } from "./ProSettingSheet";
 import { SettingsToggle } from "./SettingsSection";
 
@@ -14,7 +15,8 @@ const THRESHOLD_OPTIONS: { id: PriceAlerts["threshold"]; label: string }[] = [
 ];
 
 // Pro: the ingredients to be told about when their price drops. A form,
-// saved on Save (not acted on anywhere yet: alerts come later, in-app first).
+// saved on Save. Alerts are in-app: a card at the top of Price Watch and a
+// dot on its tab (usePriceAlerts), from DA's week-over-week prices.
 export function PriceAlertsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { prefs, setPrefs } = usePreferences();
   const [draft, setDraft] = useState<PriceAlerts>(prefs.price_alerts);
@@ -23,6 +25,13 @@ export function PriceAlertsSheet({ visible, onClose }: { visible: boolean; onClo
     if (visible) setDraft(prefs.price_alerts);
   }, [visible]);
   const watchedIds = useMemo(() => new Set(draft.ingredients.map((i) => i.id)), [draft.ingredients]);
+  // Only ingredients with a DA price can alert: name the others.
+  const { data: priceItems } = usePriceItems();
+  const untracked = useMemo(() => {
+    if (!priceItems) return [];
+    const tracked = new Set(priceItems.flatMap((item) => (item.ingredientId ? [item.ingredientId] : [])));
+    return draft.ingredients.filter((i) => !tracked.has(i.id)).map((i) => i.name.split(",")[0]);
+  }, [priceItems, draft.ingredients]);
 
   const save = () => {
     setPrefs({ ...prefs, price_alerts: draft });
@@ -66,6 +75,11 @@ export function PriceAlertsSheet({ visible, onClose }: { visible: boolean; onClo
           </View>
         ) : (
           <Text className="font-inter-regular text-small text-web-ink-muted">Nothing watched yet.</Text>
+        )}
+        {untracked.length > 0 && (
+          <Text className="font-inter-regular text-small text-web-ink-muted">
+            No DA price for {untracked.join(", ")} yet, so {untracked.length === 1 ? "it" : "they"} can&apos;t alert.
+          </Text>
         )}
       </View>
 

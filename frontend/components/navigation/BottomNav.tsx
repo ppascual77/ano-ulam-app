@@ -11,6 +11,7 @@ import { useDisplayName } from "@/frontend/features/auth/hooks/useDisplayName";
 import { adminMenuItems } from "@/frontend/features/admin/adminMenu";
 import { colors } from "@/frontend/constants/theme";
 import { registerProfileDot, useSaveFeedbackStore } from "@/frontend/core/saved/store/useSaveFeedbackStore";
+import { usePriceAlerts } from "@/frontend/core/prices/hooks/usePriceAlerts";
 
 type Tab = {
   href: "/home" | "/browse" | "/price-watch";
@@ -35,7 +36,8 @@ const PILL_FADE_MS = 120;
 // Active tab: a soft rounded pill behind the icon (SegmentedSwitch's track
 // color) plus a semibold primary label, so it's obvious at a glance, not
 // just a color change. Inactive tabs use the switch's muted ink-subtle.
-function TabButton({ href, label, icon: Icon }: Tab) {
+// `dot`: an orange dot on the icon (Price Watch: a new price drop alert).
+function TabButton({ href, label, icon: Icon, dot = false }: Tab & { dot?: boolean }) {
   const active = usePathname() === href;
   const color = active ? colors.primary : colors.ink.subtle;
   const shown = useSharedValue(active ? 1 : 0);
@@ -63,6 +65,13 @@ function TabButton({ href, label, icon: Icon }: Tab) {
           <View className="flex-1 rounded-full border border-web-divider bg-web-divider/70" />
         </Animated.View>
         <Icon color={color} size={22} strokeWidth={active ? 2.4 : 2} />
+        {dot && (
+          <View
+            pointerEvents="none"
+            className="absolute rounded-full border-2 border-white bg-accent"
+            style={{ top: 0, right: 12, width: DOT_SIZE, height: DOT_SIZE }}
+          />
+        )}
       </View>
       <AppText variant="navLabel" className={active ? "font-inter-semibold text-primary" : "text-ink-subtle"}>
         {label}
@@ -192,6 +201,8 @@ function DiscoverTabButton() {
 // nested inside a screen's <Screen> (which only covers the "top" edge for
 // tab screens).
 export function BottomNav() {
+  // Pro: a dot on Price Watch while there's a price drop alert not yet seen.
+  const { unseen: newPriceAlert } = usePriceAlerts();
   return (
     <SafeAreaView edges={["bottom"]} className="border-t border-ink-emphasis/10 bg-white">
       <View className="flex-row items-end justify-between px-6 pt-2 pb-1">
@@ -200,7 +211,7 @@ export function BottomNav() {
         ))}
         <DiscoverTabButton />
         {RIGHT_TABS.map((tab) => (
-          <TabButton key={tab.href} {...tab} />
+          <TabButton key={tab.href} {...tab} dot={tab.href === "/price-watch" && newPriceAlert} />
         ))}
         <ProfileTabButton />
       </View>

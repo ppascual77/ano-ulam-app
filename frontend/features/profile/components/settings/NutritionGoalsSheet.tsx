@@ -27,8 +27,9 @@ const toGoal = (text: string) => {
   return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
 };
 
-// Pro: daily calorie and macro targets. A form, saved on Save (not acted on
-// anywhere yet).
+// Pro: daily calorie and macro targets. A form, saved on Save. Meal Details
+// shows one serving against them; the Meal Planner offers them as its macro
+// goal (calories and protein needed).
 export function NutritionGoalsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { prefs, setPrefs } = usePreferences();
   const [draft, setDraft] = useState<Draft>(() => toDraft(prefs.nutrition_goals));
@@ -54,7 +55,7 @@ export function NutritionGoalsSheet({ visible, onClose }: { visible: boolean; on
     <ProSettingSheet
       visible={visible}
       title="Nutrition goals"
-      subtitle="Your daily targets, for suggestions and your meal plan."
+      subtitle="Your daily targets, for meal details and your meal plan."
       actionLabel="Save"
       onAction={save}
       onClose={onClose}

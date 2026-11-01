@@ -50,6 +50,7 @@ Last updated: **2026-11-01**. Update this file whenever something moves between 
 
 | Area | Real | Not real yet |
 | --- | --- | --- |
+| Pro features on the paywall | Built and working behind the test switch (`isPro`), from the real Pro settings in `users.preferences`. **Ingredients to avoid**: meals using one are left out of every list that follows preferences (Suggest by Budget and Pantry, Recommendations, Browse search, Surprise me, Today's pick, moods, Related meals, Community Favorites, the Meal Planner), matched by ingredient id. **Nutrition goals**: Meal Details shows one serving as a share of each goal; the planner's macro card offers "Use my nutrition goals" (needs calories and protein). **Price drop alerts** (in-app): watched ingredients whose DA price fell this week past the threshold show at the top of Price Watch, with a dot on its tab until seen (seen state on the phone); ingredients with no DA price can't alert, and the settings sheet says so. **Weekly savings**: a Price Watch card with what the running meal plan (else saved meals) costs less at this week's DA prices than last week's, and the top meals; free accounts see a locked teaser. | Only as real as `isPro` (a test switch). No push notifications for price drops. Savings only count DA-linked ingredients and are an estimate, like Best Value meals. |
 | Meal Planner | Real catalog only, within budget, following preferences; each meal fills the slots its meal-time tags say (fast food and untagged meals aren't planned). The plan is saved to the account (`meal_plans`) and its grocery ticks too. | The Pro settings (planner defaults, nutrition goals) don't prefill setup yet, and the planner isn't locked for free users (only days 2 to 5 are). Body stats in the macro sheet stay on the phone. |
 
 ## Not integrated
@@ -57,7 +58,6 @@ Last updated: **2026-11-01**. Update this file whenever something moves between 
 | Area | Status |
 | --- | --- |
 | Pro subscription | `isPro` is a test switch that resets on reload (`core/pro/store/useProStore.ts`). No subscriptions or payments; `users.tier` isn't set by anything. |
-| Pro features on the paywall | Price drop alerts, weekly savings in pesos, the ingredients-to-avoid filter and nutrition goals are **not built** (settings only). The avoid filter is in git history: commit `9e0c3dc`, `useAvoidFilter`. |
 | Pro rewards | 7 days of Pro per approved recipe (up to 3), 2 days for the first photo post. **Not built**; needs real Pro accounts (photo posts are real now). |
 | "Your recipe could earn you Pro" sheet | Works, but its counter is on the phone and it can't tell when rewards are claimed. |
 | Apple sign-in | Not built (needs a paid Apple Developer account). |
@@ -78,7 +78,7 @@ Last updated: **2026-11-01**. Update this file whenever something moves between 
 - **Klipy**: move the API key behind a proxy.
 - **Community moderation**: posts go live at once, with no report or hide. Add reporting (and an admin way to remove a post) before opening the feed to the public.
 - **Native sign-in**: native Google sign-in (instead of the browser flow) and Apple sign-in.
-- **Paywall promises**: build price alerts, savings, avoid ingredients and nutrition goals, or take them off the paywall.
+- **Paywall promises**: price alerts, savings, avoid ingredients and nutrition goals are built; they need real Pro (subscriptions) to reach paying users.
 - **OpenAI models**: `gpt-4o-mini` and `gpt-4o` shut down on **2027-01-14**. Nearly every edge function uses `gpt-4o-mini`.
 - **Dev-only shortcuts to remove**:
   - the "act signed in" switches in Browse and other users' profiles (Discover's Community one is gone: the real feed needs a session);

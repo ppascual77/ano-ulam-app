@@ -10,7 +10,7 @@ import { usePlannerStore } from "../store/usePlannerStore";
 import { SLOTS, planDates, type MealPlan, type MealSlot, type PlannerMeal } from "../utils/generatePlan";
 import type { Goal, MacroTargets } from "../utils/macros";
 
-const planKey = (userId: string | null) => ["meal-plan", userId] as const;
+export const planKey = (userId: string | null) => ["meal-plan", userId] as const;
 
 // "2026-11-01" in the phone's own time zone (a plan's days are local days).
 const localDate = (date: Date) =>

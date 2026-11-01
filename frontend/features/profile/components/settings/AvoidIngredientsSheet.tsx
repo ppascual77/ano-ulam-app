@@ -6,7 +6,7 @@ import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences
 import { ProSettingSheet } from "./ProSettingSheet";
 
 // Pro: the ingredients you never want to see in suggestions. Saved straight
-// to preferences on every add/remove (not acted on anywhere yet).
+// to preferences on every add/remove; useAvoidFilter hides those meals.
 export function AvoidIngredientsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { prefs, setPrefs } = usePreferences();
   const avoided = prefs.avoid_ingredients;

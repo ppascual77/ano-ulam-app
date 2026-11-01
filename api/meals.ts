@@ -271,6 +271,20 @@ export async function getMeal(id: string): Promise<MealWithIngredients> {
   return data as unknown as MealWithIngredients;
 }
 
+// Several meals with their ingredients and linked DA commodities (same join
+// as getMeal), e.g. to price the user's own meals. Missing ids are skipped.
+export async function getMealsWithIngredients(ids: string[]): Promise<MealWithIngredients[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from("meals")
+    .select(
+      "*, meal_ingredients(*, ingredient:ingredients(*, da_commodities(id, commodity, specification, unit, unit_size, latest_price, latest_price_date)))",
+    )
+    .in("id", ids);
+  if (error) throw error;
+  return data as unknown as MealWithIngredients[];
+}
+
 export async function createMeal(patch: Partial<MealRow> & { name: string }) {
   const { data, error } = await supabase.from("meals").insert(patch).select().single();
   if (error) throw error;
