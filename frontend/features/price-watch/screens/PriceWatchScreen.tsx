@@ -38,8 +38,8 @@ const SEARCH_TOP_GAP = 12;
 
 export default function PriceWatchScreen() {
   const items = usePriceItems();
-  // Pro: price drops on the watch list. Seen once they've shown here (clears
-  // the Price Watch tab's dot), including new ones arriving while on screen.
+  // Pro: the day's biggest price drops. Seen once they've shown here (clears
+  // the Price Watch tab's dot), including a new day's arriving while here.
   const priceAlerts = usePriceAlerts();
   // Weekly savings: Pro sees them; other signed-in users a locked teaser.
   const { isSignedIn } = useAuth();
@@ -47,12 +47,12 @@ export default function PriceWatchScreen() {
   const weekly = useWeeklySavings();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const openUpgrade = useCallback(() => setUpgradeOpen(true), []);
-  const alertKeys = priceAlerts.alerts.map((a) => a.key).join(",");
+  const alertDay = priceAlerts.drops.length > 0 ? priceAlerts.date : null;
   useFocusEffect(
     useCallback(() => {
-      if (alertKeys) priceAlerts.markSeen();
-      // markSeen reads the alerts behind alertKeys.
-    }, [alertKeys]),
+      if (alertDay) priceAlerts.markSeen();
+      // markSeen marks the day behind alertDay.
+    }, [alertDay]),
   );
   const [category, setCategory] = useState<PriceCategory | null>("meat");
   const [search, setSearch] = useState("");
@@ -161,9 +161,9 @@ export default function PriceWatchScreen() {
           </View>
         )}
 
-        {priceAlerts.alerts.length > 0 && (
+        {priceAlerts.date && priceAlerts.drops.length > 0 && (
           <View className="mt-6">
-            <PriceAlertsCard alerts={priceAlerts.alerts} onSelect={setSelected} />
+            <PriceAlertsCard date={priceAlerts.date} drops={priceAlerts.drops} onSelect={setSelected} />
           </View>
         )}
 

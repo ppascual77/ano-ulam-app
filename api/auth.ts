@@ -25,17 +25,13 @@ export type PlannerDefaults = {
   auto_plan: boolean;
 };
 
-/** Pro: price drops to be told about. */
-export type PriceAlerts = {
-  enabled: boolean;
-  ingredients: { id: string; name: string }[];
-  /** "any": any drop; "10pct": only drops of 10% or more. */
-  threshold: "any" | "10pct";
-};
+/** Pro: the day's biggest price drops, shown in Price Watch. On or off. */
+export type PriceAlerts = { enabled: boolean };
 
 // Pro settings (avoid_ingredients onwards), acted on only while Pro:
 // avoid_ingredients hides meals (useAvoidFilter), nutrition_goals shows in
-// Meal Details and the planner, price_alerts drives Price Watch's alerts.
+// Meal Details and the planner, price_alerts turns on Price Watch's daily
+// price drops.
 // planner_defaults is saved but doesn't prefill the planner yet.
 export type UserPreferences = {
   dietary_focus: string;
@@ -55,7 +51,7 @@ export const DEFAULT_PLANNER_DEFAULTS: PlannerDefaults = {
   days: 5,
   auto_plan: false,
 };
-export const DEFAULT_PRICE_ALERTS: PriceAlerts = { enabled: true, ingredients: [], threshold: "any" };
+export const DEFAULT_PRICE_ALERTS: PriceAlerts = { enabled: true };
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   dietary_focus: "none",
@@ -93,14 +89,7 @@ function parsePlannerDefaults(v: unknown): PlannerDefaults {
 
 function parsePriceAlerts(v: unknown): PriceAlerts {
   const o = record(v);
-  if (!o) return DEFAULT_PRICE_ALERTS;
-  const ingredients = Array.isArray(o.ingredients)
-    ? o.ingredients.flatMap((item) => {
-        const i = record(item);
-        return i && typeof i.id === "string" && typeof i.name === "string" ? [{ id: i.id, name: i.name }] : [];
-      })
-    : [];
-  return { enabled: o.enabled !== false, ingredients, threshold: o.threshold === "10pct" ? "10pct" : "any" };
+  return { enabled: o ? o.enabled !== false : DEFAULT_PRICE_ALERTS.enabled };
 }
 
 const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
