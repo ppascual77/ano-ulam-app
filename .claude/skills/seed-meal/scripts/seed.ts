@@ -203,8 +203,22 @@ function similarNames(name: string, others: string[]): string[] {
 // Imports one URL into a new session file and reports duplicates: the same
 // link imported before, or a catalog meal sharing most of the dish's
 // significant words (any status, archived included).
+// The importer's AI rewrite (gpt-4o-mini, JSON mode) now and then returns
+// the ingredients under some other key, so the draft arrives without an
+// ingredients array (kawalingpinoy's Kare-Kareng Pata failed 3 times in a
+// row this way). A fresh try usually gets the right shape.
+const IMPORT_TRIES = 3;
+async function importDraft(url: string) {
+  for (let attempt = 1; ; attempt++) {
+    const result = await importMealFromUrl(url);
+    const { meal } = result;
+    if (Array.isArray(meal?.ingredients) && Array.isArray(meal?.procedure) && Array.isArray(meal?.tags)) return result;
+    if (attempt >= IMPORT_TRIES) throw new Error(`The importer returned a draft without its ingredient/step lists ${IMPORT_TRIES} times in a row.`);
+  }
+}
+
 async function importSession(url: string, batch?: string): Promise<{ path: string; summary: string[] }> {
-  const { meal: draft, source_text, extraction_tier } = await importMealFromUrl(url);
+  const { meal: draft, source_text, extraction_tier } = await importDraft(url);
   mkdirSync(SESSIONS, { recursive: true });
   const base = join(SESSIONS, `${new Date().toISOString().slice(0, 10)}-${slugify(draft.name)}`);
   let path = `${base}.json`;
@@ -690,14 +704,22 @@ async function cmdMarkReviewed() {
 // steers a neutral text description, never copied), then compressed to a
 // ~150 KB JPEG with macOS sips, like the app's compressImageForUpload.
 // Optional words after `image` set the framing, e.g. `image tight close-up,
-// the food filling the whole frame`; otherwise the function picks one.
+// the food filling the whole frame`; otherwise one of SEED_FRAMING. Seeded
+// photos are zoomed in a bit more than the function's own picks (Patrick,
+// 2026-11-01); Edit Meal keeps the function's.
+const SEED_FRAMING = [
+  "zoomed in a bit: a close-up with the food filling most of the frame, the vessel's rim partly cropped",
+  "zoomed in a bit: a close-up on the food, the vessel slightly off-center and only a sliver of table showing",
+  "zoomed in a bit: close enough to see the food's texture, the vessel's edge running out of frame on one side",
+];
+
 async function cmdImage(...framingWords: string[]) {
   const session = load();
   const request = {
     name: session.form.name,
     description: session.form.description || null,
     referenceImageUrl: session.draft.reference_image_url,
-    framing: framingWords.join(" ") || null,
+    framing: framingWords.join(" ") || SEED_FRAMING[Math.floor(Math.random() * SEED_FRAMING.length)],
   };
   const { imageBase64, mimeType } = await generateMealImage(request);
   const base = sessionPath().replace(/\.json$/, "");
@@ -1202,4 +1224,9 @@ if (!command || !commands[command]) {
   out(`Commands: ${Object.keys(commands).join(", ")}`);
   process.exit(command ? 1 : 0);
 }
-await commands[command](...args).catch((err: unknown) => fail(err instanceof Error ? err.message : JSON.stringify(err)));
+// An unexpected crash also gets its top stack lines, so a bug like a
+// missing field says where it happened, not just "reading 'map'".
+await commands[command](...args).catch((err: unknown) => {
+  if (err instanceof Error && err.stack) console.error(err.stack.split("\n").slice(1, 5).join("\n"));
+  fail(err instanceof Error ? err.message : JSON.stringify(err));
+});
