@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PhilippinePeso, Utensils } from "lucide-react-native";
-import { View } from "react-native";
+import { Keyboard, View } from "react-native";
 import { AppText, Button, Stepper, TextField } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
@@ -29,6 +29,8 @@ export function BudgetForm({ onSuggestMeals, beforeSuggest }: BudgetFormProps) {
   useEffect(() => () => clearTimeout(timeout.current), []);
 
   const handleSuggest = async () => {
+    // The budget's keyboard goes away as soon as it's pressed.
+    Keyboard.dismiss();
     if (isSuggesting) return;
     if (beforeSuggest && !(await beforeSuggest({ budget, servings }))) return;
     setIsSuggesting(true);
