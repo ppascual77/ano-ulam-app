@@ -1,52 +1,34 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getMeal } from "@/api/meals";
 import { useRealMeals } from "./useRealMeals";
-import { mealRowToMealType } from "../utils/mealAdapter";
 import type { MealType } from "../mealTypes";
+import { inCategory, type CategoryId } from "@/frontend/core/budget/utils/categories";
+import { fitsPreferences } from "@/frontend/core/budget/utils/budgetMatch";
+import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
 
-const RECOMMENDATION_COUNT = 5;
+// Shown 5 at a time (RecommendationsSection's Show More).
+const RECOMMENDATION_COUNT = 10;
 
-function sampleRandom<T>(pool: T[], count: number): T[] {
-  const shuffled = [...pool].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
+function shuffle<T>(pool: T[]): T[] {
+  return [...pool].sort(() => Math.random() - 0.5);
 }
 
-// Home's Recommendations carousel — a random sample of real, already-seeded
-// meals (unlike Community Favorites, which stays on mock data for now).
-// Picking ids happens off useRealMeals' bulk (no-join) list, but each
-// sampled meal is then fetched again individually via getMeal (which DOES
-// join meal_ingredients) — only 5 of them, so the extra round trips are
-// cheap, and it's what lets a tapped card's detail sheet actually show its
-// Ingredients section instead of an empty one. The id sample itself is
-// memoized against the bulk list's reference, so it only reshuffles when
-// that list actually refetches, not on every re-render.
-export function useRecommendedMeals(): { meals: MealType[]; isLoading: boolean; isError: boolean } {
-  const { data: allMeals, isLoading: isLoadingList, isError: isListError } = useRealMeals();
-
-  const sampledIds = useMemo(() => {
+// Home's Recommendations carousel: a random sample of 10 real, already-seeded
+// meals; with a Categories tile picked, every meal in that category instead
+// (shuffled). Only meals that fit the user's preferences (no allergens,
+// their dietary focus), same as Suggest by Budget. Unlike Community Favorites, which stays on mock data for now.
+// Straight from useRealMeals' bulk list (no ingredients): a tapped card's
+// Meal Details fetches the full meal (useFullMeal in MealCarouselSection).
+// Memoized against the bulk list and the category, so it only reshuffles
+// when either changes, not on every re-render.
+export function useRecommendedMeals(category: CategoryId | null = null): { meals: MealType[]; isLoading: boolean; isError: boolean } {
+  const { data: allMeals, isLoading, isError } = useRealMeals();
+  const { prefs } = usePreferences();
+  const { allergens, dietary_focus } = prefs;
+  const meals = useMemo(() => {
     if (!allMeals) return [];
-    return sampleRandom(allMeals, RECOMMENDATION_COUNT)
-      .map((meal) => meal.id)
-      .filter((id): id is string => !!id);
-  }, [allMeals]);
-
-  const {
-    data: detailedMeals,
-    isLoading: isLoadingDetail,
-    isError: isDetailError,
-  } = useQuery({
-    queryKey: ["meals", "recommendations-detail", sampledIds],
-    queryFn: async () => {
-      const rows = await Promise.all(sampledIds.map((id) => getMeal(id)));
-      return rows.map((row) => mealRowToMealType(row, row.meal_ingredients));
-    },
-    enabled: sampledIds.length > 0,
-  });
-
-  return {
-    meals: detailedMeals ?? [],
-    isLoading: isLoadingList || (sampledIds.length > 0 && isLoadingDetail),
-    isError: isListError || isDetailError,
-  };
+    const fitting = allMeals.filter((meal) => fitsPreferences(meal, { allergens, dietary_focus }));
+    if (category) return shuffle(fitting.filter((meal) => inCategory(meal, category)));
+    return shuffle(fitting).slice(0, RECOMMENDATION_COUNT);
+  }, [allMeals, category, allergens, dietary_focus]);
+  return { meals, isLoading, isError };
 }

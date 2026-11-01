@@ -4,12 +4,14 @@ import { router } from "expo-router";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { FREE_DAILY_SUGGESTIONS, GUEST_DAILY_SUGGESTIONS, dailyLimitFor } from "@/frontend/core/pro/proContent";
-import { leftHint, useDailyLimit } from "@/frontend/core/pro/dailyLimits";
+import { useDailyLimit } from "@/frontend/core/pro/dailyLimits";
 import { DailyLimitSheet } from "@/frontend/core/pro/components/DailyLimitSheet";
 import type { LandingDot } from "@/frontend/components/ui";
 import { BudgetForm } from "./BudgetForm";
 import { MealSuggestion } from "./MealSuggestion";
 import { CategoriesSection } from "./CategoriesSection";
+import { PreferencesBanner } from "./PreferencesBanner";
+import type { CategoryId } from "../utils/categories";
 import { RecommendationsSection } from "./RecommendationsSection";
 import { CommunityFavoritesSection } from "./CommunityFavoritesSection";
 import { BestValueMealsSection } from "@/frontend/core/meals/components/BestValueMealsSection";
@@ -26,6 +28,17 @@ function BudgetSectionInner({ categoriesLanding }: BudgetSectionProps) {
     budget: string;
     servings: number;
   } | null>(null);
+  // Home's Categories pick (no budget asked): Recommendations shows that
+  // category.
+  const [homeCategory, setHomeCategory] = useState<CategoryId | null>(null);
+  // Bumped by "Clear budget": remounts the form, emptying its fields.
+  const [formRun, setFormRun] = useState(0);
+  const clearBudget = () => {
+    setSuggestion(null);
+    setFormRun((n) => n + 1);
+    // Home's Categories row comes back with nothing picked: match it.
+    setHomeCategory(null);
+  };
 
   // Suggest by Budget's daily limit (see dailyLimits): a new budget and
   // servings counts once; asking again for the same today is free.
@@ -41,14 +54,24 @@ function BudgetSectionInner({ categoriesLanding }: BudgetSectionProps) {
 
   return (
     <View className="gap-6 mb-10">
-      <BudgetForm onSuggestMeals={setSuggestion} beforeSuggest={beforeSuggest} hint={leftHint(daily.left, "suggestion")} />
+      <BudgetForm key={formRun} onSuggestMeals={setSuggestion} beforeSuggest={beforeSuggest} />
 
       {suggestion ? (
-        <MealSuggestion budget={suggestion.budget} />
+        // Keyed by the ask, so a new budget or servings starts with the
+        // filter chips cleared.
+        <MealSuggestion
+          key={`${suggestion.budget}|${suggestion.servings}`}
+          budget={suggestion.budget}
+          servings={suggestion.servings}
+          onClear={clearBudget}
+        />
       ) : (
         <>
-          <CategoriesSection landing={categoriesLanding} />
-          <RecommendationsSection />
+          {/* Only once preferences are set (no prompt here): Recommendations
+              below follows them. */}
+          <PreferencesBanner onlyWhenSet />
+          <CategoriesSection landing={categoriesLanding} onChange={setHomeCategory} />
+          <RecommendationsSection category={homeCategory} />
           <CommunityFavoritesSection />
           <BestValueMealsSection />
         </>

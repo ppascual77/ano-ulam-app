@@ -125,35 +125,36 @@ function Cell({ value, pro }: { value: CompareCell; pro?: boolean }) {
 // Free vs Pro, with the Pro column tinted orange top to bottom.
 function CompareTable() {
   return (
-    <View className="gap-3">
-      <AppText variant="sectionSubtitle" dot>
-        Free vs Pro
-      </AppText>
-      {/* No grid: whitespace lines the rows up, and the Pro column is one
-          soft orange band behind its cells. */}
-      <View>
-        <View pointerEvents="none" className="absolute bottom-0 right-0 top-0 w-20 rounded-2xl bg-accent/5" />
-        <View className="flex-row items-center">
-          <View className="flex-1" />
-          <View className="w-20 items-center py-3">
-            <Text className="font-inter-bold text-small text-ink-subtle">Free</Text>
+    // No grid: whitespace lines the rows up, and the Pro column is one soft
+    // orange band behind its cells (a little wider than Free's, so "Whole
+    // week" fits with room). The title shares the header row with the Free
+    // and PRO column labels.
+    <View>
+      <View pointerEvents="none" className="absolute bottom-0 right-0 top-0 w-24 rounded-2xl bg-accent/5" />
+      <View className="flex-row items-center">
+        <View className="flex-1 pr-2">
+          <AppText variant="sectionSubtitle" dot>
+            Free vs Pro
+          </AppText>
+        </View>
+        <View className="w-20 items-center py-3">
+          <Text className="font-inter-bold text-small text-ink-subtle">Free</Text>
+        </View>
+        <View className="w-24 items-center py-3">
+          <ProBadge />
+        </View>
+      </View>
+      {COMPARE_ROWS.map((row) => (
+        <View key={row.label} className="flex-row items-stretch">
+          <Text className="flex-1 py-3 pr-2 font-inter-medium text-body text-ink-emphasis">{row.label}</Text>
+          <View className="w-20 items-center justify-center py-3">
+            <Cell value={row.free} />
           </View>
-          <View className="w-20 items-center py-3">
-            <ProBadge />
+          <View className="w-24 items-center justify-center py-3">
+            <Cell value={row.pro} pro />
           </View>
         </View>
-        {COMPARE_ROWS.map((row) => (
-          <View key={row.label} className="flex-row items-stretch">
-            <Text className="flex-1 py-3 pr-2 font-inter-medium text-body text-ink-emphasis">{row.label}</Text>
-            <View className="w-20 items-center justify-center py-3">
-              <Cell value={row.free} />
-            </View>
-            <View className="w-20 items-center justify-center py-3">
-              <Cell value={row.pro} pro />
-            </View>
-          </View>
-        ))}
-      </View>
+      ))}
     </View>
   );
 }
