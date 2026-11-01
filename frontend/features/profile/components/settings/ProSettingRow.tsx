@@ -19,6 +19,9 @@ type ProSettingRowProps = {
   index?: number;
   /** Shown instead of the description line (e.g. chips of what's set). */
   detail?: ReactNode;
+  /** Any other inline control instead of the chevron (with Pro), e.g. a
+   *  segmented choice. */
+  control?: ReactNode;
   /** An on/off setting: a switch instead of the chevron (with Pro). */
   toggle?: { value: boolean; onChange: (value: boolean) => void };
 };
@@ -26,7 +29,7 @@ type ProSettingRowProps = {
 // One row in Settings > Pro: name with the PRO badge, a line under it, and a
 // chevron (or a lock without Pro); an on/off setting has a switch instead. When Pro turns on or off, the lock and
 // chevron crossfade, one row after another.
-export function ProSettingRow({ label, description, locked, onPress, index = 0, toggle, detail }: ProSettingRowProps) {
+export function ProSettingRow({ label, description, locked, onPress, index = 0, toggle, detail, control }: ProSettingRowProps) {
   const reduceMotion = useReduceMotion();
   const enter = reduceMotion ? undefined : FadeIn.delay(index * 60).duration(220);
   const exit = reduceMotion ? undefined : FadeOut.duration(120);
@@ -39,7 +42,11 @@ export function ProSettingRow({ label, description, locked, onPress, index = 0, 
         </View>
         {detail ?? <SettingsRowDescription>{description}</SettingsRowDescription>}
       </View>
-      {toggle && !locked ? (
+      {control && !locked ? (
+        <Animated.View key="control" entering={enter} exiting={exit}>
+          {control}
+        </Animated.View>
+      ) : toggle && !locked ? (
         <Animated.View key="toggle" entering={enter} exiting={exit}>
           <Toggle checked={toggle.value} onChange={toggle.onChange} />
         </Animated.View>

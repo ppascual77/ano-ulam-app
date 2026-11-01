@@ -30,14 +30,14 @@ const BUTTON_DELAY_MS = TITLE_SWAP_MS * 2 + 150;
 // Each step reads as work in progress, then as done (past tense).
 type Step = { title: string; detail: string; doneDetail: string };
 
-function steps(budgetLabel: string, hasMacros: boolean): Step[] {
+function steps(budgetLabel: string, hasMacros: boolean, days: number): Step[] {
   return [
     { title: "Checking your budget", detail: `Finding meals within ${budgetLabel}`, doneDetail: `Found meals within ${budgetLabel}` },
     { title: "Matching meals to your preferences", detail: "Considering your dietary choices", doneDetail: "Filtered based on your choices" },
     hasMacros
       ? { title: "Balancing your calories & macros", detail: "Making sure it fits your goals", doneDetail: "Adjusted to fit your goals" }
       : { title: "Balancing your meals", detail: "Keeping each day filling and varied", doneDetail: "Kept each day filling and varied" },
-    { title: "Planning your 5 days", detail: "Picking the best meal combinations", doneDetail: "Picked the best meal combinations" },
+    { title: `Planning your ${days} days`, detail: "Picking the best meal combinations", doneDetail: "Picked the best meal combinations" },
     { title: "Building your meal plan", detail: "Putting everything together", doneDetail: "Put everything together" },
   ];
 }
@@ -105,6 +105,8 @@ type GeneratingViewProps = {
   /** The meals being planned with; their photos orbit the loader. */
   meals: MealType[];
   hasMacros: boolean;
+  /** Days being planned (5, or 7 for Pro). */
+  days?: number;
   /** Back arrow: cancel and return to setup. */
   onBack: () => void;
   /** "See my meal plan", shown once every step is done. */
@@ -117,8 +119,8 @@ type GeneratingViewProps = {
 // "Planning your week...": the steps tick off one by one; then the title
 // changes to "Your week is planned!" and a "See my meal plan" button fades
 // in (which calls onDone).
-export function GeneratingView({ budgetLabel, meals, hasMacros, onBack, onDone, failed = false }: GeneratingViewProps) {
-  const list = steps(budgetLabel, hasMacros);
+export function GeneratingView({ budgetLabel, meals, hasMacros, days = 5, onBack, onDone, failed = false }: GeneratingViewProps) {
+  const list = steps(budgetLabel, hasMacros, days);
   // Index of the step in progress; list.length = all done.
   const [active, setActive] = useState(0);
   const progress = useSharedValue(0);

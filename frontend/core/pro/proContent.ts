@@ -26,7 +26,7 @@ export const COMPARE_ROWS: { label: string; free: CompareCell; pro: CompareCell 
   { label: "Meal searches", free: `${FREE_DAILY_SEARCHES} a day`, pro: "Unlimited" },
   { label: "Suggest by budget", free: `${FREE_DAILY_SUGGESTIONS} a day`, pro: "Unlimited" },
   { label: "Suggest by pantry", free: `${FREE_DAILY_SUGGESTIONS} a day`, pro: "Unlimited" },
-  { label: "Meal plan", free: "1 day", pro: "5 days" },
+  { label: "Meal plan", free: "1 day", pro: "Up to 7 days" },
   { label: "Grocery list", free: "1 day", pro: "Whole week" },
   { label: "Swap meals", free: false, pro: true },
   { label: "Price drop alerts", free: false, pro: true },
