@@ -315,6 +315,32 @@ export type Database = {
           },
         ]
       }
+      meal_likes: {
+        Row: {
+          created_at: string
+          meal_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          meal_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          meal_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_likes_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meal_sources: {
         Row: {
           imported_at: string
@@ -358,6 +384,7 @@ export type Database = {
           image_attribution: string | null
           image_url: string | null
           ingredients_synced_at: string | null
+          like_count: number
           name: string
           poster_id: string | null
           prep_time: number | null
@@ -393,6 +420,7 @@ export type Database = {
           image_attribution?: string | null
           image_url?: string | null
           ingredients_synced_at?: string | null
+          like_count?: number
           name: string
           poster_id?: string | null
           prep_time?: number | null
@@ -428,6 +456,7 @@ export type Database = {
           image_attribution?: string | null
           image_url?: string | null
           ingredients_synced_at?: string | null
+          like_count?: number
           name?: string
           poster_id?: string | null
           prep_time?: number | null

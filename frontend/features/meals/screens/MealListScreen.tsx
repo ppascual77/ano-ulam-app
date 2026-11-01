@@ -18,7 +18,6 @@ import { BestValueMealCard } from "@/frontend/core/prices/components/BestValueMe
 import { useBestValueMeals } from "@/frontend/core/prices/hooks/usePriceMeals";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useFullMeal } from "@/frontend/core/meals/hooks/useFullMeal";
-import { mockMeals } from "@/frontend/core/meals/mocks/meals";
 import { useRealMeals } from "@/frontend/core/meals/hooks/useRealMeals";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { scaleMeal } from "@/frontend/core/meals/utils/scaleMeal";
@@ -38,7 +37,9 @@ export default function MealListScreen() {
     card?: string;
   }>();
   // This week's best value meals: their own card (what got cheaper, the
-  // saving), from the same data as the row.
+  // saving), from the same data as the row, and no Quick Filters (a short,
+  // already-focused list).
+  const showFilters = card !== "bestValue";
   const { meals: bestValue } = useBestValueMeals();
   const bestValueById = useMemo(
     () => (card === "bestValue" ? new Map(bestValue.map((value) => [value.meal.id, value])) : null),
@@ -51,14 +52,13 @@ export default function MealListScreen() {
   // With its ingredients (and so micronutrients): these come from a bulk
   // list without them.
   const detailMeal = useFullMeal(selectedMeal);
-  // Ids passed in can come from either pool now — Recommendations links to
-  // real (UUID) meal ids, every other carousel still passes mock ids.
+  // The row's meal ids, looked up in the real catalog (the bulk list).
   const { data: realMeals } = useRealMeals();
 
   // In the order passed (a budget suggestion's: closest to the budget
   // first), priced for the suggestion's servings when it came from one.
   const meals = useMemo(() => {
-    const pool = new Map([...mockMeals, ...(realMeals ?? [])].map((meal) => [meal.id, meal]));
+    const pool = new Map((realMeals ?? []).map((meal) => [meal.id, meal]));
     return (ids ?? "")
       .split(",")
       .filter(Boolean)
@@ -120,9 +120,13 @@ export default function MealListScreen() {
             </View>
           )}
 
-          <View className="mb-4 mt-5">
-            <QuickFilters selected={filters} onChange={setFilters} />
-          </View>
+          {showFilters ? (
+            <View className="mb-4 mt-5">
+              <QuickFilters selected={filters} onChange={setFilters} />
+            </View>
+          ) : (
+            <View className="h-4" />
+          )}
           {shown.length === 0 && meals.length > 0 && (
             <View className="items-center gap-4 px-4 py-12">
               <View className="items-center">

@@ -32,6 +32,9 @@ Last updated: **2026-11-01**. Update this file whenever something moves between 
 | Today's pick (Browse) | One real home-cooked meal a day (with a photo when possible), the same all day, by date. Follows preferences. | `features/browse/hooks/useTodaysPick.ts` |
 | Ulam moods (Browse) | Real meals by per-serving rule: Tipid under ₱150, High Protein 30g+, Quick & Easy 20 min or less. Follows preferences. | `features/browse/components/MoodSelection.tsx` |
 | Related meals (Meal Detail) | The web server's logic on the real catalog: same category and protein ("More pork meals"), else other user recipes, else shared tags. Up to 8; opens the full meal. | `core/meals/components/detail/RelatedMeals.tsx` |
+| Community Favorites (Home) | The top 10 most-liked real meals (only meals with at least one like; hidden until there are some), following preferences; your own likes count right away. 5 at a time. | `core/budget/components/CommunityFavoritesSection.tsx` |
+| Meal list ("See all") | Real meals. From Suggest by Budget: priced for the servings, with Quick Filters (protein and style chips, any chip matches). From This week's best value meals: its own card, no filters. Recommendations and Community Favorites have no See All (5 at a time with Show More). | `features/meals/screens/MealListScreen.tsx` |
+| Meal likes | `meal_likes` (owner-only) and each meal's `like_count`, kept by a database trigger. One shared hook for every heart (meal cards, Meal Details, Discover, Browse), so a like shows everywhere; instant, reverts with a toast if saving fails; guests are asked to sign in. Migration `20261101000000`. | `api/likes.ts`, `core/likes/hooks/useMealLikes.ts` |
 | User recipes | Add a Recipe, then pending, then admin approval in Review Recipes. | `api/recipes.ts` |
 | Admin tools | Manage Meals and Ingredients, Seed Meal, import from URL, AI meal images, ingredient verification, DA linking. | `features/admin`, edge fns `import-meal-from-url`, `generate-meal-image` |
 | Meal seeding | The `/seed-meal` skill writes real meals and `meal_sources`. | `.claude/skills/seed-meal` |
@@ -42,10 +45,7 @@ Last updated: **2026-11-01**. Update this file whenever something moves between 
 | Area | Real | Not real yet |
 | --- | --- | --- |
 | Meal Planner | Uses real meals (TEMP flag `PLAN_WITH_REAL_MEALS_ONLY` is on). | Also a **mock catalog** (`features/meal-planner/mock/plannerMeals.ts`). The plan is stored **on the phone only**, and so are its grocery checkboxes. Planner defaults and nutrition goals aren't applied. |
-| Discover | The reel is real meals; saves are real. | **Likes are in memory** (`features/discover/mock/api.ts`). |
 | Profile | Name and avatar from the session; Saved, Created recipes and Pantry are real. | **Bio** and the **saved meal plan banner** are mock (`features/profile/mock/api.ts`). |
-| Home, Budget mode | Suggest by Budget, Recommendations, Best Value meals and Surprise me. | **Community Favorites** uses mock meals (`core/meals/mocks/meals.ts`); left for when Discover likes are real, so it can show the most-liked meals. |
-| Meal list ("See all") | Real meals, with Quick Filters (any chip matches); priced for the servings when opened from Suggest by Budget; best value rows keep their own card. | Community Favorites' See All passes mock meals. |
 | Daily limits | Work for searches (10 a day), Suggest by Budget (5) and Suggest by Pantry (5); guests get 3. | Counted **on the phone only**, so no server check. Reinstalling resets them. |
 | Page intros | Play once per page. | "Seen" is remembered **on the phone**, not on the account. |
 
@@ -84,7 +84,6 @@ Last updated: **2026-11-01**. Update this file whenever something moves between 
 
 ## Suggested order
 
-1. **Discover likes** (next): a likes table plus `like_count`; then Community Favorites from the most-liked meals.
-2. **Meal Planner**: drop the mock catalog, save plans (and their grocery checks) to the account.
-3. **Community feed**: `food_posts`, then public profiles.
-4. **Pro for real**: subscriptions, `tier`, then rewards and the paywall features.
+1. **Meal Planner** (next): drop the mock catalog, save plans (and their grocery checks) to the account.
+2. **Community feed**: `food_posts`, then public profiles.
+3. **Pro for real**: subscriptions, `tier`, then rewards and the paywall features.

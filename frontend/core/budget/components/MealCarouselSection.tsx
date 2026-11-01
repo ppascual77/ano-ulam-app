@@ -10,7 +10,6 @@ import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
 import { MealCardSkeleton } from "@/frontend/core/meals/components/card/MealCardSkeleton";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useFullMeal } from "@/frontend/core/meals/hooks/useFullMeal";
-import { mockMeals } from "@/frontend/core/meals/mocks/meals";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 
 const SKELETON_COUNT = 3;
@@ -52,8 +51,7 @@ type MealCarouselSectionProps = {
   /** See All draws this row's own card instead of MealCard ("bestValue":
    *  BestValueMealCard). */
   seeAllCard?: "bestValue";
-  /** Defaults to the full mock catalog — pass a filtered subset (e.g. by category) to narrow it. */
-  meals?: MealType[];
+  meals: MealType[];
   /** Shown as a "Budget: X" chip on the See All screen, when this group came from a budget suggestion. */
   budgetLabel?: string;
   /** With budgetLabel: the servings asked for, so See All shows the meals
@@ -64,9 +62,8 @@ type MealCarouselSectionProps = {
   renderCard?: (meal: MealType, index: number, open: () => void) => ReactNode;
   /** The custom card's width, so the loading skeletons match it. */
   cardWidth?: number;
-  /** Shows MealCardSkeleton placeholders instead of `meals` — for a real
-   *  backend fetch still in flight (e.g. Home's Recommendations). Mock-data
-   *  callers never need this, since mockMeals is already synchronous. */
+  /** Shows MealCardSkeleton placeholders instead of `meals`, while they're
+   *  still loading (e.g. Home's Recommendations). */
   loading?: boolean;
   /** Show this many at first, then a Show More card that adds this many
    *  more each tap. Omitted: every meal at once. */
@@ -83,7 +80,7 @@ export function MealCarouselSection({
   subtitle,
   showSeeAll = true,
   seeAllCard,
-  meals = mockMeals,
+  meals,
   budgetLabel,
   servings,
   renderCard,

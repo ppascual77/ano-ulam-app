@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRealMeals } from "@/frontend/core/meals/hooks/useRealMeals";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
-import { seedMealLike, toggleMealLike } from "../mock/api";
+import { showGlobalToast } from "@/frontend/components/ui";
+import { useMealLikes, type LikeEntry } from "@/frontend/core/likes/hooks/useMealLikes";
 
 const BATCH_SIZE = 5;
 // Start loading the next batch this many meals before the end, so the
@@ -25,20 +26,20 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
-export type LikeEntry = { liked: boolean; count: number };
+export type { LikeEntry };
 export type FeedStatus = "loading" | "ready" | "error";
 
 // All Recipes-tab state for DiscoverScreen. Meals are the real seeded
 // catalog (useRealMeals), shuffled and dealt out in batches: logged-in
 // users get the next batch as they near the end, guests get one batch and
-// then the end-card. Likes go through the mock api (no backend yet); saves
-// go through the shared saved-meals list (core/saved), same as everywhere.
+// then the end-card. Likes and saves go through the shared, saved lists
+// (core/likes, core/saved), same as everywhere.
 export function useDiscoverFeed({ isGuest }: { isGuest: boolean }) {
   const { data: allMeals, isLoading, isError, refetch } = useRealMeals();
 
   const [meals, setMeals] = useState<MealType[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [likes, setLikes] = useState<Record<string, LikeEntry>>({});
+  const mealLikes = useMealLikes();
   const saved = useSavedMealActions();
   const [inFlight, setInFlight] = useState<Record<string, true>>({});
 
@@ -55,17 +56,8 @@ export function useDiscoverFeed({ isGuest }: { isGuest: boolean }) {
       const key = mealKey(meal);
       if (seen.current.has(key)) continue;
       seen.current.add(key);
-      seedMealLike(meal);
       batch.push(meal);
     }
-    setLikes((prev) => {
-      const next = { ...prev };
-      for (const meal of batch) {
-        const key = mealKey(meal);
-        if (!next[key]) next[key] = { liked: meal.liked_by_me ?? false, count: meal.like_count ?? 0 };
-      }
-      return next;
-    });
     return batch;
   }, []);
 
@@ -102,23 +94,22 @@ export function useDiscoverFeed({ isGuest }: { isGuest: boolean }) {
       return next;
     });
 
-  // Optimistic: flip immediately, then take the server's count; revert both
-  // on failure. Taps on a meal already in flight are ignored. Caller handles
-  // the guest login gate before calling this.
+  // Each shown meal's heart, by meal key (the shared likes, useMealLikes).
+  const likes = useMemo(
+    () => Object.fromEntries(meals.map((meal) => [mealKey(meal), mealLikes.likeOf(meal)])) as Record<string, LikeEntry>,
+    [meals, mealLikes.likeOf],
+  );
+
+  // Optimistic (inside useMealLikes): flips at once, takes the database's
+  // count, reverts on failure. Taps on a meal already in flight are ignored.
+  // Caller handles the guest login gate before calling this.
   const toggleLike = async (meal: MealType) => {
     const key = mealKey(meal);
     if (!meal.id || inFlight[key]) return;
-    const before = likes[key] ?? { liked: false, count: 0 };
-    setLikes((prev) => ({
-      ...prev,
-      [key]: { liked: !before.liked, count: Math.max(0, before.count + (before.liked ? -1 : 1)) },
-    }));
     setBusy(key, true);
     try {
-      const result = await toggleMealLike(meal.id);
-      setLikes((prev) => ({ ...prev, [key]: { liked: result.liked, count: result.like_count } }));
-    } catch {
-      setLikes((prev) => ({ ...prev, [key]: before }));
+      const result = await mealLikes.toggle(meal);
+      if (result === "error") showGlobalToast({ message: "Couldn't update your like. Please try again.", tone: "error" });
     } finally {
       setBusy(key, false);
     }
