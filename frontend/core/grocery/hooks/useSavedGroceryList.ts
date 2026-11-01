@@ -1,95 +1,28 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { useSavedMeals } from "@/frontend/core/saved/hooks/useSavedMeals";
-import { applyGroceryChecks, listGroceryChecks } from "@/api/groceryChecks";
-import { buildGroceryList, type GroceryItem } from "../utils/buildGroceryList";
+import { buildGroceryList } from "../utils/buildGroceryList";
 import { applyStaplesToBuy, useStaplesToBuy } from "../store/useStaplesToBuyStore";
-
-const checksKey = (userId: string | null) => ["grocery", "checks", userId ?? "guest"] as const;
-type Pending = Record<string, string | null>;
+import { useGroceryChecks } from "./useGroceryChecks";
 
 // The saved-meals grocery list (rebuilt from saved meals whenever they
-// change; Profile's Grocery tab and the grocery sheet's "Saved meals" tab) plus its
-// checkboxes. A tap flips the box instantly and is kept on the phone
-// (AsyncStorage) as a pending change; pending changes go to the server in
-// one batch via `flush` (leaving the tab, closing the full list) or when
-// the app goes to the background. Pending values win over the server's.
-// The server is public.grocery_checks (api/groceryChecks), per account;
-// without one (a guest has no saved meals, so no list) checks stay on the
-// phone.
+// change; Profile's Grocery tab and the grocery sheet's "Saved meals" tab)
+// plus its checkboxes (useGroceryChecks, the "saved" list).
 export function useSavedGroceryList(userId: string | null) {
-  const queryClient = useQueryClient();
   const saved = useSavedMeals();
-  const checks = useQuery({
-    queryKey: checksKey(userId),
-    queryFn: () => (userId ? listGroceryChecks() : Promise.resolve({} as Record<string, string>)),
-  });
+  const checks = useGroceryChecks("saved", userId);
   const staplesToBuy = useStaplesToBuy();
   const items = useMemo(
     () => applyStaplesToBuy(buildGroceryList(saved.data ?? []), staplesToBuy),
     [saved.data, staplesToBuy],
   );
 
-  const storageKey = `grocery_checked_${userId ?? "dev"}`;
-  const [pending, setPending] = useState<Pending>({});
-  const pendingRef = useRef<Pending>({});
-
-  const setBoth = (next: Pending) => {
-    pendingRef.current = next;
-    setPending(next);
-  };
-
-  useEffect(() => {
-    AsyncStorage.getItem(storageKey)
-      .then((raw) => raw && setBoth({ ...JSON.parse(raw), ...pendingRef.current }))
-      .catch(() => {});
-  }, [storageKey]);
-
-  const isChecked = useCallback(
-    (item: GroceryItem) => {
-      const value = item.id in pending ? pending[item.id] : checks.data?.[item.id];
-      // Checked at a different quantity = needs restocking = unchecked.
-      return value === item.qty;
-    },
-    [pending, checks.data],
-  );
-
-  const toggle = (item: GroceryItem) => {
-    const next = { ...pendingRef.current, [item.id]: isChecked(item) ? null : item.qty };
-    setBoth(next);
-    AsyncStorage.setItem(storageKey, JSON.stringify(next)).catch(() => {});
-  };
-
-  const flush = useCallback(async () => {
-    const changes = pendingRef.current;
-    // Nowhere to send them without an account: they stay on the phone.
-    if (!userId || Object.keys(changes).length === 0) return;
-    try {
-      await applyGroceryChecks(changes);
-      queryClient.setQueryData<Record<string, string>>(checksKey(userId), (prev) => {
-        const next = { ...prev };
-        for (const [id, qty] of Object.entries(changes)) {
-          if (qty === null) delete next[id];
-          else next[id] = qty;
-        }
-        return next;
-      });
-      setBoth({});
-      await AsyncStorage.removeItem(storageKey);
-    } catch {
-      // Kept locally; the next flush retries.
-    }
-  }, [queryClient, storageKey, userId]);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state !== "active") void flush();
-    });
-    return () => subscription.remove();
-  }, [flush]);
-
   const total = items.reduce((sum, item) => (item.category === "main" ? sum + item.price : sum), 0);
-  return { items, total, loading: saved.isLoading || checks.isLoading, isChecked, toggle, flush };
+  return {
+    items,
+    total,
+    loading: saved.isLoading || checks.loading,
+    isChecked: checks.isChecked,
+    toggle: checks.toggle,
+    flush: checks.flush,
+  };
 }

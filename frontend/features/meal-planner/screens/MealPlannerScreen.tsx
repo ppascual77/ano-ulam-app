@@ -5,21 +5,20 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import Animated, { FadeIn, FadeInRight, FadeInUp } from "react-native-reanimated";
 import { ArrowLeft, Pencil, RefreshCw } from "lucide-react-native";
-import { AppText, Button, ConfirmSheet, LandingTitle, Screen, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
+import { AppText, Button, ConfirmSheet, LandingTitle, LoadingState, Screen, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
-import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { useDisplayName } from "@/frontend/features/auth/hooks/useDisplayName";
 import { usePlannerStore } from "../store/usePlannerStore";
-import { PLAN_WITH_REAL_MEALS_ONLY, usePlannerPool } from "../hooks/usePlannerPool";
+import { usePlannerPool } from "../hooks/usePlannerPool";
+import { useSavedMealPlan } from "../hooks/useSavedMealPlan";
 import { usePlanGroceryList } from "@/frontend/core/grocery/hooks/usePlanGroceryList";
 import { useSavedGroceryList } from "@/frontend/core/grocery/hooks/useSavedGroceryList";
 import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
 import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
-import { PLAN_DAYS, formatPeso, generatePlan, monthDay, regenerateDay, swapOptions } from "../utils/generatePlan";
-import type { MealSlot } from "../mock/plannerMeals";
+import { PLAN_DAYS, formatPeso, generatePlan, monthDay, regenerateDay, swapOptions, type MealPlan, type MealSlot } from "../utils/generatePlan";
 import { BudgetInput, MacroGoalCard, ServingStepper, parseBudget } from "../components/PlannerInputs";
 import { MacroGoalSheet } from "../components/MacroGoalSheet";
 import { GeneratingView } from "../components/GeneratingView";
@@ -29,12 +28,12 @@ import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosSto
 import { DateSelector, DayActions, GroceryListButton, HeroCarousel, MealListRow, SummaryRow, useMeasuredWidth } from "../components/PlanParts";
 import { LockedDaySheet, SwapMealSheet } from "../components/PlannerSheets";
 
-// Meal Planner (test build of the flow): setup (budget, people, optional
-// macro goal) -> a short timed "Planning your week" checklist -> a 5-day
-// plan from today. Free users get day 1; days 2-5 are locked, and tapping
-// them (or a day action) opens a light upgrade sheet, which leads to the
-// full Pro page.
-// No Grocery List yet.
+// Meal Planner: setup (budget, people, optional macro goal) -> a short
+// timed "Planning your week" checklist -> a 5-day plan from today, from the
+// real catalog within budget. The plan is saved to the account and opens
+// again until it ends (useSavedMealPlan). Free users get day 1; days 2-5
+// are locked, and tapping them (or a day action) opens a light upgrade
+// sheet, which leads to the full Pro page.
 
 // Plays the "one budget, seven days" intro on opening the planner (setup
 // stage only: that's where the "Let's plan your week." header is).
@@ -46,6 +45,7 @@ export default function MealPlannerScreen() {
   const store = usePlannerStore();
   const isPro = useProStore((s) => s.isPro);
   const { pool, isLoading: poolLoading } = usePlannerPool();
+  const savedPlan = useSavedMealPlan();
   const { session } = useAuth();
   // "Hello, <first name>!", or just "Hello!" for a guest.
   const { firstName } = useDisplayName();
@@ -54,7 +54,7 @@ export default function MealPlannerScreen() {
   const reduceMotion = useReduceMotion();
   const introOnce = useIntroOnce("meal-planner");
   const intro = usePageIntro({
-    enabled: SHOW_INTRO && !reduceMotion && store.stage === "setup" && introOnce.due,
+    enabled: SHOW_INTRO && !reduceMotion && store.stage === "setup" && !savedPlan.loading && introOnce.due,
     onFinish: introOnce.markSeen,
   });
 
@@ -77,7 +77,6 @@ export default function MealPlannerScreen() {
   // screen / setup shouldn't appear under a sheet still sliding away).
   const afterConfirm = useRef<(() => void) | null>(null);
   const [swap, setSwap] = useState<{ dayIndex: number; slot: MealSlot } | null>(null);
-  const [localDetail, setLocalDetail] = useState<MealType | null>(null);
   const detail = useMealDetail();
   const [toast, setToast] = useState<ToastState | null>(null);
   const showToast = (message: string, tone: ToastState["tone"] = "success") => setToast({ id: Date.now(), message, tone });
@@ -88,31 +87,41 @@ export default function MealPlannerScreen() {
   // Premium, today for Free. Fetched while the plan is on screen, so it's
   // ready when the sheet opens.
   const groceryDays = useMemo(() => (isPro ? [0, 1, 2, 3, 4] : [0]), [isPro]);
-  const grocery = usePlanGroceryList(plan, groceryDays, store.stage === "plan");
+  const grocery = usePlanGroceryList(plan, groceryDays, store.stage === "plan", session?.user.id ?? null);
   // The sheet's other tab: the saved-meals list (same as Profile's).
   const savedGrocery = useSavedGroceryList(session?.user.id ?? null);
   const { data: pantry = [] } = usePantry();
 
-  // seed: a fresh one from "Regenerate", for a different plan.
-  const build = (seed = 0) => {
-    store.setPlan(
-      generatePlan({ pool, budget, servings: store.servings, targets: store.targets, ignoreBudget: PLAN_WITH_REAL_MEALS_ONLY, seed }),
-    );
-    selectDay(0);
-    store.setStage("generating");
+  // Saves the plan as it now is in the store (after any change). If that
+  // fails it stays on screen for this visit.
+  const persist = async (next: MealPlan | null = usePlannerStore.getState().plan) => {
+    if (!next) return;
+    if (!(await savedPlan.save(next, usePlannerStore.getState().goal))) {
+      showToast("Couldn't save your plan. Check your connection.", "error");
+    }
   };
 
-  // Mock meals have no recipe page behind them: show what's on the card.
-  const viewRecipe = (meal: MealType) => {
-    if (meal.id?.startsWith("planner-")) setLocalDetail(meal);
-    else detail.open(meal.id);
+  // seed: a fresh one from "Regenerate", for a different plan.
+  const build = (seed = 0) => {
+    const next = generatePlan({ pool, budget, servings: store.servings, targets: store.targets, seed });
+    store.setPlan(next);
+    selectDay(0);
+    store.setStage("generating");
+    if (next) {
+      // A new plan starts with a fresh grocery list.
+      void grocery.reset();
+      void persist(next);
+    }
   };
+
+  const viewRecipe = (meal: MealPlan["days"][number]["meals"][number]["meal"]) => detail.open(meal.id);
 
   const regenerate = () => {
     if (!plan) return;
-    const meals = regenerateDay(pool, plan, selectedDay, PLAN_WITH_REAL_MEALS_ONLY);
+    const meals = regenerateDay(pool, plan, selectedDay);
     if (!meals) return showToast("No other meals fit this day's budget", "error");
     store.replaceDay(selectedDay, meals);
+    void persist();
     showToast("New meals for this day");
   };
 
@@ -126,7 +135,13 @@ export default function MealPlannerScreen() {
           <ArrowLeft color={colors.webInk.DEFAULT} size={20} />
         </Pressable>
       </View>
-      {store.stage === "setup" && (
+      {store.stage === "setup" && savedPlan.loading && (
+        <View className="flex-1 justify-center">
+          <LoadingState />
+        </View>
+      )}
+
+      {store.stage === "setup" && !savedPlan.loading && (
         <Animated.View key="setup" entering={FadeInUp.duration(250)} className="flex-1">
           <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false} contentContainerClassName="gap-4 px-9 pb-10 pt-2">
             {/* Same title style as "Price Watch." and "Browse." (28px from
@@ -317,6 +332,7 @@ export default function MealPlannerScreen() {
         onClose={() => {
           setGroceryOpen(false);
           void savedGrocery.flush();
+          void grocery.flush();
         }}
         initialTab="plan"
         tabs={[
@@ -346,18 +362,18 @@ export default function MealPlannerScreen() {
 
       <SwapMealSheet
         slot={swap?.slot ?? null}
-        options={plan && swap ? swapOptions(pool, plan, swap.dayIndex, swap.slot, PLAN_WITH_REAL_MEALS_ONLY) : []}
+        options={plan && swap ? swapOptions(pool, plan, swap.dayIndex, swap.slot) : []}
         showMacros={!!plan?.targets}
         onClose={() => setSwap(null)}
         onSwap={(meal) => {
           if (!swap) return;
           store.swapMeal(swap.dayIndex, swap.slot, meal);
+          void persist();
           setSwap(null);
           showToast("Meal swapped");
         }}
       />
 
-      <MealDetailSheet meal={localDetail} onClose={() => setLocalDetail(null)} />
       <MealDetailSheet meal={detail.meal} onClose={detail.close} />
 
       <Toast toast={toast} onHide={() => setToast(null)} />

@@ -106,18 +106,21 @@ export type Database = {
         Row: {
           checked_at: string
           item_key: string
+          list: string
           qty: string
           user_id: string
         }
         Insert: {
           checked_at?: string
           item_key: string
+          list?: string
           qty: string
           user_id: string
         }
         Update: {
           checked_at?: string
           item_key?: string
+          list?: string
           qty?: string
           user_id?: string
         }
@@ -314,6 +317,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      meal_plans: {
+        Row: {
+          budget: number
+          days: Json
+          goal: string | null
+          servings: number
+          start_date: string
+          targets: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          budget: number
+          days: Json
+          goal?: string | null
+          servings: number
+          start_date: string
+          targets?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          budget?: number
+          days?: Json
+          goal?: string | null
+          servings?: number
+          start_date?: string
+          targets?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       meal_sources: {
         Row: {

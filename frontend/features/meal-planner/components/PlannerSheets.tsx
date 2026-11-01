@@ -4,7 +4,7 @@ import { ArrowRight, Check, Plus, X } from "lucide-react-native";
 import { AppText, BottomSheet, Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { SLOT_LABELS } from "../utils/generatePlan";
-import type { MealSlot, PlannerMeal } from "../mock/plannerMeals";
+import type { MealSlot, PlannerMeal } from "../utils/generatePlan";
 import { MealImage } from "./ImagePlaceholder";
 import { ProUpgradeSheet } from "@/frontend/core/pro/components/ProUpgradeSheet";
 

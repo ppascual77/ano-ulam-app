@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { Goal, MacroTargets } from "../utils/macros";
 import type { MealPlan, PlannedMeal } from "../utils/generatePlan";
-import type { MealSlot, PlannerMeal } from "../mock/plannerMeals";
+import type { MealSlot, PlannerMeal } from "../utils/generatePlan";
 
 export type PlannerStage = "setup" | "generating" | "plan" | "error";
 
@@ -14,6 +14,9 @@ type PlannerStore = {
   /** The goal the targets were made for (shown on the enabled card). */
   goal: Goal | null;
   plan: MealPlan | null;
+  /** Whose saved plan has been loaded in (useSavedMealPlan), so it loads
+   *  once per account, not on every screen that shows it. */
+  loadedFor: string | null;
   setStage: (stage: PlannerStage) => void;
   setBudget: (budget: string) => void;
   setServings: (servings: number) => void;
@@ -21,18 +24,22 @@ type PlannerStore = {
   setPlan: (plan: MealPlan | null) => void;
   swapMeal: (dayIndex: number, slot: MealSlot, meal: PlannerMeal) => void;
   replaceDay: (dayIndex: number, meals: PlannedMeal[]) => void;
+  /** The saved plan's inputs (and the plan, when it's still running), for
+   *  `userId`. */
+  loadSaved: (
+    userId: string,
+    saved: { budget: string; servings: number; targets: MacroTargets | null; goal: Goal | null; plan: MealPlan | null } | null,
+  ) => void;
 };
 
+const INITIAL = { stage: "setup" as PlannerStage, budget: "", servings: 1, targets: null, goal: null, plan: null };
+
 // Meal Planner state. Event-driven (setup -> generating -> plan), and kept
-// across tab switches, so a store rather than screen state. Not persisted:
-// this is a test build of the flow, no meal-plan records yet.
+// across screens, so a store rather than screen state. The plan itself is
+// saved to the account (useSavedMealPlan) and loaded back in here.
 export const usePlannerStore = create<PlannerStore>((set) => ({
-  stage: "setup",
-  budget: "",
-  servings: 1,
-  targets: null,
-  goal: null,
-  plan: null,
+  ...INITIAL,
+  loadedFor: null,
   setStage: (stage) => set({ stage }),
   setBudget: (budget) => set({ budget }),
   setServings: (servings) => set({ servings }),
@@ -46,6 +53,23 @@ export const usePlannerStore = create<PlannerStore>((set) => ({
       );
       return { plan: { ...state.plan, days } };
     }),
+  // Another account's plan never carries over: everything starts fresh for
+  // the new one first.
+  loadSaved: (userId, saved) =>
+    set(
+      saved
+        ? {
+            ...INITIAL,
+            loadedFor: userId,
+            budget: saved.budget,
+            servings: saved.servings,
+            targets: saved.targets,
+            goal: saved.goal,
+            plan: saved.plan,
+            stage: saved.plan ? "plan" : "setup",
+          }
+        : { ...INITIAL, loadedFor: userId },
+    ),
   replaceDay: (dayIndex, meals) =>
     set((state) =>
       state.plan ? { plan: { ...state.plan, days: state.plan.days.map((day, i) => (i === dayIndex ? { ...day, meals } : day)) } } : {},
