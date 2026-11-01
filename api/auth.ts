@@ -209,3 +209,16 @@ export async function updateUserProfile(userId: string, patch: Partial<UserProfi
   if (error) throw error;
   return data;
 }
+
+// The page intros this user has seen (users.seen_intros), so each plays once
+// per account. Read and written on its own, never through preferences.
+export async function getSeenIntros(userId: string): Promise<string[]> {
+  const { data, error } = await supabase.from("users").select("seen_intros").eq("id", userId).single();
+  if (error) throw error;
+  return data.seen_intros ?? [];
+}
+
+export async function setSeenIntros(userId: string, ids: string[]): Promise<void> {
+  const { error } = await supabase.from("users").update({ seen_intros: ids }).eq("id", userId);
+  if (error) throw error;
+}
