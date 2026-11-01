@@ -29,7 +29,6 @@ import { ProUpgradeSheet } from "@/frontend/core/pro/components/ProUpgradeSheet"
 import { AvoidIngredientsSheet } from "../components/settings/AvoidIngredientsSheet";
 import { NutritionGoalsSheet } from "../components/settings/NutritionGoalsSheet";
 import { PlannerDefaultsSheet } from "../components/settings/PlannerDefaultsSheet";
-import { PriceAlertsSheet } from "../components/settings/PriceAlertsSheet";
 import { ProSettingRow } from "../components/settings/ProSettingRow";
 
 const LOG_OUT_DELAY_MS = 2000;
@@ -51,7 +50,7 @@ const SCROLL_TO_SECTION_DELAY_MS = 300;
 // /profile/settings, from the gear on your profile: privacy, newsletter,
 // dietary preferences, Home's Surprise me tag, reduce motion, Delete account, About (legal links, feedback,
 // version), and Log out at the very end.
-type ProSettingKey = "alerts" | "avoid" | "planner" | "goals";
+type ProSettingKey = "avoid" | "planner" | "goals";
 
 const listNames = (names: string[]) =>
   `${names.slice(0, 3).join(", ")}${names.length > 3 ? ` and ${names.length - 3} more` : ""}`;
@@ -66,15 +65,6 @@ const PRO_SETTINGS: {
   description: string;
   summary: (prefs: UserPreferences) => string | null;
 }[] = [
-  {
-    key: "alerts",
-    label: "Price alerts",
-    description: "Get told when what you buy gets cheaper.",
-    summary: ({ price_alerts: a }) =>
-      a.ingredients.length === 0
-        ? null
-        : `${a.enabled ? "Watching" : "Paused:"} ${listNames(a.ingredients.map((i) => foodName(i.name)))}.`,
-  },
   {
     key: "avoid",
     label: "Ingredients to avoid",
@@ -261,10 +251,18 @@ export default function SettingsScreen() {
                 <ChevronRight color={colors.ink.subtle} size={18} />
               </Pressable>
             )}
+            {/* Price alerts: just on or off. */}
+            <ProSettingRow
+              label="Price alerts"
+              description="The day's biggest price drops, at the top of Price Watch."
+              locked={!isPro}
+              toggle={{ value: prefs.price_alerts.enabled, onChange: (enabled) => setPrefs({ ...prefs, price_alerts: { enabled } }) }}
+              onPress={() => (isPro ? setPrefs({ ...prefs, price_alerts: { enabled: !prefs.price_alerts.enabled } }) : setUpgradeOpen(true))}
+            />
             {PRO_SETTINGS.map((setting, index) => (
               <ProSettingRow
                 key={setting.key}
-                index={index}
+                index={index + 1}
                 label={setting.label}
                 description={(isPro && setting.summary(prefs)) || setting.description}
                 locked={!isPro}
@@ -353,7 +351,6 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
 
-      <PriceAlertsSheet visible={proSheet === "alerts"} onClose={closeProSheet} />
       <AvoidIngredientsSheet visible={proSheet === "avoid"} onClose={closeProSheet} />
       <PlannerDefaultsSheet visible={proSheet === "planner"} onClose={closeProSheet} />
       <NutritionGoalsSheet visible={proSheet === "goals"} onClose={closeProSheet} />

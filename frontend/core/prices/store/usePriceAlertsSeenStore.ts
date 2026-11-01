@@ -1,12 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 
-// Which price drop alerts have been seen (opened Price Watch while they were
-// showing), so the Price Watch tab's dot only shows for new ones. Keyed by
-// ingredient and DA price date: the same drop stays seen, the next day's
-// drop is new. Kept on the phone: it only decides a dot.
+// Which days' price drop alerts have been seen (opened Price Watch while
+// they were showing), so the Price Watch tab's dot only shows for a new day.
+// Keyed by DA report date. Kept on the phone: it only decides a dot.
 const STORAGE_KEY = "anoulam.seenPriceAlerts";
-// Plenty for a watch list; old keys fall off the front.
+// Plenty of days; old keys fall off the front.
 const MAX_KEYS = 200;
 
 type SeenState = {

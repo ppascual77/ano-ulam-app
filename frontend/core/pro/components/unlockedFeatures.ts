@@ -21,7 +21,7 @@ export const UNLOCKED_FEATURES: UnlockedFeature[] = [
     key: "alerts",
     Icon: BellRing,
     title: "Price drop alerts",
-    detail: "Watch ingredients and see when they get cheaper.",
+    detail: "The day's biggest price drops, every day DA reports.",
   },
   {
     key: "savings",
