@@ -7,7 +7,7 @@ type GoalShareProps = {
   perServing: { calories: number; protein: number; carbs: number; fats: number };
 };
 
-const ROWS: { key: keyof NutritionGoals; label: string; value: (p: GoalShareProps["perServing"]) => number; bar: string; text: string }[] = [
+const ROWS: { key: Exclude<keyof NutritionGoals, "goal">; label: string; value: (p: GoalShareProps["perServing"]) => number; bar: string; text: string }[] = [
   { key: "calories", label: "Calories", value: (p) => p.calories, bar: "bg-like", text: "text-like" },
   { key: "protein", label: "Protein", value: (p) => p.protein, bar: "bg-macro-protein", text: "text-macro-protein" },
   { key: "carbs", label: "Carbs", value: (p) => p.carbs, bar: "bg-macro-carbs", text: "text-macro-carbs" },

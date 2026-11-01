@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Goal, MacroTargets } from "../utils/macros";
+import type { Goal, MacroTargets } from "@/frontend/core/nutrition/macros";
 import type { MealPlan, PlannedMeal } from "../utils/generatePlan";
 import type { MealSlot, PlannerMeal } from "../utils/generatePlan";
 

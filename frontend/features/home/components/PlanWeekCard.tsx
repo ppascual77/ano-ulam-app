@@ -6,6 +6,8 @@ import { ArrowRight } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 import { useRealMeals } from "@/frontend/core/meals/hooks/useRealMeals";
+import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
+import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 
 const PHOTO_COUNT = 3;
 const PHOTO_SIZE = 44;
@@ -21,6 +23,10 @@ const PHOTO_OVERLAP = 14;
 // state) once Pro is decided; for now it just opens the planner.
 function PlanWeekCardInner() {
   const { data: meals } = useRealMeals();
+  // The plan length you'd get: Pro's choice in Settings, else 5.
+  const isPro = useIsPro();
+  const { prefs } = usePreferences();
+  const days = isPro ? prefs.planner_defaults.days : 5;
 
   const photos = useMemo(() => {
     const withPhotos = (meals ?? []).filter((m) => m.image_url && m.category !== "fast_food");
@@ -33,7 +39,7 @@ function PlanWeekCardInner() {
     <Pressable
       onPress={() => router.push("/meal-planner")}
       accessibilityRole="button"
-      accessibilityLabel="Plan your week, a Pro feature. Meals and one grocery list for 7 days, built around your budget."
+      accessibilityLabel={`Plan your week, a Pro feature. Meals and one grocery list for ${days} days, built around your budget.`}
       className="flex-row items-center gap-4 rounded-2xl border border-ink-emphasis/10 px-4 py-3.5 active:opacity-70"
     >
       <View className="flex-row">
@@ -55,7 +61,7 @@ function PlanWeekCardInner() {
           </Text>
           <ProBadge />
         </View>
-        <Text className="font-inter-regular text-body text-ink-subtle">7 days, one grocery list</Text>
+        <Text className="font-inter-regular text-body text-ink-subtle">{days} days, one grocery list</Text>
       </View>
 
       <ArrowRight color={colors.ink.subtle} size={18} />

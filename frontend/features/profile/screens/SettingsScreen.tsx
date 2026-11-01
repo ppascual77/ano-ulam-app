@@ -28,7 +28,9 @@ import { ProFeaturesSheet } from "../components/settings/ProFeaturesSheet";
 import { AvoidSummary } from "../components/settings/AvoidSummary";
 import { ProUpgradeSheet } from "@/frontend/core/pro/components/ProUpgradeSheet";
 import { AvoidIngredientsSheet } from "../components/settings/AvoidIngredientsSheet";
-import { NutritionGoalsSheet } from "../components/settings/NutritionGoalsSheet";
+import { MacroGoalSheet } from "@/frontend/core/nutrition/components/MacroGoalSheet";
+import { GOAL_OPTIONS, goalsFromTargets, targetsFromGoals } from "@/frontend/core/nutrition/macros";
+import { DEFAULT_NUTRITION_GOALS } from "@/api/auth";
 import { ProSettingRow } from "../components/settings/ProSettingRow";
 
 const LOG_OUT_DELAY_MS = 2000;
@@ -81,11 +83,13 @@ const PRO_SETTINGS: {
   {
     key: "goals",
     label: "Nutrition goals",
-    description: "Daily calorie and protein targets for your suggestions and plan.",
+    description: "Your daily targets. Meal plans aim at them, and meals show how they fit.",
     summary: ({ nutrition_goals: g }) =>
-      [g.calories && `${g.calories.toLocaleString()} kcal`, g.protein && `${g.protein} g protein`, g.carbs && `${g.carbs} g carbs`, g.fat && `${g.fat} g fat`]
-        .filter(Boolean)
-        .join(" · ") || null,
+      g.calories
+        ? [GOAL_OPTIONS.find((o) => o.value === g.goal)?.label, `${g.calories.toLocaleString()} kcal`, g.protein && `${g.protein} g protein`]
+            .filter(Boolean)
+            .join(" · ")
+        : null,
   },
 ];
 
@@ -365,7 +369,28 @@ export default function SettingsScreen() {
       </ScrollView>
 
       <AvoidIngredientsSheet visible={proSheet === "avoid"} onClose={closeProSheet} />
-      <NutritionGoalsSheet visible={proSheet === "goals"} onClose={closeProSheet} />
+      {/* The same guided setup the Meal Planner uses: stats, goal, then
+          recommended targets (adjustable). Saved to the account, and every
+          new plan aims at it. */}
+      <MacroGoalSheet
+        visible={proSheet === "goals"}
+        initialTargets={targetsFromGoals(prefs.nutrition_goals)}
+        initialGoal={prefs.nutrition_goals.goal}
+        servings={1}
+        onClose={closeProSheet}
+        onConfirm={(targets, goal) => {
+          setPrefs({ ...prefs, nutrition_goals: goalsFromTargets(targets, goal) });
+          closeProSheet();
+        }}
+        onTurnOff={
+          targetsFromGoals(prefs.nutrition_goals)
+            ? () => {
+                setPrefs({ ...prefs, nutrition_goals: DEFAULT_NUTRITION_GOALS });
+                closeProSheet();
+              }
+            : undefined
+        }
+      />
       <ManagePlanSheet visible={manageOpen} onClose={() => setManageOpen(false)} />
       <ProFeaturesSheet visible={featuresOpen} onClose={() => setFeaturesOpen(false)} />
       <ProUpgradeSheet

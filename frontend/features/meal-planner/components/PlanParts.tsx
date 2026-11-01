@@ -5,7 +5,7 @@ import Svg, { Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import { ArrowLeftRight, ChevronRight, ShoppingCart, CloudSun, Moon, Sun, Droplets, Dumbbell, Flame, Lock, Pencil, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
-import type { MacroTargets } from "../utils/macros";
+import type { MacroTargets } from "@/frontend/core/nutrition/macros";
 import { PLAN_DAYS, SLOTS, SLOT_LABELS, dayLabel, dayTotals, formatPeso, monthDay, perServing, type MealPlan, type PlanDay, type PlannedMeal } from "../utils/generatePlan";
 import { MealImage } from "./ImagePlaceholder";
 import type { MealSlot } from "../utils/generatePlan";
@@ -140,9 +140,10 @@ const MEAL_COLORS: Record<MealSlot, string> = {
 };
 
 // The selected day at a glance. With a macro goal: the macro split (donut
-// by calories) and the day against the calorie goal. Without: the same card
-// for money, today's cost split by meal and the day against its share of
-// the weekly budget (budget / 5, what the planner plans each day within).
+// by calories), the day against the calorie goal and each macro against its
+// target. Without: the same card for money, today's cost split by meal and
+// the day against its share of the budget (budget / the plan's days, what
+// the planner plans each day within).
 export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
   const totals = dayTotals(day, plan.servings);
   if (plan.targets) {
@@ -164,7 +165,8 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
             parts={MACROS.map(({ key, color }) => ({ key, color, value: totals[key] * (key === "fats" ? 9 : 4) }))}
           />
         }
-        stats={MACROS.map(({ key, label, color }) => ({ key, label, color, value: `${Math.round(totals[key])}g` }))}
+        // Each macro against its target: "112/120g".
+        stats={MACROS.map(({ key, label, color }) => ({ key, label, color, value: `${Math.round(totals[key])}/${plan.targets![key]}g` }))}
       />
     );
   }

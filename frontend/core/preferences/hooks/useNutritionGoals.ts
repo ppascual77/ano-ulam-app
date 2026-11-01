@@ -8,5 +8,5 @@ export function useNutritionGoals(): NutritionGoals | null {
   const isPro = useIsPro();
   const goals = usePreferences().prefs.nutrition_goals;
   if (!isPro) return null;
-  return Object.values(goals).some((v) => v != null) ? goals : null;
+  return [goals.calories, goals.protein, goals.carbs, goals.fat].some((v) => v != null) ? goals : null;
 }
