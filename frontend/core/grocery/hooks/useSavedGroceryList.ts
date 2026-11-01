@@ -3,11 +3,11 @@ import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSavedMeals } from "@/frontend/core/saved/hooks/useSavedMeals";
-import { flushGroceryChecks, getGroceryChecks } from "../mock/checks";
+import { applyGroceryChecks, listGroceryChecks } from "@/api/groceryChecks";
 import { buildGroceryList, type GroceryItem } from "../utils/buildGroceryList";
 import { applyStaplesToBuy, useStaplesToBuy } from "../store/useStaplesToBuyStore";
 
-const checksKey = ["grocery", "checks"] as const;
+const checksKey = (userId: string | null) => ["grocery", "checks", userId ?? "guest"] as const;
 type Pending = Record<string, string | null>;
 
 // The saved-meals grocery list (rebuilt from saved meals whenever they
@@ -16,10 +16,16 @@ type Pending = Record<string, string | null>;
 // (AsyncStorage) as a pending change; pending changes go to the server in
 // one batch via `flush` (leaving the tab, closing the full list) or when
 // the app goes to the background. Pending values win over the server's.
+// The server is public.grocery_checks (api/groceryChecks), per account;
+// without one (a guest has no saved meals, so no list) checks stay on the
+// phone.
 export function useSavedGroceryList(userId: string | null) {
   const queryClient = useQueryClient();
   const saved = useSavedMeals();
-  const checks = useQuery({ queryKey: checksKey, queryFn: getGroceryChecks });
+  const checks = useQuery({
+    queryKey: checksKey(userId),
+    queryFn: () => (userId ? listGroceryChecks() : Promise.resolve({} as Record<string, string>)),
+  });
   const staplesToBuy = useStaplesToBuy();
   const items = useMemo(
     () => applyStaplesToBuy(buildGroceryList(saved.data ?? []), staplesToBuy),
@@ -58,10 +64,11 @@ export function useSavedGroceryList(userId: string | null) {
 
   const flush = useCallback(async () => {
     const changes = pendingRef.current;
-    if (Object.keys(changes).length === 0) return;
+    // Nowhere to send them without an account: they stay on the phone.
+    if (!userId || Object.keys(changes).length === 0) return;
     try {
-      await flushGroceryChecks(changes);
-      queryClient.setQueryData<Record<string, string>>(checksKey, (prev) => {
+      await applyGroceryChecks(changes);
+      queryClient.setQueryData<Record<string, string>>(checksKey(userId), (prev) => {
         const next = { ...prev };
         for (const [id, qty] of Object.entries(changes)) {
           if (qty === null) delete next[id];
@@ -74,7 +81,7 @@ export function useSavedGroceryList(userId: string | null) {
     } catch {
       // Kept locally; the next flush retries.
     }
-  }, [queryClient, storageKey]);
+  }, [queryClient, storageKey, userId]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
