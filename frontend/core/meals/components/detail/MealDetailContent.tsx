@@ -57,6 +57,7 @@ import { LockedMicronutrients, MicronutrientList, hasMicronutrients, type Micron
 import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { RelatedMeals } from "./RelatedMeals";
+import { useMealLike } from "@/frontend/core/likes/hooks/useMealLikes";
 import { resolveMealImage } from "../../resolveMealImage";
 import { scaleIngredient } from "../../utils/scaleMeal";
 import { DIETARY_ICONS, capitalize } from "../../utils/dietary";
@@ -431,8 +432,8 @@ export function MealDetailContent({
   const pinnedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: -Math.min(scrollY.value, photoStop) }],
   }));
-  const [isLiked, setIsLiked] = useState(meal.liked_by_me ?? false);
-  const [likeCount, setLikeCount] = useState(meal.like_count ?? 0);
+  // The shared, saved like (useMealLike), unless a caller controls it.
+  const ownLike = useMealLike(meal);
   const [servings, setServings] = useState(initialServings ?? meal.serving_size ?? 1);
   // DA week-over-week changes for every ingredient's linked commodities, for
   // the "price went down" indicator on the ingredient rows.
@@ -442,13 +443,9 @@ export function MealDetailContent({
   );
   const weekChanges = useDaWeekChanges(daCommodityIds);
 
-  const toggleLocalLike = () => {
-    setIsLiked((prev) => !prev);
-    setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
-  };
-  const liked = like ? like.liked : isLiked;
-  const shownLikeCount = like ? like.count : likeCount;
-  const toggleLike = like ? like.onToggle : toggleLocalLike;
+  const liked = like ? like.liked : ownLike.liked;
+  const shownLikeCount = like ? like.count : ownLike.count;
+  const toggleLike = like ? like.onToggle : ownLike.toggle;
 
   const scale = servings / (meal.serving_size ?? 1);
   const displayCalories = Math.round(meal.calories * scale);

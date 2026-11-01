@@ -19,6 +19,7 @@ import { LoginGateSheet, type LoginGateReason } from "@/frontend/features/auth/c
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { useBrowseSearch } from "../hooks/useBrowseSearch";
+import { useMealLikes } from "@/frontend/core/likes/hooks/useMealLikes";
 import { useTodaysPick } from "../hooks/useTodaysPick";
 import { countFilters } from "../utils/filters";
 import { FilterButton } from "../components/FilterButton";
@@ -37,7 +38,6 @@ const DEV_FORCE_SIGNED_IN = __DEV__;
 // stored "seen" flag, instead of always.
 const SHOW_INTRO = true;
 
-type LikeEntry = { liked: boolean; count: number };
 
 // Browse: the default view (Today's pick, moods) until the user searches or
 // filters, then "Search Results" grouped into Luto / Snacks / Fast food
@@ -78,19 +78,16 @@ export default function BrowseScreen() {
   const [toast, setToast] = useState<ToastState | null>(null);
   const toastError = (message: string) => setToast({ id: Date.now(), message, tone: "error" });
 
-  // ---- likes: shared by the cards and Meal Details, so they stay in sync.
-  // No like backend yet: local only.
-  const [likes, setLikes] = useState<Record<string, LikeEntry>>({});
-  const likeOf = (meal: MealType): LikeEntry =>
-    (meal.id && likes[meal.id]) || { liked: meal.liked_by_me ?? false, count: meal.like_count ?? 0 };
+  // ---- likes: the shared, saved likes (useMealLikes), the same on the
+  // cards, Meal Details and everywhere else.
+  const mealLikes = useMealLikes();
+  const likeOf = mealLikes.likeOf;
   const toggleLike = (meal: MealType) => {
     if (!meal.id) return;
     if (isGuest) return setGate("like");
-    const current = likeOf(meal);
-    setLikes((prev) => ({
-      ...prev,
-      [meal.id as string]: { liked: !current.liked, count: Math.max(0, current.count + (current.liked ? -1 : 1)) },
-    }));
+    void mealLikes.toggle(meal).then((result) => {
+      if (result === "error") toastError("Couldn't update your like. Please try again.");
+    });
   };
 
   // ---- login gates ----------------------------------------------------------

@@ -14,6 +14,7 @@ import { colors } from "@/frontend/constants/theme";
 import { MealInfoPill } from "../MealInfoPill";
 import { MacroBreakdown } from "./MacroBreakdown";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
+import { useMealLike } from "@/frontend/core/likes/hooks/useMealLikes";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
 
@@ -80,20 +81,15 @@ export function MealCard({
   const isGrid = layout === "grid";
   const saved = useSavedMealActions();
   const isSaved = !!saved.savedFor(meal);
-  const [isLiked, setIsLiked] = useState(meal.liked_by_me ?? false);
-  const [likeCount, setLikeCount] = useState(meal.like_count ?? 0);
+  // The shared, saved like (useMealLike), unless a caller controls it.
+  const ownLike = useMealLike(meal);
   // Confetti when a like/save lands (not on unlike/unsave, not on mount).
-  const liked = like ? like.liked : isLiked;
-  const shownLikeCount = like ? like.count : likeCount;
+  const liked = like ? like.liked : ownLike.liked;
+  const shownLikeCount = like ? like.count : ownLike.count;
   const likeBurstId = useBurstOnActivate(liked);
   const saveBurstId = useBurstOnActivate(isSaved);
 
-  // No like backend yet: likes are local-only UI state, not persisted.
-  const toggleLike = () => {
-    if (like) return like.onToggle();
-    setIsLiked((prev) => !prev);
-    setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
-  };
+  const toggleLike = () => (like ? like.onToggle() : ownLike.toggle());
 
   // Save feedback (flight to Profile, toasts, errors) comes from the
   // shared actions, the same as every other save button.

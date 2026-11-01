@@ -66,9 +66,9 @@ export function mealRowToMealType(meal: MealRow, mealIngredients?: MealWithIngre
     serving_size: meal.serving_size,
     updated_at: meal.updated_at,
     ingredients_synced_at: meal.ingredients_synced_at,
-    // No likes backend yet: the same neutral defaults for every meal, not
-    // per-viewer state.
-    like_count: 0,
+    // The count is the meal's (kept by the database); whether *you* liked it
+    // comes from useMealLikes, not the meal row.
+    like_count: meal.like_count ?? 0,
     liked_by_me: false,
     poster_id: meal.poster_id,
     status: meal.status,
