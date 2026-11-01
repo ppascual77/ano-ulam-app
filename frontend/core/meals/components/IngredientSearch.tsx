@@ -17,7 +17,7 @@ const RESULT_LIMIT = 6;
 // before pechay, whose alias "chinese cabbage" also starts with "chi"),
 // then shorter names first. Deliberately separate from matchIngredientCandidates (Seed Meal's
 // whole-word matcher for pasted recipe lines), which needs full words.
-function searchIngredients(query: string, ingredients: IngredientRow[], limit: number): IngredientRow[] {
+export function searchIngredients(query: string, ingredients: IngredientRow[], limit: number): IngredientRow[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const ranked: { ingredient: IngredientRow; rank: number }[] = [];

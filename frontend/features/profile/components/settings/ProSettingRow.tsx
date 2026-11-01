@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { ChevronRight, Lock } from "lucide-react-native";
@@ -16,6 +17,8 @@ type ProSettingRowProps = {
   onPress: () => void;
   /** Position in the list: unlocking (or locking) ripples down the rows. */
   index?: number;
+  /** Shown instead of the description line (e.g. chips of what's set). */
+  detail?: ReactNode;
   /** An on/off setting: a switch instead of the chevron (with Pro). */
   toggle?: { value: boolean; onChange: (value: boolean) => void };
 };
@@ -23,7 +26,7 @@ type ProSettingRowProps = {
 // One row in Settings > Pro: name with the PRO badge, a line under it, and a
 // chevron (or a lock without Pro); an on/off setting has a switch instead. When Pro turns on or off, the lock and
 // chevron crossfade, one row after another.
-export function ProSettingRow({ label, description, locked, onPress, index = 0, toggle }: ProSettingRowProps) {
+export function ProSettingRow({ label, description, locked, onPress, index = 0, toggle, detail }: ProSettingRowProps) {
   const reduceMotion = useReduceMotion();
   const enter = reduceMotion ? undefined : FadeIn.delay(index * 60).duration(220);
   const exit = reduceMotion ? undefined : FadeOut.duration(120);
@@ -34,7 +37,7 @@ export function ProSettingRow({ label, description, locked, onPress, index = 0, 
           <SettingsRowLabel>{label}</SettingsRowLabel>
           <ProBadge />
         </View>
-        <SettingsRowDescription>{description}</SettingsRowDescription>
+        {detail ?? <SettingsRowDescription>{description}</SettingsRowDescription>}
       </View>
       {toggle && !locked ? (
         <Animated.View key="toggle" entering={enter} exiting={exit}>
