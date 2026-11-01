@@ -10,7 +10,7 @@ import { PLANS, YEARLY_SAVE_PCT, type PlanKey } from "@/frontend/core/pro/proCon
 import { STATUS_LABEL, daysUntil, formatPlanDate } from "@/frontend/core/pro/subscriptionCopy";
 import { STATUS_CHIP } from "./ProPlanCard";
 
-type Step = "manage" | "confirm";
+type Step = "manage" | "confirm" | "switch";
 
 // The one thing to know right now, as a headline and a line under it.
 function summaryOf(sub: ProSubscription): { title: string; body: string } {
@@ -23,12 +23,16 @@ function summaryOf(sub: ProSubscription): { title: string; body: string } {
       body: `Your first charge of ${price} is on ${date}.`,
     };
   }
+  if (sub.status === "active" && sub.nextPlan) {
+    return { title: `Renews ${date}`, body: `Switching to ${PLANS[sub.nextPlan].label}: ₱${PLANS[sub.nextPlan].price} will be charged on ${date}.` };
+  }
   if (sub.status === "active") return { title: `Renews ${date}`, body: `${price} will be charged on ${date}.` };
   return { title: `Pro until ${date}`, body: "Your subscription is cancelled. You won't be charged." };
 }
 
-// A plan to switch to: full width, a check on the current one.
-function PlanOption({ planKey, selected, onPress }: { planKey: PlanKey; selected: boolean; onPress: () => void }) {
+// A plan to switch to: full width, a check on the current one, and a tag
+// on one scheduled to start at the next renewal.
+function PlanOption({ planKey, selected, tag, onPress }: { planKey: PlanKey; selected: boolean; tag?: string; onPress: () => void }) {
   const option = PLANS[planKey];
   return (
     <Pressable
@@ -45,6 +49,11 @@ function PlanOption({ planKey, selected, onPress }: { planKey: PlanKey; selected
           {planKey === "yearly" && (
             <View className="rounded-full bg-accent/10 px-2 py-0.5">
               <Text className="font-inter-bold text-sub text-accent">SAVE {YEARLY_SAVE_PCT}%</Text>
+            </View>
+          )}
+          {tag && (
+            <View className="rounded-full bg-info-soft px-2 py-0.5">
+              <Text className="font-inter-bold text-sub text-info">{tag.toUpperCase()}</Text>
             </View>
           )}
         </View>
@@ -64,8 +73,9 @@ function PlanOption({ planKey, selected, onPress }: { planKey: PlanKey; selected
 
 // Settings' "Manage your plan", in the same style as the checkout: the plan
 // and its status, the one thing to know (days left, next charge, or when Pro
-// ends), the plans to switch between, then cancel (or resume). Cancelling is
-// one plain confirmation in the same sheet. MOCK: nothing is charged; "End
+// ends), the plans to switch between, then cancel (or resume). Switching and
+// cancelling each confirm first, in the same sheet: a switch says when it
+// happens (now during the trial, else at the next renewal) and what it costs. MOCK: nothing is charged; "End
 // Pro now" is a test shortcut.
 export function ManagePlanSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   // The last plan seen, so the sheet keeps its content while closing after
@@ -76,6 +86,8 @@ export function ManagePlanSheet({ visible, onClose }: { visible: boolean; onClos
   const subscription = live ?? last.current;
   const { switchPlan, cancel, resume, endNow } = useProStore.getState();
   const [step, setStep] = useState<Step>("manage");
+  // The plan the switch step is about.
+  const [target, setTarget] = useState<PlanKey>("monthly");
 
   useEffect(() => {
     if (visible) setStep("manage");
@@ -87,11 +99,34 @@ export function ManagePlanSheet({ visible, onClose }: { visible: boolean; onClos
   const chip = STATUS_CHIP[subscription.status];
   const cancelled = subscription.status === "cancelled";
 
+  // Tapping a plan never switches straight away: it opens the switch step,
+  // which says when the change happens and what it costs.
+  const scheduled = subscription.nextPlan;
   const choosePlan = (plan: PlanKey) => {
-    if (plan === subscription.plan) return;
+    const nothingToChange = scheduled ? plan === scheduled : plan === subscription.plan;
+    if (nothingToChange) return;
     void Haptics.selectionAsync();
-    switchPlan(plan);
-    showGlobalToast({ message: `Switched to ${PLANS[plan].label}. Next charge ₱${PLANS[plan].price} on ${endDate}.`, tone: "success" });
+    setTarget(plan);
+    setStep("switch");
+  };
+  // Back to the current plan while a switch is scheduled: calling it off.
+  const keeping = !!scheduled && target === subscription.plan;
+  const inTrial = subscription.status === "trial";
+  const targetPlan = PLANS[target];
+  const currentPlan = PLANS[subscription.plan];
+
+  const confirmSwitch = () => {
+    void Haptics.selectionAsync();
+    switchPlan(target);
+    setStep("manage");
+    showGlobalToast({
+      message: keeping
+        ? `You'll stay on ${currentPlan.label}.`
+        : inTrial
+          ? `Switched to ${targetPlan.label}.`
+          : `${targetPlan.label} starts on ${endDate}.`,
+      tone: "success",
+    });
   };
 
   const confirmCancel = () => {
@@ -133,7 +168,13 @@ export function ManagePlanSheet({ visible, onClose }: { visible: boolean; onClos
               <View className="mt-5 gap-2.5">
                 <Text className="font-inter-semibold text-body text-ink-emphasis">Your plan</Text>
                 {(Object.keys(PLANS) as PlanKey[]).map((key) => (
-                  <PlanOption key={key} planKey={key} selected={subscription.plan === key} onPress={() => choosePlan(key)} />
+                  <PlanOption
+                    key={key}
+                    planKey={key}
+                    selected={subscription.plan === key}
+                    tag={scheduled === key ? `Starts ${endDate}` : undefined}
+                    onPress={() => choosePlan(key)}
+                  />
                 ))}
               </View>
             )}
@@ -168,6 +209,54 @@ export function ManagePlanSheet({ visible, onClose }: { visible: boolean; onClos
               >
                 <Text className="font-inter-regular text-small text-ink-subtle">End Pro now (test)</Text>
               </Pressable>
+            </View>
+          </Animated.View>
+        )}
+
+        {step === "switch" && (
+          <Animated.View key="switch" entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)}>
+            <View className="gap-5">
+              <View className="gap-1">
+                <AppText variant="sectionTitle" dot>
+                  {keeping ? `Stay on ${currentPlan.label}?` : `Switch to ${targetPlan.label}?`}
+                </AppText>
+                <Text className="font-inter-regular text-body text-ink-subtle">
+                  {keeping
+                    ? `Your switch to ${PLANS[scheduled!].label} on ${endDate} is called off. You'll keep paying ₱${currentPlan.price}/${currentPlan.per}.`
+                    : inTrial
+                      ? `Your free trial carries on. Your first charge will be ₱${targetPlan.price} on ${endDate}, then every ${targetPlan.per}.`
+                      : `You'll stay on ${currentPlan.label} until ${endDate}. Then ${targetPlan.label} starts and ₱${targetPlan.price} is charged, then every ${targetPlan.per}.`}
+                </Text>
+              </View>
+
+              {!keeping && (
+                <View className="rounded-2xl border border-ink-emphasis/10 px-4">
+                  <View className="flex-row items-center justify-between border-b border-ink-emphasis/10 py-3">
+                    <Text className="font-inter-regular text-body text-ink-subtle">Now</Text>
+                    <Text className="font-inter-medium text-body text-ink-subtle">
+                      {currentPlan.label} · ₱{currentPlan.price}/{currentPlan.per}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center justify-between py-3">
+                    <Text className="font-inter-regular text-body text-ink-subtle">{inTrial ? "New" : `From ${endDate}`}</Text>
+                    <Text className="font-inter-bold text-body text-ink-emphasis">
+                      {targetPlan.label} · ₱{targetPlan.price}/{targetPlan.per}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              <View className="flex-row gap-3">
+                <Pressable
+                  onPress={() => setStep("manage")}
+                  className="flex-1 items-center rounded-xl border border-ink-emphasis/15 py-3.5 active:bg-ink-emphasis/5"
+                >
+                  <Text className="font-inter-semibold text-body text-ink-emphasis">Go back</Text>
+                </Pressable>
+                <Pressable onPress={confirmSwitch} className="flex-1 items-center rounded-xl bg-primary py-3.5 active:opacity-80">
+                  <Text className="font-inter-semibold text-body text-white">{keeping ? `Stay on ${currentPlan.label}` : "Switch plan"}</Text>
+                </Pressable>
+              </View>
             </View>
           </Animated.View>
         )}
