@@ -102,6 +102,33 @@ export type Database = {
           },
         ]
       }
+      daily_usage: {
+        Row: {
+          count: number
+          day: string
+          kind: string
+          last: string | null
+          seen: string[]
+          user_id: string
+        }
+        Insert: {
+          count?: number
+          day: string
+          kind: string
+          last?: string | null
+          seen?: string[]
+          user_id: string
+        }
+        Update: {
+          count?: number
+          day?: string
+          kind?: string
+          last?: string | null
+          seen?: string[]
+          user_id?: string
+        }
+        Relationships: []
+      }
       grocery_checks: {
         Row: {
           checked_at: string
@@ -610,6 +637,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      count_daily_use: {
+        Args: { p_kind: string; p_refines?: boolean; p_signature: string }
+        Returns: {
+          allowed: boolean
+          uses_left: number
+        }[]
+      }
+      daily_limit: { Args: { p_kind: string }; Returns: number }
+      daily_uses_left: { Args: { p_kind: string }; Returns: number }
       get_public_profile: {
         Args: { p_user_id: string }
         Returns: {

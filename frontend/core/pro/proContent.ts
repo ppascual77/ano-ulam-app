@@ -6,8 +6,10 @@ import { SAVED_MEALS_LIMIT } from "@/frontend/core/saved/types";
 export type CompareCell = boolean | string;
 
 // Daily limits for guests, then signed-in free accounts; Pro has none.
-// Counted on the device, reset at local midnight (dailyLimits). Browse
-// searches, and each of Suggest by Budget and Suggest by Pantry.
+// Counted per account by the database (a Philippine day), or on the phone
+// for guests (dailyLimits). Browse searches, and each of Suggest by Budget
+// and Suggest by Pantry. The free limits are repeated in the daily_limit
+// database function: change both together.
 export const GUEST_DAILY_SEARCHES = 3;
 export const FREE_DAILY_SEARCHES = 10;
 export const GUEST_DAILY_SUGGESTIONS = 3;
