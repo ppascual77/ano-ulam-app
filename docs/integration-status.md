@@ -24,6 +24,7 @@ Last updated: **2026-11-01**. Update this file whenever something moves between 
 | Prices | DA daily price import, store listings, AI pack estimates, Price Watch, weekly price changes. | `api/daPrices.ts`, `api/priceWatch.ts`, `api/storeListings.ts`, edge fns `ingest-da-daily-prices`, `ground-ingredient-prices`, `estimate-pack-sizes` |
 | Saved meals | `saved_meals`: save and unsave everywhere, servings updates. Database limit: 10 for free, 500 for `tier = 'pro'` (migration `20261031000000`, applied). | `api/saved.ts`, `core/saved` |
 | Pantry | `pantry_items` (owner-only). A guest's pantry is kept on the phone and merged into the account on the first load after sign-in. Profile's Pantry tab reuses Home's pantry section. | `api/pantry.ts`, `core/pantry/hooks/usePantry.ts` |
+| Grocery list | Built from the user's real saved meals; "Have" tags read the real pantry. Checkboxes saved to `grocery_checks` per account (taps are instant and batched: sent when leaving the tab, closing the list, or backgrounding the app). A check made at another quantity reads as unchecked (restock). | `api/groceryChecks.ts`, `core/grocery/hooks/useSavedGroceryList.ts` |
 | Suggest by Pantry | "What can you make?" matches the real pantry against the real catalog (count, match %, See meals results grouped by how ready they are to cook). | `core/pantry/hooks/usePantryMatches.ts`, `features/pantry` |
 | Suggest by Budget | Real meals whose cost for the chosen servings is within **10%** of the budget (₱300 means ₱270 to ₱330), full price, closest first. Follows preferences; the **Categories** tiles (Breakfast, Lunch, Dinner by meal-time tag, Fastfood) filter the rows. 5 at a time with a "Show More Meals" card; a clear-budget chip returns to Home. Empty state uses onboarding slide 1's art. | `core/budget/utils/budgetMatch.ts`, `core/budget/components/MealSuggestion.tsx` |
 | Recommendations | 10 random real meals; with a Home Categories tile picked, every meal in that category. Follows preferences. 5 at a time with a Show More card (no See All). | `core/meals/hooks/useRecommendedMeals.ts` |
@@ -40,8 +41,7 @@ Last updated: **2026-11-01**. Update this file whenever something moves between 
 
 | Area | Real | Not real yet |
 | --- | --- | --- |
-| Grocery list | Built from the user's real saved meals; "Have" tags read the real pantry. | **Checkboxes are in memory** (`core/grocery/mock/checks.ts`). The `grocery_checks` table **already exists on the database** (migration `20261026020000`), so only the app side is left. |
-| Meal Planner | Uses real meals (TEMP flag `PLAN_WITH_REAL_MEALS_ONLY` is on). | Also a **mock catalog** (`features/meal-planner/mock/plannerMeals.ts`). The plan is stored **on the phone only**. Planner defaults and nutrition goals aren't applied. |
+| Meal Planner | Uses real meals (TEMP flag `PLAN_WITH_REAL_MEALS_ONLY` is on). | Also a **mock catalog** (`features/meal-planner/mock/plannerMeals.ts`). The plan is stored **on the phone only**, and so are its grocery checkboxes. Planner defaults and nutrition goals aren't applied. |
 | Discover | The reel is real meals; saves are real. | **Likes are in memory** (`features/discover/mock/api.ts`). |
 | Profile | Name and avatar from the session; Saved, Created recipes and Pantry are real. | **Bio** and the **saved meal plan banner** are mock (`features/profile/mock/api.ts`). |
 | Home, Budget mode | Suggest by Budget, Recommendations, Best Value meals and Surprise me. | **Community Favorites** uses mock meals (`core/meals/mocks/meals.ts`); left for when Discover likes are real, so it can show the most-liked meals. |
@@ -84,8 +84,7 @@ Last updated: **2026-11-01**. Update this file whenever something moves between 
 
 ## Suggested order
 
-1. **Grocery checkboxes** (next): the table already exists, so it's a small app-side swap, like the pantry.
-2. **Discover likes**: a likes table plus `like_count`; then Community Favorites from the most-liked meals.
-3. **Meal Planner**: drop the mock catalog, save plans to the account.
-4. **Community feed**: `food_posts`, then public profiles.
-5. **Pro for real**: subscriptions, `tier`, then rewards and the paywall features.
+1. **Discover likes** (next): a likes table plus `like_count`; then Community Favorites from the most-liked meals.
+2. **Meal Planner**: drop the mock catalog, save plans (and their grocery checks) to the account.
+3. **Community feed**: `food_posts`, then public profiles.
+4. **Pro for real**: subscriptions, `tier`, then rewards and the paywall features.
