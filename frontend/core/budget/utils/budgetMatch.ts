@@ -12,6 +12,10 @@ import { scaleMeal } from "@/frontend/core/meals/utils/scaleMeal";
 
 export const BUDGET_RANGE = 0.1;
 
+// Home's starting serving count: the budget form's stepper and the
+// Recommendations' prices both begin at this many (a couple, not one).
+export const DEFAULT_SERVINGS = 2;
+
 export type BudgetMatch = {
   /** The meal re-based to the chosen servings (price, macros, ingredients),
    *  so its card and detail sheet show what they'd actually cook. */
