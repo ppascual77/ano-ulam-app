@@ -15,10 +15,11 @@ import { usePlannerStore } from "../store/usePlannerStore";
 import { usePlannerPool } from "../hooks/usePlannerPool";
 import { useSavedMealPlan } from "../hooks/useSavedMealPlan";
 import { usePlanGroceryList } from "@/frontend/core/grocery/hooks/usePlanGroceryList";
+import type { GroceryItem } from "@/frontend/core/grocery/utils/buildGroceryList";
 import { useSavedGroceryList } from "@/frontend/core/grocery/hooks/useSavedGroceryList";
 import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
 import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
-import { PLAN_DAYS, formatPeso, generatePlan, monthDay, regenerateDay, swapOptions, type MealPlan, type MealSlot } from "../utils/generatePlan";
+import { PLAN_DAYS, dayLabel, formatPeso, generatePlan, monthDay, regenerateDay, swapOptions, type MealPlan, type MealSlot } from "../utils/generatePlan";
 import { goalsFromTargets, targetsFromGoals } from "@/frontend/core/nutrition/macros";
 import { useNutritionGoals } from "@/frontend/core/preferences/hooks/useNutritionGoals";
 import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
@@ -115,6 +116,31 @@ export default function MealPlannerScreen() {
   const shownDays = plan?.days.length ?? planLength;
   const groceryDays = useMemo(() => (isPro ? Array.from({ length: shownDays }, (_, i) => i) : [0]), [isPro, shownDays]);
   const grocery = usePlanGroceryList(plan, groceryDays, store.stage === "plan", session?.user.id ?? null);
+  // Pro: the Meal plan tab can show just the day being viewed ("Today", or
+  // e.g. "Wed, Nov 5") or the whole plan. Day ticks live in the same "plan"
+  // list (one tick store for both, under day-prefixed keys); an item ticked
+  // on the whole plan counts as ticked for the day too, while a day's tick
+  // leaves the whole plan's bigger amount unticked (still more to buy).
+  const [groceryScope, setGroceryScope] = useState<"day" | "all">("day");
+  const groceryDay = plan ? Math.min(selectedDay, plan.days.length - 1) : 0;
+  const groceryDayIndexes = useMemo(() => [groceryDay], [groceryDay]);
+  const dayGrocery = usePlanGroceryList(plan, groceryDayIndexes, store.stage === "plan" && isPro, session?.user.id ?? null);
+  const wholeById = useMemo(() => new Map(grocery.items.map((item) => [item.id, item])), [grocery.items]);
+  const dayKeyed = (item: GroceryItem): GroceryItem => ({ ...item, id: `day${groceryDay}:${item.id}` });
+  const dayIsChecked = (item: GroceryItem) => {
+    const whole = wholeById.get(item.id);
+    return (!!whole && grocery.isChecked(whole)) || grocery.isChecked(dayKeyed(item));
+  };
+  const dayToggle = (item: GroceryItem) => {
+    const whole = wholeById.get(item.id);
+    if (whole && grocery.isChecked(whole)) {
+      grocery.toggle(whole);
+      if (grocery.isChecked(dayKeyed(item))) grocery.toggle(dayKeyed(item));
+    } else {
+      grocery.toggle(dayKeyed(item));
+    }
+  };
+  const showDayList = isPro && groceryScope === "day" && !!plan;
   // The sheet's other tab: the saved-meals list (same as Profile's).
   const savedGrocery = useSavedGroceryList(session?.user.id ?? null);
   const { data: pantry = [] } = usePantry();
@@ -379,11 +405,28 @@ export default function MealPlannerScreen() {
           {
             key: "plan",
             label: "Meal plan",
-            items: grocery.items,
-            total: grocery.total,
-            isChecked: grocery.isChecked,
-            onToggle: grocery.toggle,
+            items: showDayList ? dayGrocery.items : grocery.items,
+            total: showDayList ? dayGrocery.total : grocery.total,
+            isChecked: showDayList ? dayIsChecked : grocery.isChecked,
+            onToggle: showDayList ? dayToggle : grocery.toggle,
             emptyText: "Your meal plan's ingredients will show up here.",
+            scope:
+              isPro && plan
+                ? {
+                    options: [
+                      {
+                        value: "day",
+                        label:
+                          plan.days[groceryDay].date.toDateString() === new Date().toDateString()
+                            ? "Today"
+                            : `${dayLabel(plan.days[groceryDay].date, 1)}, ${monthDay(plan.days[groceryDay].date)}`,
+                      },
+                      { value: "all", label: "Whole plan" },
+                    ],
+                    value: groceryScope,
+                    onChange: (value) => setGroceryScope(value === "all" ? "all" : "day"),
+                  }
+                : undefined,
           },
           {
             key: "saved",
