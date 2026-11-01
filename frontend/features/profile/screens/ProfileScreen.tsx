@@ -13,7 +13,7 @@ import { createPost, updatePost, type FoodPost, type PostInput } from "@/fronten
 import {
   useMe,
   useMyRecipes,
-  useProfileExtras,
+  useMyBio,
   useUpdateBio,
 } from "../hooks/useProfile";
 import { ProfileHeader } from "../components/ProfileHeader";
@@ -63,7 +63,7 @@ export default function ProfileScreen() {
     if (params.at && TAB_PARAMS.includes(params.tab as ProfileTab)) setTab(params.tab as ProfileTab);
     // Only on a new visit.
   }, [params.at]);
-  const extras = useProfileExtras();
+  const bio = useMyBio();
   const updateBio = useUpdateBio();
   const recipes = useMyRecipes(me.id);
   // Same rule as Add a Recipe's limit check: rejected recipes don't count.
@@ -179,7 +179,7 @@ export default function ProfileScreen() {
               <ProfileHeader
                 name={me.name}
                 avatarUrl={me.avatarUrl}
-                bio={extras.data?.bio ?? null}
+                bio={bio}
                 onSaveBio={async (bio) => {
                   try {
                     await updateBio.mutateAsync(bio);

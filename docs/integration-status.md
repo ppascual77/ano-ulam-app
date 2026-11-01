@@ -35,6 +35,8 @@ Last updated: **2026-11-01**. Update this file whenever something moves between 
 | Community Favorites (Home) | The top 10 most-saved real meals (only meals someone saved; hidden until there are some), following preferences. 5 at a time. | `core/budget/components/CommunityFavoritesSection.tsx` |
 | Meal list ("See all") | Real meals. From Suggest by Budget: priced for the servings, with Quick Filters (protein and style chips, any chip matches). From This week's best value meals: its own card, no filters. Recommendations and Community Favorites have no See All (5 at a time with Show More). | `features/meals/screens/MealListScreen.tsx` |
 | Meal popularity (saves) | Saves are the popularity signal, no separate likes. Each meal's `save_count` is kept by a database trigger on `saved_meals`; shown under the bookmark on meal cards and the Discover rail, and as a saved pill in Meal Details. Your own save moves the count right away. Migration `20261101020000` (drops the old `meal_likes` and `like_count`). | `core/saved/hooks/useSavedMeals.ts`, `core/meals/components/card/MealCard.tsx` |
+| Profile | Name and avatar from the session; Saved, Created recipes and Pantry are real. Bio (`users.bio`, 50 characters, checked by the database) and the two settings, "Show saved meals on your profile" (`users.show_saved_public`) and "Email newsletter" (`users.newsletter_subscribed`, off by default, saved only: nothing sends emails yet). Migration `20261101030000`. The meal plan banner stays hidden until the Meal Planner can save a plan. | `features/profile/hooks/useProfile.ts`, `api/auth.ts` |
+| Other users' profiles | Real users (recipe posters): name, avatar, bio, approved recipes, and their saved meals when they made them public. Read through two database functions, `get_public_profile` and `get_public_saved_meals` (signed-in only, nothing private returned), so `users` and `saved_meals` RLS stay owner-only. The mock Community authors keep fixtures (`features/profile/mock/users.ts`) until the feed is real. | `api/profiles.ts`, `features/profile/screens/UserProfileScreen.tsx` |
 | Page intros | Play once per page, per account: seen intros saved to `users.seen_intros` (migration `20261101010000`) and on the phone; a guest's are merged into the account on sign-in. Settings' "Replay page intros" clears both. | `core/preferences/store/useSeenIntrosStore.ts`, `api/auth.ts` |
 | User recipes | Add a Recipe, then pending, then admin approval in Review Recipes. | `api/recipes.ts` |
 | Admin tools | Manage Meals and Ingredients, Seed Meal, import from URL, AI meal images, ingredient verification, DA linking. | `features/admin`, edge fns `import-meal-from-url`, `generate-meal-image` |
@@ -46,7 +48,6 @@ Last updated: **2026-11-01**. Update this file whenever something moves between 
 | Area | Real | Not real yet |
 | --- | --- | --- |
 | Meal Planner | Uses real meals (TEMP flag `PLAN_WITH_REAL_MEALS_ONLY` is on). | Also a **mock catalog** (`features/meal-planner/mock/plannerMeals.ts`). The plan is stored **on the phone only**, and so are its grocery checkboxes. Planner defaults and nutrition goals aren't applied. |
-| Profile | Name and avatar from the session; Saved, Created recipes and Pantry are real. | **Bio** and the **saved meal plan banner** are mock (`features/profile/mock/api.ts`). |
 | Daily limits | Work for searches (10 a day), Suggest by Budget (5) and Suggest by Pantry (5); guests get 3. | Counted **on the phone only**, so no server check. Reinstalling resets them. |
 
 ## Not integrated
@@ -54,7 +55,6 @@ Last updated: **2026-11-01**. Update this file whenever something moves between 
 | Area | Status |
 | --- | --- |
 | Community feed and Food Posts | Fully mock: posts, authors, likes, comments (`core/posts/mock/posts.ts`). No `food_posts` table. |
-| Other users' profiles | Mock fixtures (`features/profile/mock/users.ts`). `users` RLS only lets a user read their own row, so a readable public profile is needed. |
 | Pro subscription | `isPro` is a test switch that resets on reload (`core/pro/store/useProStore.ts`). No subscriptions or payments; `users.tier` isn't set by anything. |
 | Pro features on the paywall | Price drop alerts, weekly savings in pesos, the ingredients-to-avoid filter and nutrition goals are **not built** (settings only). The avoid filter is in git history: commit `9e0c3dc`, `useAvoidFilter`. |
 | Pro rewards | 7 days of Pro per approved recipe (up to 3), 2 days for the first photo post. **Not built**; needs real Pro accounts. |
@@ -85,5 +85,5 @@ Last updated: **2026-11-01**. Update this file whenever something moves between 
 ## Suggested order
 
 1. **Meal Planner** (next): drop the mock catalog, save plans (and their grocery checks) to the account.
-2. **Community feed**: `food_posts`, then public profiles.
+2. **Community feed**: `food_posts` (public profiles are ready for its authors).
 3. **Pro for real**: subscriptions, `tier`, then rewards and the paywall features.

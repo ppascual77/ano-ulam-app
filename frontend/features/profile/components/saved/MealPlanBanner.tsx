@@ -1,7 +1,13 @@
 import { Pressable, Text, View } from "react-native";
 import { CalendarDays, ChevronRight, Dumbbell, Flame } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
-import type { SavedMealPlan } from "../../mock/api";
+
+// A saved 5-day plan's inputs and daily targets. Nothing saves one yet:
+// comes with the Meal Planner's backend (the banner is hidden until then).
+export type SavedMealPlan = {
+  inputs: { goal?: "lose" | "maintain" | "gain"; activity?: "sedentary" | "light" | "moderate" | "active" };
+  targets: { calories: number; protein: number; carbs: number; fats: number };
+};
 
 const GOAL_LABELS = { lose: "Lose fat", maintain: "Maintain", gain: "Build muscle" } as const;
 const ACTIVITY_LABELS = {

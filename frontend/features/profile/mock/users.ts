@@ -2,20 +2,11 @@ import { getMeals } from "@/api/meals";
 import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 import type { SavedMeal } from "@/frontend/core/saved/types";
 import { savedKeyOf } from "@/frontend/core/saved/types";
+import type { PublicProfile } from "../hooks/useProfile";
 
-// MOCK — other users' public profiles. Real names/avatars need a readable
-// profile table: `users` only lets you read your own row (RLS), so for now
-// these are fixtures keyed to the authors in core/posts/mock/posts.ts.
-// Same function names as the spec, so a real query later is a body swap.
-
-export type PublicProfile = {
-  id: string;
-  display_name: string | null;
-  avatar_url: string | null;
-  bio: string | null;
-  show_saved_public: boolean;
-  saved_meals: SavedMeal[];
-};
+// MOCK: the mock Community feed's authors (core/posts/mock/posts.ts, ids
+// like "u2"), until the feed is real. Real users' profiles come from the
+// database (useUserProfile in hooks/useProfile.ts).
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -47,12 +38,9 @@ async function savedFor(fixture: Fixture, offset: number): Promise<SavedMeal[]> 
   });
 }
 
-// Throws Error("unauthorized") for guests, like the real endpoint. A real
-// user id with no fixture (e.g. a community recipe's poster) gets a bare
-// profile: no name, bio or public saved meals.
-export async function getUserProfile(userId: string, isGuest: boolean): Promise<PublicProfile> {
+// An unknown mock id gets a bare profile: no name, bio or public saved meals.
+export async function getMockUserProfile(userId: string): Promise<PublicProfile> {
   await delay(400);
-  if (isGuest) throw new Error("unauthorized");
   const index = FIXTURES.findIndex((f) => f.id === userId);
   if (index === -1) {
     return { id: userId, display_name: null, avatar_url: null, bio: null, show_saved_public: false, saved_meals: [] };

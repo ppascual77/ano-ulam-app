@@ -3,7 +3,9 @@ import { Pressable, Text, TextInput, View } from "react-native";
 import { Pencil } from "lucide-react-native";
 import { Avatar } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { BIO_LIMIT } from "../mock/api";
+
+// Matches the users.bio check in the database.
+const BIO_LIMIT = 50;
 
 type ProfileHeaderProps = {
   name: string;
