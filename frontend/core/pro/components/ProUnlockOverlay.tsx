@@ -3,7 +3,6 @@ import { ScrollView, Text, View } from "react-native";
 import Animated, { Easing, FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Check } from "lucide-react-native";
 import { AppText, Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
@@ -11,6 +10,7 @@ import { useProSubscription } from "../store/useProStore";
 import { formatPlanDate, planName } from "../subscriptionCopy";
 import { TRIAL_DAYS } from "../proContent";
 import { UNLOCKED_FEATURES, type UnlockedFeature } from "./unlockedFeatures";
+import { ProFeatureRow } from "./ProFeatureRow";
 
 type ProUnlockOverlayProps = {
   /** "Start exploring". */
@@ -93,24 +93,13 @@ function Padlock({ reduceMotion }: { reduceMotion: boolean }) {
   );
 }
 
-// One unlocked feature, as a plain row (not tappable): icon, what it is, and
-// a check. Fades up in its turn.
+// One unlocked feature (ProFeatureRow), fading up in its turn.
 function FeatureRow({ feature, index, reduceMotion }: { feature: UnlockedFeature; index: number; reduceMotion: boolean }) {
-  const Icon = feature.Icon;
   return (
     <Animated.View
       entering={reduceMotion ? FadeIn.duration(200) : FadeInDown.delay(T.list + index * T.rowStagger).duration(320).easing(EASE)}
     >
-      <View className="flex-row items-center gap-3 border-b border-ink-emphasis/10 py-3.5">
-        <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-          <Icon color={colors.primary} size={20} />
-        </View>
-        <View className="flex-1">
-          <Text className="font-inter-semibold text-body text-ink-emphasis">{feature.title}</Text>
-          <Text className="font-inter-regular text-small text-ink-subtle">{feature.detail}</Text>
-        </View>
-        <Check color={colors.primary} size={18} strokeWidth={2.5} />
-      </View>
+      <ProFeatureRow feature={feature} />
     </Animated.View>
   );
 }

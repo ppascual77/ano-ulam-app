@@ -24,6 +24,7 @@ import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenInt
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
 import { ProPlanCard } from "../components/settings/ProPlanCard";
 import { ManagePlanSheet } from "../components/settings/ManagePlanSheet";
+import { ProFeaturesSheet } from "../components/settings/ProFeaturesSheet";
 import { ProUpgradeSheet } from "@/frontend/core/pro/components/ProUpgradeSheet";
 import { AvoidIngredientsSheet } from "../components/settings/AvoidIngredientsSheet";
 import { NutritionGoalsSheet } from "../components/settings/NutritionGoalsSheet";
@@ -142,6 +143,7 @@ export default function SettingsScreen() {
   const [proSheet, setProSheet] = useState<ProSettingKey | null>(null);
   const closeProSheet = () => setProSheet(null);
   const [manageOpen, setManageOpen] = useState(false);
+  const [featuresOpen, setFeaturesOpen] = useState(false);
   // A trial that ended or a cancelled plan that ran out, while away.
   useFocusEffect(useCallback(() => useProStore.getState().refresh(), []));
   // Deep links, once Settings has settled in (a sheet opening mid-push
@@ -241,6 +243,15 @@ export default function SettingsScreen() {
 
           <SettingsSection title="Pro">
             {subscription && <ProPlanCard subscription={subscription} onPress={() => setManageOpen(true)} />}
+            {isPro && (
+              <Pressable onPress={() => setFeaturesOpen(true)} accessibilityRole="button" className="flex-row items-center gap-3 active:opacity-60">
+                <View className="flex-1">
+                  <SettingsRowLabel>See all Pro features</SettingsRowLabel>
+                  <SettingsRowDescription>Everything included in your plan.</SettingsRowDescription>
+                </View>
+                <ChevronRight color={colors.ink.subtle} size={18} />
+              </Pressable>
+            )}
             {!isPro && (
               <Pressable onPress={() => router.push("/pro")} accessibilityRole="button" className="flex-row items-center gap-3 active:opacity-60">
                 <View className="flex-1">
@@ -347,6 +358,7 @@ export default function SettingsScreen() {
       <PlannerDefaultsSheet visible={proSheet === "planner"} onClose={closeProSheet} />
       <NutritionGoalsSheet visible={proSheet === "goals"} onClose={closeProSheet} />
       <ManagePlanSheet visible={manageOpen} onClose={() => setManageOpen(false)} />
+      <ProFeaturesSheet visible={featuresOpen} onClose={() => setFeaturesOpen(false)} />
       <ProUpgradeSheet
         visible={upgradeOpen}
         title="Make every meal yours"
