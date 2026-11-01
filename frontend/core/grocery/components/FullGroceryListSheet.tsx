@@ -32,6 +32,9 @@ export type GroceryListTab = {
   onToggle: (item: GroceryItem) => void;
   /** Shown when the list has no items. */
   emptyText: string;
+  /** A second choice inside this tab (the meal plan: one day or the whole
+   *  plan), as a small switch under the tabs. */
+  scope?: { options: { value: string; label: string }[]; value: string; onChange: (value: string) => void };
 };
 
 type FullGroceryListSheetProps = {
@@ -114,6 +117,9 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
   // "Got it": checked-off items, folded away at the bottom.
   const [gotItOpen, setGotItOpen] = useState(false);
   const tab = tabs.find((t) => t.key === activeKey) ?? tabs[0];
+  // What's on screen: the tab, and its scope when it has one (keys, the
+  // total's count-up and the pantry auto-check follow it).
+  const viewKey = tab?.scope ? `${tab.key}:${tab.scope.value}` : (tab?.key ?? "");
   // "To buy": main ingredients and any staples moved there.
   const counted = (tab?.items ?? []).filter((item) => item.category === "main");
   const total = counted.reduce((sum, item) => sum + item.price, 0);
@@ -122,18 +128,18 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
   // this total is higher than the meals' own prices.
   const used = counted.reduce((sum, item) => sum + item.usedPrice, 0);
   const leftover = Math.round(total) - Math.round(used) >= 1;
-  const shownTotal = useCountUp(total, tab?.key ?? "", visible);
+  const shownTotal = useCountUp(total, viewKey, visible);
 
   useEffect(() => {
     if (!visible || !tab) return;
     for (const item of tab.items) {
-      const key = `${tab.key}:${item.id}`;
+      const key = `${viewKey}:${item.id}`;
       if (autoCheckedHave.has(key) || !pantryHas(pantry, item.canonicalName)) continue;
       autoCheckedHave.add(key);
       if (!tab.isChecked(item)) tab.onToggle(item);
     }
     // Runs when the sheet opens, the tab changes, or the list/pantry loads.
-  }, [visible, tab?.key, tab?.items, pantry]);
+  }, [visible, viewKey, tab?.items, pantry]);
 
   if (!tab) return null;
   const { items, isChecked, onToggle } = tab;
@@ -176,7 +182,7 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
   const renderRows = (rows: typeof items) =>
     rows.map((item) => (
       <Animated.View
-        key={`${tab.key}:${item.id}`}
+        key={`${viewKey}:${item.id}`}
         entering={!reduceMotion && item.id === justMoved ? MOVE_IN : undefined}
         // Set while it settles, so it's in place when the row leaves.
         exiting={!reduceMotion && settling.has(item.id) ? CHECK_OUT : undefined}
@@ -212,6 +218,15 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
           </View>
         )}
 
+        {tab?.scope && (
+          <Animated.View key={`scope:${tab.key}`} entering={reduceMotion ? undefined : FadeInDown.duration(220)}>
+            <View className="mt-3 flex-row items-center gap-3">
+              <Text className="font-inter-medium text-small text-ink-subtle">Shop for</Text>
+              <SegmentedSwitch options={tab.scope.options} value={tab.scope.value} onChange={tab.scope.onChange} />
+            </View>
+          </Animated.View>
+        )}
+
         {leftover && (
           <View className="mt-4">
             <NoticeBanner compact icon={<Info color={colors.notice.icon} size={14} />}>
@@ -231,7 +246,7 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
           <View className="mt-5">
             <GrocerySectionHeader title="To buy" count={toBuy.length} />
             {sections.map((section) => (
-              <Animated.View key={`${tab.key}:${section.key}`} layout={reduceMotion ? undefined : MOVE_LAYOUT} className="mt-3">
+              <Animated.View key={`${viewKey}:${section.key}`} layout={reduceMotion ? undefined : MOVE_LAYOUT} className="mt-3">
                 {/* Only worth labelling when there's more than one. Quiet on
                     purpose: a small label and a hairline, a divider rather
                     than another heading. */}
