@@ -11,6 +11,7 @@ import { usePlanGroceryList } from "@/frontend/core/grocery/hooks/usePlanGrocery
 // The one link into the Meal Planner: the grocery sheet's "Meal plan" tab
 // shows here only when the user has built a plan.
 import { usePlannerStore } from "@/frontend/features/meal-planner/store/usePlannerStore";
+import { useSavedMealPlan } from "@/frontend/features/meal-planner/hooks/useSavedMealPlan";
 import { useCountUp } from "../../hooks/useCountUp";
 import { EmptyState } from "../EmptyState";
 import { GroceryRow, formatPeso } from "@/frontend/core/grocery/components/GroceryRow";
@@ -35,10 +36,13 @@ function SummaryRow({ dotClassName, label, count }: { dotClassName: string; labe
 // a preview of up to 7 items (rest in a sheet), and a summary.
 export function GroceryTab({ userId }: { userId: string | null }) {
   const grocery = useSavedGroceryList(userId);
+  // Loads the account's saved plan, so its tab shows here without opening
+  // the planner first.
+  useSavedMealPlan();
   const plan = usePlannerStore((s) => s.plan);
   const isPremium = useIsPro();
   const planDays = useMemo(() => (isPremium ? [0, 1, 2, 3, 4] : [0]), [isPremium]);
-  const planGrocery = usePlanGroceryList(plan, planDays, !!plan);
+  const planGrocery = usePlanGroceryList(plan, planDays, !!plan, userId);
   const { data: pantry = [] } = usePantry();
   const [fullOpen, setFullOpen] = useState(false);
 
@@ -54,7 +58,14 @@ export function GroceryTab({ userId }: { userId: string | null }) {
 
   // Leaving the tab sends any pending checkbox changes.
   const { flush } = grocery;
-  useEffect(() => () => void flush(), [flush]);
+  const { flush: flushPlan } = planGrocery;
+  useEffect(
+    () => () => {
+      void flush();
+      void flushPlan();
+    },
+    [flush, flushPlan],
+  );
 
   return (
     <View className="gap-4 pb-6">
@@ -158,6 +169,7 @@ export function GroceryTab({ userId }: { userId: string | null }) {
         onClose={() => {
           setFullOpen(false);
           void grocery.flush();
+          void planGrocery.flush();
         }}
         initialTab="saved"
         tabs={[

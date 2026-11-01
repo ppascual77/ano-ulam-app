@@ -1,36 +1,26 @@
 import { useMemo } from "react";
-import { useRealMeals } from "@/frontend/core/meals/hooks/useRealMeals";
+import { usePreferredMeals } from "@/frontend/core/meals/hooks/usePreferredMeals";
+import { mealTimesOf } from "@/frontend/core/meals/utils/mealTimes";
 import { scaleMeal } from "@/frontend/core/meals/utils/scaleMeal";
-import { PLANNER_MEALS, type PlannerMeal } from "../mock/plannerMeals";
+import type { PlannerMeal } from "../utils/generatePlan";
 
-// Real catalog meals join the planner's pool as lunch/dinner options:
-// home-cooked only (the plan is cooked at home), and only when one serving
-// costs no more than this, so they can actually fit a typical budget.
-const REAL_MEAL_MAX_PER_SERVING = 150;
-
-// TEMP (design preview): plan with the real meals table only, to see real
-// photos and data. The table is tiny (a few meals, no breakfasts, ₱110+),
-// so every meal may fill any slot and the budget isn't enforced (see
-// MealPlannerScreen). Set to false to go back to the mock catalog + fitting
-// real meals.
-export const PLAN_WITH_REAL_MEALS_ONLY = true;
-
-// The meals the planner picks from: its mock catalog plus fitting real
-// meals. Real ones have photos and full recipes behind "View Recipe".
+// The meals the planner picks from: the real catalog, following the user's
+// preferences (no allergens, their dietary focus). Home-cooked only (the
+// plan is cooked at home), and each meal fills the slots its meal-time tags
+// say (breakfast, lunch, dinner); an untagged meal isn't planned.
 export function usePlannerPool() {
-  const { data: realMeals, isLoading } = useRealMeals();
-  const pool = useMemo<PlannerMeal[]>(() => {
-    // Real meals store totals for the whole recipe (serving_size servings);
-    // the planner works per person, so each is scaled to one serving first.
-    const oneServing = (realMeals ?? []).map((meal) => scaleMeal(meal, 1));
-    if (PLAN_WITH_REAL_MEALS_ONLY) {
-      return oneServing.map((meal) => ({ ...meal, slots: ["breakfast", "lunch", "dinner"] as PlannerMeal["slots"] }));
-    }
-    const real = oneServing
-      .filter((meal) => meal.category !== "fast_food")
-      .filter((meal) => Number(meal.price) <= REAL_MEAL_MAX_PER_SERVING)
-      .map((meal) => ({ ...meal, slots: ["lunch", "dinner"] as PlannerMeal["slots"] }));
-    return [...PLANNER_MEALS, ...real];
-  }, [realMeals]);
+  const { meals, isLoading } = usePreferredMeals();
+  const pool = useMemo<PlannerMeal[]>(
+    () =>
+      meals
+        .filter((meal) => meal.category !== "fast_food")
+        .flatMap((meal) => {
+          const slots = mealTimesOf(meal.tags);
+          // Catalog meals store totals for the whole recipe (serving_size
+          // servings); the planner works per person, so one serving each.
+          return slots.length > 0 ? [{ ...scaleMeal(meal, 1), slots }] : [];
+        }),
+    [meals],
+  );
   return { pool, isLoading };
 }

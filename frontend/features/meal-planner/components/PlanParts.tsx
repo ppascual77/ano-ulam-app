@@ -8,7 +8,7 @@ import { colors } from "@/frontend/constants/theme";
 import type { MacroTargets } from "../utils/macros";
 import { PLAN_DAYS, SLOTS, SLOT_LABELS, dayLabel, dayTotals, formatPeso, monthDay, perServing, type MealPlan, type PlanDay, type PlannedMeal } from "../utils/generatePlan";
 import { MealImage } from "./ImagePlaceholder";
-import type { MealSlot } from "../mock/plannerMeals";
+import type { MealSlot } from "../utils/generatePlan";
 
 // ---- Date selector -----------------------------------------------------------
 
