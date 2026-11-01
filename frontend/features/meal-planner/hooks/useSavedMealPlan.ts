@@ -8,7 +8,7 @@ import { scaleMeal } from "@/frontend/core/meals/utils/scaleMeal";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { usePlannerStore } from "../store/usePlannerStore";
 import { PLAN_LENGTHS, SLOTS, planDates, type MealPlan, type MealSlot, type PlannerMeal } from "../utils/generatePlan";
-import type { Goal, MacroTargets } from "../utils/macros";
+import type { Goal, MacroTargets } from "@/frontend/core/nutrition/macros";
 
 export const planKey = (userId: string | null) => ["meal-plan", userId] as const;
 

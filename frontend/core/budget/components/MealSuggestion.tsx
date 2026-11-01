@@ -1,7 +1,9 @@
 import { useMemo, useState, useTransition } from "react";
 import { useAvoidFilter } from "@/frontend/core/preferences/hooks/useAvoidFilter";
 import { Pressable, Text, View } from "react-native";
-import { X } from "lucide-react-native";
+import { X, Target } from "lucide-react-native";
+import { useNutritionGoals } from "@/frontend/core/preferences/hooks/useNutritionGoals";
+import { goalDistance } from "@/frontend/core/nutrition/goalFit";
 import { colors } from "@/frontend/constants/theme";
 import { MealCarouselSection } from "./MealCarouselSection";
 import { CategoriesSection } from "./CategoriesSection";
@@ -63,8 +65,18 @@ export function MealSuggestion({ budget, servings, onClear }: MealSuggestionProp
   // the focus): say so, and offer to change it.
   const focusLabel = DIETARY_FOCUS_OPTIONS.find((o) => o.id === focus)?.label.toLowerCase();
   const focusHidesAll = inBudget.length > 0 && matches.length === 0 && !!focusLabel;
-  const homeCooked = inView.filter((m) => m.meal.category !== "fast_food").map((m) => m.meal);
-  const fastFood = inView.filter((m) => m.meal.category === "fast_food").map((m) => m.meal);
+  // Pro with nutrition goals: "Best for my goals" re-orders each row by how
+  // close a serving comes to a meal's share of the goals (else closest to
+  // the budget, matchBudget's order).
+  const goals = useNutritionGoals();
+  const [byGoals, setByGoals] = useState(false);
+  const ordered = useMemo(() => {
+    const meals = inView.map((m) => m.meal);
+    if (!byGoals || !goals) return meals;
+    return [...meals].sort((a, b) => (goalDistance(a, goals) ?? 0) - (goalDistance(b, goals) ?? 0));
+  }, [inView, byGoals, goals]);
+  const homeCooked = ordered.filter((meal) => meal.category !== "fast_food");
+  const fastFood = ordered.filter((meal) => meal.category === "fast_food");
 
   const renderCard = (meal: MealType, _index: number, open: () => void) => (
     <MealCard meal={meal} onPress={open} isFastFood={meal.category === "fast_food"} />
@@ -74,18 +86,34 @@ export function MealSuggestion({ budget, servings, onClear }: MealSuggestionProp
     <View className="gap-5">
       {/* What these results are for, and the way back to Home's usual
           sections. */}
-      <Pressable
-        onPress={onClear}
-        accessibilityRole="button"
-        accessibilityLabel={`Clear budget: ₱${amount.toLocaleString("en-US")} for ${servings} ${servings === 1 ? "serving" : "servings"}`}
-        hitSlop={6}
-        className="flex-row items-center gap-1.5 self-start rounded-full bg-primary py-1.5 pl-3.5 pr-2.5 active:opacity-80"
-      >
-        <Text className="font-inter-semibold text-small text-white">
-          ₱{amount.toLocaleString("en-US")} · {servings} {servings === 1 ? "serving" : "servings"}
-        </Text>
-        <X color={colors.white} size={14} />
-      </Pressable>
+      <View className="flex-row flex-wrap items-center gap-2">
+        <Pressable
+          onPress={onClear}
+          accessibilityRole="button"
+          accessibilityLabel={`Clear budget: ₱${amount.toLocaleString("en-US")} for ${servings} ${servings === 1 ? "serving" : "servings"}`}
+          hitSlop={6}
+          className="flex-row items-center gap-1.5 self-start rounded-full bg-primary py-1.5 pl-3.5 pr-2.5 active:opacity-80"
+        >
+          <Text className="font-inter-semibold text-small text-white">
+            ₱{amount.toLocaleString("en-US")} · {servings} {servings === 1 ? "serving" : "servings"}
+          </Text>
+          <X color={colors.white} size={14} />
+        </Pressable>
+        {goals && (
+          <Pressable
+            onPress={() => setByGoals((on) => !on)}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: byGoals }}
+            hitSlop={6}
+            className={`flex-row items-center gap-1.5 rounded-full border py-1.5 pl-3 pr-3.5 active:opacity-80 ${
+              byGoals ? "border-primary bg-primary/10" : "border-ink-emphasis/15"
+            }`}
+          >
+            <Target color={byGoals ? colors.primary : colors.ink.subtle} size={14} />
+            <Text className={`font-inter-semibold text-small ${byGoals ? "text-primary" : "text-ink-subtle"}`}>Best for my goals</Text>
+          </Pressable>
+        )}
+      </View>
 
       <PreferencesBanner open={preferencesOpen} onOpenChange={setPreferencesOpen} />
 
@@ -106,21 +134,31 @@ export function MealSuggestion({ budget, servings, onClear }: MealSuggestionProp
         />
       ) : inView.length === 0 ? (
         // Nothing in budget at all, or nothing in the picked category.
-        <BudgetEmptyState
-          budget={amount}
-          category={matches.length > 0 && category ? CATEGORY_NOUNS[category] : undefined}
-        />
+        <BudgetEmptyState budget={amount} category={matches.length > 0 && category ? CATEGORY_NOUNS[category] : undefined} />
       ) : (
         <>
           {homeCooked.length > 0 && (
-            <MealCarouselSection title="Home-cooked (Luto)" meals={homeCooked} budgetLabel={budget} servings={servings} renderCard={renderCard} pageSize={5} />
+            <MealCarouselSection
+              title="Home-cooked (Luto)"
+              meals={homeCooked}
+              budgetLabel={budget}
+              servings={servings}
+              renderCard={renderCard}
+              pageSize={5}
+            />
           )}
           {fastFood.length > 0 && (
-            <MealCarouselSection title="Fastfood" meals={fastFood} budgetLabel={budget} servings={servings} renderCard={renderCard} pageSize={5} />
+            <MealCarouselSection
+              title="Fastfood"
+              meals={fastFood}
+              budgetLabel={budget}
+              servings={servings}
+              renderCard={renderCard}
+              pageSize={5}
+            />
           )}
         </>
       )}
-
     </View>
   );
 }

@@ -13,7 +13,14 @@ export type UserProfile = Database["public"]["Tables"]["users"]["Row"];
 export type AvoidedIngredient = { id: string; name: string; aliases: string[]; family?: string };
 
 /** Pro: daily targets. null = not set. */
-export type NutritionGoals = { calories: number | null; protein: number | null; carbs: number | null; fat: number | null };
+export type NutritionGoals = {
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  /** What the targets were made for (the guided setup's goal step). */
+  goal: "lose" | "build" | "maintain" | null;
+};
 
 /** Pro: how many days each new meal plan covers. */
 export type PlannerDefaults = { days: 5 | 7 };
@@ -36,7 +43,7 @@ export type UserPreferences = {
   price_alerts: PriceAlerts;
 };
 
-export const DEFAULT_NUTRITION_GOALS: NutritionGoals = { calories: null, protein: null, carbs: null, fat: null };
+export const DEFAULT_NUTRITION_GOALS: NutritionGoals = { calories: null, protein: null, carbs: null, fat: null, goal: null };
 export const DEFAULT_PLANNER_DEFAULTS: PlannerDefaults = { days: 5 };
 export const DEFAULT_PRICE_ALERTS: PriceAlerts = { enabled: true };
 
@@ -57,7 +64,8 @@ const positive = (v: unknown) => (typeof v === "number" && Number.isFinite(v) &&
 function parseNutritionGoals(v: unknown): NutritionGoals {
   const o = record(v);
   if (!o) return DEFAULT_NUTRITION_GOALS;
-  return { calories: positive(o.calories), protein: positive(o.protein), carbs: positive(o.carbs), fat: positive(o.fat) };
+  const goal = o.goal === "lose" || o.goal === "build" || o.goal === "maintain" ? o.goal : null;
+  return { calories: positive(o.calories), protein: positive(o.protein), carbs: positive(o.carbs), fat: positive(o.fat), goal };
 }
 
 function parsePlannerDefaults(v: unknown): PlannerDefaults {

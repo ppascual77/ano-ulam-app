@@ -71,3 +71,8 @@ export function targetsFromGoals(goals: {
   const carbs = goals.carbs ?? Math.max(0, Math.round((goals.calories - goals.protein * 4 - fats * 9) / 4));
   return { calories: goals.calories, protein: goals.protein, carbs, fats };
 }
+
+/** The guided setup's result as the saved goals (users.preferences). */
+export function goalsFromTargets(targets: MacroTargets, goal: Goal | null) {
+  return { calories: targets.calories, protein: targets.protein, carbs: targets.carbs, fat: targets.fats, goal };
+}

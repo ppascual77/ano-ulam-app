@@ -39,7 +39,7 @@ export const UNLOCKED_FEATURES: UnlockedFeature[] = [
     key: "goals",
     Icon: Target,
     title: "Nutrition goals",
-    detail: "See every meal against your daily targets.",
+    detail: "Plans aim at your targets, and meals show how they fit.",
   },
   {
     key: "unlimited",

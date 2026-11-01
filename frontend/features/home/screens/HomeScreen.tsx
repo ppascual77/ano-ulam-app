@@ -6,6 +6,7 @@ import { Screen, SegmentedSwitch, usePageIntro } from "@/frontend/components/ui"
 import { Header } from "@/frontend/features/home/components/Header";
 import { RandomMealPuller } from "@/frontend/features/home/components/RandomMealPuller";
 import { PlanWeekCard } from "@/frontend/features/home/components/PlanWeekCard";
+import { TodayPlanCard } from "@/frontend/features/home/components/TodayPlanCard";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 import { BudgetSection } from "@/frontend/core/budget/components/BudgetSection";
 import { PantrySection } from "@/frontend/core/pantry/components/PantrySection";
@@ -59,7 +60,8 @@ export default function HomeScreen() {
       >
         <Header name={firstName} />
 
-        <View className="mt-5">
+        <View className="mt-5 gap-3">
+          <TodayPlanCard />
           <PlanWeekCard />
         </View>
 

@@ -1,12 +1,9 @@
 import { ReactNode, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
-import {
-  ChevronRight,
-  Clock,
-  ShieldCheck,
-  Store,
-} from "lucide-react-native";
+import { ChevronRight, Clock, ShieldCheck, Store, Target } from "lucide-react-native";
+import { useNutritionGoals } from "@/frontend/core/preferences/hooks/useNutritionGoals";
+import { fitsGoals } from "@/frontend/core/nutrition/goalFit";
 import { AppText, Button, Chips } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealInfoPill } from "../MealInfoPill";
@@ -70,6 +67,9 @@ export function MealCard({
   dimmed = false,
 }: MealCardProps) {
   const isGrid = layout === "grid";
+  // Pro with nutrition goals: a tag when a serving fits a meal's share.
+  const goals = useNutritionGoals();
+  const fits = !!goals && fitsGoals(meal, goals);
   return (
     <Pressable
       onPress={onPress}
@@ -115,6 +115,9 @@ export function MealCard({
                 />
               )}
             </>
+          )}
+          {fits && (
+            <Chips label="Fits your goals" icon={<Target color={colors.white} size={10} strokeWidth={2} />} bgClassName="bg-primary" />
           )}
           {topLeft}
         </View>

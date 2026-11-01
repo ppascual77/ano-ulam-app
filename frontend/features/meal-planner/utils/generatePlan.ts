@@ -1,5 +1,5 @@
 import type { MealType } from "@/frontend/core/meals/mealTypes";
-import type { MacroTargets } from "./macros";
+import type { MacroTargets } from "@/frontend/core/nutrition/macros";
 
 export type MealSlot = "breakfast" | "lunch" | "dinner";
 

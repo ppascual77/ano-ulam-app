@@ -1,5 +1,5 @@
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { router } from "expo-router";
@@ -19,11 +19,11 @@ import { useSavedGroceryList } from "@/frontend/core/grocery/hooks/useSavedGroce
 import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
 import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
 import { PLAN_DAYS, formatPeso, generatePlan, monthDay, regenerateDay, swapOptions, type MealPlan, type MealSlot } from "../utils/generatePlan";
-import { targetsFromGoals } from "../utils/macros";
+import { goalsFromTargets, targetsFromGoals } from "@/frontend/core/nutrition/macros";
 import { useNutritionGoals } from "@/frontend/core/preferences/hooks/useNutritionGoals";
 import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
 import { BudgetInput, MacroGoalCard, ServingStepper, parseBudget } from "../components/PlannerInputs";
-import { MacroGoalSheet } from "../components/MacroGoalSheet";
+import { MacroGoalSheet } from "@/frontend/core/nutrition/components/MacroGoalSheet";
 import { GeneratingView } from "../components/GeneratingView";
 import { MealPlannerIntro } from "../components/MealPlannerIntro";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
@@ -65,9 +65,19 @@ export default function MealPlannerScreen() {
   // Pro: the nutrition goals from Settings, offered as the macro goal.
   const nutritionGoals = useNutritionGoals();
   // Pro: 5 or 7 days per new plan (Settings); everyone else 5.
-  const { prefs } = usePreferences();
+  const { prefs, update } = usePreferences();
   const planLength = isPro ? prefs.planner_defaults.days : PLAN_DAYS;
   const goalTargets = useMemo(() => (nutritionGoals ? targetsFromGoals(nutritionGoals) : null), [nutritionGoals]);
+  // Pro with goals: every new plan aims at them (kept in step if they change
+  // in Settings), unless the macro goal is switched off for this visit.
+  const [goalsOff, setGoalsOff] = useState(false);
+  useEffect(() => {
+    if (store.stage !== "setup" || !goalTargets || goalsOff) return;
+    const same = store.targets && JSON.stringify(store.targets) === JSON.stringify(goalTargets);
+    if (!same) store.setTargets(goalTargets, nutritionGoals?.goal ?? null);
+    // store.setTargets is stable; the inputs below are what matter.
+  }, [store.stage, goalTargets, goalsOff]);
+  const usingGoals = !!goalTargets && !goalsOff && !!store.targets && JSON.stringify(store.targets) === JSON.stringify(goalTargets);
   const [selectedDay, setSelectedDay] = useState(0);
   // Which of the day's meals is in the hero (and highlighted in the list).
   const [selectedMeal, setSelectedMeal] = useState(0);
@@ -190,8 +200,7 @@ export default function MealPlannerScreen() {
               goal={store.goal}
               onEnable={() => setMacroSheetOpen(true)}
               onEdit={() => setMacroSheetOpen(true)}
-              goalTargets={goalTargets}
-              onUseGoals={() => goalTargets && store.setTargets(goalTargets)}
+              fromGoals={usingGoals}
             />
 
             <View className="mt-2">
@@ -303,12 +312,18 @@ export default function MealPlannerScreen() {
         onClose={() => setMacroSheetOpen(false)}
         onConfirm={(targets, goal) => {
           store.setTargets(targets, goal);
+          // Pro: this is your nutrition goal everywhere (Settings, meals).
+          if (isPro) {
+            update((current) => ({ ...current, nutrition_goals: goalsFromTargets(targets, goal) }));
+            setGoalsOff(false);
+          }
           setMacroSheetOpen(false);
         }}
         onTurnOff={
           store.targets
             ? () => {
                 store.setTargets(null);
+                if (goalTargets) setGoalsOff(true);
                 setMacroSheetOpen(false);
               }
             : undefined

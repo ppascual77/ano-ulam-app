@@ -38,7 +38,7 @@ import {
   type Goal,
   type MacroTargets,
   type Sex,
-} from "../utils/macros";
+} from "../macros";
 
 // The app doesn't store body stats anywhere yet, so the planner remembers
 // what was entered here, on this device, to prefill next time.
