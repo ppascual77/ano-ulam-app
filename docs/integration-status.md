@@ -35,6 +35,7 @@ Last updated: **2026-11-01**. Update this file whenever something moves between 
 | Community Favorites (Home) | The top 10 most-liked real meals (only meals with at least one like; hidden until there are some), following preferences; your own likes count right away. 5 at a time. | `core/budget/components/CommunityFavoritesSection.tsx` |
 | Meal list ("See all") | Real meals. From Suggest by Budget: priced for the servings, with Quick Filters (protein and style chips, any chip matches). From This week's best value meals: its own card, no filters. Recommendations and Community Favorites have no See All (5 at a time with Show More). | `features/meals/screens/MealListScreen.tsx` |
 | Meal likes | `meal_likes` (owner-only) and each meal's `like_count`, kept by a database trigger. One shared hook for every heart (meal cards, Meal Details, Discover, Browse), so a like shows everywhere; instant, reverts with a toast if saving fails; guests are asked to sign in. Migration `20261101000000`. | `api/likes.ts`, `core/likes/hooks/useMealLikes.ts` |
+| Page intros | Play once per page, per account: seen intros saved to `users.seen_intros` (migration `20261101010000`) and on the phone; a guest's are merged into the account on sign-in. Settings' "Replay page intros" clears both. | `core/preferences/store/useSeenIntrosStore.ts`, `api/auth.ts` |
 | User recipes | Add a Recipe, then pending, then admin approval in Review Recipes. | `api/recipes.ts` |
 | Admin tools | Manage Meals and Ingredients, Seed Meal, import from URL, AI meal images, ingredient verification, DA linking. | `features/admin`, edge fns `import-meal-from-url`, `generate-meal-image` |
 | Meal seeding | The `/seed-meal` skill writes real meals and `meal_sources`. | `.claude/skills/seed-meal` |
@@ -47,7 +48,6 @@ Last updated: **2026-11-01**. Update this file whenever something moves between 
 | Meal Planner | Uses real meals (TEMP flag `PLAN_WITH_REAL_MEALS_ONLY` is on). | Also a **mock catalog** (`features/meal-planner/mock/plannerMeals.ts`). The plan is stored **on the phone only**, and so are its grocery checkboxes. Planner defaults and nutrition goals aren't applied. |
 | Profile | Name and avatar from the session; Saved, Created recipes and Pantry are real. | **Bio** and the **saved meal plan banner** are mock (`features/profile/mock/api.ts`). |
 | Daily limits | Work for searches (10 a day), Suggest by Budget (5) and Suggest by Pantry (5); guests get 3. | Counted **on the phone only**, so no server check. Reinstalling resets them. |
-| Page intros | Play once per page. | "Seen" is remembered **on the phone**, not on the account. |
 
 ## Not integrated
 
@@ -71,7 +71,7 @@ Last updated: **2026-11-01**. Update this file whenever something moves between 
 
 ## Before release
 
-- **RLS lockdown**: the `TEMP: anyone can update` policies, and users being able to set their own `tier` on `users`.
+- **RLS lockdown**: the `TEMP: anyone can update` policies, and users being able to set their own `tier` on `users`. When narrowing what users can update on their own row, keep `seen_intros` (and display name, avatar, preferences) editable.
 - **Edge functions**: admin checks on the admin-only ones.
 - **Klipy**: move the API key behind a proxy.
 - **Native sign-in**: native Google sign-in (instead of the browser flow) and Apple sign-in.

@@ -69,6 +69,13 @@ export default function RootLayout() {
   }, [loadReduceMotion, loadSurpriseMe, loadSeenIntros, loadSaveFeedback]);
 
   const authLoading = useAuthStore((s) => s.loading);
+  // Seen page intros follow the account: synced once the first session
+  // check is done, and again on every sign-in or sign-out.
+  const sessionUserId = useAuthStore((s) => s.session?.user.id ?? null);
+  const syncSeenIntros = useSeenIntrosStore((s) => s.syncAccount);
+  useEffect(() => {
+    if (!authLoading) void syncSeenIntros(sessionUserId);
+  }, [authLoading, sessionUserId, syncSeenIntros]);
   const setSession = useAuthStore((s) => s.setSession);
   const setLoading = useAuthStore((s) => s.setLoading);
 

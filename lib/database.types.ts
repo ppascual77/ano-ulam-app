@@ -561,6 +561,7 @@ export type Database = {
           email: string
           id: string
           preferences: Json
+          seen_intros: string[]
           tier: string
         }
         Insert: {
@@ -570,6 +571,7 @@ export type Database = {
           email: string
           id: string
           preferences?: Json
+          seen_intros?: string[]
           tier?: string
         }
         Update: {
@@ -579,6 +581,7 @@ export type Database = {
           email?: string
           id?: string
           preferences?: Json
+          seen_intros?: string[]
           tier?: string
         }
         Relationships: []
