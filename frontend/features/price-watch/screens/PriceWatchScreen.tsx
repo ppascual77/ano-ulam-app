@@ -1,13 +1,17 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { router, useFocusEffect } from "expo-router";
-import { RefreshControl, ScrollView, useWindowDimensions, View, type ScrollViewInstance } from "react-native";
+import { useWindowDimensions, View, type ScrollViewInstance } from "react-native";
+// Gesture handler's ScrollView (and RefreshControl), not React Native's: the
+// fresh picks carousel pages with a gesture-handler pan, and inside RN's
+// ScrollView the scroll view's native pan took the touch on the phone, so
+// the carousel never swiped. Here both negotiate: horizontal drags page the
+// carousel, vertical ones scroll.
+import { RefreshControl, ScrollView } from "react-native-gesture-handler";
 import { AppText, LandingTitle, Screen, usePageIntro } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { BestValueMealsSection } from "@/frontend/core/meals/components/BestValueMealsSection";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { usePriceItems } from "@/frontend/core/prices/hooks/usePriceItems";
-import { usePriceAlerts } from "@/frontend/core/prices/hooks/usePriceAlerts";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { pickFreshPicks, type PriceCategory, type PriceItem } from "@/frontend/core/prices/utils/prices";
@@ -17,12 +21,6 @@ import { PriceListSection } from "../components/PriceListSection";
 import { PriceWatchIntro } from "../components/PriceWatchIntro";
 import { PriceDetailSheet } from "../components/PriceDetailSheet";
 import { PriceDisclaimer } from "../components/PriceDisclaimer";
-import { PriceAlertsCard } from "../components/PriceAlertsCard";
-import { WeeklySavingsCard } from "../components/WeeklySavingsCard";
-import { useWeeklySavings } from "../hooks/useWeeklySavings";
-import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
-import { useIsPro } from "@/frontend/core/pro/store/useProStore";
-import { ProUpgradeSheet } from "@/frontend/core/pro/components/ProUpgradeSheet";
 import { MarketsSheet } from "../components/MarketsSheet";
 import { priceWatchCategories } from "../constants/categories";
 
@@ -38,22 +36,6 @@ const SEARCH_TOP_GAP = 12;
 
 export default function PriceWatchScreen() {
   const items = usePriceItems();
-  // Pro: the day's biggest price drops. Seen once they've shown here (clears
-  // the Price Watch tab's dot), including a new day's arriving while here.
-  const priceAlerts = usePriceAlerts();
-  // Weekly savings: Pro sees them; other signed-in users a locked teaser.
-  const { isSignedIn } = useAuth();
-  const isPro = useIsPro();
-  const weekly = useWeeklySavings();
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const openUpgrade = useCallback(() => setUpgradeOpen(true), []);
-  const alertDay = priceAlerts.drops.length > 0 ? priceAlerts.date : null;
-  useFocusEffect(
-    useCallback(() => {
-      if (alertDay) priceAlerts.markSeen();
-      // markSeen marks the day behind alertDay.
-    }, [alertDay]),
-  );
   const [category, setCategory] = useState<PriceCategory | null>("meat");
   const [search, setSearch] = useState("");
   // The intro, replayed on every visit to the tab (see usePageIntro). The
@@ -151,22 +133,6 @@ export default function PriceWatchScreen() {
           )}
         </View>
 
-        {isSignedIn && (
-          <View className="mt-6">
-            {isPro ? (
-              <WeeklySavingsCard savings={weekly.savings} empty={weekly.empty} loading={weekly.loading} />
-            ) : (
-              <WeeklySavingsCard locked onUnlock={openUpgrade} />
-            )}
-          </View>
-        )}
-
-        {priceAlerts.date && priceAlerts.drops.length > 0 && (
-          <View className="mt-6">
-            <PriceAlertsCard date={priceAlerts.date} drops={priceAlerts.drops} onSelect={setSelected} />
-          </View>
-        )}
-
         <View className="mt-6">
           <FreshPicksSection picks={picks} loading={items.isLoading} onSelect={setSelected} />
         </View>
@@ -217,13 +183,6 @@ export default function PriceWatchScreen() {
         }}
       />
       <MarketsSheet visible={marketsOpen} onClose={() => setMarketsOpen(false)} />
-      <ProUpgradeSheet
-        visible={upgradeOpen}
-        title="See what you save"
-        body="Pro shows what price drops save you on your meals each week, in pesos, and tells you when what you buy gets cheaper."
-        onClose={() => setUpgradeOpen(false)}
-        onOpenPro={() => router.push("/pro")}
-      />
       <MealDetailSheet meal={meal} onClose={() => setMeal(null)} />
       {intro.showing && (
         <PriceWatchIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={intro.finish} />

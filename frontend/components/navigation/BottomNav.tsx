@@ -11,7 +11,6 @@ import { useDisplayName } from "@/frontend/features/auth/hooks/useDisplayName";
 import { adminMenuItems } from "@/frontend/features/admin/adminMenu";
 import { colors } from "@/frontend/constants/theme";
 import { registerProfileDot, useSaveFeedbackStore } from "@/frontend/core/saved/store/useSaveFeedbackStore";
-import { usePriceAlerts } from "@/frontend/core/prices/hooks/usePriceAlerts";
 
 type Tab = {
   href: "/home" | "/browse" | "/price-watch";
@@ -201,8 +200,6 @@ function DiscoverTabButton() {
 // nested inside a screen's <Screen> (which only covers the "top" edge for
 // tab screens).
 export function BottomNav() {
-  // Pro: a dot on Price Watch while there's a price drop alert not yet seen.
-  const { unseen: newPriceAlert } = usePriceAlerts();
   return (
     <SafeAreaView edges={["bottom"]} className="border-t border-ink-emphasis/10 bg-white">
       <View className="flex-row items-end justify-between px-6 pt-2 pb-1">
@@ -211,7 +208,7 @@ export function BottomNav() {
         ))}
         <DiscoverTabButton />
         {RIGHT_TABS.map((tab) => (
-          <TabButton key={tab.href} {...tab} dot={tab.href === "/price-watch" && newPriceAlert} />
+          <TabButton key={tab.href} {...tab} />
         ))}
         <ProfileTabButton />
       </View>
