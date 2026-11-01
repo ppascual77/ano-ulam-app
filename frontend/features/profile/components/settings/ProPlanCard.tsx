@@ -8,7 +8,7 @@ import type { ProSubscription } from "@/frontend/core/pro/store/useProStore";
 import { TRIAL_DAYS } from "@/frontend/core/pro/proContent";
 import { STATUS_LABEL, daysUntil, nextLine, planName } from "@/frontend/core/pro/subscriptionCopy";
 
-const STATUS_CHIP: Record<ProSubscription["status"], { bg: string; text: string }> = {
+export const STATUS_CHIP: Record<ProSubscription["status"], { bg: string; text: string }> = {
   trial: { bg: "bg-accent/10", text: "text-accent" },
   active: { bg: "bg-primary/10", text: "text-primary" },
   cancelled: { bg: "bg-ink-emphasis/10", text: "text-ink-subtle" },
