@@ -5,7 +5,7 @@ import { ChevronDown, Info } from "lucide-react-native";
 import { AppText, BottomSheet, NoticeBanner, SegmentedSwitch } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { pantryHas } from "@/frontend/core/pantry/hooks/usePantry";
-import type { PantryIngredient } from "@/frontend/core/pantry/mock/api";
+import type { PantryIngredient } from "@/frontend/core/pantry/types";
 import type { GroceryItem } from "../utils/buildGroceryList";
 import { GROCERY_SECTIONS, GROCERY_SECTION_LABELS } from "../utils/groceryLabels";
 import { GroceryRow, formatPeso } from "./GroceryRow";

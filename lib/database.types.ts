@@ -102,6 +102,27 @@ export type Database = {
           },
         ]
       }
+      grocery_checks: {
+        Row: {
+          checked_at: string
+          item_key: string
+          qty: string
+          user_id: string
+        }
+        Insert: {
+          checked_at?: string
+          item_key: string
+          qty: string
+          user_id: string
+        }
+        Update: {
+          checked_at?: string
+          item_key?: string
+          qty?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ingredients: {
         Row: {
           aliases: string[]
@@ -432,6 +453,32 @@ export type Database = {
             columns: ["poster_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pantry_items: {
+        Row: {
+          added_at: string
+          ingredient_id: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          ingredient_id: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          ingredient_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pantry_items_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
             referencedColumns: ["id"]
           },
         ]

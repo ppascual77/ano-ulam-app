@@ -2,7 +2,7 @@ import { Pressable, Text, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { X } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
-import type { PantryIngredient } from "../mock/api";
+import type { PantryIngredient } from "../types";
 import { PANTRY_GROUPS, type PantryGroup } from "../pantryGroups";
 
 // One pantry ingredient: a chip tinted by its group (condiments, fresh
