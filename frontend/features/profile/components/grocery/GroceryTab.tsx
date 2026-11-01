@@ -41,7 +41,8 @@ export function GroceryTab({ userId }: { userId: string | null }) {
   useSavedMealPlan();
   const plan = usePlannerStore((s) => s.plan);
   const isPremium = useIsPro();
-  const planDays = useMemo(() => (isPremium ? [0, 1, 2, 3, 4] : [0]), [isPremium]);
+  const length = plan?.days.length ?? 0;
+  const planDays = useMemo(() => (isPremium ? Array.from({ length }, (_, i) => i) : [0]), [isPremium, length]);
   const planGrocery = usePlanGroceryList(plan, planDays, !!plan, userId);
   const { data: pantry = [] } = usePantry();
   const [fullOpen, setFullOpen] = useState(false);

@@ -15,17 +15,8 @@ export type AvoidedIngredient = { id: string; name: string; aliases: string[]; f
 /** Pro: daily targets. null = not set. */
 export type NutritionGoals = { calories: number | null; protein: number | null; carbs: number | null; fat: number | null };
 
-export type PlannerSlot = "breakfast" | "lunch" | "dinner" | "merienda";
-
-/** Pro: what the Meal Planner starts from. */
-export type PlannerDefaults = {
-  weekly_budget: number | null;
-  people: number;
-  slots: PlannerSlot[];
-  days: 5 | 7;
-  /** Have next week's plan ready when the planner is opened on/after Sunday. */
-  auto_plan: boolean;
-};
+/** Pro: how many days each new meal plan covers. */
+export type PlannerDefaults = { days: 5 | 7 };
 
 /** Pro: the day's biggest price drops, shown in Price Watch. On or off. */
 export type PriceAlerts = { enabled: boolean };
@@ -34,7 +25,7 @@ export type PriceAlerts = { enabled: boolean };
 // avoid_ingredients hides meals (useAvoidFilter), nutrition_goals shows in
 // Meal Details and the planner, price_alerts turns on Price Watch's daily
 // price drops.
-// planner_defaults is saved but doesn't prefill the planner yet.
+// planner_defaults.days sets how long each new meal plan is.
 export type UserPreferences = {
   dietary_focus: string;
   allergens: string[];
@@ -46,13 +37,7 @@ export type UserPreferences = {
 };
 
 export const DEFAULT_NUTRITION_GOALS: NutritionGoals = { calories: null, protein: null, carbs: null, fat: null };
-export const DEFAULT_PLANNER_DEFAULTS: PlannerDefaults = {
-  weekly_budget: null,
-  people: 1,
-  slots: ["breakfast", "lunch", "dinner"],
-  days: 5,
-  auto_plan: false,
-};
+export const DEFAULT_PLANNER_DEFAULTS: PlannerDefaults = { days: 5 };
 export const DEFAULT_PRICE_ALERTS: PriceAlerts = { enabled: true };
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -68,7 +53,6 @@ const DEFAULT_PREFERENCES: UserPreferences = {
 const record = (v: unknown): Record<string, unknown> | null =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
 const positive = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null);
-const PLANNER_SLOTS: PlannerSlot[] = ["breakfast", "lunch", "dinner", "merienda"];
 
 function parseNutritionGoals(v: unknown): NutritionGoals {
   const o = record(v);
@@ -77,16 +61,7 @@ function parseNutritionGoals(v: unknown): NutritionGoals {
 }
 
 function parsePlannerDefaults(v: unknown): PlannerDefaults {
-  const o = record(v);
-  if (!o) return DEFAULT_PLANNER_DEFAULTS;
-  const slots = strings(o.slots).filter((x): x is PlannerSlot => (PLANNER_SLOTS as string[]).includes(x));
-  return {
-    weekly_budget: positive(o.weekly_budget),
-    people: positive(o.people) ?? DEFAULT_PLANNER_DEFAULTS.people,
-    slots: slots.length > 0 ? slots : DEFAULT_PLANNER_DEFAULTS.slots,
-    days: o.days === 7 ? 7 : 5,
-    auto_plan: o.auto_plan === true,
-  };
+  return { days: record(v)?.days === 7 ? 7 : 5 };
 }
 
 function parsePriceAlerts(v: unknown): PriceAlerts {

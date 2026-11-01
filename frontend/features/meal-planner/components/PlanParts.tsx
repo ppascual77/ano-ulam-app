@@ -168,7 +168,7 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
     );
   }
 
-  const dayBudget = plan.budget / PLAN_DAYS;
+  const dayBudget = plan.budget / plan.days.length;
   const cost = Math.round(totals.cost);
   const share = Math.round((cost / dayBudget) * 100);
   const mealCost = (slot: MealSlot) => {

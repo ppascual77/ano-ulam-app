@@ -7,7 +7,10 @@ export type MealSlot = "breakfast" | "lunch" | "dinner";
  *  meal-time tags). */
 export type PlannerMeal = MealType & { slots: MealSlot[] };
 
+/** A plan's length when nothing else says (free accounts; Pro can pick 7
+ *  in Settings). A plan's own length is plan.days.length. */
 export const PLAN_DAYS = 5;
+export const PLAN_LENGTHS = [5, 7] as const;
 export const SLOTS: MealSlot[] = ["breakfast", "lunch", "dinner"];
 export const SLOT_LABELS: Record<MealSlot, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
 
@@ -51,10 +54,10 @@ function startOfDay(date: Date) {
   return copy;
 }
 
-// Today plus the next PLAN_DAYS - 1 calendar days.
-export function planDates(from = new Date()): Date[] {
+// Today plus the next length - 1 calendar days.
+export function planDates(from = new Date(), length: number = PLAN_DAYS): Date[] {
   const start = startOfDay(from);
-  return Array.from({ length: PLAN_DAYS }, (_, i) => {
+  return Array.from({ length }, (_, i) => {
     const date = new Date(start);
     date.setDate(start.getDate() + i);
     return date;
@@ -73,6 +76,8 @@ type GenerateInput = {
    *  the same inputs (otherwise the same inputs on the same day give the
    *  same plan). */
   seed?: number;
+  /** Days in the plan (PLAN_LENGTHS). */
+  length?: number;
 };
 
 type PickDayInput = {
@@ -121,24 +126,24 @@ export function regenerateDay(pool: PlannerMeal[], plan: MealPlan, dayIndex: num
     bySlot: groupBySlot(pool),
     date: plan.days[dayIndex].date,
     servings: plan.servings,
-    dayBudget: plan.budget / PLAN_DAYS,
+    dayBudget: plan.budget / plan.days.length,
     targets: plan.targets,
     used,
     random: Math.random,
   });
 }
 
-// Builds a 5-day plan (breakfast, lunch, dinner) within budget: each day
-// may spend about a fifth of the weekly budget. Tries random combinations
+// Builds a plan of `length` days (5, or 7 for Pro; breakfast, lunch, dinner)
+// within budget: each day may spend an equal share of it. Tries random combinations
 // per day and keeps the best one: under budget first, then (with a macro
 // goal) closest to the calorie and protein targets, and least repetitive.
 // Returns null when no day can be filled within budget.
-export function generatePlan({ pool, budget, servings, targets, from = new Date(), seed = 0 }: GenerateInput): MealPlan | null {
-  const dates = planDates(from);
+export function generatePlan({ pool, budget, servings, targets, from = new Date(), seed = 0, length = PLAN_DAYS }: GenerateInput): MealPlan | null {
+  const dates = planDates(from, length);
   const bySlot = groupBySlot(pool);
   if (SLOTS.some((slot) => bySlot[slot].length === 0)) return null;
 
-  const dayBudget = budget / PLAN_DAYS;
+  const dayBudget = budget / dates.length;
   const random = seededRandom(Math.round(budget) * 31 + servings * 7 + startOfDay(from).getTime() / 86400000 + seed);
   const used = new Map<string, number>();
   const days: PlanDay[] = [];
@@ -161,7 +166,7 @@ export function swapOptions(pool: PlannerMeal[], plan: MealPlan, dayIndex: numbe
   const othersCost = day.meals
     .filter((m) => m.slot !== slot)
     .reduce((sum, { meal }) => sum + perServing(meal) * plan.servings, 0);
-  const dayBudget = plan.budget / PLAN_DAYS;
+  const dayBudget = plan.budget / plan.days.length;
   return pool
     .filter((meal) => meal.slots.includes(slot) && meal.id !== current?.id)
     .filter((meal) => othersCost + perServing(meal) * plan.servings <= dayBudget)

@@ -7,7 +7,7 @@ import { mealTimesOf } from "@/frontend/core/meals/utils/mealTimes";
 import { scaleMeal } from "@/frontend/core/meals/utils/scaleMeal";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { usePlannerStore } from "../store/usePlannerStore";
-import { SLOTS, planDates, type MealPlan, type MealSlot, type PlannerMeal } from "../utils/generatePlan";
+import { PLAN_LENGTHS, SLOTS, planDates, type MealPlan, type MealSlot, type PlannerMeal } from "../utils/generatePlan";
 import type { Goal, MacroTargets } from "../utils/macros";
 
 export const planKey = (userId: string | null) => ["meal-plan", userId] as const;
@@ -35,7 +35,9 @@ function parseTargets(value: Json | null): MacroTargets | null {
 // is no longer in the catalog: the planner then starts from setup, with
 // the saved budget, people and goal filled in.
 function rebuildPlan(row: MealPlanRow, byId: Map<string, PlannerMeal>, targets: MacroTargets | null): MealPlan | null {
-  const dates = planDates(fromLocalDate(row.start_date));
+  // 5 or 7 days, as it was built.
+  if (!Array.isArray(row.days) || !(PLAN_LENGTHS as readonly number[]).includes(row.days.length)) return null;
+  const dates = planDates(fromLocalDate(row.start_date), row.days.length);
   if (localDate(dates[dates.length - 1]) < localDate(new Date())) return null;
   if (!Array.isArray(row.days) || row.days.length !== dates.length) return null;
   const days: MealPlan["days"] = [];

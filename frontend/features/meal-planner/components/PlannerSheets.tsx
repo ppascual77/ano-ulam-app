@@ -27,7 +27,7 @@ export function LockedDaySheet({ visible, lockedDays, onClose, onOpenPro }: Lock
           Your next {lockedDays} days are <Text className="text-brand-orange">ready</Text>
         </>
       }
-      body="Unlock the full 5-day plan with AnoUlam Pro."
+      body="Unlock every day of your plan with AnoUlam Pro."
       onClose={onClose}
       onOpenPro={onOpenPro}
     />

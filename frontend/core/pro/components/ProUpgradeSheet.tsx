@@ -58,7 +58,7 @@ const GROUPS: { label: string; doodle: Doodle; benefits: { title: string; detail
     label: "Save time",
     doodle: GROUP_DOODLES.time,
     benefits: [
-      { title: "Your whole week, planned", detail: "5 days of meals in your budget, swap any" },
+      { title: "Your whole week, planned", detail: "5 or 7 days of meals in your budget, swap any" },
       { title: "One grocery list", detail: "Everything for the week, in one list" },
     ],
   },

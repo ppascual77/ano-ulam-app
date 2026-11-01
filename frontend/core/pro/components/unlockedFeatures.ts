@@ -15,7 +15,7 @@ export const UNLOCKED_FEATURES: UnlockedFeature[] = [
     key: "planner",
     Icon: CalendarDays,
     title: "Your whole week, planned",
-    detail: "5-day meal plans, swaps, and a grocery list for the week.",
+    detail: "5- or 7-day meal plans, swaps, and a grocery list for them.",
   },
   {
     key: "alerts",

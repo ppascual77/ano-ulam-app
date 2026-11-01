@@ -4,7 +4,7 @@ import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChevronRight, LogOut, Trash2 } from "lucide-react-native";
-import { AppText, ChipSelect, ConfirmSheet, Screen, Spinner, Toast, type ToastState } from "@/frontend/components/ui";
+import { AppText, ChipSelect, ConfirmSheet, Screen, SegmentedSwitch, Spinner, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useAuth, useDeleteAccount, useSignOut } from "@/frontend/features/auth/hooks/useAuth";
 import type { UserPreferences } from "@/api/auth";
@@ -29,7 +29,6 @@ import { AvoidSummary } from "../components/settings/AvoidSummary";
 import { ProUpgradeSheet } from "@/frontend/core/pro/components/ProUpgradeSheet";
 import { AvoidIngredientsSheet } from "../components/settings/AvoidIngredientsSheet";
 import { NutritionGoalsSheet } from "../components/settings/NutritionGoalsSheet";
-import { PlannerDefaultsSheet } from "../components/settings/PlannerDefaultsSheet";
 import { ProSettingRow } from "../components/settings/ProSettingRow";
 
 const LOG_OUT_DELAY_MS = 2000;
@@ -51,15 +50,22 @@ const SCROLL_TO_SECTION_DELAY_MS = 300;
 // /profile/settings, from the gear on your profile: privacy, newsletter,
 // dietary preferences, Home's Surprise me tag, reduce motion, Delete account, About (legal links, feedback,
 // version), and Log out at the very end.
-type ProSettingKey = "avoid" | "planner" | "goals";
+type ProSettingKey = "avoid" | "goals";
 
 const listNames = (names: string[]) =>
   `${names.slice(0, 3).join(", ")}${names.length > 3 ? ` and ${names.length - 3} more` : ""}`;
 const foodName = (name: string) => name.split(",")[0];
 
-// Settings > Pro, in this order. Each row shows what's set once it's set
-// (`summary`, null when nothing is), otherwise what it does. All but
-// planner defaults are acted on while Pro (see UserPreferences in api/auth).
+// Meal plan length, an inline choice on its Settings row.
+const PLAN_LENGTH_OPTIONS = [
+  { value: "5" as const, label: "5 days" },
+  { value: "7" as const, label: "7 days" },
+];
+
+// Settings > Pro rows that open a sheet, after Price alerts and Meal plan
+// length. Each shows what's set once it's set (`summary`, null when nothing
+// is), otherwise what it does. All act while Pro (see UserPreferences).
+
 const PRO_SETTINGS: {
   key: ProSettingKey;
   label: string;
@@ -71,20 +77,6 @@ const PRO_SETTINGS: {
     label: "Ingredients to avoid",
     description: "Hide meals with ingredients you don't eat, everywhere in the app.",
     summary: ({ avoid_ingredients: list }) => (list.length === 0 ? null : `Avoiding ${listNames(list.map((a) => foodName(a.name)))}.`),
-  },
-  {
-    key: "planner",
-    label: "Meal Planner defaults",
-    description: "Your budget, household size and meals, ready in every new plan.",
-    summary: ({ planner_defaults: d }) =>
-      [
-        d.weekly_budget ? `₱${d.weekly_budget.toLocaleString()}/week` : null,
-        `${d.people} ${d.people === 1 ? "person" : "people"}`,
-        `${d.days} days`,
-        d.auto_plan ? "plans ahead" : null,
-      ]
-        .filter(Boolean)
-        .join(" · "),
   },
   {
     key: "goals",
@@ -260,10 +252,25 @@ export default function SettingsScreen() {
               toggle={{ value: prefs.price_alerts.enabled, onChange: (enabled) => setPrefs({ ...prefs, price_alerts: { enabled } }) }}
               onPress={() => (isPro ? setPrefs({ ...prefs, price_alerts: { enabled: !prefs.price_alerts.enabled } }) : setUpgradeOpen(true))}
             />
+            {/* Meal plan length: 5 or 7 days, for each new plan. */}
+            <ProSettingRow
+              index={1}
+              label="Meal plan length"
+              description="How many days each new meal plan covers."
+              locked={!isPro}
+              control={
+                <SegmentedSwitch
+                  options={PLAN_LENGTH_OPTIONS}
+                  value={String(prefs.planner_defaults.days) as "5" | "7"}
+                  onChange={(value) => setPrefs({ ...prefs, planner_defaults: { days: value === "7" ? 7 : 5 } })}
+                />
+              }
+              onPress={() => (isPro ? undefined : setUpgradeOpen(true))}
+            />
             {PRO_SETTINGS.map((setting, index) => (
               <ProSettingRow
                 key={setting.key}
-                index={index + 1}
+                index={index + 2}
                 label={setting.label}
                 description={(isPro && setting.summary(prefs)) || setting.description}
                 detail={
@@ -358,7 +365,6 @@ export default function SettingsScreen() {
       </ScrollView>
 
       <AvoidIngredientsSheet visible={proSheet === "avoid"} onClose={closeProSheet} />
-      <PlannerDefaultsSheet visible={proSheet === "planner"} onClose={closeProSheet} />
       <NutritionGoalsSheet visible={proSheet === "goals"} onClose={closeProSheet} />
       <ManagePlanSheet visible={manageOpen} onClose={() => setManageOpen(false)} />
       <ProFeaturesSheet visible={featuresOpen} onClose={() => setFeaturesOpen(false)} />

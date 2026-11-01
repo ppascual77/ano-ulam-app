@@ -21,6 +21,7 @@ import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
 import { PLAN_DAYS, formatPeso, generatePlan, monthDay, regenerateDay, swapOptions, type MealPlan, type MealSlot } from "../utils/generatePlan";
 import { targetsFromGoals } from "../utils/macros";
 import { useNutritionGoals } from "@/frontend/core/preferences/hooks/useNutritionGoals";
+import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
 import { BudgetInput, MacroGoalCard, ServingStepper, parseBudget } from "../components/PlannerInputs";
 import { MacroGoalSheet } from "../components/MacroGoalSheet";
 import { GeneratingView } from "../components/GeneratingView";
@@ -63,6 +64,9 @@ export default function MealPlannerScreen() {
   const [macroSheetOpen, setMacroSheetOpen] = useState(false);
   // Pro: the nutrition goals from Settings, offered as the macro goal.
   const nutritionGoals = useNutritionGoals();
+  // Pro: 5 or 7 days per new plan (Settings); everyone else 5.
+  const { prefs } = usePreferences();
+  const planLength = isPro ? prefs.planner_defaults.days : PLAN_DAYS;
   const goalTargets = useMemo(() => (nutritionGoals ? targetsFromGoals(nutritionGoals) : null), [nutritionGoals]);
   const [selectedDay, setSelectedDay] = useState(0);
   // Which of the day's meals is in the hero (and highlighted in the list).
@@ -91,7 +95,8 @@ export default function MealPlannerScreen() {
   // The grocery list covers the days you can see: the whole week for
   // Premium, today for Free. Fetched while the plan is on screen, so it's
   // ready when the sheet opens.
-  const groceryDays = useMemo(() => (isPro ? [0, 1, 2, 3, 4] : [0]), [isPro]);
+  const shownDays = plan?.days.length ?? planLength;
+  const groceryDays = useMemo(() => (isPro ? Array.from({ length: shownDays }, (_, i) => i) : [0]), [isPro, shownDays]);
   const grocery = usePlanGroceryList(plan, groceryDays, store.stage === "plan", session?.user.id ?? null);
   // The sheet's other tab: the saved-meals list (same as Profile's).
   const savedGrocery = useSavedGroceryList(session?.user.id ?? null);
@@ -108,7 +113,7 @@ export default function MealPlannerScreen() {
 
   // seed: a fresh one from "Regenerate", for a different plan.
   const build = (seed = 0) => {
-    const next = generatePlan({ pool, budget, servings: store.servings, targets: store.targets, seed });
+    const next = generatePlan({ pool, budget, servings: store.servings, targets: store.targets, seed, length: planLength });
     store.setPlan(next);
     selectDay(0);
     store.setStage("generating");
@@ -202,6 +207,7 @@ export default function MealPlannerScreen() {
             budgetLabel={formatPeso(budget)}
             meals={pool}
             hasMacros={!!store.targets}
+            days={planLength}
             onBack={() => store.setStage("setup")}
             onDone={() => store.setStage(plan ? "plan" : "error")}
             failed={!plan}
@@ -228,7 +234,7 @@ export default function MealPlannerScreen() {
               <RefreshCw color={colors.webInk.DEFAULT} size={20} />
             </Pressable>
             <View className="flex-1 items-center">
-              <Text className="font-inter-bold text-subheading text-web-ink">Your 5-Day Meal Plan</Text>
+              <Text className="font-inter-bold text-subheading text-web-ink">Your {shownDays}-Day Meal Plan</Text>
               <Text className="font-inter-regular text-small text-web-ink-muted">
                 {monthDay(plan.days[0].date)} – {monthDay(plan.days[plan.days.length - 1].date)}
               </Text>
@@ -370,7 +376,7 @@ export default function MealPlannerScreen() {
         pantry={pantry}
       />
 
-      <LockedDaySheet visible={lockedOpen} lockedDays={PLAN_DAYS - 1} onClose={() => setLockedOpen(false)} onOpenPro={() => router.push("/pro")} />
+      <LockedDaySheet visible={lockedOpen} lockedDays={shownDays - 1} onClose={() => setLockedOpen(false)} onOpenPro={() => router.push("/pro")} />
 
       <SwapMealSheet
         slot={swap?.slot ?? null}

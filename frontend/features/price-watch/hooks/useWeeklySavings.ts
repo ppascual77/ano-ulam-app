@@ -46,7 +46,7 @@ export function useWeeklySavings() {
   const { cooked, source } = useMemo((): { cooked: Cooked; source: WeeklySavings["source"] } => {
     const today = toIsoDate(new Date());
     const row = plan.data;
-    if (row && addDays(row.start_date, PLAN_DAYS - 1) >= today && Array.isArray(row.days)) {
+    if (row && Array.isArray(row.days) && addDays(row.start_date, (row.days.length || PLAN_DAYS) - 1) >= today) {
       const counts: Cooked = new Map();
       for (const day of row.days) {
         if (!day || typeof day !== "object" || Array.isArray(day)) continue;
