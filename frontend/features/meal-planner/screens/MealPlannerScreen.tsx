@@ -19,6 +19,8 @@ import { useSavedGroceryList } from "@/frontend/core/grocery/hooks/useSavedGroce
 import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
 import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
 import { PLAN_DAYS, formatPeso, generatePlan, monthDay, regenerateDay, swapOptions, type MealPlan, type MealSlot } from "../utils/generatePlan";
+import { targetsFromGoals } from "../utils/macros";
+import { useNutritionGoals } from "@/frontend/core/preferences/hooks/useNutritionGoals";
 import { BudgetInput, MacroGoalCard, ServingStepper, parseBudget } from "../components/PlannerInputs";
 import { MacroGoalSheet } from "../components/MacroGoalSheet";
 import { GeneratingView } from "../components/GeneratingView";
@@ -59,6 +61,9 @@ export default function MealPlannerScreen() {
   });
 
   const [macroSheetOpen, setMacroSheetOpen] = useState(false);
+  // Pro: the nutrition goals from Settings, offered as the macro goal.
+  const nutritionGoals = useNutritionGoals();
+  const goalTargets = useMemo(() => (nutritionGoals ? targetsFromGoals(nutritionGoals) : null), [nutritionGoals]);
   const [selectedDay, setSelectedDay] = useState(0);
   // Which of the day's meals is in the hero (and highlighted in the list).
   const [selectedMeal, setSelectedMeal] = useState(0);
@@ -175,7 +180,14 @@ export default function MealPlannerScreen() {
 
             <BudgetInput value={store.budget} onChange={store.setBudget} />
             <ServingStepper value={store.servings} onChange={store.setServings} />
-            <MacroGoalCard targets={store.targets} goal={store.goal} onEnable={() => setMacroSheetOpen(true)} onEdit={() => setMacroSheetOpen(true)} />
+            <MacroGoalCard
+              targets={store.targets}
+              goal={store.goal}
+              onEnable={() => setMacroSheetOpen(true)}
+              onEdit={() => setMacroSheetOpen(true)}
+              goalTargets={goalTargets}
+              onUseGoals={() => goalTargets && store.setTargets(goalTargets)}
+            />
 
             <View className="mt-2">
               <Button label="Continue" onPress={() => build()} disabled={budget <= 0 || poolLoading} />

@@ -56,3 +56,18 @@ export function recommendTargets(stats: BodyStats, goal: Goal, activity: Activit
   const carbs = Math.max(0, Math.round((calories - protein * 4 - fats * 9) / 4));
   return { calories, protein, carbs, fats };
 }
+
+/** Pro's nutrition goals (Settings) as planner targets. Needs calories and
+ *  protein (what the planner aims for); carbs and fat, when not set, follow
+ *  the same split as recommendTargets. */
+export function targetsFromGoals(goals: {
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+}): MacroTargets | null {
+  if (!goals.calories || !goals.protein) return null;
+  const fats = goals.fat ?? Math.round((goals.calories * FAT_SHARE) / 9);
+  const carbs = goals.carbs ?? Math.max(0, Math.round((goals.calories - goals.protein * 4 - fats * 9) / 4));
+  return { calories: goals.calories, protein: goals.protein, carbs, fats };
+}

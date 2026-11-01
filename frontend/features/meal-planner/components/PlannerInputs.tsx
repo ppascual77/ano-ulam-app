@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { ChartColumn, ChevronRight, Lightbulb, Users, Wallet, type LucideIcon } from "lucide-react-native";
+import { ChartColumn, ChevronRight, Lightbulb, Target, Users, Wallet, type LucideIcon } from "lucide-react-native";
 import { Stepper, Toggle } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { GOAL_OPTIONS, type Goal, type MacroTargets } from "../utils/macros";
@@ -87,11 +87,15 @@ type MacroGoalCardProps = {
   onEnable: () => void;
   /** Tap the enabled card: edit. */
   onEdit: () => void;
+  /** Pro: targets from the nutrition goals in Settings, when they're set
+   *  (offered as a one-tap start instead of the sheet). */
+  goalTargets?: MacroTargets | null;
+  onUseGoals?: () => void;
 };
 
 // Off: toggle + a "not sure about macros?" reassurance. On: a summary card
 // (tap to edit stats, goal or targets).
-export function MacroGoalCard({ targets, goal, onEnable, onEdit }: MacroGoalCardProps) {
+export function MacroGoalCard({ targets, goal, onEnable, onEdit, goalTargets, onUseGoals }: MacroGoalCardProps) {
   if (targets) {
     const goalLabel = GOAL_OPTIONS.find((o) => o.value === goal)?.label;
     return (
@@ -119,6 +123,21 @@ export function MacroGoalCard({ targets, goal, onEnable, onEdit }: MacroGoalCard
         body="Plan around calories and macros."
         trailing={<Toggle checked={false} onChange={(on) => on && onEnable()} />}
       />
+      {goalTargets && onUseGoals && (
+        <Pressable
+          onPress={onUseGoals}
+          className="flex-row items-center gap-3 rounded-xl border border-brand-orange/30 bg-white px-3 py-2.5 active:bg-web-divider/40"
+        >
+          <Target color={colors.brandOrange} size={16} />
+          <View className="flex-1">
+            <Text className="font-inter-semibold text-small text-web-ink">Use my nutrition goals</Text>
+            <Text className="font-inter-regular text-small text-web-ink-muted">
+              {goalTargets.calories.toLocaleString("en-PH")} kcal · {goalTargets.protein}g protein
+            </Text>
+          </View>
+          <ChevronRight color={colors.webInk.muted} size={16} />
+        </Pressable>
+      )}
       <View className="flex-row items-start gap-3 rounded-xl bg-notice-bg px-3 py-2.5">
         <Lightbulb color={colors.notice.icon} size={16} />
         <View className="flex-1">

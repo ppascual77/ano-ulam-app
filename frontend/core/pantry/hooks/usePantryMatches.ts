@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useAvoidFilter } from "@/frontend/core/preferences/hooks/useAvoidFilter";
 import { useQuery } from "@tanstack/react-query";
 import { getIngredientsForMatching, getMealIngredientIndex } from "@/api/meals";
 import type { PantryIngredient } from "../types";
@@ -52,10 +53,14 @@ export function usePantryMatches(pantry: PantryIngredient[]) {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Pro: meals with an ingredient to avoid aren't suggested.
+  const { isAvoided } = useAvoidFilter();
+
   const summary = useMemo<PantryMatchSummary>(() => {
     const have = new Set(pantry.map((p) => p.id));
     const results: PantryMealMatch[] = [];
     for (const meal of index ?? []) {
+      if (isAvoided({ id: meal.id })) continue;
       // One entry per distinct ingredient (a recipe can list one twice).
       const ingredients = new Map<string, { name: string; main: boolean }>();
       for (const mi of meal.meal_ingredients) {
@@ -88,7 +93,7 @@ export function usePantryMatches(pantry: PantryIngredient[]) {
       averageMatch: results.length ? Math.round(results.reduce((sum, r) => sum + r.have / (r.have + r.need), 0) / results.length * 100) : 0,
       results,
     };
-  }, [index, pantry]);
+  }, [index, pantry, isAvoided]);
 
   return { ...summary, isLoading };
 }

@@ -33,8 +33,10 @@ export type PriceAlerts = {
   threshold: "any" | "10pct";
 };
 
-// Pro settings (avoid_ingredients onwards) are saved now but not acted on
-// anywhere yet: the features that use them come later.
+// Pro settings (avoid_ingredients onwards), acted on only while Pro:
+// avoid_ingredients hides meals (useAvoidFilter), nutrition_goals shows in
+// Meal Details and the planner, price_alerts drives Price Watch's alerts.
+// planner_defaults is saved but doesn't prefill the planner yet.
 export type UserPreferences = {
   dietary_focus: string;
   allergens: string[];

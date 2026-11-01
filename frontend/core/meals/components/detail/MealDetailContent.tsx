@@ -52,6 +52,8 @@ import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { MealInfoPill } from "../MealInfoPill";
 import { MacroSection } from "./MacroSection";
+import { GoalShare } from "./GoalShare";
+import { useNutritionGoals } from "@/frontend/core/preferences/hooks/useNutritionGoals";
 import { LockedMicronutrients, MicronutrientList, hasMicronutrients, type Micronutrients } from "./MicronutrientList";
 import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
@@ -455,6 +457,9 @@ export function MealDetailContent({
   // person's plate; so it doesn't change with the servings stepper.
   const [showMicros, setShowMicros] = useState(false);
   const isPro = useIsPro();
+  // Pro: one serving against the daily nutrition goals (Settings).
+  const nutritionGoals = useNutritionGoals();
+  const recipeServings = meal.serving_size ?? 1;
   // Water is left out on both sides: no micronutrients to sum or be missing.
   const nonWater = (meal.ingredients ?? []).filter((it) => !PLAIN_WATER.test(it.name.trim()));
   const microIngredients = nonWater.filter(hasMicronutrients);
@@ -730,6 +735,17 @@ export function MealDetailContent({
           <Animated.View style={macroPulseStyle}>
             <MacroSection calories={shownCalories} protein={shownProtein} carbs={shownCarbs} fats={shownFats} />
           </Animated.View>
+          {nutritionGoals && (
+            <GoalShare
+              goals={nutritionGoals}
+              perServing={{
+                calories: meal.calories / recipeServings,
+                protein: meal.protein / recipeServings,
+                carbs: meal.carbs / recipeServings,
+                fats: meal.fats / recipeServings,
+              }}
+            />
+          )}
           {/* Optional micronutrients, tucked under the macros. Hidden
               entirely when no ingredient has micronutrient data. */}
           {hasMicronutrients(mealMicros) && (

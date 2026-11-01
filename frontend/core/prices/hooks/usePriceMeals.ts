@@ -43,7 +43,7 @@ export type BestValueMeal = {
 // Each linked ingredient's % change this week: the mean of its DA
 // commodities' (e.g. Bangus ← Large and Medium), so one big mover among
 // several doesn't overstate it.
-function ingredientChanges(items: PriceItem[]): Map<string, number> {
+export function ingredientChanges(items: PriceItem[]): Map<string, number> {
   const all = new Map<string, number[]>();
   for (const i of items) {
     if (!i.ingredientId || i.pctChange == null) continue;

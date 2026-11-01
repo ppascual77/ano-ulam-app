@@ -55,8 +55,8 @@ const listNames = (names: string[]) =>
 const foodName = (name: string) => name.split(",")[0];
 
 // Settings > Pro, in this order. Each row shows what's set once it's set
-// (`summary`, null when nothing is), otherwise what it does. Saved now, not
-// acted on anywhere yet.
+// (`summary`, null when nothing is), otherwise what it does. All but
+// planner defaults are acted on while Pro (see UserPreferences in api/auth).
 const PRO_SETTINGS: {
   key: ProSettingKey;
   label: string;

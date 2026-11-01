@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useAvoidFilter } from "@/frontend/core/preferences/hooks/useAvoidFilter";
 import { browseMeals } from "@/api/meals";
 import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
@@ -43,6 +44,8 @@ function order(meals: MealType[], sort: MealFilters["sortByPrice"]) {
 // web showed an empty state there).
 export function useBrowseSearch({ isGuest, isPro }: { isGuest: boolean; isPro: boolean }) {
   // Daily searches: guests, free accounts, none for Pro (see dailyLimits).
+  // Pro: results never include meals with an ingredient to avoid.
+  const { isAvoided } = useAvoidFilter();
   const daily = useDailyLimit("search", dailyLimitFor({ isPro, isGuest }, GUEST_DAILY_SEARCHES, FREE_DAILY_SEARCHES));
   const [query, setQuery] = useState("");
   const [applied, setApplied] = useState<MealFilters>(EMPTY_FILTERS);
@@ -104,7 +107,7 @@ export function useBrowseSearch({ isGuest, isPro }: { isGuest: boolean; isPro: b
     setApplied,
     isSearchMode,
     loading,
-    results: order(results, applied.sortByPrice),
+    results: order(results.filter((meal) => !isAvoided(meal)), applied.sortByPrice),
     limitReached,
     /** Today's limit for this user, null for Pro. */
     limit: daily.limit,

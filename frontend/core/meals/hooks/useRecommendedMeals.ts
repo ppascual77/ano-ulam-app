@@ -5,6 +5,7 @@ import type { MealType } from "../mealTypes";
 import { inCategory, type CategoryId } from "@/frontend/core/budget/utils/categories";
 import { fitsPreferences } from "@/frontend/core/budget/utils/budgetMatch";
 import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
+import { useAvoidFilter } from "@/frontend/core/preferences/hooks/useAvoidFilter";
 
 // Shown 5 at a time (RecommendationsSection's Show More).
 const RECOMMENDATION_COUNT = 10;
@@ -21,12 +22,14 @@ export function useRecommendedMeals(category: CategoryId | null = null): { meals
   const { data: allMeals, isLoading, isError } = useRealMeals();
   const { prefs } = usePreferences();
   const { allergens, dietary_focus } = prefs;
+  const { isAvoided } = useAvoidFilter();
   const fitting = useMemo(
     () =>
       (allMeals ?? []).filter(
-        (meal) => fitsPreferences(meal, { allergens, dietary_focus }) && (!category || inCategory(meal, category)),
+        (meal) =>
+          fitsPreferences(meal, { allergens, dietary_focus }) && !isAvoided(meal) && (!category || inCategory(meal, category)),
       ),
-    [allMeals, category, allergens, dietary_focus],
+    [allMeals, category, allergens, dietary_focus, isAvoided],
   );
   const shuffled = useStableShuffle(fitting, category);
   const meals = useMemo(() => (category ? shuffled : shuffled.slice(0, RECOMMENDATION_COUNT)), [shuffled, category]);

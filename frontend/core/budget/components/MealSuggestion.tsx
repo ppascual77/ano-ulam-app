@@ -1,4 +1,5 @@
 import { useMemo, useState, useTransition } from "react";
+import { useAvoidFilter } from "@/frontend/core/preferences/hooks/useAvoidFilter";
 import { Pressable, Text, View } from "react-native";
 import { X } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
@@ -41,12 +42,17 @@ export function MealSuggestion({ budget, servings, onClear }: MealSuggestionProp
 
   const { prefs: preferences } = usePreferences();
   const allergens = preferences.allergens;
+  // Pro: ingredients to avoid are left out like allergens.
+  const { isAvoided } = useAvoidFilter();
 
   // Active preferences, then the picked category, narrow what fits the
   // budget. Allergens are always left out (a safety rule, inside
   // matchBudget); the dietary focus keeps meals tagged for it (looser diets
   // accept stricter ones, see fitsDietaryFocus).
-  const inBudget = useMemo(() => matchBudget(meals ?? [], amount, servings, allergens), [meals, amount, servings, allergens]);
+  const inBudget = useMemo(
+    () => matchBudget(meals ?? [], amount, servings, allergens).filter((m) => !isAvoided(m.meal)),
+    [meals, amount, servings, allergens, isAvoided],
+  );
   const focus = preferences.dietary_focus;
   const matches = inBudget.filter((m) => fitsDietaryFocus(m.meal, focus));
   // The picked category: a meal time keeps meals tagged with it (both rows);
