@@ -82,6 +82,14 @@ module.exports = {
           // deliberately "dirty"/aged off-white, not general-purpose.
           bg: "#F2EDE1",
         },
+        // The tabs' green headers (HomeBackdrop, HeaderBackdrop): top is the
+        // dark green, pale an optional see-through layer under it. name is
+        // the greeting's name on the dark green. Added 2026-11-01.
+        home: {
+          top: "#2A4931",
+          pale: "#CAD4BA",
+          name: "#CFE5CA",
+        },
         // IngredientDetailPanel's "USDA FoodData Central" attribution badge
         // — a plain informational blue, not a general-purpose brand color.
         usda: "#2563EB",

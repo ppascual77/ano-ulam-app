@@ -86,55 +86,61 @@ function TodayPlan({ plan, dayIndex }: { plan: MealPlan; dayIndex: number }) {
   const enter = (delay: number) => (reduceMotion ? FadeIn.duration(150) : FadeInDown.delay(delay).duration(360).easing(EASE));
 
   return (
-    <Pressable
-      onPress={() => router.push({ pathname: "/meal-planner", params: { day: String(dayIndex) } })}
-      accessibilityRole="button"
-      accessibilityLabel={`Today's plan, day ${dayIndex + 1} of ${plan.days.length}. ${eyebrow}: ${next.meal.name}. Open your meal plan`}
-      className="overflow-hidden rounded-3xl border border-ink-emphasis/5 bg-white shadow-sm active:opacity-90"
-    >
-      <View style={{ height: PHOTO_HEIGHT }}>
-        <Image source={resolveMealImage(next.meal)} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={250} />
-        <LinearGradient colors={PHOTO_SHADE} locations={[0, 0.35, 1]} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
-        <View className="absolute left-4 right-4 top-4 flex-row items-center justify-between">
-          <Text className="font-inter-bold text-subheading text-white">
-            Today&apos;s plan<Text className="text-brand-orange">.</Text>
-          </Text>
-          <View className={`rounded-full px-2.5 py-1 ${lastDay ? "bg-accent" : "bg-black/35"}`}>
-            <Text className="font-inter-semibold text-sub text-white">{lastDay ? "LAST DAY" : `DAY ${dayIndex + 1} OF ${plan.days.length}`}</Text>
+    // The shadow sits on this wrapper: on iOS the card's overflow-hidden
+    // (which rounds the photo's corners) clips its own shadow away.
+    <View className="rounded-3xl bg-white shadow-sm">
+      <Pressable
+        onPress={() => router.push({ pathname: "/meal-planner", params: { day: String(dayIndex) } })}
+        accessibilityRole="button"
+        accessibilityLabel={`Today's plan, day ${dayIndex + 1} of ${plan.days.length}. ${eyebrow}: ${next.meal.name}. Open your meal plan`}
+        // No border: it sat inside the clip and inset the photo by 1px, which
+        // showed as white strips over HomeBackdrop's dark green.
+        className="overflow-hidden rounded-3xl bg-white active:opacity-90"
+      >
+        <View style={{ height: PHOTO_HEIGHT }}>
+          <Image source={resolveMealImage(next.meal)} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={250} />
+          <LinearGradient colors={PHOTO_SHADE} locations={[0, 0.35, 1]} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
+          <View className="absolute left-4 right-4 top-4 flex-row items-center justify-between">
+            <Text className="font-inter-bold text-subheading text-white">
+              Today&apos;s plan<Text className="text-brand-orange">.</Text>
+            </Text>
+            <View className={`rounded-full px-2.5 py-1 ${lastDay ? "bg-accent" : "bg-black/35"}`}>
+              <Text className="font-inter-semibold text-sub text-white">{lastDay ? "LAST DAY" : `DAY ${dayIndex + 1} OF ${plan.days.length}`}</Text>
+            </View>
           </View>
+          <Animated.View entering={enter(80)} style={{ position: "absolute", left: 16, right: 16, bottom: 14 }}>
+            <Text className="font-inter-bold text-sub uppercase text-white/80">{eyebrow}</Text>
+            <Text className="mt-1 font-inter-extrabold text-heading tracking-display text-white" numberOfLines={2}>
+              {next.meal.name}
+            </Text>
+          </Animated.View>
         </View>
-        <Animated.View entering={enter(80)} style={{ position: "absolute", left: 16, right: 16, bottom: 14 }}>
-          <Text className="font-inter-bold text-sub uppercase text-white/80">{eyebrow}</Text>
-          <Text className="mt-1 font-inter-extrabold text-heading tracking-display text-white" numberOfLines={2}>
-            {next.meal.name}
-          </Text>
-        </Animated.View>
-      </View>
 
-      <View className="gap-3 px-4 pb-4 pt-3">
-        {/* The day's other two meals (the next one is in the photo). */}
-        <View className="flex-row gap-2">
-          {day.meals
-            .filter(({ slot }) => slot !== next.slot)
-            .map(({ slot, meal }, i) => (
-              <Animated.View key={`${slot}-${meal.id}`} entering={enter(160 + i * 60)} style={{ flex: 1 }}>
-                <View className="flex-row items-center gap-2.5 rounded-2xl bg-ink-emphasis/5 px-2.5 py-2">
-                  <View className="h-9 w-9 overflow-hidden rounded-full bg-white">
-                    <Image source={resolveMealImage(meal)} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+        <View className="gap-3 px-4 pb-4 pt-3">
+          {/* The day's other two meals (the next one is in the photo). */}
+          <View className="flex-row gap-2">
+            {day.meals
+              .filter(({ slot }) => slot !== next.slot)
+              .map(({ slot, meal }, i) => (
+                <Animated.View key={`${slot}-${meal.id}`} entering={enter(160 + i * 60)} style={{ flex: 1 }}>
+                  <View className="flex-row items-center gap-2.5 rounded-2xl bg-ink-emphasis/5 px-2.5 py-2">
+                    <View className="h-9 w-9 overflow-hidden rounded-full bg-white">
+                      <Image source={resolveMealImage(meal)} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="font-inter-semibold text-sub uppercase text-ink-subtle">{SLOT_LABELS[slot]}</Text>
+                      <Text className="mt-0.5 font-inter-semibold text-small text-ink-emphasis" numberOfLines={1}>
+                        {meal.name}
+                      </Text>
+                    </View>
                   </View>
-                  <View className="flex-1">
-                    <Text className="font-inter-semibold text-sub uppercase text-ink-subtle">{SLOT_LABELS[slot]}</Text>
-                    <Text className="mt-0.5 font-inter-semibold text-small text-ink-emphasis" numberOfLines={1}>
-                      {meal.name}
-                    </Text>
-                  </View>
-                </View>
-              </Animated.View>
-            ))}
+                </Animated.View>
+              ))}
+          </View>
+          {showGoals && <GoalLine calories={totals.calories} protein={totals.protein} goals={goals!} />}
         </View>
-        {showGoals && <GoalLine calories={totals.calories} protein={totals.protein} goals={goals!} />}
-      </View>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }
 
@@ -142,7 +148,7 @@ function TodayPlan({ plan, dayIndex }: { plan: MealPlan; dayIndex: number }) {
 // jumps or flashes.
 function Placeholder() {
   return (
-    <View className="flex-row items-center gap-4 rounded-3xl bg-ink-emphasis/5 px-5 py-5">
+    <View className="flex-row items-center gap-4 rounded-3xl bg-white px-5 py-5 shadow-sm">
       <View className="flex-1 gap-2.5">
         <View className="h-3 w-24 rounded bg-ink-emphasis/5" />
         <View className="h-6 w-44 rounded bg-ink-emphasis/5" />

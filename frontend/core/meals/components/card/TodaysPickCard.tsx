@@ -18,38 +18,42 @@ type TodaysPickCardProps = {
 // meal's detail sheet (MealDetailContent), same as MealCard.
 export function TodaysPickCard({ meal, onPress }: TodaysPickCardProps) {
   return (
-    <Pressable
-      onPress={onPress}
-      className="overflow-hidden rounded-2xl border border-ink-emphasis/10 bg-white shadow-sm"
-    >
-      <Image
-        source={resolveMealImage(meal)}
-        style={{ width: "100%", height: IMAGE_HEIGHT }}
-        contentFit="cover"
-      />
+    // The shadow sits on this wrapper: on iOS the card's overflow-hidden
+    // (which rounds the photo's corners) clips its own shadow away.
+    <View className="rounded-2xl bg-white shadow-sm">
+      <Pressable
+        onPress={onPress}
+        className="overflow-hidden rounded-2xl border border-ink-emphasis/10 bg-white"
+      >
+        <Image
+          source={resolveMealImage(meal)}
+          style={{ width: "100%", height: IMAGE_HEIGHT }}
+          contentFit="cover"
+        />
 
-      <View className="px-4 pb-4 pt-3">
-        <View className="flex-row items-center justify-between">
-          {meal.total_time != null && (
-            <Chips
-              label={`${meal.total_time} min`}
-              icon={<Clock color={colors.white} size={10} strokeWidth={2} />}
-              bgClassName="bg-ink-emphasis"
-            />
-          )}
-          <AppText variant="title" className="font-inter-semibold text-primary">
-            ₱{meal.price}
-            {meal.buffer_price ? ` – ₱${meal.buffer_price}` : ""}
+        <View className="px-4 pb-4 pt-3">
+          <View className="flex-row items-center justify-between">
+            {meal.total_time != null && (
+              <Chips
+                label={`${meal.total_time} min`}
+                icon={<Clock color={colors.white} size={10} strokeWidth={2} />}
+                bgClassName="bg-ink-emphasis"
+              />
+            )}
+            <AppText variant="title" className="font-inter-semibold text-primary">
+              ₱{meal.price}
+              {meal.buffer_price ? ` – ₱${meal.buffer_price}` : ""}
+            </AppText>
+          </View>
+
+          <AppText variant="title" numberOfLines={1} className="mt-2">
+            {meal.name}
+          </AppText>
+          <AppText variant="caption" numberOfLines={1} className="mt-1 leading-5">
+            {meal.description}
           </AppText>
         </View>
-
-        <AppText variant="title" numberOfLines={1} className="mt-2">
-          {meal.name}
-        </AppText>
-        <AppText variant="caption" numberOfLines={1} className="mt-1 leading-5">
-          {meal.description}
-        </AppText>
-      </View>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }

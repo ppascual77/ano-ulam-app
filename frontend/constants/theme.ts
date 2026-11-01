@@ -55,6 +55,12 @@ export const colors = {
     // tailwind.config.js's colors.notice).
     icon: "#F59E0B",
   },
+  // The green headers' SVG fills. Same as tailwind.config.js's home.
+  home: {
+    top: "#2A4931",
+    pale: "#CAD4BA",
+    name: "#CFE5CA",
+  },
   tag: {
     // SurpriseTag's paper fill (an SVG fill, so it can't take a className).
     // Same value as tailwind.config.js's tag.bg.

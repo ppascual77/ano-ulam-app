@@ -461,7 +461,8 @@ function RandomMealPullerInner() {
               style={swayStyle}
               className="items-center"
             >
-              <Animated.View style={cordStyle} className="w-[3px] rounded-full bg-ink-emphasis/20" />
+              {/* Light: it hangs over HomeBackdrop's dark green. */}
+              <Animated.View style={cordStyle} className="w-[3px] rounded-full bg-white/40" />
               {/* Pulled up over the cord's end so the cord reads as tied
                   through the tag's punch hole. */}
               <View style={{ marginTop: -HOLE_CENTER_Y }}>
