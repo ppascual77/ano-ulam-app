@@ -24,5 +24,10 @@ export function usePreferences() {
     if (isSignedIn) updateProfile.mutate({ preferences: next });
   };
 
-  return { prefs, setPrefs };
+  // From the latest preferences at the moment it runs (not this render's),
+  // for changes that land later, e.g. an Undo tapped seconds after.
+  const update = (change: (current: UserPreferences) => UserPreferences) =>
+    setPrefs(change(useLocalPreferences.getState().prefs ?? prefs));
+
+  return { prefs, setPrefs, update };
 }

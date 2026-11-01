@@ -25,6 +25,7 @@ import { useProStore } from "@/frontend/core/pro/store/useProStore";
 import { ProPlanCard } from "../components/settings/ProPlanCard";
 import { ManagePlanSheet } from "../components/settings/ManagePlanSheet";
 import { ProFeaturesSheet } from "../components/settings/ProFeaturesSheet";
+import { AvoidSummary } from "../components/settings/AvoidSummary";
 import { ProUpgradeSheet } from "@/frontend/core/pro/components/ProUpgradeSheet";
 import { AvoidIngredientsSheet } from "../components/settings/AvoidIngredientsSheet";
 import { NutritionGoalsSheet } from "../components/settings/NutritionGoalsSheet";
@@ -265,6 +266,11 @@ export default function SettingsScreen() {
                 index={index + 1}
                 label={setting.label}
                 description={(isPro && setting.summary(prefs)) || setting.description}
+                detail={
+                  setting.key === "avoid" && isPro && prefs.avoid_ingredients.length > 0 ? (
+                    <AvoidSummary avoided={prefs.avoid_ingredients} />
+                  ) : undefined
+                }
                 locked={!isPro}
                 onPress={() => (isPro ? setProSheet(setting.key) : setUpgradeOpen(true))}
               />
