@@ -1,6 +1,9 @@
+import { useMemo } from "react";
 import { useRecommendedMeals } from "@/frontend/core/meals/hooks/useRecommendedMeals";
+import { scaleMeal } from "@/frontend/core/meals/utils/scaleMeal";
 import { MealCarouselSection } from "./MealCarouselSection";
 import { CATEGORY_NOUNS, type CategoryId } from "../utils/categories";
+import { DEFAULT_SERVINGS } from "../utils/budgetMatch";
 
 // Unlike CommunityFavoritesSection (still mock), this is linked to real,
 // already-seeded meals (see useRecommendedMeals): 10 random picks, or with a
@@ -17,7 +20,11 @@ export function RecommendationsSection({
   /** A category switch still being prepared: skeletons meanwhile. */
   switching?: boolean;
 }) {
-  const { meals, isLoading } = useRecommendedMeals(category);
+  const { meals: recipes, isLoading } = useRecommendedMeals(category);
+  // Priced and portioned for DEFAULT_SERVINGS, like the budget suggestions:
+  // the card's price is for 2, and the detail sheet opens at 2 (useFullMeal
+  // re-scales the full meal to this serving_size).
+  const meals = useMemo(() => recipes.map((meal) => scaleMeal(meal, DEFAULT_SERVINGS)), [recipes]);
   return (
     <MealCarouselSection
       // A new category starts again from its first 5.

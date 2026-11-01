@@ -4,7 +4,7 @@ import { Keyboard, View } from "react-native";
 import { AppText, Button, Stepper, TextField } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
-import { parseBudget } from "../utils/budgetMatch";
+import { DEFAULT_SERVINGS, parseBudget } from "../utils/budgetMatch";
 
 type SuggestParams = { budget: string; servings: number };
 
@@ -21,7 +21,7 @@ const SUGGEST_DELAY_MS = 2000;
 
 export function BudgetForm({ onSuggestMeals, beforeSuggest }: BudgetFormProps) {
   const [budget, setBudget] = useState("");
-  const [servings, setServings] = useState(1);
+  const [servings, setServings] = useState(DEFAULT_SERVINGS);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const reduceMotion = useReduceMotion();
   const timeout = useRef<ReturnType<typeof setTimeout>>(undefined);
