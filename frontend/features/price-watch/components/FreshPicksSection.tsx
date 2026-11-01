@@ -58,6 +58,9 @@ type FreshPicksSectionProps = {
 // page's vertical one it blocked both scroll directions for this whole
 // section (a pan responder conflict). The pan below only takes over once a
 // drag is clearly horizontal, so vertical scrolling still starts on the card.
+// The page must scroll in gesture handler's ScrollView (PriceWatchScreen):
+// inside React Native's, its native pan wins on the phone and this never
+// swipes.
 function FreshPicksSectionInner({ picks, loading, onSelect }: FreshPicksSectionProps) {
   const { width: windowWidth } = useWindowDimensions();
   const cardWidth = windowWidth - SCREEN_PADDING;
