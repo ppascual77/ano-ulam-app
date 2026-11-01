@@ -27,10 +27,10 @@ const ROTATE_INTERVAL_MS = 2500;
 const ROLL_DURATION_MS = 500;
 const ITEM_HEIGHT = 24;
 
-function TaglineRow({ before, dish, after }: Tagline) {
+function TaglineRow({ before, dish, after, light }: Tagline & { light: boolean }) {
   return (
     <View style={{ height: ITEM_HEIGHT }} className="justify-center">
-      <AppText variant="body">
+      <AppText variant="body" className={light ? "text-white/90" : ""}>
         {before}
         <Text className="font-inter-semibold text-accent">{dish}</Text>
         {after}
@@ -50,7 +50,8 @@ function TaglineRow({ before, dish, after }: Tagline) {
 // serializable, and would silently fail to reset translateY on some ticks,
 // letting it drift further negative each cycle until the text scrolled
 // permanently out of the clipped container.
-export function CravingTagline() {
+// `light`: white text, on Browse's dark green header.
+export function CravingTagline({ light = false }: { light?: boolean }) {
   const [index, setIndex] = useState(0);
   const translateY = useSharedValue(0);
 
@@ -88,8 +89,8 @@ export function CravingTagline() {
   return (
     <View style={{ height: ITEM_HEIGHT, overflow: "hidden" }}>
       <Animated.View style={animatedStyle}>
-        <TaglineRow {...TAGLINES[index]} />
-        <TaglineRow {...TAGLINES[nextIndex]} />
+        <TaglineRow {...TAGLINES[index]} light={light} />
+        <TaglineRow {...TAGLINES[nextIndex]} light={light} />
       </Animated.View>
     </View>
   );

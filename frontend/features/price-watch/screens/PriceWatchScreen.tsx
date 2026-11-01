@@ -6,7 +6,15 @@ import { useWindowDimensions, View, type ScrollViewInstance } from "react-native
 // the carousel never swiped. Here both negotiate: horizontal drags page the
 // carousel, vertical ones scroll.
 import { RefreshControl, ScrollView } from "react-native-gesture-handler";
-import { AppText, LandingTitle, Screen, usePageIntro } from "@/frontend/components/ui";
+import {
+  AppText,
+  HeaderBackdrop,
+  LandingTitle,
+  Screen,
+  usePageIntro,
+  useStatusBarStrip,
+  type HeaderCurves,
+} from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { BestValueMealsSection } from "@/frontend/core/meals/components/BestValueMealsSection";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
@@ -34,6 +42,14 @@ const SHOW_INTRO = true;
 // Breathing room above the list section when search scrolls it to the top.
 const SEARCH_TOP_GAP = 12;
 
+// The green header's curve, different from Browse's: dark green only (no
+// pale layer), level with the caption's bottom on the right (so it never
+// cuts into "for less."), dropping deep towards the left.
+const HEADER_CURVES: HeaderCurves = {
+  splitAt: 0.72,
+  dark: { left: 46, right: 4, bends: [0.85, 0.45], pull: [0, 26] },
+};
+
 export default function PriceWatchScreen() {
   const items = usePriceItems();
   const [category, setCategory] = useState<PriceCategory | null>("meat");
@@ -55,12 +71,7 @@ export default function PriceWatchScreen() {
   const { height: windowHeight } = useWindowDimensions();
   // Where the "All" list section starts in the scroll content.
   const [listY, setListY] = useState(0);
-  // Focusing search parks its section (title, sort chip, search box) at the
-  // top of the screen, and the min height below keeps it there as you type.
-  const handleSearchFocus = useCallback(() => {
-    setSearchFocused(true);
-    scrollRef.current?.scrollTo({ y: Math.max(0, listY - SEARCH_TOP_GAP), animated: true });
-  }, [listY]);
+
   // Stable callbacks, so the memoized sections below don't re-render for
   // them (each section is memo()'d: re-rendering them all made switching to
   // this tab cost ~150-200ms).
@@ -97,34 +108,55 @@ export default function PriceWatchScreen() {
 
   const title = q || !category ? "All" : priceWatchCategories.find((c) => c.id === category)!.label;
 
+  // Where the source chip ends: the green header covers up to it.
+  const [headerBottom, setHeaderBottom] = useState<number | null>(null);
+  // Dark green behind the clock over the header, white once it has scrolled
+  // up past it. Dark clock over the intro.
+  const statusBar = useStatusBarStrip({ color: colors.home.top, darkUntil: headerBottom ?? 190, forceDark: intro.showing });
+  // Focusing search parks its section (title, sort chip, search box) at the
+  // top of the screen, below the status bar strip, and the min height below
+  // keeps it there as you type.
+  const handleSearchFocus = useCallback(() => {
+    setSearchFocused(true);
+    scrollRef.current?.scrollTo({ y: Math.max(0, listY - SEARCH_TOP_GAP - statusBar.top), animated: true });
+  }, [listY, statusBar.top]);
+
   return (
-    <Screen edges={["top"]} dismissKeyboardOnTap={false}>
+    // No top edge: the content scrolls under the status bar (behind
+    // statusBar.strip), starting below it.
+    <Screen edges={[]} padded={false} dismissKeyboardOnTap={false}>
       {/* Edge to edge, with Screen's px-7 moved inside the content, so the
           fresh picks arrows can sit half outside the cards without the
-          ScrollView clipping them. */}
+          ScrollView clipping them (and the green header runs edge to edge). */}
       <ScrollView
         ref={scrollRef}
-        className="-mx-7 flex-1"
+        className="flex-1 bg-white"
         showsVerticalScrollIndicator={false}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 28 }}
+        contentContainerStyle={{ paddingTop: statusBar.top + 8, paddingBottom: 40, paddingHorizontal: 28 }}
+        onScroll={statusBar.onScroll}
+        scrollEventThrottle={32}
         refreshControl={
-          <RefreshControl refreshing={items.isRefetching} onRefresh={() => void items.refetch()} tintColor={colors.primary} />
+          // White: it shows over the green header.
+          <RefreshControl refreshing={items.isRefetching} onRefresh={() => void items.refetch()} tintColor={colors.white} />
         }
       >
+        <HeaderBackdrop bottom={headerBottom} curves={HEADER_CURVES} />
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-3">
             {/* "Price Watch." like the other section titles, with a real
                 dot (not a "." glyph) so the intro's dot has a spot to land. */}
-            <LandingTitle dotRef={intro.targetRef} showDot={intro.landed}>
+            <LandingTitle dotRef={intro.targetRef} showDot={intro.landed} light>
               Price Watch
             </LandingTitle>
-            <AppText variant="caption">See what&apos;s cheaper this week and cook for less.</AppText>
+            <AppText variant="caption" className="text-white/80">
+              See what&apos;s cheaper this week and cook for less.
+            </AppText>
           </View>
         </View>
 
-        <View className="mt-4">
+        <View className="mt-4" onLayout={(e) => setHeaderBottom(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
           <PriceDisclaimer asOf={asOf} onOpenMarkets={openMarkets} />
           {items.isError && (
             <AppText variant="caption" className="mt-2 text-like">
@@ -184,8 +216,12 @@ export default function PriceWatchScreen() {
       />
       <MarketsSheet visible={marketsOpen} onClose={() => setMarketsOpen(false)} />
       <MealDetailSheet meal={meal} onClose={() => setMeal(null)} />
+      {statusBar.strip}
+      {/* Below the status bar, where it sat before the page went under it. */}
       {intro.showing && (
-        <PriceWatchIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={intro.finish} />
+        <View pointerEvents="box-none" style={{ position: "absolute", top: statusBar.top, left: 0, right: 0, bottom: 0 }}>
+          <PriceWatchIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={intro.finish} />
+        </View>
       )}
     </Screen>
   );

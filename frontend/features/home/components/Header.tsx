@@ -10,6 +10,7 @@ type HeaderProps = {
 };
 
 // The avatar (and the admin menu) moved to the bottom nav's Profile tab.
+// White text: it sits on HomeBackdrop's dark green.
 function HeaderInner({ name }: HeaderProps) {
   // Reduce motion: the "today?" GIF holds still on its first frame.
   // `autoplay` only applies when the image loads, and Home stays mounted
@@ -18,17 +19,17 @@ function HeaderInner({ name }: HeaderProps) {
   return (
     <View className="ml-2 flex-row items-center justify-between">
       <View>
-        <AppText variant="title">
+        <AppText variant="title" className="text-white">
           {name ? (
             <>
-              Hello, <Text className="font-inter-bold text-primary">{name}</Text>
+              Hello, <Text className="font-inter-bold text-home-name">{name}</Text>
             </>
           ) : (
             "Hello"
           )}
         </AppText>
         <View className="flex-row items-center gap-1">
-          <AppText variant="heading">Ano ulam mo</AppText>
+          <AppText variant="heading" className="text-white">Ano ulam mo</AppText>
           <Image
             key={reduceMotion ? "still" : "playing"}
             source={require("@/assets/today.gif")}

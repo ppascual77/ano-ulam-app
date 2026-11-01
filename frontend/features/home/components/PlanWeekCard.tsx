@@ -74,7 +74,8 @@ function PlanWeekCardInner({ title = "Plan your week", subtitle, cta = "Start pl
       onPress={() => router.push("/meal-planner")}
       accessibilityRole="button"
       accessibilityLabel={`${title}, a Pro feature. ${line}`}
-      className="overflow-hidden rounded-3xl bg-tinted-bg active:opacity-90"
+      // White like Today's plan card, over Home's dark green.
+      className="overflow-hidden rounded-3xl bg-white shadow-sm active:opacity-90"
     >
       <View className="flex-row items-center px-5 py-5">
         <View className="flex-1 gap-2 pr-2">

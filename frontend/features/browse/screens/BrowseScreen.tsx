@@ -1,7 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View, type ScrollViewInstance } from "react-native";
 import { router } from "expo-router";
-import { AppText, LandingTitle, Screen, SearchBar, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
+import {
+  AppText,
+  HeaderBackdrop,
+  LandingTitle,
+  Screen,
+  SearchBar,
+  Toast,
+  usePageIntro,
+  useStatusBarStrip,
+  type HeaderCurves,
+  type ToastState,
+} from "@/frontend/components/ui";
+import { colors } from "@/frontend/constants/theme";
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { DailyLimitSheet } from "@/frontend/core/pro/components/DailyLimitSheet";
 import { leftHint } from "@/frontend/core/pro/dailyLimits";
@@ -31,6 +43,13 @@ import { BrowseIntro } from "../components/BrowseIntro";
 // complete in Expo Go on a device). The DEV pill flips to guest, to test
 // the login gates and the 3-searches-a-day limit. Remove with the others.
 const DEV_FORCE_SIGNED_IN = __DEV__;
+
+// The green header's curve: dark green only (no pale layer), higher on the
+// right, dipping deep towards the left.
+const HEADER_CURVES: HeaderCurves = {
+  splitAt: 0.74,
+  dark: { left: 40, right: -18, bends: [0.8, 0.4], pull: [-6, 18] },
+};
 
 // Plays the "what are you craving" intro on moving to Browse.
 // TODO: gate this behind a first-time-user flag (the auto tour), e.g. a
@@ -68,6 +87,11 @@ export default function BrowseScreen() {
     onArm: () => scrollRef.current?.scrollTo({ y: 0, animated: false }),
     onFinish: introOnce.markSeen,
   });
+  // Where the search and filter row ends: the green header covers up to it.
+  const [headerBottom, setHeaderBottom] = useState<number | null>(null);
+  // Dark green behind the clock over the header, white once the header has
+  // scrolled up past it. Dark clock over the intro.
+  const statusBar = useStatusBarStrip({ color: colors.home.top, darkUntil: headerBottom ?? 190, forceDark: intro.showing });
   const [filtersOpen, setFiltersOpen] = useState(false);
   // Today's pick: one real meal a day.
   const { meal: todaysPick } = useTodaysPick();
@@ -146,22 +170,32 @@ export default function BrowseScreen() {
   const detailOpen = !!detailMeal;
 
   return (
-    <Screen edges={["top"]} dismissKeyboardOnTap={false}>
+    // Unpadded so the green header runs edge to edge; the scroll content
+    // takes Screen's usual padding instead. No top edge: the content scrolls
+    // under the status bar (behind statusBar.strip), starting below it.
+    <Screen edges={[]} padded={false} dismissKeyboardOnTap={false}>
       <ScrollView
         ref={scrollRef}
-        className="flex-1"
+        className="flex-1 bg-white"
+        contentContainerClassName="px-7 pb-2"
+        contentContainerStyle={{ paddingTop: statusBar.top + 8 }}
+        onScroll={statusBar.onScroll}
+        scrollEventThrottle={32}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
+        <HeaderBackdrop bottom={headerBottom} curves={HEADER_CURVES} />
         <View className="flex-row items-start justify-between">
           {/* "Browse." like the other pages; its period is where the intro's
               dot lands. The craving question moved under it. */}
           <View className="ml-3 mt-3 flex-1 pr-2">
-            <LandingTitle dotRef={intro.targetRef} showDot={intro.landed}>
+            <LandingTitle dotRef={intro.targetRef} showDot={intro.landed} light>
               Browse
             </LandingTitle>
-            <AppText variant="caption">What are you craving today?</AppText>
+            <AppText variant="caption" className="text-white/80">
+              What are you craving today?
+            </AppText>
           </View>
           {__DEV__ && (
             <Pressable onPress={() => setDevGuest((prev) => !prev)} className="mt-3 rounded-full bg-web-ink/80 px-2 py-1">
@@ -171,23 +205,25 @@ export default function BrowseScreen() {
         </View>
 
         <View className="ml-3">
-          <CravingTagline />
+          <CravingTagline light />
         </View>
 
-        <View className="mt-3 flex-row items-center gap-3">
-          <SearchBar
-            className="flex-1"
-            placeholder="Search meals, restaurants..."
-            value={search.query}
-            onChangeText={search.setQuery}
-            onClear={() => search.setQuery("")}
-            returnKeyType="search"
-            autoCorrect={false}
-            autoCapitalize="none"
-          />
-          <FilterButton count={countFilters(search.applied)} onPress={() => setFiltersOpen(true)} />
+        <View className="mt-3" onLayout={(e) => setHeaderBottom(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
+          <View className="flex-row items-center gap-3">
+            <SearchBar
+              className="flex-1 bg-white"
+              placeholder="Search meals, restaurants..."
+              value={search.query}
+              onChangeText={search.setQuery}
+              onClear={() => search.setQuery("")}
+              returnKeyType="search"
+              autoCorrect={false}
+              autoCapitalize="none"
+            />
+            <FilterButton count={countFilters(search.applied)} onPress={() => setFiltersOpen(true)} />
+          </View>
+          {searchesLeftHint && <Text className="ml-1 mt-2 font-inter-regular text-small text-ink-subtle">{searchesLeftHint}</Text>}
         </View>
-        {searchesLeftHint && <Text className="ml-1 mt-2 font-inter-regular text-small text-ink-subtle">{searchesLeftHint}</Text>}
 
         {search.isSearchMode ? (
           <View className="mb-6 mt-6">
@@ -244,7 +280,13 @@ export default function BrowseScreen() {
         onClose={() => setLimitSheetOpen(false)}
         onOpenPro={() => router.push("/pro")}
       />
-      {intro.showing && <BrowseIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={intro.finish} />}
+      {statusBar.strip}
+      {/* Below the status bar, where it sat before the page went under it. */}
+      {intro.showing && (
+        <View pointerEvents="box-none" style={{ position: "absolute", top: statusBar.top, left: 0, right: 0, bottom: 0 }}>
+          <BrowseIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={intro.finish} />
+        </View>
+      )}
     </Screen>
   );
 }

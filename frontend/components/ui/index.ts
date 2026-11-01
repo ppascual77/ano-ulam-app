@@ -37,3 +37,5 @@ export { INTRO_DOT_REST_MS, PageIntro, usePageIntro, type IntroSize } from "./Pa
 export { LandingTitle, type LandingDot } from "./LandingTitle";
 export { DotHandoffOverlay } from "./DotHandoff";
 export { DotMorphButton, type DotSpot } from "./DotMorphButton";
+export { useStatusBarStrip } from "./StatusBarStrip";
+export { HeaderBackdrop, type HeaderCurves } from "./HeaderBackdrop";

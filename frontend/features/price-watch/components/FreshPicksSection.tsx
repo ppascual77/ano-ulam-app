@@ -45,7 +45,15 @@ function PagedCard({ i, pos, step, children }: { i: number; pos: SharedValue<num
       transform: [{ translateX: offset * step }, { rotate: `${tilt}deg` }],
     };
   });
-  return <Animated.View style={[StyleSheet.absoluteFill, style]}>{children}</Animated.View>;
+  // The shadow sits on a wrapper: each card's own overflow-hidden (for its
+  // rounded corners) would clip it on iOS.
+  return (
+    <Animated.View style={[StyleSheet.absoluteFill, style]}>
+      <View style={{ flex: 1, borderRadius: 24 }} className="bg-white shadow-sm">
+        {children}
+      </View>
+    </Animated.View>
+  );
 }
 
 type FreshPicksSectionProps = {
