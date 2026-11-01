@@ -9,7 +9,6 @@ import type { UserProfile } from "@/api/auth";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { authKeys } from "@/frontend/features/auth/queryKeys";
 import { useUpdateUserProfile, useUserProfile as useOwnUserRow } from "@/frontend/features/auth/hooks/useUserProfile";
-import { getMockUserProfile } from "../mock/users";
 
 export type PublicProfile = {
   id: string;
@@ -74,8 +73,8 @@ export function useDeleteRecipe(posterId: string | null) {
   });
 }
 
-// Mock users have ids like "u2", which the uuid columns reject: only real
-// ids are looked up.
+// Only real ids are looked up: anything else would be rejected by the uuid
+// columns.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function loadPublicProfile(userId: string): Promise<PublicProfile> {
@@ -90,16 +89,17 @@ async function loadPublicProfile(userId: string): Promise<PublicProfile> {
   };
 }
 
-// Someone else's profile: real for real users (recipe posters), through the
-// public profile functions; the mock Community authors ("u2"...) keep their
-// fixtures until the Community feed is real. Errors with "unauthorized" for
-// guests.
+// Someone else's profile (recipe posters, post authors), through the public
+// profile functions. Errors with "unauthorized" for guests; a malformed id
+// reads as a user with nothing public.
 export function useUserProfile(userId: string, isGuest: boolean) {
   return useQuery({
     queryKey: ["profile", "user", userId, isGuest],
     queryFn: async () => {
       if (isGuest) throw new Error("unauthorized");
-      return UUID.test(userId) ? loadPublicProfile(userId) : getMockUserProfile(userId);
+      return UUID.test(userId)
+        ? loadPublicProfile(userId)
+        : { id: userId, display_name: null, avatar_url: null, bio: null, show_saved_public: false, saved_meals: [] };
     },
     retry: false,
   });

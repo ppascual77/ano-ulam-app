@@ -3,7 +3,6 @@ import { View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Screen, Toast, type ToastState } from "@/frontend/components/ui";
 import { useAuth, useSignInWithGoogle } from "@/frontend/features/auth/hooks/useAuth";
-import { MOCK_ME_ID } from "@/frontend/core/posts/mock/posts";
 import { useMe, useUserProfile } from "../hooks/useProfile";
 import { BackRow } from "../components/BackRow";
 import { ProfileHeader } from "../components/ProfileHeader";
@@ -39,7 +38,7 @@ export default function UserProfileScreen() {
   const signIn = useSignInWithGoogle();
   const me = useMe();
   const isGuest = !isSignedIn && !DEV_FORCE_SIGNED_IN;
-  const isMe = userId === me.id || userId === MOCK_ME_ID;
+  const isMe = userId === me.id;
 
   const profile = useUserProfile(userId, isGuest);
   const [tab, setTab] = useState<ProfileTab>("recipes");

@@ -129,6 +129,92 @@ export type Database = {
         }
         Relationships: []
       }
+      food_post_likes: {
+        Row: {
+          created_at: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_post_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "food_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      food_posts: {
+        Row: {
+          caption: string | null
+          created_at: string
+          gif_url: string | null
+          id: string
+          image_url: string | null
+          link_description: string | null
+          link_image: string | null
+          link_title: string | null
+          link_url: string | null
+          sticker_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          gif_url?: string | null
+          id?: string
+          image_url?: string | null
+          link_description?: string | null
+          link_image?: string | null
+          link_title?: string | null
+          link_url?: string | null
+          sticker_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          gif_url?: string | null
+          id?: string
+          image_url?: string | null
+          link_description?: string | null
+          link_image?: string | null
+          link_title?: string | null
+          link_url?: string | null
+          sticker_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grocery_checks: {
         Row: {
           checked_at: string
@@ -646,6 +732,27 @@ export type Database = {
       }
       daily_limit: { Args: { p_kind: string }; Returns: number }
       daily_uses_left: { Args: { p_kind: string }; Returns: number }
+      get_food_posts: {
+        Args: { p_limit?: number; p_offset?: number; p_user_id?: string }
+        Returns: {
+          avatar_url: string
+          caption: string
+          created_at: string
+          display_name: string
+          gif_url: string
+          id: string
+          image_url: string
+          like_count: number
+          liked: boolean
+          link_description: string
+          link_image: string
+          link_title: string
+          link_url: string
+          sticker_url: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       get_public_profile: {
         Args: { p_user_id: string }
         Returns: {

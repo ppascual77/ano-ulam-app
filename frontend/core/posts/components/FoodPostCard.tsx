@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { Heart, MoreHorizontal, Pencil, Share2, Trash2 } from "lucide-react-native";
 import { Confetti, Dropdown, useBurstOnActivate } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import type { FoodPost } from "@/frontend/core/posts/mock/posts";
+import type { FoodPost } from "@/api/posts";
 import { LinkPreviewCard } from "./LinkPreviewCard";
 import { PostAuthor, PostCaption, PostPhoto } from "./PostParts";
 
@@ -23,8 +23,8 @@ type FoodPostCardProps = {
 // One community post: author, caption, then whichever attachment it has
 // (link preview, GIF, sticker, photo), then like + share.
 export function FoodPostCard({ post, currentUserId, onLike, onShare, onOpenPhoto, onEdit, onDelete, onPressAuthor }: FoodPostCardProps) {
-  const liked = !!currentUserId && post.liked_by.includes(currentUserId);
-  const likeCount = post.liked_by.length;
+  const liked = !!currentUserId && post.liked;
+  const likeCount = post.like_count;
   // Hearts burst when a like lands (not on unlike, not on first render).
   const likeBurstId = useBurstOnActivate(liked);
 
@@ -40,7 +40,6 @@ export function FoodPostCard({ post, currentUserId, onLike, onShare, onOpenPhoto
       <PostAuthor
         name={post.display_name ?? "User"}
         avatarUrl={post.avatar_url}
-        official={post.is_official}
         onPress={onPressAuthor}
         trailing={
           menuItems.length > 0 && (

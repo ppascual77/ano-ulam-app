@@ -9,9 +9,9 @@ import { FoodPostCard } from "@/frontend/core/posts/components/FoodPostCard";
 import { ImageLightbox } from "@/frontend/core/posts/components/ImageLightbox";
 import { PostSkeleton } from "@/frontend/core/posts/components/PostSkeleton";
 import { WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
-import { MOCK_ME_ID } from "@/frontend/core/posts/mock/posts";
+import { usePostList } from "@/frontend/core/posts/hooks/usePosts";
+import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { useApprovedRecipes } from "../../hooks/useProfile";
-import { useUserPosts } from "../../hooks/useUserPosts";
 import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
 import { MealGrid } from "../MealGrid";
 import { MealGridSkeleton } from "../MealGridSkeleton";
@@ -30,7 +30,9 @@ export function VisitorCreatedTab({ userId, loadMoreSignal, onToast }: VisitorCr
   const recipesQuery = useApprovedRecipes(userId);
   const recipes = recipesQuery.data ?? [];
   // Same paged list as the own profile, for this user's id.
-  const posts = useUserPosts(userId);
+  const posts = usePostList({ userId, pageSize: 10 });
+  // Likes are the viewer's, not this user's.
+  const viewerId = useAuth().session?.user.id ?? null;
   const detail = useMealDetail();
   const [lightbox, setLightbox] = useState<{ uri: string } | null>(null);
 
@@ -93,7 +95,7 @@ export function VisitorCreatedTab({ userId, loadMoreSignal, onToast }: VisitorCr
                 <FoodPostCard
                   key={post.id}
                   post={post}
-                  currentUserId={MOCK_ME_ID}
+                  currentUserId={viewerId}
                   onLike={() => void posts.toggleLike(post)}
                   onShare={() => void share(post.id)}
                   onOpenPhoto={(uri) => setLightbox({ uri })}
