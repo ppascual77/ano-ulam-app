@@ -14,9 +14,9 @@ import { FoodPostCard } from "@/frontend/core/posts/components/FoodPostCard";
 import { ImageLightbox } from "@/frontend/core/posts/components/ImageLightbox";
 import { PostSkeleton } from "@/frontend/core/posts/components/PostSkeleton";
 import { WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
-import { MOCK_ME_ID, type FoodPost } from "@/frontend/core/posts/mock/posts";
+import type { FoodPost } from "@/api/posts";
+import { usePostList } from "@/frontend/core/posts/hooks/usePosts";
 import { useDeleteRecipe, useMyRecipes } from "../../hooks/useProfile";
-import { useUserPosts } from "../../hooks/useUserPosts";
 import { useLastDefined } from "../../hooks/useLastDefined";
 import { MealGrid } from "../MealGrid";
 import { MealGridSkeleton } from "../MealGridSkeleton";
@@ -29,8 +29,6 @@ type CreatedTabProps = {
   canCreate: boolean;
   onCreate: () => void;
   onEditPost: (post: FoodPost) => void;
-  /** Bump to reload the posts from the top. */
-  postsRefreshKey: number;
   /** Bumped by the screen's scroll view near the bottom: load more posts. */
   loadMoreSignal: number;
   onToast: (message: string, tone: "success" | "error") => void;
@@ -78,11 +76,12 @@ function SectionHeader({ title, onCreate, canCreate }: { title: string; onCreate
 
 // Owner's recipes (every status, with badges and an Edit/Delete menu) and
 // food posts (paged, owner menu on each).
-export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, postsRefreshKey, loadMoreSignal, onToast }: CreatedTabProps) {
+export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMoreSignal, onToast }: CreatedTabProps) {
   const recipesQuery = useMyRecipes(posterId);
   const recipes = recipesQuery.data ?? [];
   const deleteRecipe = useDeleteRecipe(posterId);
-  const posts = useUserPosts(MOCK_ME_ID, { refreshKey: postsRefreshKey });
+  // Saving a post reloads this list too (useSavePost).
+  const posts = usePostList({ userId: posterId ?? "", enabled: !!posterId, pageSize: 10 });
   const [lightbox, setLightbox] = useState<{ uri: string } | null>(null);
 
   useEffect(() => {
@@ -198,12 +197,16 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, postsRef
                 <FoodPostCard
                   key={post.id}
                   post={post}
-                  currentUserId={MOCK_ME_ID}
+                  currentUserId={posterId}
                   onLike={() => void posts.toggleLike(post)}
                   onShare={() => void share(post)}
                   onOpenPhoto={(uri) => setLightbox({ uri })}
                   onEdit={() => onEditPost(post)}
-                  onDelete={() => void posts.remove(post)}
+                  onDelete={() =>
+                    void posts.remove(post).then((ok) => {
+                      if (!ok) onToast("Couldn't delete your post. Please try again.", "error");
+                    })
+                  }
                 />
               ))}
               {posts.loadingMore && <PostSkeleton />}

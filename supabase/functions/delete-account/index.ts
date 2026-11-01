@@ -52,6 +52,17 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Food post photos live under `<user id>/` in post-images; the posts
+    // themselves (and their likes) go with the user row.
+    try {
+      const { data: files } = await admin.storage.from("post-images").list(userId, { limit: 1000 });
+      if (files && files.length > 0) {
+        await admin.storage.from("post-images").remove(files.map((f) => `${userId}/${f.name}`));
+      }
+    } catch {
+      // Same as above: an orphaned photo shouldn't block the deletion.
+    }
+
     if (meals && meals.length > 0) {
       const { error } = await admin.from("meals").delete().eq("poster_id", userId);
       if (error) throw error;

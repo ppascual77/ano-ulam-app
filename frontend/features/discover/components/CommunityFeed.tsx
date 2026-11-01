@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { ConfirmSheet } from "@/frontend/components/ui";
-import { useCommunityFeed } from "../hooks/useCommunityFeed";
-import type { FoodPost } from "@/frontend/core/posts/mock/posts";
+import { colors } from "@/frontend/constants/theme";
+import type { FoodPost } from "@/api/posts";
+import { usePostList } from "@/frontend/core/posts/hooks/usePosts";
 import { FoodPostCard } from "@/frontend/core/posts/components/FoodPostCard";
 import { OFFICIAL_POSTS, OfficialPostCard, WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
 import { ImageLightbox } from "@/frontend/core/posts/components/ImageLightbox";
@@ -35,7 +36,7 @@ export function CommunityFeed({
   onEditPost,
   refreshKey,
 }: CommunityFeedProps) {
-  const feed = useCommunityFeed({ enabled: !isGuest, userId: currentUserId, refreshKey });
+  const feed = usePostList({ userId: null, enabled: !isGuest, pageSize: 5, refreshKey });
   const [confirmPost, setConfirmPost] = useState<FoodPost | null>(null);
   const [lightbox, setLightbox] = useState<{ uri: string } | number | null>(null);
 
@@ -69,6 +70,19 @@ export function CommunityFeed({
     );
   }
 
+  if (feed.error) {
+    return (
+      <View className="flex-1 items-center justify-center gap-3 px-8" style={{ paddingTop: topInset }}>
+        <Text className="text-center font-inter-regular text-body text-web-ink-muted">
+          Couldn't load the community feed.
+        </Text>
+        <Pressable onPress={feed.retry} className="rounded-2xl border border-web-divider px-5 py-2.5">
+          <Text className="font-inter-medium text-body text-web-ink-soft">Try again</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   if (feed.loading) {
     return (
       <View className="flex-1" style={{ paddingTop: topInset }}>
@@ -86,6 +100,14 @@ export function CommunityFeed({
         contentContainerStyle={{ paddingTop: topInset, paddingBottom: 24 }}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.5}
+        refreshControl={
+          <RefreshControl
+            refreshing={feed.refreshing}
+            onRefresh={feed.refresh}
+            tintColor={colors.webInk.muted}
+            progressViewOffset={topInset}
+          />
+        }
         renderItem={({ item: post }) => {
           const isOwn = !!currentUserId && post.user_id === currentUserId;
           return (
@@ -97,7 +119,7 @@ export function CommunityFeed({
               onOpenPhoto={(uri) => setLightbox({ uri })}
               onEdit={isOwn ? () => onEditPost(post) : undefined}
               onDelete={isOwn ? () => setConfirmPost(post) : undefined}
-              onPressAuthor={() => openProfile(post.is_official ? null : post.user_id, currentUserId)}
+              onPressAuthor={() => openProfile(post.user_id, currentUserId)}
             />
           );
         }}
@@ -135,7 +157,11 @@ export function CommunityFeed({
         confirmLabel="Delete"
         onCancel={() => setConfirmPost(null)}
         onConfirm={() => {
-          if (confirmPost) void feed.remove(confirmPost);
+          if (confirmPost) {
+            void feed.remove(confirmPost).then((ok) => {
+              if (!ok) onToast("Couldn't delete your post. Please try again.");
+            });
+          }
           setConfirmPost(null);
         }}
       />

@@ -9,7 +9,8 @@ import { RECIPE_LIMIT } from "@/api/recipes";
 import { useAuth, useSignInWithGoogle } from "@/frontend/features/auth/hooks/useAuth";
 import { CreateSheet, type CreateChoice } from "@/frontend/core/posts/components/CreateSheet";
 import { CreatePostSheet } from "@/frontend/core/posts/components/CreatePostSheet";
-import { createPost, updatePost, type FoodPost, type PostInput } from "@/frontend/core/posts/mock/posts";
+import type { FoodPost, PostInput } from "@/api/posts";
+import { useSavePost } from "@/frontend/core/posts/hooks/usePosts";
 import {
   useMe,
   useMyRecipes,
@@ -93,10 +94,10 @@ export default function ProfileScreen() {
   const [createOpen, setCreateOpen] = useState(false);
   const [limitOpen, setLimitOpen] = useState(false);
   const [composer, setComposer] = useState<{ open: boolean; editPost: FoodPost | null }>({ open: false, editPost: null });
-  const [postsRefreshKey, setPostsRefreshKey] = useState(0);
+  const savePost = useSavePost();
   const createChoice = useRef<CreateChoice | null>(null);
   // A post made from the mini header lands on Discover's Community tab; one
-  // made from the Created tab refreshes the list here.
+  // made from the Created tab shows at the top of the list here.
   const createdFromMiniHeader = useRef(false);
 
   const openCreate = (fromMiniHeader: boolean) => {
@@ -117,15 +118,14 @@ export default function ProfileScreen() {
   const submitPost = async (input: PostInput) => {
     const editing = !!composer.editPost;
     try {
-      if (composer.editPost) await updatePost(composer.editPost.id, input);
-      else await createPost(input, { display_name: me.name, avatar_url: me.avatarUrl });
+      // Reloads every post list from the top, this profile's included.
+      await savePost(input, composer.editPost);
       setComposer({ open: false, editPost: null });
       if (!editing && createdFromMiniHeader.current) {
         router.navigate({ pathname: "/discover", params: { tab: "community", at: String(Date.now()) } });
         return;
       }
       setTab("recipes");
-      setPostsRefreshKey((key) => key + 1);
     } catch {
       showToast("Couldn't save your post. Please try again.");
     }
@@ -209,7 +209,6 @@ export default function ProfileScreen() {
               canCreate={!atRecipeLimit}
               onCreate={() => openCreate(false)}
               onEditPost={(post) => setComposer({ open: true, editPost: post })}
-              postsRefreshKey={postsRefreshKey}
               loadMoreSignal={loadMoreSignal}
               onToast={showToast}
             />

@@ -33,7 +33,8 @@ import { canShowEarnProPrompt, useEarnProPromptStore } from "../store/useEarnPro
 import { CreateSheet, type CreateChoice } from "@/frontend/core/posts/components/CreateSheet";
 import { CreatePostSheet } from "@/frontend/core/posts/components/CreatePostSheet";
 import { openProfile } from "@/frontend/core/users/openProfile";
-import { MOCK_ME_ID, createPost, updatePost, type FoodPost, type PostInput } from "@/frontend/core/posts/mock/posts";
+import type { FoodPost, PostInput } from "@/api/posts";
+import { useSavePost } from "@/frontend/core/posts/hooks/usePosts";
 
 // Gradient stops over the reel photo: top keeps the tabs legible, bottom
 // keeps the meal details legible. Black at varying alpha (gradients need
@@ -57,11 +58,6 @@ const TABS_ROW_HEIGHT = 44;
 // its expanded "Create +" pill doesn't cover the Community tab.
 const CREATE_BUTTON_SPACE = 72;
 
-// TEMP (dev only): show the Community feed as if signed in, so the mock
-// posts are visible without a working sign-in. Remove once real sign-in
-// is reliable; the reel's guest/login behavior is unaffected.
-const DEV_FORCE_COMMUNITY_SIGNED_IN = __DEV__;
-
 // Plays the "your turn, share it" intro on moving to Discover.
 // TODO: gate this behind a first-time-user flag (the auto tour), e.g. a
 // stored "seen" flag, instead of always.
@@ -76,7 +72,7 @@ type Page = { kind: "meal"; meal: MealType } | { kind: "end" };
 type PendingAction = { type: "save"; meal: MealType } | { type: "create" };
 
 // Discover: a full-screen, swipe-up reel of meals (Recipes tab), plus a
-// Community tab (Phase 2, placeholder for now). See the web app's
+// Community tab (the food post feed). See the web app's
 // DiscoverPage.tsx (mobile branch) for the original.
 export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
@@ -161,9 +157,7 @@ export default function DiscoverScreen() {
 
   // ---- Create: button, chooser, composer ---------------------------------
 
-  // Posting goes to the (mock) Community feed, so "guest" here follows the
-  // Community tab's dev override too.
-  const communityGuest = isGuest && !DEV_FORCE_COMMUNITY_SIGNED_IN;
+  const savePost = useSavePost();
   const [createExpanded, setCreateExpanded] = useState(false);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
   const [composer, setComposer] = useState<{ open: boolean; editPost: FoodPost | null }>({
@@ -184,7 +178,7 @@ export default function DiscoverScreen() {
   // Two taps: the first expands the pill, the second collapses it and opens
   // the Create sheet. Guests get the "create" login gate instead.
   const pressCreate = () => {
-    if (communityGuest) {
+    if (isGuest) {
       pending.current = { type: "create" };
       setGate("create");
       return;
@@ -206,15 +200,11 @@ export default function DiscoverScreen() {
 
   const submitPost = async (input: PostInput) => {
     try {
-      if (composer.editPost) {
-        await updatePost(composer.editPost.id, input);
-      } else {
-        await createPost(input, { display_name: author.name, avatar_url: author.avatarUrl });
-      }
+      // Reloads every post list from the top, so a new post shows first.
+      await savePost(input, composer.editPost);
       setComposer({ open: false, editPost: null });
-      // Land on Community with the feed reloaded, new post on top.
+      // Land on Community.
       setTab("community");
-      setCommunityRefreshKey((key) => key + 1);
     } catch {
       showToast("Couldn't save your post. Please try again.");
     }
@@ -276,7 +266,7 @@ export default function DiscoverScreen() {
     if (next === tab) return;
     setTab(next);
     // Back to Recipes starts a fresh shuffle from the top (Community keeps
-    // nothing to refetch yet).
+    // its cached pages).
     if (next === "recipes") {
       feed.reset();
       listRef.current?.scrollToOffset({ offset: 0, animated: false });
@@ -459,10 +449,8 @@ export default function DiscoverScreen() {
         </>
       ) : (
         <CommunityFeed
-          isGuest={isGuest && !DEV_FORCE_COMMUNITY_SIGNED_IN}
-          // Mock posts aren't keyed to real Supabase user ids yet: the
-          // signed-in user is the mock "me".
-          currentUserId={isGuest && !DEV_FORCE_COMMUNITY_SIGNED_IN ? null : MOCK_ME_ID}
+          isGuest={isGuest}
+          currentUserId={isGuest ? null : (session?.user.id ?? null)}
           topInset={insets.top + TABS_TOP_OFFSET + TABS_ROW_HEIGHT}
           onLogIn={continueWithGoogle}
           onToast={showToast}
