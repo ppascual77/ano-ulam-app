@@ -202,7 +202,7 @@ export async function getMeals(filters: MealFilters = {}) {
 export async function getMealIngredientIndex() {
   const { data, error } = await supabase
     .from("meals")
-    .select("id, name, meal_ingredients(ingredient_id, ingredient:ingredients(canonical_name, role))")
+    .select("id, name, meal_ingredients(ingredient_id, ingredient:ingredients(canonical_name, role, category))")
     .eq("status", "approved")
     .is("archived_at", null);
   if (error) throw error;
