@@ -5,6 +5,7 @@ import type { AvoidedIngredient } from "@/api/auth";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { usePreferences } from "./usePreferences";
+import { isCovered } from "../avoidMatch";
 
 // Pro's "Ingredients to avoid": whether a meal uses any of them, for every
 // list that follows the user's preferences (Suggest by Budget and Pantry,
@@ -12,7 +13,8 @@ import { usePreferences } from "./usePreferences";
 // meals, Community Favorites, the Meal Planner). Off (nothing hidden)
 // unless the user is Pro and has picked something.
 //
-// Catalog meals are matched by ingredient id, through the same meal ->
+// Catalog meals are matched by their ingredients' catalog names (see
+// avoidMatch: one food by base name, or a whole food), through the same meal ->
 // ingredients index Suggest by Pantry uses (same query, shared and cached).
 // A meal that isn't in it (e.g. a saved snapshot of a meal since removed)
 // only has ingredient names, so it matches by name: an avoided "Pork belly,
@@ -22,10 +24,14 @@ import { usePreferences } from "./usePreferences";
 // names the food (the rest is usually its state).
 const foodName = (name: string) => name.split(",")[0].trim().toLowerCase();
 
+// A whole-food entry matches by its family word ("chicken" in "chicken
+// wings"); an exact one by its food name and aliases.
 function nameMatchers(avoided: AvoidedIngredient[]): string[] {
-  return [...new Set(avoided.flatMap((a) => [foodName(a.name), ...a.aliases.map((alias) => alias.trim().toLowerCase())]))].filter(
-    (n) => n.length >= 3,
-  );
+  return [
+    ...new Set(
+      avoided.flatMap((a) => (a.family ? [a.family] : [foodName(a.name), ...a.aliases.map((alias) => alias.trim().toLowerCase())])),
+    ),
+  ].filter((n) => n.length >= 3);
 }
 
 export function useAvoidFilter() {
@@ -41,28 +47,35 @@ export function useAvoidFilter() {
     enabled: active,
   });
 
-  // Meal id -> its ingredient ids, for catalog meals.
-  const ingredientsByMeal = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    for (const meal of index ?? []) map.set(meal.id, new Set(meal.meal_ingredients.map((mi) => mi.ingredient_id)));
+  // Catalog meal id -> whether it uses an avoided ingredient (an exact one,
+  // or any in an avoided family; see avoidMatch).
+  const hiddenByMeal = useMemo(() => {
+    const map = new Map<string, boolean>();
+    for (const meal of index ?? []) {
+      map.set(
+        meal.id,
+        meal.meal_ingredients.some((mi) =>
+          isCovered(avoided, { id: mi.ingredient_id, canonical_name: mi.ingredient?.canonical_name ?? "", category: mi.ingredient?.category }),
+        ),
+      );
+    }
     return map;
-  }, [index]);
+  }, [index, avoided]);
 
-  const avoidedIds = useMemo(() => new Set(avoided.map((a) => a.id)), [avoided]);
   const names = useMemo(() => nameMatchers(avoided), [avoided]);
 
   /** True when the meal uses an ingredient the user avoids. */
   const isAvoided = useCallback(
     (meal: Pick<MealType, "id" | "ingredients">) => {
       if (!active) return false;
-      const ids = meal.id != null ? ingredientsByMeal.get(String(meal.id)) : undefined;
-      if (ids) return [...ids].some((id) => avoidedIds.has(id));
+      const hidden = meal.id != null ? hiddenByMeal.get(String(meal.id)) : undefined;
+      if (hidden !== undefined) return hidden;
       return (meal.ingredients ?? []).some((ingredient) => {
         const name = ingredient.name.toLowerCase();
         return names.some((n) => name.includes(n));
       });
     },
-    [active, ingredientsByMeal, avoidedIds, names],
+    [active, hiddenByMeal, names],
   );
 
   return { isAvoided, active, avoided };

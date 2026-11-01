@@ -7,8 +7,10 @@ import type { Database } from "@/lib/database.types";
 export type UserProfile = Database["public"]["Tables"]["users"]["Row"];
 
 /** Pro: an ingredient the user never wants in suggestions. The names travel
- *  with the id so meals that only list ingredient names can be matched. */
-export type AvoidedIngredient = { id: string; name: string; aliases: string[] };
+ *  with the id so meals that only list ingredient names can be matched.
+ *  `family` set: the whole food (every ingredient whose catalog name starts
+ *  with that word, e.g. "chicken"), not just this one. */
+export type AvoidedIngredient = { id: string; name: string; aliases: string[]; family?: string };
 
 /** Pro: daily targets. null = not set. */
 export type NutritionGoals = { calories: number | null; protein: number | null; carbs: number | null; fat: number | null };
@@ -99,7 +101,9 @@ function parseAvoided(v: unknown): AvoidedIngredient[] {
   return v.flatMap((item) => {
     if (!item || typeof item !== "object") return [];
     const o = item as Record<string, unknown>;
-    return typeof o.id === "string" && typeof o.name === "string" ? [{ id: o.id, name: o.name, aliases: strings(o.aliases) }] : [];
+    if (typeof o.id !== "string" || typeof o.name !== "string") return [];
+    const family = typeof o.family === "string" && o.family ? o.family : undefined;
+    return [{ id: o.id, name: o.name, aliases: strings(o.aliases), ...(family ? { family } : {}) }];
   });
 }
 

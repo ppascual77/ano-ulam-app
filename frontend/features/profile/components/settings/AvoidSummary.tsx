@@ -1,10 +1,9 @@
-import { useMemo } from "react";
 import { Text, View } from "react-native";
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import type { AvoidedIngredient } from "@/api/auth";
 import { useAvoidImpact } from "@/frontend/core/preferences/hooks/useAvoidImpact";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
-import { avoidLabel } from "./AvoidIngredientsSheet";
+import { avoidLabel } from "@/frontend/core/preferences/avoidMatch";
 
 const SHOWN = 3;
 
@@ -13,8 +12,7 @@ const SHOWN = 3;
 // fade in and out and the row reflows as the list changes.
 export function AvoidSummary({ avoided }: { avoided: AvoidedIngredient[] }) {
   const reduceMotion = useReduceMotion();
-  const ids = useMemo(() => avoided.map((a) => a.id), [avoided]);
-  const { hidden, loading } = useAvoidImpact(ids);
+  const { hidden, loading } = useAvoidImpact(avoided);
   const layout = reduceMotion ? undefined : LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
   const extra = avoided.length - SHOWN;
 
