@@ -7,6 +7,7 @@ import { colors } from "@/frontend/constants/theme";
 import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useRealMeals } from "@/frontend/core/meals/hooks/useRealMeals";
+import { useStableShuffle } from "@/frontend/core/meals/hooks/useStableShuffle";
 import { ImageLightbox } from "@/frontend/core/posts/components/ImageLightbox";
 import { OFFICIAL_POSTS, OfficialPostCard, WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
 import { ProfileHeader } from "../ProfileHeader";
@@ -42,22 +43,15 @@ const TIPS: { Icon: LucideIcon; title: string; body: string }[] = [
   },
 ];
 
-function shuffle<T>(items: T[]): T[] {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
 type Toast = (message: string, tone: "success" | "error") => void;
 
 // 8 random catalog meals (bookmark only), About AnoUlam, Explore button.
 function OfficialRecipesTab({ onToast }: { onToast: Toast }) {
   const { data: catalog, isLoading } = useRealMeals();
-  // Picked once per visit, not on every render.
-  const picks = useMemo(() => shuffle(catalog ?? []).slice(0, SHOWN_RECIPES), [catalog]);
+  // Picked once per visit; a catalog refresh (a save count changing) keeps
+  // the same picks.
+  const shuffled = useStableShuffle(catalog ?? []);
+  const picks = useMemo(() => shuffled.slice(0, SHOWN_RECIPES), [shuffled]);
   const detail = useMealDetail();
 
   return (
@@ -84,7 +78,6 @@ function OfficialRecipesTab({ onToast }: { onToast: Toast }) {
                 width={width}
                 layout="grid"
                 isFastFood={meal.category === "fast_food"}
-                hideLike
                 onPress={() => detail.open(meal.id)}
               />
             )}

@@ -71,9 +71,9 @@ const EARN_PRO_AFTER_REELS = 6;
 
 type Page = { kind: "meal"; meal: MealType } | { kind: "end" };
 
-// A guest's like/save is remembered while they sign in, then replayed with
+// A guest's save is remembered while they sign in, then replayed with
 // the then-current handlers (not a stale closure).
-type PendingAction = { type: "like" | "save"; meal: MealType } | { type: "create" };
+type PendingAction = { type: "save"; meal: MealType } | { type: "create" };
 
 // Discover: a full-screen, swipe-up reel of meals (Recipes tab), plus a
 // Community tab (Phase 2, placeholder for now). See the web app's
@@ -146,7 +146,7 @@ export default function DiscoverScreen() {
   }).current;
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
 
-  // ---- like / save, with the guest login gate ------------------------------
+  // ---- save, with the guest login gate ------------------------------------
 
   const runAction = async (action: PendingAction) => {
     if (action.type === "create") {
@@ -155,12 +155,8 @@ export default function DiscoverScreen() {
       openCreateAfterGate.current = true;
       return;
     }
-    if (action.type === "like") {
-      await feed.toggleLike(action.meal);
-    } else {
-      // Its feedback (toasts, errors included) comes from the saved actions.
-      await feed.toggleSave(action.meal);
-    }
+    // Its feedback (toasts, errors included) comes from the saved actions.
+    await feed.toggleSave(action.meal);
   };
 
   // ---- Create: button, chooser, composer ---------------------------------
@@ -333,7 +329,6 @@ export default function DiscoverScreen() {
     else useEarnProPromptStore.getState().markDismissed();
   };
 
-  const likeEntry = activeKey ? feed.likes[activeKey] : undefined;
 
   const closeGate = () => {
     setGate(null);
@@ -437,14 +432,12 @@ export default function DiscoverScreen() {
 
               <View className="absolute right-4" style={{ bottom: RAIL_BOTTOM }}>
                 <ActionRail
-                  // Remount per meal, so the confetti only fires for a like
-                  // or save made on this meal, not when swiping onto one.
+                  // Remount per meal, so the confetti only fires for a save
+                  // made on this meal, not when swiping onto one.
                   key={activeKey}
-                  liked={likeEntry?.liked ?? false}
-                  likeCount={likeEntry?.count ?? 0}
                   saved={feed.isSaved(activeMeal)}
+                  saveCount={feed.saveCountOf(activeMeal)}
                   busy={!!(activeKey && feed.inFlight[activeKey])}
-                  onLike={() => handleAction({ type: "like", meal: activeMeal })}
                   onSave={() => handleAction({ type: "save", meal: activeMeal })}
                   // Same as the web app today: no share target yet.
                   onShare={() => {}}
@@ -525,15 +518,6 @@ export default function DiscoverScreen() {
         meal={detailOpen ? detailMeal : null}
         onClose={() => setDetailOpen(false)}
         overlay={detailOpen ? renderGate("inline") : undefined}
-        like={
-          detailMeal && feed.likes[mealKey(detailMeal)]
-            ? {
-                liked: feed.likes[mealKey(detailMeal)].liked,
-                count: feed.likes[mealKey(detailMeal)].count,
-                onToggle: () => handleAction({ type: "like", meal: detailMeal }),
-              }
-            : undefined
-        }
       />
 
       {!detailOpen && renderGate("modal")}

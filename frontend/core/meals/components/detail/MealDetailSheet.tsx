@@ -38,9 +38,6 @@ type MealDetailSheetProps = {
   /** Passed straight through to BottomSheet's own overlay slot — see there
    *  for why (React Native doesn't reliably stack two native Modals). */
   overlay?: ReactNode;
-  /** Controlled like for the meal opened (see MealDetailContent's `like`).
-   *  Applies to `meal` only, not related meals browsed to from inside. */
-  like?: { liked: boolean; count: number; onToggle: () => void };
   /** Admin review actions (see MealDetailContent's `review`). */
   review?: { onApprove: () => void; onReject: () => void; busy?: boolean };
   /** The viewer's own recipe (see MealDetailContent's `recipeOwner`).
@@ -60,7 +57,6 @@ export function MealDetailSheet({
   onArchive,
   onDelete,
   overlay,
-  like,
   review,
   recipeOwner,
   onNotify,
@@ -244,7 +240,6 @@ export function MealDetailSheet({
           onDelete={onDelete}
           onSelectIngredient={setSelectedIngredient}
           onLockedPro={() => setProUpsellOpen(true)}
-          like={meal && renderedMeal?.id === meal.id ? like : undefined}
           review={review}
         />
       )}

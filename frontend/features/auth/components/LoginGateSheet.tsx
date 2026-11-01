@@ -2,22 +2,16 @@ import { Text, View } from "react-native";
 import { AppText, BottomSheet } from "@/frontend/components/ui";
 import { GoogleSignInButton } from "./GoogleSignInButton";
 
-export type LoginGateReason = "save" | "like" | "create";
+export type LoginGateReason = "save" | "create";
 
 // Copy from the web app's SaveMealLoginPrompt. The second half of the title
-// is colored (orange for save/like, green for create).
+// is colored (orange for save, green for create).
 const COPY: Record<LoginGateReason, { title: string; highlight: string; tone: string; description: string }> = {
   save: {
     title: "Don't lose ",
     highlight: "this meal!",
     tone: "text-brand-orange",
     description: "Log in to save your favorites, track your macros, and get your grocery list sorted automatically.",
-  },
-  like: {
-    title: "Like this ",
-    highlight: "meal?",
-    tone: "text-brand-orange",
-    description: "Log in to like meals, build your favorites list, and get personalized picks.",
   },
   create: {
     title: "Share with the ",

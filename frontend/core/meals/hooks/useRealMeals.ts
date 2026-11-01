@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getMeals } from "@/api/meals";
 import { mealRowToMealType } from "../utils/mealAdapter";
 
-const realMealKeys = { list: ["meals", "real"] as const };
+export const realMealKeys = { list: ["meals", "real"] as const };
 
 // The real (non-mock) backend catalog, mapped into the same MealType shape
 // mock data already uses — same adapter Manage Meals (admin) uses, shared

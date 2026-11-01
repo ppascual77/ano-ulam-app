@@ -27,6 +27,7 @@ export type { ToastState } from "./Toast";
 export { GlobalToast, showGlobalToast, hideGlobalToast } from "./GlobalToast";
 export { Confetti, useBurstOnActivate } from "./Confetti";
 export { Spinner } from "./Spinner";
+export { SoftShade } from "./SoftShade";
 export { SelectField } from "./SelectField";
 export { useFieldErrorAnimation } from "./TextField";
 export { BoilingDoodle, DOODLE_COLORS, DOODLE_LIST, TREND_DOODLES, drawBoilPair, type Doodle, type DoodleVersion } from "./doodles";

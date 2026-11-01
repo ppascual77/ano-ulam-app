@@ -20,7 +20,6 @@ import {
   ChevronUp,
   Archive,
   Bookmark,
-  Heart,
   ShieldCheck,
   Store,
   Clock3,
@@ -57,7 +56,7 @@ import { LockedMicronutrients, MicronutrientList, hasMicronutrients, type Micron
 import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { RelatedMeals } from "./RelatedMeals";
-import { useMealLike } from "@/frontend/core/likes/hooks/useMealLikes";
+import { useLiveSaveCount } from "../../hooks/useLiveSaveCount";
 import { resolveMealImage } from "../../resolveMealImage";
 import { scaleIngredient } from "../../utils/scaleMeal";
 import { DIETARY_ICONS, capitalize } from "../../utils/dietary";
@@ -81,7 +80,7 @@ const CARD_CAP = 20;
 // The photo scrolls up with the card until this much of it is off screen,
 // then both stop and the card's contents scroll instead.
 const PHOTO_SCROLL_AWAY = 0.75;
-// Back/like buttons are visually 44px.
+// Back and photo buttons are visually 44px.
 const PHOTO_BUTTON_SIZE = 44;
 // After the lock, this much more scrolling hands the photo strip over from
 // the pills to the meal name (pills slide up and out, name slides up in).
@@ -264,10 +263,6 @@ type MealDetailContentProps = {
   /** A free user tapping locked micronutrients (they're Pro): open the
    *  upsell. MealDetailSheet shows ProUpgradeSheet. */
   onLockedPro?: () => void;
-  /** Controlled like state. When passed, the heart shows and toggles this
-   *  instead of the sheet's own local state, so a caller that tracks likes
-   *  (Discover's reel) stays in sync both ways. Omitted everywhere else. */
-  like?: { liked: boolean; count: number; onToggle: () => void };
   /** Embedded preview (Add a Recipe's Preview step): no own ScrollView
    *  (it sits inside the form's), no Save footer, no related meals. The
    *  rest (servings, tappable ingredients) works as normal. */
@@ -369,8 +364,7 @@ function ConsumerFooter({ meal, servings, saved, recipeOwner }: ConsumerFooterPr
 // The scrollable body rendered inside a full-screen BottomSheet (see
 // MealDetailSheet): the photo at the very top, under the status bar, with a
 // rounded white card holding the details riding up over its bottom edge.
-// No backend yet — like/save are local UI state; servings scaling is pure
-// math, no rice add-on / pantry-match / price-drop tracking (those need
+// Servings scaling is pure math; no rice add-on / pantry-match / price-drop tracking (those need
 // data this app doesn't have).
 export function MealDetailContent({
   meal,
@@ -385,7 +379,6 @@ export function MealDetailContent({
   onDelete,
   onSelectIngredient,
   onLockedPro,
-  like,
   preview = false,
   review,
 }: MealDetailContentProps) {
@@ -424,7 +417,7 @@ export function MealDetailContent({
   // Darkens the photo strip a little so the white name reads on any photo.
   const scrimStyle = useAnimatedStyle(() => ({ opacity: 0.5 * handoff.value }));
   // The name fits between the back button and the right-hand buttons
-  // (whose width varies: like count, Edit, Published), never under them.
+  // (whose width varies: save count, Edit, Published), never under them.
   const [rightButtonsWidth, setRightButtonsWidth] = useState(PHOTO_BUTTON_SIZE);
   const titleLeft = 16 + (onBack ? PHOTO_BUTTON_SIZE + 12 : 0);
   const titleRight = 16 + rightButtonsWidth + 12;
@@ -432,9 +425,17 @@ export function MealDetailContent({
   const pinnedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: -Math.min(scrollY.value, photoStop) }],
   }));
-  // The shared, saved like (useMealLike), unless a caller controls it.
-  const ownLike = useMealLike(meal);
   const [servings, setServings] = useState(initialServings ?? meal.serving_size ?? 1);
+  // The photo's bookmark: the same save as the footer button, wherever it
+  // shows Save (not admin, not an unpublished own recipe).
+  const canSave = !!saved && !isAdmin && (!recipeOwner || meal.status === "approved");
+  // From the live catalog: `meal` is a snapshot from when it opened.
+  const saveCount = useLiveSaveCount(meal);
+  const toggleSave = () => {
+    if (!saved || saved.busy) return;
+    if (saved.isSaved) saved.onUnsave();
+    else saved.onSave(servings);
+  };
   // DA week-over-week changes for every ingredient's linked commodities, for
   // the "price went down" indicator on the ingredient rows.
   const daCommodityIds = useMemo(
@@ -442,10 +443,6 @@ export function MealDetailContent({
     [meal.ingredients],
   );
   const weekChanges = useDaWeekChanges(daCommodityIds);
-
-  const liked = like ? like.liked : ownLike.liked;
-  const shownLikeCount = like ? like.count : ownLike.count;
-  const toggleLike = like ? like.onToggle : ownLike.toggle;
 
   const scale = servings / (meal.serving_size ?? 1);
   const displayCalories = Math.round(meal.calories * scale);
@@ -547,7 +544,7 @@ export function MealDetailContent({
   const topBar = (
     <>
       {/* Top bar over the photo: back on the left; Published / Edit /
-          like on the right. */}
+          bookmark on the right. */}
       {onBack && (
         <View className="absolute left-4" style={{ top: photoButtonsTop }}>
           <Pressable
@@ -582,17 +579,25 @@ export function MealDetailContent({
           </Pressable>
         )}
 
-        {/* Grows into a pill with the count once there are likes. */}
-        <Pressable
-          onPress={toggleLike}
-          hitSlop={ICON_HIT_SLOP}
-          className={`h-11 min-w-11 flex-row items-center justify-center gap-1 rounded-full px-3 ${
-            liked ? "bg-like" : "bg-ink-emphasis/40"
-          }`}
-        >
-          <Heart color={colors.white} size={20} fill={liked ? colors.white : "none"} />
-          {shownLikeCount > 0 && <Text className="font-inter-semibold text-body text-white">{shownLikeCount}</Text>}
-        </Pressable>
+        {/* Bookmark (same save as the footer button) with how many people
+            saved it, once anyone has. Read-only where there's no Save. */}
+        {(canSave || saveCount > 0) && (
+          <Pressable
+            onPress={toggleSave}
+            disabled={!canSave}
+            hitSlop={ICON_HIT_SLOP}
+            accessibilityRole={canSave ? "button" : undefined}
+            accessibilityLabel={
+              canSave ? `${saved?.isSaved ? "Unsave" : "Save"} meal, saved by ${saveCount}` : `Saved by ${saveCount}`
+            }
+            className={`h-11 min-w-11 flex-row items-center justify-center gap-1.5 rounded-full ${
+              saveCount > 0 ? "px-3" : ""
+            } ${saved?.isSaved && canSave ? "bg-primary" : "bg-ink-emphasis/40"}`}
+          >
+            <Bookmark color={colors.white} size={18} fill={saved?.isSaved && canSave ? colors.white : "none"} />
+            {saveCount > 0 && <Text className="font-inter-semibold text-body text-white">{saveCount}</Text>}
+          </Pressable>
+        )}
       </View>
     </>
   );

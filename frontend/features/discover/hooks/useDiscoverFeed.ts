@@ -2,17 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRealMeals } from "@/frontend/core/meals/hooks/useRealMeals";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
-import { showGlobalToast } from "@/frontend/components/ui";
-import { useMealLikes, type LikeEntry } from "@/frontend/core/likes/hooks/useMealLikes";
 
 const BATCH_SIZE = 5;
 // Start loading the next batch this many meals before the end, so the
 // next meal is ready by the time the user swipes to it.
 const PREFETCH_DISTANCE = 2;
 
-// Like/save state is keyed by normalized_name (falling back to name), not
-// id, to match the web app's store so it lines up once a real backend is
-// wired in.
+// Save state is keyed by normalized_name (falling back to name), not id,
+// to match the web app's store.
 export function mealKey(meal: MealType) {
   return meal.normalized_name ?? meal.name;
 }
@@ -26,20 +23,18 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
-export type { LikeEntry };
 export type FeedStatus = "loading" | "ready" | "error";
 
 // All Recipes-tab state for DiscoverScreen. Meals are the real seeded
 // catalog (useRealMeals), shuffled and dealt out in batches: logged-in
 // users get the next batch as they near the end, guests get one batch and
-// then the end-card. Likes and saves go through the shared, saved lists
-// (core/likes, core/saved), same as everywhere.
+// then the end-card. Saves go through the shared saved-meals list
+// (core/saved), same as everywhere.
 export function useDiscoverFeed({ isGuest }: { isGuest: boolean }) {
   const { data: allMeals, isLoading, isError, refetch } = useRealMeals();
 
   const [meals, setMeals] = useState<MealType[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
-  const mealLikes = useMealLikes();
   const saved = useSavedMealActions();
   const [inFlight, setInFlight] = useState<Record<string, true>>({});
 
@@ -71,8 +66,13 @@ export function useDiscoverFeed({ isGuest }: { isGuest: boolean }) {
     setMeals(takeBatch());
   }, [allMeals, takeBatch]);
 
+  // Deal once the catalog first arrives. Later catalog refreshes (a save
+  // changing a count) don't restart the reel under the user.
+  const dealt = useRef(false);
   useEffect(() => {
-    if (allMeals) reset();
+    if (!allMeals || dealt.current) return;
+    dealt.current = true;
+    reset();
   }, [allMeals, reset]);
 
   // Infinite feed, logged-in only: guests never prefetch.
@@ -94,26 +94,16 @@ export function useDiscoverFeed({ isGuest }: { isGuest: boolean }) {
       return next;
     });
 
-  // Each shown meal's heart, by meal key (the shared likes, useMealLikes).
-  const likes = useMemo(
-    () => Object.fromEntries(meals.map((meal) => [mealKey(meal), mealLikes.likeOf(meal)])) as Record<string, LikeEntry>,
-    [meals, mealLikes.likeOf],
+  // The reel holds its own copies of the meals; a meal's save count comes
+  // from the live catalog so it moves when someone saves it.
+  const liveSaveCounts = useMemo(
+    () => new Map((allMeals ?? []).map((meal) => [mealKey(meal), meal.save_count ?? 0])),
+    [allMeals],
   );
-
-  // Optimistic (inside useMealLikes): flips at once, takes the database's
-  // count, reverts on failure. Taps on a meal already in flight are ignored.
-  // Caller handles the guest login gate before calling this.
-  const toggleLike = async (meal: MealType) => {
-    const key = mealKey(meal);
-    if (!meal.id || inFlight[key]) return;
-    setBusy(key, true);
-    try {
-      const result = await mealLikes.toggle(meal);
-      if (result === "error") showGlobalToast({ message: "Couldn't update your like. Please try again.", tone: "error" });
-    } finally {
-      setBusy(key, false);
-    }
-  };
+  const saveCountOf = useCallback(
+    (meal: MealType) => liveSaveCounts.get(mealKey(meal)) ?? meal.save_count ?? 0,
+    [liveSaveCounts],
+  );
 
   // Returns an error message for the caller to toast (the saved meals limit),
   // or null. Caller handles the guest login gate before calling this.
@@ -140,10 +130,9 @@ export function useDiscoverFeed({ isGuest }: { isGuest: boolean }) {
     meals,
     activeIndex,
     setActiveIndex,
-    likes,
     isSaved: (meal: MealType) => !!saved.savedFor(meal),
+    saveCountOf,
     inFlight,
-    toggleLike,
     toggleSave,
     reset,
     retry: () => refetch(),

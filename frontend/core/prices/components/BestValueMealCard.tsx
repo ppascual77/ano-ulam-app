@@ -5,6 +5,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTimi
 import { Clock, Flame, TrendingDown } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
+import { MealSaveButton } from "@/frontend/core/meals/components/card/MealSaveButton";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import type { BestValueMeal } from "../hooks/usePriceMeals";
 import { useCountTo } from "../hooks/useCountTo";
@@ -35,7 +36,8 @@ type BestValueMealCardProps = {
   width?: number;
 };
 
-// "This week's best value meals" card, read top to bottom: the photo, the
+// "This week's best value meals" card, read top to bottom: the photo (with
+// the bookmark and save count), the
 // ingredient that got cheaper (its own green band, the card's reason to
 // exist), the meal, then last week's cost struck through over today's,
 // with the estimated saving beside it.
@@ -75,7 +77,13 @@ export function BestValueMealCard({ value, index, onPress, width = BEST_VALUE_CA
       style={{ width }}
       className="overflow-hidden rounded-3xl border border-ink-emphasis/10 bg-white shadow-sm active:opacity-90"
     >
-      <Image source={resolveMealImage(meal)} style={{ width: "100%", height: PHOTO_HEIGHT }} contentFit="cover" />
+      <View>
+        <Image source={resolveMealImage(meal)} style={{ width: "100%", height: PHOTO_HEIGHT }} contentFit="cover" />
+        {/* Bookmark and save count, same spot as the other meal cards. */}
+        <View className="absolute right-2 top-2">
+          <MealSaveButton meal={meal} />
+        </View>
+      </View>
 
       {/* What got cheaper: full-width band under the photo in Price Watch's
           "cheaper" green, so it reads at a glance instead of hiding on the
