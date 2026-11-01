@@ -1,30 +1,72 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Image as RNImage, Pressable, Text, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { AppText, BottomSheet, Button, SegmentedSwitch, showGlobalToast } from "@/frontend/components/ui";
-import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
-import { useProStore, useProSubscription } from "@/frontend/core/pro/store/useProStore";
-import { PLANS, type PlanKey } from "@/frontend/core/pro/proContent";
-import { STATUS_LABEL, formatPlanDate, nextLine, planName, priceLine } from "@/frontend/core/pro/subscriptionCopy";
+import { Check } from "lucide-react-native";
+import { AppText, BottomSheet, Button, showGlobalToast } from "@/frontend/components/ui";
+import { colors } from "@/frontend/constants/theme";
+import { useProStore, useProSubscription, type ProSubscription } from "@/frontend/core/pro/store/useProStore";
+import { PLANS, YEARLY_SAVE_PCT, type PlanKey } from "@/frontend/core/pro/proContent";
+import { STATUS_LABEL, daysUntil, formatPlanDate } from "@/frontend/core/pro/subscriptionCopy";
+import { STATUS_CHIP } from "./ProPlanCard";
 
 type Step = "manage" | "confirm";
 
-const PLAN_OPTIONS = (Object.keys(PLANS) as PlanKey[]).map((key) => ({ value: key, label: PLANS[key].label }));
+// The one thing to know right now, as a headline and a line under it.
+function summaryOf(sub: ProSubscription): { title: string; body: string } {
+  const date = formatPlanDate(sub.renewsAt);
+  const price = `₱${PLANS[sub.plan].price}`;
+  if (sub.status === "trial") {
+    const left = daysUntil(sub.renewsAt);
+    return {
+      title: `${left} ${left === 1 ? "day" : "days"} left in your trial`,
+      body: `Your first charge of ${price} is on ${date}.`,
+    };
+  }
+  if (sub.status === "active") return { title: `Renews ${date}`, body: `${price} will be charged on ${date}.` };
+  return { title: `Pro until ${date}`, body: "Your subscription is cancelled. You won't be charged." };
+}
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+// A plan to switch to: full width, a check on the current one.
+function PlanOption({ planKey, selected, onPress }: { planKey: PlanKey; selected: boolean; onPress: () => void }) {
+  const option = PLANS[planKey];
   return (
-    <View className="flex-row items-center justify-between py-2.5">
-      <Text className="font-inter-regular text-body text-ink-subtle">{label}</Text>
-      <Text className="font-inter-semibold text-body text-ink-emphasis">{value}</Text>
-    </View>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      className={`flex-row items-center gap-3 rounded-2xl border px-4 py-3.5 ${
+        selected ? "border-primary bg-primary/5" : "border-ink-emphasis/10 active:bg-ink-emphasis/5"
+      }`}
+    >
+      <View className="flex-1">
+        <View className="flex-row items-center gap-2">
+          <Text className="font-inter-semibold text-body text-ink-emphasis">{option.label}</Text>
+          {planKey === "yearly" && (
+            <View className="rounded-full bg-accent/10 px-2 py-0.5">
+              <Text className="font-inter-bold text-sub text-accent">SAVE {YEARLY_SAVE_PCT}%</Text>
+            </View>
+          )}
+        </View>
+        <Text className="mt-0.5 font-inter-regular text-small text-ink-subtle">
+          ₱{option.price}/{option.per}
+          {planKey === "yearly" ? ` · ₱${Math.round(option.price / 12)} a month` : ""}
+        </Text>
+      </View>
+      <View
+        className={`h-6 w-6 items-center justify-center rounded-full ${selected ? "bg-primary" : "border-2 border-ink-emphasis/15"}`}
+      >
+        {selected && <Check color={colors.white} size={14} strokeWidth={3} />}
+      </View>
+    </Pressable>
   );
 }
 
-// Settings' "Manage your plan": the plan's details, switching between
-// Monthly and Yearly, and cancelling (or resuming). Cancelling is one plain
-// confirmation in the same sheet: when Pro ends and that nothing is charged,
-// no persuasion. MOCK: nothing is charged; "End Pro now" is a test shortcut.
+// Settings' "Manage your plan", in the same style as the checkout: the plan
+// and its status, the one thing to know (days left, next charge, or when Pro
+// ends), the plans to switch between, then cancel (or resume). Cancelling is
+// one plain confirmation in the same sheet. MOCK: nothing is charged; "End
+// Pro now" is a test shortcut.
 export function ManagePlanSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   // The last plan seen, so the sheet keeps its content while closing after
   // "End Pro now" (the plan is already gone by then).
@@ -41,6 +83,16 @@ export function ManagePlanSheet({ visible, onClose }: { visible: boolean; onClos
 
   if (!subscription) return null;
   const endDate = formatPlanDate(subscription.renewsAt);
+  const summary = summaryOf(subscription);
+  const chip = STATUS_CHIP[subscription.status];
+  const cancelled = subscription.status === "cancelled";
+
+  const choosePlan = (plan: PlanKey) => {
+    if (plan === subscription.plan) return;
+    void Haptics.selectionAsync();
+    switchPlan(plan);
+    showGlobalToast({ message: `Switched to ${PLANS[plan].label}. Next charge ₱${PLANS[plan].price} on ${endDate}.`, tone: "success" });
+  };
 
   const confirmCancel = () => {
     void Haptics.selectionAsync();
@@ -51,51 +103,43 @@ export function ManagePlanSheet({ visible, onClose }: { visible: boolean; onClos
 
   return (
     <BottomSheet visible={visible} onClose={onClose} fitContent heightPercent={0.9}>
-      <View className="px-6 pb-8 pt-10">
+      <View className="px-6 pb-6 pt-10">
         {step === "manage" && (
           <Animated.View key="manage" entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)}>
-            <View className="gap-5">
-              <View className="gap-1">
-                <View className="flex-row items-center gap-2">
-                  <ProBadge />
-                  <Text className="font-inter-medium text-small text-ink-subtle">{STATUS_LABEL[subscription.status]}</Text>
-                </View>
-                <AppText variant="sectionTitle" dot>
-                  {planName(subscription.plan)}
-                </AppText>
-                <Text className="font-inter-regular text-body text-ink-subtle">{nextLine(subscription)}</Text>
+            <View className="flex-row items-center gap-3">
+              <RNImage
+                source={require("@/assets/icon.png")}
+                style={{ width: 48, height: 48, borderRadius: 14, borderWidth: 1, borderColor: `${colors.ink.emphasis}1A` }}
+              />
+              <View className="flex-1">
+                <Text className="font-inter-bold text-subheading text-ink-emphasis">AnoUlam Pro</Text>
+                <Text className="font-inter-regular text-small text-ink-subtle">Since {formatPlanDate(subscription.startedAt)}</Text>
               </View>
-
-              <View className="rounded-2xl border border-ink-emphasis/10 px-4 py-1">
-                <DetailRow label="Price" value={priceLine(subscription.plan)} />
-                <DetailRow label="Started" value={formatPlanDate(subscription.startedAt)} />
-                <DetailRow
-                  label={subscription.status === "cancelled" ? "Pro until" : subscription.status === "trial" ? "First charge" : "Renews"}
-                  value={endDate}
-                />
+              <View className={`rounded-full px-2.5 py-1 ${chip.bg}`}>
+                <Text className={`font-inter-bold text-sub ${chip.text}`}>{STATUS_LABEL[subscription.status].toUpperCase()}</Text>
               </View>
+            </View>
 
-              {subscription.status !== "cancelled" && (
-                <View className="gap-2">
-                  <Text className="font-inter-semibold text-body text-ink-emphasis">Plan</Text>
-                  <SegmentedSwitch
-                    size="md"
-                    options={PLAN_OPTIONS}
-                    value={subscription.plan}
-                    onChange={(plan) => {
-                      if (plan === subscription.plan) return;
-                      void Haptics.selectionAsync();
-                      switchPlan(plan);
-                      showGlobalToast({
-                        message: `Switched to ${PLANS[plan].label}. Next charge ₱${PLANS[plan].price} on ${endDate}.`,
-                        tone: "success",
-                      });
-                    }}
-                  />
-                </View>
-              )}
+            <View className="mt-6">
+              <AppText variant="sectionTitle" dot>
+                {summary.title}
+              </AppText>
+              <Text className="mt-1 font-inter-regular text-body text-ink-subtle">{summary.body}</Text>
+            </View>
 
-              {subscription.status === "cancelled" ? (
+            <View className="mt-5 h-px bg-ink-emphasis/10" />
+
+            {!cancelled && (
+              <View className="mt-5 gap-2.5">
+                <Text className="font-inter-semibold text-body text-ink-emphasis">Your plan</Text>
+                {(Object.keys(PLANS) as PlanKey[]).map((key) => (
+                  <PlanOption key={key} planKey={key} selected={subscription.plan === key} onPress={() => choosePlan(key)} />
+                ))}
+              </View>
+            )}
+
+            <View className="mt-6 gap-3">
+              {cancelled ? (
                 <Button
                   label="Resume Pro"
                   onPress={() => {
@@ -104,11 +148,14 @@ export function ManagePlanSheet({ visible, onClose }: { visible: boolean; onClos
                   }}
                 />
               ) : (
-                <Pressable onPress={() => setStep("confirm")} accessibilityRole="button" className="items-center py-2 active:opacity-60">
+                <Pressable
+                  onPress={() => setStep("confirm")}
+                  accessibilityRole="button"
+                  className="items-center rounded-xl border border-ink-emphasis/15 py-3.5 active:bg-ink-emphasis/5"
+                >
                   <Text className="font-inter-semibold text-body text-like">Cancel subscription</Text>
                 </Pressable>
               )}
-
               <Pressable
                 onPress={() => {
                   endNow();
@@ -116,7 +163,8 @@ export function ManagePlanSheet({ visible, onClose }: { visible: boolean; onClos
                   showGlobalToast({ message: "Pro ended (test)", tone: "success" });
                 }}
                 accessibilityRole="button"
-                className="items-center border-t border-ink-emphasis/10 pt-4 active:opacity-60"
+                hitSlop={8}
+                className="items-center py-1 active:opacity-60"
               >
                 <Text className="font-inter-regular text-small text-ink-subtle">End Pro now (test)</Text>
               </Pressable>
