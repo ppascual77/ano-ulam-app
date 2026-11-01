@@ -25,11 +25,10 @@ import {
 
 type ProPageProps = {
   onClose: () => void;
-  /** The unlock screen is done: close, then go to `route` if given (a
-   *  feature's try-it link). */
-  onStarted: (route?: string) => void;
+  /** The unlock screen is done ("Start exploring"): close. */
+  onStarted: () => void;
   /** Off where navigating would happen under a sheet (inside Meal Details):
-   *  hides the unlock screen's try-it links and the Settings link. */
+   *  hides the Manage your plan link. */
   allowLinks?: boolean;
   /** Settings' plan card: opens the plan's management instead. */
   onManage?: () => void;
@@ -126,7 +125,7 @@ export function ProPage({ onClose, onStarted, allowLinks = true, onManage }: Pro
         onClosed={afterCheckout}
       />
 
-      {unlocking && <ProUnlockOverlay allowLinks={allowLinks} onDone={onStarted} />}
+      {unlocking && <ProUnlockOverlay onDone={onStarted} />}
     </View>
   );
 }

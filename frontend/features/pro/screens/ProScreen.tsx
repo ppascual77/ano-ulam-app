@@ -18,10 +18,7 @@ export default function ProScreen() {
           router.back();
           router.navigate({ pathname: "/profile/settings", params: { plan: "1" } });
         }}
-        onStarted={(route) => {
-          router.back();
-          if (route) router.push(route as never);
-        }}
+        onStarted={() => router.back()}
       />
     </Screen>
   );

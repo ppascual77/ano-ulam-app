@@ -1,5 +1,5 @@
 import { Pressable, View } from "react-native";
-import Animated, { ZoomIn, ZoomOut } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { ChevronRight, Lock } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
@@ -19,11 +19,11 @@ type ProSettingRowProps = {
 
 // One row in Settings > Pro: name with the PRO badge, a line under it, and a
 // chevron (or a lock without Pro). When Pro turns on or off, the lock and
-// chevron swap with a small pop, one row after another.
+// chevron crossfade, one row after another.
 export function ProSettingRow({ label, description, locked, onPress, index = 0 }: ProSettingRowProps) {
   const reduceMotion = useReduceMotion();
-  const enter = reduceMotion ? undefined : ZoomIn.delay(index * 70).springify().damping(12);
-  const exit = reduceMotion ? undefined : ZoomOut.duration(140);
+  const enter = reduceMotion ? undefined : FadeIn.delay(index * 60).duration(220);
+  const exit = reduceMotion ? undefined : FadeOut.duration(120);
   return (
     <Pressable onPress={onPress} accessibilityRole="button" className="flex-row items-center gap-3 active:opacity-60">
       <View className="flex-1">
