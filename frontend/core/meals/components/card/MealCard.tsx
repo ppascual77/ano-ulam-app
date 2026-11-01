@@ -24,7 +24,7 @@ type MealCardProps = {
   isFastFood?: boolean;
   /** Defaults to 250 (the carousel size) — pass a smaller value for a grid. */
   width?: number;
-  /** "grid" is the See All screen: calories move to a top-left overlay
+  /** "grid" is the See All screen: calories move to a bottom-right overlay
    *  instead of sitting in the macro breakdown row. Defaults to "carousel". */
   layout?: "carousel" | "grid";
   /** Two-line description under the name (off by default to keep carousel
@@ -84,11 +84,9 @@ export function MealCard({
         />
 
         {/* Scrim so the plain white calorie text (no chip background) stays readable over any photo. */}
-        {isGrid && !topLeft && (
-          <View className="absolute left-0 right-0 top-0 h-10 bg-black/10" />
-        )}
+        {isGrid && <View className="absolute bottom-0 left-0 right-0 h-10 bg-black/10" />}
 
-        {/* Top-left: time, grid calories, fast-food chips, a badge. Stops
+        {/* Top-left: time, fast-food chips, a badge. Stops
             short of the bookmark, wrapping instead of running under it. */}
         <View className="absolute left-2 right-12 top-2 min-h-9 flex-row flex-wrap items-center gap-1">
           {!isFastFood && (
@@ -96,11 +94,6 @@ export function MealCard({
               label={`${meal.total_time} min`}
               icon={<Clock color={colors.white} size={10} strokeWidth={2} />}
             />
-          )}
-          {isGrid && !topLeft && (
-            <Text className="font-inter-extrabold text-caption text-white">
-              {meal.calories} kcal
-            </Text>
           )}
           {isFastFood && (
             <>
@@ -141,12 +134,18 @@ export function MealCard({
           </View>
         )}
 
+        {/* Bottom: the info pill, and on grid cards the calories at the
+            right. Sits above the footer strip when there is one. */}
         <View
-          className="absolute left-1"
-          // Sits above the footer strip when there is one.
+          className="absolute left-1 right-2.5 flex-row items-center justify-between"
           style={{ bottom: imageFooter ? 26 : 4 }}
         >
           <MealInfoPill meal={meal} iconOnly={isGrid} />
+          {isGrid && (
+            <Text className="font-inter-extrabold text-caption text-white">
+              {meal.calories} kcal
+            </Text>
+          )}
         </View>
       </View>
 
