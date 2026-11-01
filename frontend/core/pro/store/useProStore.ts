@@ -23,6 +23,9 @@ export type ProSubscription = {
   renewsAt: string;
   /** Cancelled during the trial: Pro ends with the trial, never charged. */
   cancelledInTrial?: boolean;
+  /** A switch scheduled for the next renewal (paid plans only: a trial
+   *  switches right away, since nothing has been charged yet). */
+  nextPlan?: PlanKey;
 };
 
 type ProStore = {
@@ -32,6 +35,8 @@ type ProStore = {
   /** Re-checks dates (a trial that ended, a cancelled plan that ran out). */
   refresh: () => void;
   startTrial: (plan: PlanKey) => void;
+  /** Trial: changes the plan now. Active: schedules it for the next renewal
+   *  (switching back to the current plan drops a scheduled switch). */
   switchPlan: (plan: PlanKey) => void;
   cancel: () => void;
   resume: () => void;
@@ -50,8 +55,8 @@ const addPeriod = (iso: string, plan: PlanKey) => {
 };
 
 // Moves a subscription to now: a trial past its end becomes active (the
-// first renewal), renewals roll forward, a cancelled plan past its end is
-// gone.
+// first renewal), renewals roll forward (taking up a scheduled plan switch),
+// a cancelled plan past its end is gone.
 function advance(sub: ProSubscription | null, now = Date.now()): ProSubscription | null {
   if (!sub) return null;
   let next = { ...sub };
@@ -59,7 +64,10 @@ function advance(sub: ProSubscription | null, now = Date.now()): ProSubscription
   if (next.status === "trial" && next.trialEndsAt && new Date(next.trialEndsAt).getTime() <= now) {
     next = { ...next, status: "active", trialEndsAt: null, renewsAt: addPeriod(next.trialEndsAt, next.plan) };
   }
-  while (new Date(next.renewsAt).getTime() <= now) next = { ...next, renewsAt: addPeriod(next.renewsAt, next.plan) };
+  while (new Date(next.renewsAt).getTime() <= now) {
+    const plan = next.nextPlan ?? next.plan;
+    next = { ...next, plan, nextPlan: undefined, renewsAt: addPeriod(next.renewsAt, plan) };
+  }
   return next;
 }
 
@@ -107,12 +115,14 @@ export const useProStore = create<ProStore>((set, get) => {
     },
     switchPlan: (plan) => {
       const { subscription } = get();
-      if (subscription) save({ ...subscription, plan });
+      if (!subscription || subscription.status === "cancelled") return;
+      if (subscription.status === "trial") save({ ...subscription, plan, nextPlan: undefined });
+      else save({ ...subscription, nextPlan: plan === subscription.plan ? undefined : plan });
     },
     cancel: () => {
       const { subscription } = get();
       if (subscription && subscription.status !== "cancelled") {
-        save({ ...subscription, status: "cancelled", cancelledInTrial: subscription.status === "trial" });
+        save({ ...subscription, status: "cancelled", cancelledInTrial: subscription.status === "trial", nextPlan: undefined });
       }
     },
     resume: () => {
