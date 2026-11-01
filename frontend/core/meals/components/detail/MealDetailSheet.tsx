@@ -198,7 +198,7 @@ export function MealDetailSheet({
             onOpenPro={() => setProPageOpen(true)}
           />
           <BottomSheet visible={proPageOpen} onClose={() => setProPageOpen(false)} presentation="inline" fullScreen>
-            {/* No links: they'd navigate under this sheet. */}
+            {/* No Settings link: it would navigate under this sheet. */}
             <ProPage allowLinks={false} onClose={() => setProPageOpen(false)} onStarted={() => setProPageOpen(false)} />
           </BottomSheet>
           {overlay}
