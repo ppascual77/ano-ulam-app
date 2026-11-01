@@ -211,6 +211,8 @@ export async function getMealIngredientIndex() {
 
 export type BrowseQuery = {
   q?: string;
+  /** protein_type values; each also matches its spellings (PROTEIN_VARIANTS). */
+  proteinTypes?: string[];
   dietaryTags: string[];
   tags: string[];
   restaurants: string[];
@@ -231,6 +233,13 @@ function restaurantVariants(restaurants: string[]) {
 // approved catalog only; `q` is a case-insensitive substring of the name OR
 // the restaurant; OR within a filter group, AND across groups; price is the
 // base price. Unordered: the caller shuffles or sorts.
+// protein_type is typed by hand per meal, so a filter value covers its
+// other spellings in the catalog.
+const PROTEIN_VARIANTS: Record<string, string[]> = {
+  vegetable: ["vegetable", "vegetarian", "veggie", "veg"],
+  seafood: ["seafood", "fish"],
+};
+
 export async function browseMeals(query: BrowseQuery) {
   let request = supabase.from("meals").select("*").eq("status", "approved").is("archived_at", null);
 
@@ -238,6 +247,9 @@ export async function browseMeals(query: BrowseQuery) {
   const q = query.q?.trim().replace(/[,()*%\\]/g, " ").trim();
   if (q) request = request.or(`name.ilike.%${q}%,restaurant.ilike.%${q}%`);
   if (query.tags.length > 0) request = request.overlaps("tags", [...new Set(query.tags.flatMap((t) => [t, toCamel(t)]))]);
+  if (query.proteinTypes?.length) {
+    request = request.in("protein_type", [...new Set(query.proteinTypes.flatMap((p) => PROTEIN_VARIANTS[p] ?? [p]))]);
+  }
   if (query.dietaryTags.length > 0) request = request.overlaps("dietary_tags", query.dietaryTags);
   if (query.restaurants.length > 0) request = request.in("restaurant", restaurantVariants(query.restaurants));
   if (query.priceRange) request = request.gte("price", query.priceRange[0]).lte("price", query.priceRange[1]);

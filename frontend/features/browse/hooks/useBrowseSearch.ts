@@ -66,7 +66,7 @@ export function useBrowseSearch({ isGuest, isPro }: { isGuest: boolean; isPro: b
     }
     setLoading(true);
     const timer = setTimeout(async () => {
-      const filtersKey = JSON.stringify([applied.dietaryTags, applied.tags, applied.restaurants, applied.priceRange]);
+      const filtersKey = JSON.stringify([applied.proteinTypes, applied.dietaryTags, applied.tags, applied.restaurants, applied.priceRange]);
       if (!(await daily.use(signatureOf(trimmed.toLowerCase(), filtersKey), refines))) {
         if (id === requestId.current) {
           setLimitReached(true);
@@ -79,6 +79,7 @@ export function useBrowseSearch({ isGuest, isPro }: { isGuest: boolean; isPro: b
       try {
         const rows = await browseMeals({
           q: trimmed || undefined,
+          proteinTypes: applied.proteinTypes,
           dietaryTags: applied.dietaryTags,
           tags: applied.tags,
           restaurants: applied.restaurants,
@@ -94,7 +95,7 @@ export function useBrowseSearch({ isGuest, isPro }: { isGuest: boolean; isPro: b
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
     // Sort is applied below without a new request.
-  }, [trimmed, applied.dietaryTags, applied.tags, applied.restaurants, applied.priceRange, daily.limit, isSearchMode]);
+  }, [trimmed, applied.proteinTypes, applied.dietaryTags, applied.tags, applied.restaurants, applied.priceRange, daily.limit, isSearchMode]);
 
   return {
     query,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Pressable, Text, View } from "react-native";
 import { X } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
@@ -32,6 +32,10 @@ export function MealSuggestion({ budget, servings, onClear }: MealSuggestionProp
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   // The Categories tile picked (null: all).
   const [category, setCategory] = useState<CategoryId | null>(null);
+  // A category switch as a transition: the tile reacts at once, the rows
+  // show skeletons until the new ones are ready.
+  const [switchingCategory, startCategorySwitch] = useTransition();
+  const pickCategory = (id: CategoryId | null) => startCategorySwitch(() => setCategory(id));
   const { data: meals, isPending } = useRealMeals();
   const amount = parseBudget(budget) ?? 0;
 
@@ -82,9 +86,9 @@ export function MealSuggestion({ budget, servings, onClear }: MealSuggestionProp
       {/* The results' quick filter: the meal-time categories, like Home's.
           Hidden when nothing fits the budget at all, since no category
           could help then. */}
-      {(isPending || matches.length > 0) && <CategoriesSection plainTitle onChange={setCategory} />}
+      {(isPending || matches.length > 0) && <CategoriesSection plainTitle onChange={pickCategory} />}
 
-      {isPending ? (
+      {isPending || switchingCategory ? (
         <MealCarouselSection title="Home-cooked (Luto)" meals={[]} loading showSeeAll={false} />
       ) : focusHidesAll ? (
         // Meals fit the budget, just none for the dietary focus.

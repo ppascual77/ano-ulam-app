@@ -37,6 +37,8 @@ export function passesQuickFilter(meal: MealType, filterId: string) {
   if (filterId === "highProtein") return MACRO_RULES.highProtein(meal);
   if (filterId === "lowCarb") return MACRO_RULES.lowCarb(meal);
   if (filterId === "quick") return NON_MACRO_RULES.quick(meal);
+  // The catalog types plant-based meals "vegetable" or "vegetarian".
+  if (filterId === "veggie") return ["veggie", "vegetable", "vegetarian", "veg"].includes(meal.protein_type ?? "");
   return meal.protein_type === filterId;
 }
 

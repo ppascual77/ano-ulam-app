@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useState, useTransition } from "react";
 import { View } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
@@ -31,6 +31,10 @@ function BudgetSectionInner({ categoriesLanding }: BudgetSectionProps) {
   // Home's Categories pick (no budget asked): Recommendations shows that
   // category.
   const [homeCategory, setHomeCategory] = useState<CategoryId | null>(null);
+  // A category switch re-renders the sections below; as a transition, the
+  // tile reacts at once and Recommendations shows skeletons until it's ready.
+  const [switchingCategory, startCategorySwitch] = useTransition();
+  const pickHomeCategory = (id: CategoryId | null) => startCategorySwitch(() => setHomeCategory(id));
   // Bumped by "Clear budget": remounts the form, emptying its fields.
   const [formRun, setFormRun] = useState(0);
   const clearBudget = () => {
@@ -70,8 +74,8 @@ function BudgetSectionInner({ categoriesLanding }: BudgetSectionProps) {
           {/* Only once preferences are set (no prompt here): Recommendations
               below follows them. */}
           <PreferencesBanner onlyWhenSet />
-          <CategoriesSection landing={categoriesLanding} onChange={setHomeCategory} />
-          <RecommendationsSection category={homeCategory} />
+          <CategoriesSection landing={categoriesLanding} onChange={pickHomeCategory} />
+          <RecommendationsSection category={homeCategory} switching={switchingCategory} />
           <CommunityFavoritesSection />
           <BestValueMealsSection />
         </>

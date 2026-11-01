@@ -2,7 +2,7 @@ import { ReactNode, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { Plus } from "lucide-react-native";
 import { AppText, Carousel } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -14,6 +14,9 @@ import { mockMeals } from "@/frontend/core/meals/mocks/meals";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 
 const SKELETON_COUNT = 3;
+// Skeleton -> cards: a fast crossfade, the skeletons out as the cards come in.
+const SKELETON_OUT = FadeOut.duration(120);
+const CARD_IN = FadeIn.duration(150);
 // A meal card's width (MealCard's carousel size), for the Show More card.
 const CARD_WIDTH = 250;
 
@@ -46,12 +49,6 @@ type MealCarouselSectionProps = {
   titleIcon?: ReactNode;
   subtitle?: string;
   showSeeAll?: boolean;
-  /** See All ends with "Browse all meals" (for a short sample like
-   *  Recommendations, where the whole catalog is one step away). */
-  seeAllBrowseCta?: boolean;
-  /** A chip on See All saying what these meals are, e.g. the picked
-   *  category ("Breakfast"). */
-  seeAllChip?: string;
   /** See All draws this row's own card instead of MealCard ("bestValue":
    *  BestValueMealCard). */
   seeAllCard?: "bestValue";
@@ -85,8 +82,6 @@ export function MealCarouselSection({
   titleIcon,
   subtitle,
   showSeeAll = true,
-  seeAllBrowseCta = false,
-  seeAllChip,
   seeAllCard,
   meals = mockMeals,
   budgetLabel,
@@ -119,8 +114,6 @@ export function MealCarouselSection({
         ids: meals.map((meal) => meal.id ?? "").join(","),
         ...(budgetLabel ? { budget: budgetLabel } : {}),
         ...(servings ? { servings: String(servings) } : {}),
-        ...(seeAllBrowseCta ? { browse: "1" } : {}),
-        ...(seeAllChip ? { chip: seeAllChip } : {}),
         ...(seeAllCard ? { card: seeAllCard } : {}),
       },
     });
@@ -151,7 +144,11 @@ export function MealCarouselSection({
 
       <Carousel>
         {loading
-          ? Array.from({ length: SKELETON_COUNT }).map((_, i) => <MealCardSkeleton key={i} width={cardWidth} />)
+          ? Array.from({ length: SKELETON_COUNT }).map((_, i) => (
+              <Animated.View key={`skeleton-${i}`} exiting={SKELETON_OUT}>
+                <MealCardSkeleton width={cardWidth} />
+              </Animated.View>
+            ))
           : [
               ...visible.map((meal, i) => {
                 const card = renderCard ? (
@@ -165,10 +162,19 @@ export function MealCarouselSection({
                     {card}
                   </Animated.View>
                 ) : (
-                  <View key={meal.id}>{card}</View>
+                  // Fades in as the skeletons fade out (and on first show).
+                  <Animated.View key={meal.id} entering={CARD_IN}>
+                    {card}
+                  </Animated.View>
                 );
               }),
-              ...(hasMore ? [<ShowMoreCard key="show-more" onPress={showMore} />] : []),
+              ...(hasMore
+                ? [
+                    <Animated.View key="show-more" entering={CARD_IN} className="flex-1">
+                      <ShowMoreCard onPress={showMore} />
+                    </Animated.View>,
+                  ]
+                : []),
             ]}
       </Carousel>
 

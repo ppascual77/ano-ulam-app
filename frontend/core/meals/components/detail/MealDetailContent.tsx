@@ -845,11 +845,8 @@ export function MealDetailContent({
 
   const related = (
     <>
-      {/* RelatedMeals pulls from the mock catalog regardless of which
-          meal is actually open (no backend for real relations yet) —
-          meaningless in admin context, and tapping one would swap the
-          sheet to fake data while Edit/Archive/Delete stay bound to the
-          real meal being managed, a confusing mismatch. */}
+      {/* Not for admins: tapping one would swap the sheet to another meal
+          while Edit/Archive/Delete stay bound to the meal being managed. */}
       {!isAdmin && !preview && (
         <View className="mb-6">
           <RelatedMeals meal={meal} onSelectMeal={onSelectMeal} />

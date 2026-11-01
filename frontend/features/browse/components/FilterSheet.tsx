@@ -5,6 +5,7 @@ import {
   DIETARY_OPTIONS,
   EMPTY_FILTERS,
   MEAL_STYLE_OPTIONS,
+  PROTEIN_OPTIONS,
   PRICE_MAX,
   PRICE_MIN,
   RESTAURANT_OPTIONS,
@@ -17,7 +18,7 @@ import {
 } from "../utils/filters";
 import { PriceRangeSlider } from "./PriceRangeSlider";
 
-type ListKey = "tags" | "dietaryTags" | "restaurants";
+type ListKey = "proteinTypes" | "tags" | "dietaryTags" | "restaurants";
 
 function BlockLabel({ children }: { children: string }) {
   return <Text className="mb-3 font-inter-semibold text-sub uppercase tracking-widest text-web-ink-muted">{children}</Text>;
@@ -122,7 +123,7 @@ export function FilterSheet({ visible, onClose, applied, onApply }: FilterSheetP
             />
           ) : (
             <Text className="font-inter-regular text-sub leading-5 text-web-ink-muted">
-              Select at least one Meal Style, Dietary Focus, or Restaurant filter to narrow by price.
+              Select at least one Protein Source, Meal Style, Dietary Focus, or Restaurant filter to narrow by price.
             </Text>
           )}
         </View>
@@ -143,6 +144,11 @@ export function FilterSheet({ visible, onClose, applied, onApply }: FilterSheetP
               />
             ))}
           </Grid>
+        </View>
+
+        <View>
+          <BlockLabel>Protein Source</BlockLabel>
+          {renderChecks("proteinTypes", PROTEIN_OPTIONS)}
         </View>
 
         <View>
