@@ -30,13 +30,16 @@ type BestValueMealCardProps = {
   /** Position in the carousel, for the staggered entrance. */
   index: number;
   onPress: () => void;
+  /** Defaults to BEST_VALUE_CARD_WIDTH (the carousel); narrower in See
+   *  All's two-column grid, where the saving pill wraps under the price. */
+  width?: number;
 };
 
 // "This week's best value meals" card, read top to bottom: the photo, the
 // ingredient that got cheaper (its own green band, the card's reason to
 // exist), the meal, then last week's cost struck through over today's,
 // with the estimated saving beside it.
-export function BestValueMealCard({ value, index, onPress }: BestValueMealCardProps) {
+export function BestValueMealCard({ value, index, onPress, width = BEST_VALUE_CARD_WIDTH }: BestValueMealCardProps) {
   const { meal, drop, saving } = value;
   const reduceMotion = useReduceMotion();
   const now = Number(meal.price);
@@ -69,7 +72,7 @@ export function BestValueMealCard({ value, index, onPress }: BestValueMealCardPr
     <Pressable
       onPress={onPress}
       accessibilityLabel={`${meal.name}, ${peso(now)}${was != null ? `, about ${peso(saving)} less than last week` : ""}. ${drop.name} is ${dropPct}% cheaper this week.`}
-      style={{ width: BEST_VALUE_CARD_WIDTH }}
+      style={{ width }}
       className="overflow-hidden rounded-3xl border border-ink-emphasis/10 bg-white shadow-sm active:opacity-90"
     >
       <Image source={resolveMealImage(meal)} style={{ width: "100%", height: PHOTO_HEIGHT }} contentFit="cover" />
@@ -92,7 +95,7 @@ export function BestValueMealCard({ value, index, onPress }: BestValueMealCardPr
           {meal.name}
         </Text>
 
-        <View className="flex-row items-end justify-between gap-2">
+        <View className="flex-row flex-wrap items-end justify-between gap-2">
           <View>
             {/* Always takes its line (blank when there's no saving), so every
                 card in the carousel is the same height. */}

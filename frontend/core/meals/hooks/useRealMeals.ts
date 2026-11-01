@@ -8,11 +8,9 @@ const realMealKeys = { list: ["meals", "real"] as const };
 // mock data already uses — same adapter Manage Meals (admin) uses, shared
 // via core/meals/ since this is now a consumer-facing concern too. Bulk
 // listing only (no meal_ingredients join) — fine for id resolution
-// (MealListScreen's "See All") and for card display, but a meal surfaced
-// from here won't have its Ingredients section populated if opened
-// directly from this list. useRecommendedMeals re-fetches its own 5 picks
-// individually (with the join) specifically to avoid that; MealListScreen
-// still doesn't, a known remaining gap there. Deliberately its own query
+// (MealListScreen's "See All") and for card display. A meal surfaced from
+// here has no ingredients, so opening it in Meal Details fetches the full
+// meal first (useFullMeal). Deliberately its own query
 // key (not admin's ["admin", "meals", filters]) so a consumer screen
 // doesn't share/pollute the admin cache namespace.
 export function useRealMeals() {

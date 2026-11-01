@@ -19,6 +19,7 @@ function BestValueMealsSectionInner() {
       subtitle="Featuring ingredients that cost less this week"
       meals={meals.map((m) => m.meal)}
       cardWidth={BEST_VALUE_CARD_WIDTH}
+      seeAllCard="bestValue"
       renderCard={(meal, index, open) => {
         const value = byId.get(meal.id);
         return value ? <BestValueMealCard value={value} index={index} onPress={open} /> : null;

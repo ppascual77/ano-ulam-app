@@ -1,94 +1,116 @@
 import { useMemo, useState } from "react";
-import { Text, View } from "react-native";
-import { Sparkles } from "lucide-react-native";
-import { AppText, NoticeBanner } from "@/frontend/components/ui";
+import { Pressable, Text, View } from "react-native";
+import { X } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { MealCarouselSection } from "./MealCarouselSection";
-import { QuickFilters } from "./QuickFilters";
-import { PreferencesSheet } from "./PreferencesSheet";
-import { ActivePreferencesSummary } from "./ActivePreferencesSummary";
-import { mockMeals } from "@/frontend/core/meals/mocks/meals";
-import { MACRO_RULES, NON_MACRO_RULES } from "@/frontend/core/meals/utils/constants";
+import { CategoriesSection } from "./CategoriesSection";
+import { CATEGORY_NOUNS, inCategory, type CategoryId } from "../utils/categories";
+import { BudgetEmptyState } from "./BudgetEmptyState";
+import { PreferencesBanner } from "./PreferencesBanner";
+import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
+import { useRealMeals } from "@/frontend/core/meals/hooks/useRealMeals";
+import type { MealType } from "@/frontend/core/meals/mealTypes";
+import { fitsDietaryFocus, matchBudget, parseBudget } from "../utils/budgetMatch";
+import { DIETARY_FOCUS_OPTIONS } from "@/frontend/core/preferences/options";
 import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
 
 type MealSuggestionProps = {
-  budget?: string;
+  /** As typed in the form (BudgetForm only suggests with a real amount). */
+  budget: string;
+  servings: number;
+  /** "Clear budget": back to Home's usual sections, with the form emptied. */
+  onClear: () => void;
 };
 
 // Rendered on Home once "Suggest Meals" is pressed, replacing the
-// Categories/Recommendations/Community Favorites sections.
-export function MealSuggestion({ budget }: MealSuggestionProps) {
-  const [filters, setFilters] = useState<string[]>([]);
-  const [showBudgetChip, setShowBudgetChip] = useState(true);
+// Categories/Recommendations/Community Favorites sections: real meals that
+// cost about the budget for the chosen servings (see budgetMatch), closest
+// first, in Home-cooked and Fast food rows, priced for those servings.
+// Quick filter: the Categories row (a meal time, or fast food). See All has
+// the macro and protein chips (MealListScreen).
+export function MealSuggestion({ budget, servings, onClear }: MealSuggestionProps) {
   const [preferencesOpen, setPreferencesOpen] = useState(false);
+  // The Categories tile picked (null: all).
+  const [category, setCategory] = useState<CategoryId | null>(null);
+  const { data: meals, isPending } = useRealMeals();
+  const amount = parseBudget(budget) ?? 0;
 
-  const { prefs: preferences, setPrefs } = usePreferences();
-  const dietaryFocus = preferences.dietary_focus !== "none" ? [preferences.dietary_focus] : [];
+  const { prefs: preferences } = usePreferences();
   const allergens = preferences.allergens;
-  const hasPreferences = dietaryFocus.length > 0 || allergens.length > 0;
 
-  const handleDietaryFocusChange = (value: string[]) => {
-    setPrefs({ ...preferences, dietary_focus: value[0] ?? "none" });
-  };
+  // Active preferences, then the picked category, narrow what fits the
+  // budget. Allergens are always left out (a safety rule, inside
+  // matchBudget); the dietary focus keeps meals tagged for it (looser diets
+  // accept stricter ones, see fitsDietaryFocus).
+  const inBudget = useMemo(() => matchBudget(meals ?? [], amount, servings, allergens), [meals, amount, servings, allergens]);
+  const focus = preferences.dietary_focus;
+  const matches = inBudget.filter((m) => fitsDietaryFocus(m.meal, focus));
+  // The picked category: a meal time keeps meals tagged with it (both rows);
+  // Fastfood keeps just the fast food row.
+  const inView = matches.filter((m) => inCategory(m.meal, category));
 
-  const handleAllergensChange = (value: string[]) => {
-    setPrefs({ ...preferences, allergens: value });
-  };
+  // Empty because of the dietary focus (meals do fit the budget, just not
+  // the focus): say so, and offer to change it.
+  const focusLabel = DIETARY_FOCUS_OPTIONS.find((o) => o.id === focus)?.label.toLowerCase();
+  const focusHidesAll = inBudget.length > 0 && matches.length === 0 && !!focusLabel;
+  const homeCooked = inView.filter((m) => m.meal.category !== "fast_food").map((m) => m.meal);
+  const fastFood = inView.filter((m) => m.meal.category === "fast_food").map((m) => m.meal);
 
-  const filteredMeals = useMemo(() => {
-    if (filters.length === 0) return mockMeals;
-    return mockMeals.filter((meal) =>
-      filters.every((filterId) => {
-        if (filterId === "highProtein") return MACRO_RULES.highProtein(meal);
-        if (filterId === "lowCarb") return MACRO_RULES.lowCarb(meal);
-        if (filterId === "quick") return NON_MACRO_RULES.quick(meal);
-        return meal.protein_type === filterId;
-      }),
-    );
-  }, [filters]);
-
-  const homeCooked = filteredMeals.filter((m) => m.category === "luto");
-  const fastFood = filteredMeals.filter((m) => m.category === "fast_food");
+  const renderCard = (meal: MealType, _index: number, open: () => void) => (
+    <MealCard meal={meal} onPress={open} isFastFood={meal.category === "fast_food"} />
+  );
 
   return (
     <View className="gap-5">
-      {hasPreferences ? (
-        <ActivePreferencesSummary
-          dietaryFocus={dietaryFocus}
-          allergens={allergens}
-          onManage={() => setPreferencesOpen(true)}
+      {/* What these results are for, and the way back to Home's usual
+          sections. */}
+      <Pressable
+        onPress={onClear}
+        accessibilityRole="button"
+        accessibilityLabel={`Clear budget: ₱${amount.toLocaleString("en-US")} for ${servings} ${servings === 1 ? "serving" : "servings"}`}
+        hitSlop={6}
+        className="flex-row items-center gap-1.5 self-start rounded-full bg-primary py-1.5 pl-3.5 pr-2.5 active:opacity-80"
+      >
+        <Text className="font-inter-semibold text-small text-white">
+          ₱{amount.toLocaleString("en-US")} · {servings} {servings === 1 ? "serving" : "servings"}
+        </Text>
+        <X color={colors.white} size={14} />
+      </Pressable>
+
+      <PreferencesBanner open={preferencesOpen} onOpenChange={setPreferencesOpen} />
+
+      {/* The results' quick filter: the meal-time categories, like Home's.
+          Hidden when nothing fits the budget at all, since no category
+          could help then. */}
+      {(isPending || matches.length > 0) && <CategoriesSection plainTitle onChange={setCategory} />}
+
+      {isPending ? (
+        <MealCarouselSection title="Home-cooked (Luto)" meals={[]} loading showSeeAll={false} />
+      ) : focusHidesAll ? (
+        // Meals fit the budget, just none for the dietary focus.
+        <BudgetEmptyState
+          budget={amount}
+          title={`No ${focusLabel} meals fit ₱${amount.toLocaleString("en-US")} yet`}
+          body="We're still curating more meals for every budget and diet. For now, try a bigger budget, or change your preferences."
+          action={{ label: "Change preferences", onPress: () => setPreferencesOpen(true) }}
+        />
+      ) : inView.length === 0 ? (
+        // Nothing in budget at all, or nothing in the picked category.
+        <BudgetEmptyState
+          budget={amount}
+          category={matches.length > 0 && category ? CATEGORY_NOUNS[category] : undefined}
         />
       ) : (
-        <NoticeBanner icon={<Sparkles color={colors.notice.icon} size={15} />}>
-          <AppText variant="caption" className="text-notice-text">
-            Personalize your meal suggestions.{" "}
-            <Text onPress={() => setPreferencesOpen(true)} className="font-inter-semibold text-primary">
-              Set preferences
-            </Text>
-          </AppText>
-        </NoticeBanner>
+        <>
+          {homeCooked.length > 0 && (
+            <MealCarouselSection title="Home-cooked (Luto)" meals={homeCooked} budgetLabel={budget} servings={servings} renderCard={renderCard} pageSize={5} />
+          )}
+          {fastFood.length > 0 && (
+            <MealCarouselSection title="Fastfood" meals={fastFood} budgetLabel={budget} servings={servings} renderCard={renderCard} pageSize={5} />
+          )}
+        </>
       )}
 
-      <QuickFilters
-        budgetLabel={showBudgetChip ? budget : undefined}
-        onClearBudget={() => setShowBudgetChip(false)}
-        selected={filters}
-        onChange={setFilters}
-      />
-
-      {homeCooked.length > 0 && (
-        <MealCarouselSection title="Home-cooked (Luto)" meals={homeCooked} budgetLabel={budget} />
-      )}
-      {fastFood.length > 0 && <MealCarouselSection title="Fastfood" meals={fastFood} budgetLabel={budget} />}
-
-      <PreferencesSheet
-        visible={preferencesOpen}
-        onClose={() => setPreferencesOpen(false)}
-        dietaryFocus={dietaryFocus}
-        onDietaryFocusChange={handleDietaryFocusChange}
-        allergens={allergens}
-        onAllergensChange={handleAllergensChange}
-      />
     </View>
   );
 }

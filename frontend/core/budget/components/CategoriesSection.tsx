@@ -38,7 +38,8 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 // Reduce motion: the highlight jumps, no hop, wiggle or icon beat (the icon
 // still takes its color).
 
-type CategoryId = "breakfast" | "lunch" | "dinner" | "fastfood";
+import type { CategoryId } from "../utils/categories";
+export type { CategoryId };
 type IconBeat = "rise" | "turn" | "rock" | "bounce";
 
 const CATEGORIES: { id: CategoryId; label: string; image: number; tint: string; icon: LucideIcon; iconColor: string; beat: IconBeat }[] = [
@@ -65,9 +66,15 @@ const HOP = { damping: 9, stiffness: 260, mass: 0.6 };
 type CategoriesSectionProps = {
   /** The title's period: Home's post-onboarding intro lands its dot here. */
   landing?: LandingDot;
+  /** A plain dotted title instead of Home's LandingTitle, for a second
+   *  copy on the same screen (Suggest by Budget's results), so no dot
+   *  handoff or intro tries to land on it. */
+  plainTitle?: boolean;
+  /** The pick changed (null: cleared), e.g. to filter meals by it. */
+  onChange?: (id: CategoryId | null) => void;
 };
 
-export function CategoriesSection({ landing }: CategoriesSectionProps) {
+export function CategoriesSection({ landing, plainTitle = false, onChange }: CategoriesSectionProps) {
   const reduce = useReduceMotion();
   const [selected, setSelected] = useState<CategoryId | null>(null);
   // One tile's width (the row is four equal tiles); the highlight's slot.
@@ -101,6 +108,7 @@ export function CategoriesSection({ landing }: CategoriesSectionProps) {
   const pick = (next: CategoryId | null) => {
     moveTo(next);
     setSelected(next);
+    onChange?.(next);
   };
   const choose = (id: CategoryId) => {
     void Haptics.selectionAsync();
@@ -110,7 +118,13 @@ export function CategoriesSection({ landing }: CategoriesSectionProps) {
   return (
     <View className="gap-3">
       <View className="flex-row items-center justify-between">
-        <LandingTitle {...landing}>Categories</LandingTitle>
+        {plainTitle ? (
+          <AppText variant="sectionTitle" dot>
+            Categories
+          </AppText>
+        ) : (
+          <LandingTitle {...landing}>Categories</LandingTitle>
+        )}
         {/* Only while a category is picked: clears the pick. */}
         {selected && (
           <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(150)}>
