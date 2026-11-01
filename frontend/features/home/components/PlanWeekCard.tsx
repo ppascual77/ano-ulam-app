@@ -21,7 +21,14 @@ const PHOTO_OVERLAP = 14;
 // title and one arrow. Soft placeholders until the catalog loads.
 // TODO: gate behind Pro (useProStore's isPro / the planner's locked
 // state) once Pro is decided; for now it just opens the planner.
-function PlanWeekCardInner() {
+type PlanWeekCardProps = {
+  /** Defaults to "Plan your week". */
+  title?: string;
+  /** Defaults to "<plan length> days, one grocery list". */
+  subtitle?: string;
+};
+
+function PlanWeekCardInner({ title = "Plan your week", subtitle }: PlanWeekCardProps) {
   const { data: meals } = useRealMeals();
   // The plan length you'd get: Pro's choice in Settings, else 5.
   const isPro = useIsPro();
@@ -39,7 +46,7 @@ function PlanWeekCardInner() {
     <Pressable
       onPress={() => router.push("/meal-planner")}
       accessibilityRole="button"
-      accessibilityLabel={`Plan your week, a Pro feature. Meals and one grocery list for ${days} days, built around your budget.`}
+      accessibilityLabel={`${title}, a Pro feature. ${subtitle ?? `Meals and one grocery list for ${days} days, built around your budget.`}`}
       className="flex-row items-center gap-4 rounded-2xl border border-ink-emphasis/10 px-4 py-3.5 active:opacity-70"
     >
       <View className="flex-row">
@@ -57,11 +64,12 @@ function PlanWeekCardInner() {
       <View className="flex-1">
         <View className="flex-row items-center gap-2">
           <Text className="font-inter-bold text-subheading text-ink-emphasis">
-            Plan your week<Text className="text-accent">.</Text>
+            {title}
+            <Text className="text-accent">.</Text>
           </Text>
           <ProBadge />
         </View>
-        <Text className="font-inter-regular text-body text-ink-subtle">{days} days, one grocery list</Text>
+        <Text className="font-inter-regular text-body text-ink-subtle">{subtitle ?? `${days} days, one grocery list`}</Text>
       </View>
 
       <ArrowRight color={colors.ink.subtle} size={18} />
