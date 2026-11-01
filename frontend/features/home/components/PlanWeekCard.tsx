@@ -1,90 +1,103 @@
-import { memo, useMemo, type ReactNode } from "react";
+import { memo, useEffect, useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
-import { Image, type ImageSource } from "expo-image";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import { ArrowRight } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 import { useRealMeals } from "@/frontend/core/meals/hooks/useRealMeals";
 import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
+import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 
-const PHOTO_COUNT = 3;
-const PHOTO_SIZE = 44;
-const PHOTO_OVERLAP = 14;
+const PHOTO_SIZE = 76;
+const EASE = Easing.out(Easing.cubic);
+// The fan: each photo's resting tilt and offset (back to front).
+const FAN = [
+  { rotate: -12, x: -26, y: 6 },
+  { rotate: 10, x: 24, y: 8 },
+  { rotate: -2, x: 0, y: -4 },
+];
+
+// One photo in the fan: starts stacked and straight, then settles into its
+// tilt and place, once (no bounce).
+function FanPhoto({ uri, index, reduceMotion }: { uri: string | null; index: number; reduceMotion: boolean }) {
+  const spread = useSharedValue(reduceMotion ? 1 : 0);
+  useEffect(() => {
+    if (!reduceMotion) spread.value = withDelay(120 + index * 60, withTiming(1, { duration: 520, easing: EASE }));
+  }, [reduceMotion, index, spread]);
+  const { rotate, x, y } = FAN[index];
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: x * spread.value }, { translateY: y * spread.value }, { rotate: `${rotate * spread.value}deg` }],
+  }));
+  return (
+    <Animated.View style={[{ position: "absolute", width: PHOTO_SIZE, height: PHOTO_SIZE }, style]}>
+      <View className="flex-1 overflow-hidden rounded-2xl border-2 border-white bg-ink-emphasis/5 shadow-sm">
+        {uri && <Image source={{ uri }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={200} />}
+      </View>
+    </Animated.View>
+  );
+}
 
 type PlanWeekCardProps = {
   /** Defaults to "Plan your week". */
   title?: string;
-  /** Defaults to "<plan length> days, one grocery list". */
+  /** Defaults to what a plan gives you, for your plan length. */
   subtitle?: string;
-  /** The three photos (e.g. today's planned meals). Defaults to three
-   *  home-cooked meals from the catalog, a different three each day. */
-  photos?: (ImageSource | number)[];
-  /** Beside the title. Defaults to the PRO badge. */
-  badge?: ReactNode;
-  /** Under the row, inside the card (e.g. a goal bar). */
-  footer?: ReactNode;
-  /** Defaults to opening the Meal Planner. */
-  onPress?: () => void;
-  accessibilityLabel?: string;
+  /** Defaults to "Start planning". */
+  cta?: string;
 };
 
-// Meal Planner's way in on Home (see HomePlanCard for which version shows):
-// three overlapping meal photos, the title and a line under it, one arrow.
-// Soft placeholders until the photos load.
-function PlanWeekCardInner({ title = "Plan your week", subtitle, photos: given, badge, footer, onPress, accessibilityLabel }: PlanWeekCardProps) {
+// Home's invitation to the Meal Planner when no plan is running (see
+// HomePlanCard): a soft green card with the headline, one line on what you
+// get and a button, and three home-cooked meal photos fanned on the right
+// (a different three each day) that settle into place once.
+function PlanWeekCardInner({ title = "Plan your week", subtitle, cta = "Start planning" }: PlanWeekCardProps) {
   const { data: meals } = useRealMeals();
+  const reduceMotion = useReduceMotion();
   // The plan length you'd get: Pro's choice in Settings, else 5.
   const isPro = useIsPro();
   const { prefs } = usePreferences();
   const days = isPro ? prefs.planner_defaults.days : 5;
 
-  const catalogPhotos = useMemo(() => {
+  const photos = useMemo(() => {
     const withPhotos = (meals ?? []).filter((m) => m.image_url && m.category !== "fast_food");
-    if (withPhotos.length === 0) return [];
+    if (withPhotos.length === 0) return [null, null, null];
     const dayOffset = Math.floor(Date.now() / 86_400_000) % withPhotos.length;
-    return Array.from({ length: Math.min(PHOTO_COUNT, withPhotos.length) }, (_, i) => ({
-      uri: withPhotos[(dayOffset + i) % withPhotos.length].image_url as string,
-    }));
+    return FAN.map((_, i) => withPhotos[(dayOffset + i) % withPhotos.length].image_url as string);
   }, [meals]);
-  const photos = given ?? catalogPhotos;
-  const line = subtitle ?? `${days} days, one grocery list`;
+  const line = subtitle ?? `${days} days of meals and one grocery list, all within your budget.`;
 
   return (
     <Pressable
-      onPress={onPress ?? (() => router.push("/meal-planner"))}
+      onPress={() => router.push("/meal-planner")}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? `${title}, a Pro feature. ${line}.`}
-      className="gap-3 rounded-2xl border border-ink-emphasis/10 px-4 py-3.5 active:opacity-70"
+      accessibilityLabel={`${title}, a Pro feature. ${line}`}
+      className="overflow-hidden rounded-3xl bg-tinted-bg active:opacity-90"
     >
-      <View className="flex-row items-center gap-4">
-        <View className="flex-row">
-          {Array.from({ length: PHOTO_COUNT }, (_, i) => (
-            <View
-              key={i}
-              className="overflow-hidden rounded-full border-2 border-white bg-ink-emphasis/5"
-              style={{ width: PHOTO_SIZE, height: PHOTO_SIZE, marginLeft: i === 0 ? 0 : -PHOTO_OVERLAP, zIndex: PHOTO_COUNT - i }}
-            >
-              {photos[i] != null && <Image source={photos[i]} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={200} />}
-            </View>
+      <View className="flex-row items-center px-5 py-5">
+        <View className="flex-1 gap-2 pr-2">
+          <View className="flex-row items-center gap-2">
+            <Text className="font-inter-bold text-sub uppercase text-primary">Meal planner</Text>
+            <ProBadge />
+          </View>
+          <Text className="font-inter-extrabold text-heading tracking-display text-ink-emphasis">
+            {title}
+            <Text className="text-accent">.</Text>
+          </Text>
+          <Text className="font-inter-regular text-small text-ink-subtle">{line}</Text>
+          <View className="mt-1 flex-row items-center gap-1.5 self-start rounded-full bg-primary px-4 py-2">
+            <Text className="font-inter-semibold text-small text-white">{cta}</Text>
+            <ArrowRight color={colors.white} size={14} />
+          </View>
+        </View>
+        <View className="h-28 w-32 items-center justify-center">
+          {photos.map((uri, i) => (
+            <FanPhoto key={i} uri={uri} index={i} reduceMotion={reduceMotion} />
           ))}
         </View>
-
-        <View className="flex-1">
-          <View className="flex-row items-center gap-2">
-            <Text className="font-inter-bold text-subheading text-ink-emphasis">
-              {title}
-              <Text className="text-accent">.</Text>
-            </Text>
-            {badge === undefined ? <ProBadge /> : badge}
-          </View>
-          <Text className="font-inter-regular text-body text-ink-subtle">{line}</Text>
-        </View>
-
-        <ArrowRight color={colors.ink.subtle} size={18} />
       </View>
-      {footer}
     </Pressable>
   );
 }
