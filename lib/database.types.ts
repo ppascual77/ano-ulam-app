@@ -530,32 +530,41 @@ export type Database = {
       users: {
         Row: {
           avatar_url: string | null
+          bio: string | null
           created_at: string
           display_name: string | null
           email: string
           id: string
+          newsletter_subscribed: boolean
           preferences: Json
           seen_intros: string[]
+          show_saved_public: boolean
           tier: string
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           display_name?: string | null
           email: string
           id: string
+          newsletter_subscribed?: boolean
           preferences?: Json
           seen_intros?: string[]
+          show_saved_public?: boolean
           tier?: string
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           display_name?: string | null
           email?: string
           id?: string
+          newsletter_subscribed?: boolean
           preferences?: Json
           seen_intros?: string[]
+          show_saved_public?: boolean
           tier?: string
         }
         Relationships: []
@@ -565,7 +574,35 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_public_profile: {
+        Args: { p_user_id: string }
+        Returns: {
+          avatar_url: string
+          bio: string
+          display_name: string
+          id: string
+          show_saved_public: boolean
+        }[]
+      }
+      get_public_saved_meals: {
+        Args: { p_user_id: string }
+        Returns: {
+          id: string
+          meal_data: Json
+          meal_id: string | null
+          meal_key: string
+          saved_at: string
+          serving_size: number
+          synced_at: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "saved_meals"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       [_ in never]: never

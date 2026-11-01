@@ -1,4 +1,5 @@
 import { getMeal } from "@/api/meals";
+import { listPublicSavedMealRows } from "@/api/profiles";
 import {
   deleteSavedMeal,
   getMealStatuses,
@@ -64,6 +65,13 @@ export async function listSavedMeals(): Promise<SavedMeal[]> {
   const ids = rows.flatMap((row) => (row.meal_id ? [row.meal_id] : []));
   const live = new Map((await getMealStatuses(ids)).map((meal) => [meal.id, meal]));
   return rows.map((row) => toSaved(row, statusOf(row, row.meal_data as unknown as MealType, live)));
+}
+
+// Someone else's saved meals (empty unless they made them public), read-only:
+// no catalog status strips on a visitor's view.
+export async function listPublicSavedMeals(userId: string): Promise<SavedMeal[]> {
+  const rows = await listPublicSavedMealRows(userId);
+  return rows.map((row) => toSaved(row, null));
 }
 
 // Throws Error("limit") at the limit (the database trigger's). Saving an already-saved meal

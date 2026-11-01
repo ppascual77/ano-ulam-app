@@ -5,7 +5,7 @@ import { colors } from "@/frontend/constants/theme";
 import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import type { SavedMeal } from "@/frontend/core/saved/types";
-import type { PublicProfile } from "../../mock/users";
+import type { PublicProfile } from "../../hooks/useProfile";
 import { MealGrid } from "../MealGrid";
 import { EmptyState } from "../EmptyState";
 import { PosterChip } from "../CardOverlays";
