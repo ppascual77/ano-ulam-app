@@ -1,7 +1,9 @@
 import { Pressable, View } from "react-native";
+import Animated, { ZoomIn, ZoomOut } from "react-native-reanimated";
 import { ChevronRight, Lock } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
+import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { SettingsRowDescription, SettingsRowLabel } from "./SettingsSection";
 
 type ProSettingRowProps = {
@@ -11,11 +13,17 @@ type ProSettingRowProps = {
   /** Without Pro: a lock, and the row opens the upsell instead. */
   locked: boolean;
   onPress: () => void;
+  /** Position in the list: unlocking (or locking) ripples down the rows. */
+  index?: number;
 };
 
 // One row in Settings > Pro: name with the PRO badge, a line under it, and a
-// chevron (or a lock without Pro).
-export function ProSettingRow({ label, description, locked, onPress }: ProSettingRowProps) {
+// chevron (or a lock without Pro). When Pro turns on or off, the lock and
+// chevron swap with a small pop, one row after another.
+export function ProSettingRow({ label, description, locked, onPress, index = 0 }: ProSettingRowProps) {
+  const reduceMotion = useReduceMotion();
+  const enter = reduceMotion ? undefined : ZoomIn.delay(index * 70).springify().damping(12);
+  const exit = reduceMotion ? undefined : ZoomOut.duration(140);
   return (
     <Pressable onPress={onPress} accessibilityRole="button" className="flex-row items-center gap-3 active:opacity-60">
       <View className="flex-1">
@@ -25,7 +33,17 @@ export function ProSettingRow({ label, description, locked, onPress }: ProSettin
         </View>
         <SettingsRowDescription>{description}</SettingsRowDescription>
       </View>
-      {locked ? <Lock color={colors.ink.subtle} size={16} /> : <ChevronRight color={colors.ink.subtle} size={18} />}
+      <View className="h-5 w-5 items-center justify-center">
+        {locked ? (
+          <Animated.View key="lock" entering={enter} exiting={exit}>
+            <Lock color={colors.ink.subtle} size={16} />
+          </Animated.View>
+        ) : (
+          <Animated.View key="open" entering={enter} exiting={exit}>
+            <ChevronRight color={colors.ink.subtle} size={18} />
+          </Animated.View>
+        )}
+      </View>
     </Pressable>
   );
 }

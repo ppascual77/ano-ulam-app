@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
@@ -7,7 +7,11 @@ import { ArrowRight, Check, Minus, X } from "lucide-react-native";
 import { AppText, Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { ProBadge } from "./ProBadge";
-import { useIsPro, useProStore } from "../store/useProStore";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useProStore, useProSubscription } from "../store/useProStore";
+import { nextLine, planName } from "../subscriptionCopy";
+import { ProCheckoutSheet } from "./ProCheckoutSheet";
+import { ProUnlockOverlay } from "./ProUnlockOverlay";
 import {
   COMPARE_ROWS,
   PLANS,
@@ -21,29 +25,47 @@ import {
 
 type ProPageProps = {
   onClose: () => void;
-  /** Pro has just been switched on (the trial started): toast and close. */
-  onStarted: () => void;
+  /** The unlock screen is done: close, then go to `route` if given (a
+   *  feature's try-it link). */
+  onStarted: (route?: string) => void;
+  /** Off where navigating would happen under a sheet (inside Meal Details):
+   *  hides the unlock screen's try-it links and the Settings link. */
+  allowLinks?: boolean;
+  /** Settings' plan card: opens the plan's management instead. */
+  onManage?: () => void;
 };
 
 // The full Pro page (ProUpgradeSheet is the quick version, and links here):
 // the promise, press, Free vs Pro, a plan, then what people say. The button
 // stays pinned at the bottom while the rest scrolls. Shown as the /pro
-// screen, and inside the meal sheet (a screen can't open over it). The
-// caller handles the safe area.
-export function ProPage({ onClose, onStarted }: ProPageProps) {
-  const isPro = useIsPro();
-  const setPro = useProStore((s) => s.setPro);
-  const [plan, setPlan] = useState<PlanKey>("monthly");
+// screen, and inside the meal sheet (a screen can't open over it). Handles
+// its own safe area, so the unlock screen can cover the whole page.
+//
+// Starting Pro (MOCK, no payments yet): the button opens a test checkout
+// sheet; confirming starts the trial (useProStore) under the unlock screen,
+// which plays over this page. All of it lives in this page as layers, not
+// new screens or Modals, since it also runs inside the meal sheet.
+export function ProPage({ onClose, onStarted, allowLinks = true, onManage }: ProPageProps) {
+  const insets = useSafeAreaInsets();
+  const subscription = useProSubscription();
+  const startTrial = useProStore((s) => s.startTrial);
+  const [plan, setPlan] = useState<PlanKey>(subscription?.plan ?? "monthly");
   const chosen = PLANS[plan];
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const confirmed = useRef(false);
+  const [unlocking, setUnlocking] = useState(false);
 
-  const start = () => {
-    // MOCK: no subscriptions yet, same test unlock as the sheet.
-    setPro(true);
-    onStarted();
+  // Once the checkout sheet has slid away: the trial starts and the unlock
+  // screen plays (the gates flip under it, so they're open when it ends).
+  const afterCheckout = () => {
+    if (!confirmed.current) return;
+    confirmed.current = false;
+    startTrial(plan);
+    setUnlocking(true);
   };
 
   return (
-    <View className="flex-1 bg-white">
+    <View className="flex-1 bg-white" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
       <View className="flex-row items-center justify-between px-6 pb-2 pt-1">
         <Pressable
           onPress={onClose}
@@ -72,17 +94,39 @@ export function ProPage({ onClose, onStarted }: ProPageProps) {
       </ScrollView>
 
       <View className="gap-3 border-t border-ink-emphasis/10 px-6 pb-2 pt-4">
-        {isPro ? (
-          <Button label="You have Pro" variant="secondary" disabled />
+        {subscription && !unlocking ? (
+          <>
+            <Text className="text-center font-inter-regular text-small text-ink-subtle">
+              You&apos;re on {planName(subscription.plan)}. {nextLine(subscription)}
+            </Text>
+            {allowLinks && onManage ? (
+              <Button label="Manage your plan" variant="muted" onPress={onManage} />
+            ) : (
+              <Button label="You have Pro" variant="secondary" disabled />
+            )}
+          </>
         ) : (
           <>
             <Text className="text-center font-inter-regular text-small text-ink-subtle">
               {TRIAL_DAYS} days free, then ₱{chosen.price}/{chosen.per}. Cancel anytime.
             </Text>
-            <Button label={`Start ${TRIAL_DAYS}-day free trial`} variant="secondary" onPress={start} />
+            <Button label={`Start ${TRIAL_DAYS}-day free trial`} variant="secondary" onPress={() => setCheckoutOpen(true)} />
           </>
         )}
       </View>
+
+      <ProCheckoutSheet
+        visible={checkoutOpen}
+        plan={plan}
+        onClose={() => setCheckoutOpen(false)}
+        onConfirm={() => {
+          confirmed.current = true;
+          setCheckoutOpen(false);
+        }}
+        onClosed={afterCheckout}
+      />
+
+      {unlocking && <ProUnlockOverlay allowLinks={allowLinks} onDone={onStarted} />}
     </View>
   );
 }

@@ -30,6 +30,7 @@ import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenInt
 import { DotHandoffOverlay, GlobalToast } from "@/frontend/components/ui";
 import { SaveFeedbackLayer } from "@/frontend/core/saved/components/SaveFeedbackLayer";
 import { noteTouch, useSaveFeedbackStore } from "@/frontend/core/saved/store/useSaveFeedbackStore";
+import { useProStore } from "@/frontend/core/pro/store/useProStore";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 import { DotRevealOverlay } from "@/frontend/features/onboarding/components/DotReveal";
 
@@ -61,12 +62,15 @@ export default function RootLayout() {
   const loadSeenIntros = useSeenIntrosStore((s) => s.load);
   // Save feedback's Profile dot and how many hint toasts have shown.
   const loadSaveFeedback = useSaveFeedbackStore((s) => s.load);
+  // The mock Pro subscription (on the phone until there are real ones).
+  const loadPro = useProStore((s) => s.load);
   useEffect(() => {
     void loadReduceMotion();
     void loadSurpriseMe();
     void loadSeenIntros();
     void loadSaveFeedback();
-  }, [loadReduceMotion, loadSurpriseMe, loadSeenIntros, loadSaveFeedback]);
+    void loadPro();
+  }, [loadReduceMotion, loadSurpriseMe, loadSeenIntros, loadSaveFeedback, loadPro]);
 
   const authLoading = useAuthStore((s) => s.loading);
   // Seen page intros follow the account: synced once the first session
