@@ -705,12 +705,17 @@ async function cmdMarkReviewed() {
 // ~150 KB JPEG with macOS sips, like the app's compressImageForUpload.
 // Optional words after `image` set the framing, e.g. `image tight close-up,
 // the food filling the whole frame`; otherwise one of SEED_FRAMING. Seeded
-// photos are zoomed in a bit more than the function's own picks (Patrick,
-// 2026-11-01); Edit Meal keeps the function's.
+// photos are zoomed in a bit more than the function's own picks, with the
+// dish centered (Patrick, 2026-11-01: off-center shots looked wrong), and
+// always on a regular ceramic plate or bowl: the function's random vessel
+// list includes banana leaves and rattan/bilao, which he doesn't want on any
+// meal (2026-11-02). Added to every framing, including ones passed in, since
+// the vessel pick otherwise overrides it. Edit Meal keeps the function's.
+const SEED_VESSEL = "served on a regular ceramic plate or bowl, never on a banana leaf, rattan, bilao or woven basket";
 const SEED_FRAMING = [
-  "zoomed in a bit: a close-up with the food filling most of the frame, the vessel's rim partly cropped",
-  "zoomed in a bit: a close-up on the food, the vessel slightly off-center and only a sliver of table showing",
-  "zoomed in a bit: close enough to see the food's texture, the vessel's edge running out of frame on one side",
+  "zoomed in a bit: the dish centered in the frame, the food filling most of it, the rim cropped evenly",
+  "zoomed in a bit: the dish centered with even space on both sides and only a sliver of table showing",
+  "zoomed in a bit: centered and close enough to see the food's texture, the vessel fully in frame",
 ];
 
 async function cmdImage(...framingWords: string[]) {
@@ -719,7 +724,7 @@ async function cmdImage(...framingWords: string[]) {
     name: session.form.name,
     description: session.form.description || null,
     referenceImageUrl: session.draft.reference_image_url,
-    framing: framingWords.join(" ") || SEED_FRAMING[Math.floor(Math.random() * SEED_FRAMING.length)],
+    framing: `${framingWords.join(" ") || SEED_FRAMING[Math.floor(Math.random() * SEED_FRAMING.length)]}; ${SEED_VESSEL}`,
   };
   const { imageBase64, mimeType } = await generateMealImage(request);
   const base = sessionPath().replace(/\.json$/, "");
