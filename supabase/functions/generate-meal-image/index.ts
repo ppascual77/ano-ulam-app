@@ -50,32 +50,30 @@ const BASE_PROMPT = `Photograph this Filipino home-cooked dish in cool, neutral 
 // scene from these lists (all things a Filipino home table actually has),
 // and only the daylight color rule above stays fixed. Soups get bowls.
 const SOUP_PATTERN = /\b(soup|sabaw|tinola|sinigang|nilaga|bulalo|binacol|batchoy|lomi|mami|arroz caldo|lugaw|goto|pancit molo|sopas|halang|soupy)\b/i;
+// Ceramic plates and bowls only, set straight on the table: banana leaves,
+// rattan, buri mats, clay pots and pans made meals look cheap (Patrick,
+// 2026-11-02), and naming one here outranked any "never" in the framing.
 const BOWLS = [
   "a white ceramic soup bowl",
   "a speckled blue enamel bowl",
   "a dark matte stoneware bowl",
-  "a small clay palayok-style pot",
   "a wide shallow white bowl with a thin blue rim",
-  "a plain cream-colored melamine bowl",
+  "a plain cream-colored ceramic bowl",
 ];
 const PLATES = [
   "a plain white round plate",
   "a speckled white-and-blue enamel plate",
   "a shallow dark stoneware plate",
   "a wide bowl-plate in pale celadon green",
-  "a woven rattan plate holder lined with a piece of banana leaf",
   "an oval serving platter with a thin floral rim",
-  "a small cast-iron pan straight from the stove",
 ];
 const SURFACES = [
   "a light natural wood table",
   "a dark weathered wood table",
-  "a woven buri placemat",
   "a gray concrete countertop",
   "a white-and-blue checkered tablecloth",
   "a plain linen cloth in muted sage",
   "a white tiled kitchen counter",
-  "a fresh banana leaf laid on the table",
 ];
 // No top-down/flat-lay: Patrick found overhead shots not enticing
 // (2026-10-30). Every angle shows the food's height and texture.
