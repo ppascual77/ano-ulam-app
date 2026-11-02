@@ -711,7 +711,8 @@ async function cmdMarkReviewed() {
 // list includes banana leaves and rattan/bilao, which he doesn't want on any
 // meal (2026-11-02). Added to every framing, including ones passed in, since
 // the vessel pick otherwise overrides it. Edit Meal keeps the function's.
-const SEED_VESSEL = "served on a regular ceramic plate or bowl, never on a banana leaf, rattan, bilao or woven basket";
+const SEED_VESSEL =
+  "plated directly on a regular ceramic plate or bowl (this overrides any other vessel), never in a skillet, pan or pot, never on a banana leaf, rattan, bilao or woven basket";
 const SEED_FRAMING = [
   "zoomed in a bit: the dish centered in the frame, the food filling most of it, the rim cropped evenly",
   "zoomed in a bit: the dish centered with even space on both sides and only a sliver of table showing",
