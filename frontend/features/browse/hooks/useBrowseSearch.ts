@@ -44,7 +44,7 @@ function order(meals: MealType[], sort: MealFilters["sortByPrice"]) {
 // web showed an empty state there).
 export function useBrowseSearch({ isGuest, isPro }: { isGuest: boolean; isPro: boolean }) {
   // Daily searches: guests, free accounts, none for Pro (see dailyLimits).
-  // Pro: results never include meals with an ingredient to avoid.
+  // Pro: meals with an ingredient to avoid are flagged (isAvoided).
   const { isAvoided } = useAvoidFilter();
   const daily = useDailyLimit("search", dailyLimitFor({ isPro, isGuest }, GUEST_DAILY_SEARCHES, FREE_DAILY_SEARCHES));
   const [query, setQuery] = useState("");
@@ -100,6 +100,11 @@ export function useBrowseSearch({ isGuest, isPro }: { isGuest: boolean; isPro: b
     // Sort is applied below without a new request.
   }, [trimmed, applied.proteinTypes, applied.dietaryTags, applied.tags, applied.restaurants, applied.priceRange, daily.limit, isSearchMode]);
 
+  // Pro: meals with an ingredient to avoid stay in the results, after the
+  // rest, for the screen to show covered (AvoidedMealCover): hiding them
+  // made a search look like the catalog had nothing.
+  const sorted = order(results, applied.sortByPrice);
+
   return {
     query,
     setQuery,
@@ -107,7 +112,9 @@ export function useBrowseSearch({ isGuest, isPro }: { isGuest: boolean; isPro: b
     setApplied,
     isSearchMode,
     loading,
-    results: order(results.filter((meal) => !isAvoided(meal)), applied.sortByPrice),
+    results: [...sorted.filter((meal) => !isAvoided(meal)), ...sorted.filter((meal) => isAvoided(meal))],
+    /** True when a result uses an ingredient the user avoids. */
+    isAvoided,
     limitReached,
     /** Today's limit for this user, null for Pro. */
     limit: daily.limit,
