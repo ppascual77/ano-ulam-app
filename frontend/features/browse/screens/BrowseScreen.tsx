@@ -37,6 +37,7 @@ import { FilterButton } from "../components/FilterButton";
 import { FilterSheet } from "../components/FilterSheet";
 import { SearchResults } from "../components/SearchResults";
 import { EmptyMealView, GuestLimitGate } from "../components/EmptyStates";
+import { AvoidedMealCover } from "../components/AvoidedMealCover";
 import { BrowseIntro } from "../components/BrowseIntro";
 
 // TEMP (dev only): act signed in without a session (Google sign-in can't
@@ -140,7 +141,20 @@ export default function BrowseScreen() {
     />
   );
 
-  const renderCard = (meal: MealType) => (
+  const renderCard = (meal: MealType) => {
+    const card = renderMealCard(meal);
+    if (!search.isAvoided(meal)) return card;
+    return (
+      <AvoidedMealCover
+        onView={() => detail.open(meal.id)}
+        onManage={() => router.navigate({ pathname: "/profile/settings", params: { pro: "avoid" } })}
+      >
+        {card}
+      </AvoidedMealCover>
+    );
+  };
+
+  const renderMealCard = (meal: MealType) => (
     <MealCard
       meal={meal}
       isFastFood={meal.category === "fast_food"}
