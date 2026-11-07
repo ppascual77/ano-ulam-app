@@ -70,36 +70,40 @@ function PlanWeekCardInner({ title = "Plan your week", subtitle, cta = "Start pl
   const line = subtitle ?? `${days} days of meals and one grocery list, all within your budget.`;
 
   return (
-    <Pressable
-      onPress={() => router.push("/meal-planner")}
-      accessibilityRole="button"
-      accessibilityLabel={`${title}, a Pro feature. ${line}`}
-      // White like Today's plan card, over Home's dark green.
-      className="overflow-hidden rounded-3xl bg-white shadow-sm active:opacity-90"
-    >
-      <View className="flex-row items-center px-5 py-5">
-        <View className="flex-1 gap-2 pr-2">
-          <View className="flex-row items-center gap-2">
-            <Text className="font-inter-bold text-sub uppercase text-primary">Meal planner</Text>
-            <ProBadge />
+    // The shadow sits on a wrapper: the card's own overflow-hidden (for its
+    // rounded corners) would clip it on iOS.
+    <View className="rounded-3xl bg-white shadow-sm">
+      <Pressable
+        onPress={() => router.push("/meal-planner")}
+        accessibilityRole="button"
+        accessibilityLabel={`${title}, a Pro feature. ${line}`}
+        // White like Today's plan card, over Home's dark green.
+        className="overflow-hidden rounded-3xl bg-white active:opacity-90"
+      >
+        <View className="flex-row items-center px-5 py-5">
+          <View className="flex-1 gap-2 pr-2">
+            <View className="flex-row items-center gap-2">
+              <Text className="font-inter-bold text-sub uppercase text-primary">Meal planner</Text>
+              <ProBadge />
+            </View>
+            <Text className="font-inter-extrabold text-heading tracking-display text-ink-emphasis">
+              {title}
+              <Text className="text-accent">.</Text>
+            </Text>
+            <Text className="font-inter-regular text-small text-ink-subtle">{line}</Text>
+            <View className="mt-1 flex-row items-center gap-1.5 self-start rounded-full bg-primary px-4 py-2">
+              <Text className="font-inter-semibold text-small text-white">{cta}</Text>
+              <ArrowRight color={colors.white} size={14} />
+            </View>
           </View>
-          <Text className="font-inter-extrabold text-heading tracking-display text-ink-emphasis">
-            {title}
-            <Text className="text-accent">.</Text>
-          </Text>
-          <Text className="font-inter-regular text-small text-ink-subtle">{line}</Text>
-          <View className="mt-1 flex-row items-center gap-1.5 self-start rounded-full bg-primary px-4 py-2">
-            <Text className="font-inter-semibold text-small text-white">{cta}</Text>
-            <ArrowRight color={colors.white} size={14} />
+          <View className="h-28 w-32 items-center justify-center">
+            {photos.map((uri, i) => (
+              <FanPhoto key={i} uri={uri} index={i} reduceMotion={reduceMotion} />
+            ))}
           </View>
         </View>
-        <View className="h-28 w-32 items-center justify-center">
-          {photos.map((uri, i) => (
-            <FanPhoto key={i} uri={uri} index={i} reduceMotion={reduceMotion} />
-          ))}
-        </View>
-      </View>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }
 

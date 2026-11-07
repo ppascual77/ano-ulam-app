@@ -20,6 +20,7 @@ import {
   parseQuantityText,
   recomputeMealTotals,
   recomputeMealsUsingIngredient,
+  replaceMealIngredients,
   updateMeal,
   type ImportedMealDraft,
   type QuantityUnit,
@@ -711,12 +712,17 @@ async function cmdMarkReviewed() {
 // list includes banana leaves and rattan/bilao, which he doesn't want on any
 // meal (2026-11-02). Added to every framing, including ones passed in, since
 // the vessel pick otherwise overrides it. Edit Meal keeps the function's.
+// Since the function's own vessel list is ceramic-only (2026-11-02), this
+// no longer overrides its pick: overriding made every photo a plain white
+// plate (Patrick, 2026-11-07: vary the plate, a bowl for soupy dishes).
 const SEED_VESSEL =
-  "plated directly on a regular ceramic plate or bowl (this overrides any other vessel), never in a skillet, pan or pot, never on a banana leaf, rattan, bilao or woven basket";
+  "served in the scene's vessel (a bowl if the dish is soupy or saucy), never in a skillet, pan or pot, never on a banana leaf, rattan, bilao or woven basket";
+// Tight by default: Patrick kept asking for tighter shots (2026-11-07), the
+// food filling almost the whole frame with only a sliver of the rim.
 const SEED_FRAMING = [
-  "zoomed in a bit: the dish centered in the frame, the food filling most of it, the rim cropped evenly",
-  "zoomed in a bit: the dish centered with even space on both sides and only a sliver of table showing",
-  "zoomed in a bit: centered and close enough to see the food's texture, the vessel fully in frame",
+  "very tight close-up from just above the rim, the food filling almost the whole frame edge to edge, only a thin sliver of the rim visible, dish centered",
+  "tight close-up, dish centered, the food filling nearly the whole frame, the rim cropped evenly on both sides, no table showing",
+  "close-up near the rim, centered, close enough to see the food's texture and sauce, only a thin edge of the vessel visible",
 ];
 
 async function cmdImage(...framingWords: string[]) {
@@ -783,9 +789,7 @@ async function cmdAttachImage() {
 
 // Same gates as Seed Meal's Confirm Seed, plus this flow's own: every line
 // approved, copy approved, fresh-eyes review done.
-async function cmdSave() {
-  const session = load();
-  if (session.savedMealId) fail(`Already saved as meal ${session.savedMealId}`);
+async function saveBlockers(session: Session) {
   const { items, unlinked, calc } = await calculation(session);
   const runs = copyRuns(session);
   const blockers = [
@@ -800,6 +804,13 @@ async function cmdSave() {
     !session.reviewed && "fresh-eyes review not done",
   ].filter(Boolean);
   if (blockers.length) fail(`Can't save yet:\n- ${blockers.join("\n- ")}`);
+  return items;
+}
+
+async function cmdSave() {
+  const session = load();
+  if (session.savedMealId) fail(`Already saved as meal ${session.savedMealId} (to change it, use \`update-saved\`)`);
+  const items = await saveBlockers(session);
 
   const meal = await createMeal(mealInsertFromForm(session.draft, session.form));
   for (let i = 0; i < items.length; i++) await addMealIngredient(meal.id, mealIngredientInput(items[i], i));
@@ -822,6 +833,25 @@ async function cmdSave() {
   session.savedMealId = meal.id;
   save(session);
   out(`Saved "${meal.name}" as meal ${meal.id} (approved, in the catalog).`);
+}
+
+// A fix to a meal this session already saved (e.g. Tosilog's ready-made
+// sinangag split into rice, garlic and oil, 2026-11-05): the same gates as
+// save, then the saved meal's fields, steps and lines are replaced like
+// Edit Meal does, and totals and pill tags recomputed. Its status, image and
+// source link stay.
+async function cmdUpdateSaved() {
+  const session = load();
+  if (!session.savedMealId) fail("Not saved yet, use `save`.");
+  const items = await saveBlockers(session);
+  const mealId = session.savedMealId!;
+  const { reference_image_url: _reference, ...fields } = mealInsertFromForm(session.draft, session.form);
+  await updateMeal(mealId, fields);
+  await replaceMealIngredients(mealId, items.map((item, i) => mealIngredientInput(item, i)));
+  const recomputed = await recomputeMealTotals(mealId);
+  const tags = syncedPillTags(recomputed);
+  if (tags) await updateMeal(mealId, { tags });
+  out(`Updated saved meal "${session.form.name}" (${mealId}): ${items.length} lines, steps and details replaced.`);
 }
 
 async function cmdUse(path: string | undefined) {
@@ -1223,6 +1253,7 @@ const commands: Record<string, (...a: string[]) => Promise<void>> = {
   "attach-image": cmdAttachImage,
   status: cmdStatus,
   save: cmdSave,
+  "update-saved": cmdUpdateSaved,
   use: cmdUse,
 };
 

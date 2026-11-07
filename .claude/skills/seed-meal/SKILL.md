@@ -44,6 +44,7 @@ Every step goes through one command (allow it once):
 | `image` | Generate our own image (source photo is only a private reference) |
 | `attach-image` | Set the image on a meal this session already saved |
 | `status` / `save` / `use <file>` | Progress, save (refuses until every gate passes), resume a session |
+| `update-saved` | For a session already saved: same gates as save, then replace that meal's lines, steps and details (status, image and source link stay) |
 | `--session <file> <command>` | Run any command on that session instead of the current one (batch mode) |
 | `batch-start <urls...>` / `batch-status` | Import up to 5 into a batch / one-line summary per meal |
 | `note <key> <json>` | Prep's evidence for a line: `{"confidence":"high\|medium\|low","why":"...","flag":"..."}` |
