@@ -55,7 +55,7 @@ Last updated: **2026-11-06** (live state checked that day: deployed functions, t
 
 | Area | What's real | Where |
 | --- | --- | --- |
-| Sign-in | Google OAuth through Supabase Auth. In Expo Go it only works when served with `npm run tunnel` ([supabase/auth#2039](https://github.com/supabase/auth/issues/2039)). | `api/auth.ts` |
+| Sign-in | Google OAuth through Supabase Auth. In Expo Go it only works when served with `npm run tunnel` ([supabase/auth#2039](https://github.com/supabase/auth/issues/2039)). The dev build (2026-11-07) redirects to `anoulam://`, which has to be in Supabase's Redirect URLs. | `api/auth.ts` |
 | Account and preferences | The `users` row: name, avatar, dietary focus, allergens, and the Pro settings in `users.preferences` (ingredients to avoid, nutrition goals, meal plan length, price alerts; acted on while Pro, see Partly integrated). Dietary focus and allergens **filter every "for you" list** (allergens always left out; vegetarian accepts vegan, pescatarian accepts both). | `api/auth.ts`, `core/preferences`, `core/budget/utils/budgetMatch.ts` |
 | Meals catalog | `meals` and `meal_ingredients`: Discover reel, Browse search (with a Protein Source filter), Recommendations, Best Value meals, Meal Detail. Opening a meal from any list loads the full meal first, so ingredients and micronutrients always show. | `api/meals.ts`, `core/meals/hooks/useFullMeal.ts` |
 | Ingredients and nutrition | `ingredients` grounded from USDA and FNRI, macros and micronutrients per meal, verification locks. | `api/ingredients.ts`, edge fns `ground-ingredients-usda`, `estimate-ingredient-ai`, `verify-meal-ingredients` |
@@ -122,6 +122,8 @@ Every row here works on real data, but is only as real as `isPro`, which comes f
 - **Klipy**: move the API key behind a proxy.
 - **Community moderation**: posts go live at once, with no report or hide.
 - **Native sign-in**: native Google sign-in (instead of the browser flow) and Apple sign-in.
+- **Google sign-in URL looks sketchy**: the Google screen says it's continuing to `ykrultxqfxgyiziqrrgp.supabase.co`, the raw Supabase project address. Fix with native Google sign-in (Google then shows the app name), or a Supabase custom domain such as `auth.anoulam.com` (paid add-on), plus the app name, logo and support email on the Google Cloud OAuth consent screen.
+- **Supabase Site URL**: still `http://localhost:3000`, which is where a rejected redirect lands. Set it to a real page before release.
 - **Paywall promises**: price drop alerts and weekly savings are on the paywall but have no surface now; the rest are built and need real Pro (subscriptions) to reach paying users.
 - **OpenAI models**: `gpt-4o-mini` and `gpt-4o` shut down on **2027-01-14**. Nearly every edge function uses `gpt-4o-mini`.
 - **Dev-only shortcuts to remove**:
