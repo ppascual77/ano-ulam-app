@@ -2,7 +2,7 @@ import { View } from "react-native";
 import { Image } from "expo-image";
 import { Check } from "lucide-react-native";
 import { AppText } from "@/frontend/components/ui";
-import { GoogleSignInButton } from "@/frontend/features/auth/components/GoogleSignInButton";
+import { SignInButtons } from "@/frontend/features/auth/components/SignInButtons";
 import { colors } from "@/frontend/constants/theme";
 import type { AccountPitchSlideData } from "../slides";
 import { HighlightedText } from "./HighlightedText";
@@ -45,8 +45,8 @@ export function AccountPitchSlide({ slide, width, onContinueWithGoogle, onContin
         ))}
       </View>
 
-      <View className="gap-3 mb-4">
-        <GoogleSignInButton onPress={onContinueWithGoogle} signingIn={isSigningIn} />
+      <View className="mb-4">
+        <SignInButtons onGoogle={onContinueWithGoogle} signingIn={isSigningIn} />
       </View>
 
       <AppText

@@ -1,6 +1,6 @@
 import { Text, View } from "react-native";
 import { AppText, BottomSheet } from "@/frontend/components/ui";
-import { GoogleSignInButton } from "./GoogleSignInButton";
+import { SignInButtons } from "./SignInButtons";
 
 export type LoginGateReason = "save" | "create";
 
@@ -64,7 +64,7 @@ export function LoginGateSheet({
         </AppText>
         <Text className="mt-3 font-inter-regular text-body text-web-ink-muted">{copy.description}</Text>
         <View className="mt-8">
-          <GoogleSignInButton onPress={onContinueWithGoogle} signingIn={isSigningIn} />
+          <SignInButtons onGoogle={onContinueWithGoogle} signingIn={isSigningIn} />
         </View>
       </View>
     </BottomSheet>
