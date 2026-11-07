@@ -8,9 +8,11 @@
     "scheme": "anoulam",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anoulam.app"
     },
     "android": {
+      "package": "com.anoulam.app",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png"
