@@ -11,7 +11,7 @@ import {
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowRight, Check } from "lucide-react-native";
+import { ArrowRight } from "lucide-react-native";
 import { Button, CarouselIndicator } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { ContentSlide } from "../components/ContentSlide";
@@ -209,10 +209,6 @@ export default function OnboardingScreen() {
   };
 
   const handleNext = () => {
-    if (isLast) {
-      handleGoogleSignIn();
-      return;
-    }
     scrollStartOffsetRef.current = width * index;
     hasPulsedRef.current = false;
     scrollRef.current?.scrollTo({ x: width * (index + 1), animated: true });
@@ -264,7 +260,9 @@ export default function OnboardingScreen() {
           )}
         </ScrollView>
 
-        <View className="flex-row items-center justify-between px-10 mb-6">
+        {/* h-14 holds the row's height on the last slide, where the next
+            button goes away (the sign-in buttons on the slide take over). */}
+        <View className="h-14 flex-row items-center justify-between px-10 mb-6">
           {/* The flat accent pill squeezes into a ball, hops to the next
               page and flattens out again. */}
           <CarouselIndicator
@@ -275,19 +273,14 @@ export default function OnboardingScreen() {
             hopMarkerRef={indicatorDotRef}
             hopMarkerHidden={arriving}
           />
-          <Button
-            icon={
-              isLast ? (
-                <Check color={colors.white} size={24} />
-              ) : (
-                <ArrowRight color={colors.white} size={24} />
-              )
-            }
-            variant="primary"
-            shape="circle"
-            disabled={isLast && signInWithGoogle.isPending}
-            onPress={handleNext}
-          />
+          {!isLast && (
+            <Button
+              icon={<ArrowRight color={colors.white} size={24} />}
+              variant="primary"
+              shape="circle"
+              onPress={handleNext}
+            />
+          )}
         </View>
       </SafeAreaView>
 

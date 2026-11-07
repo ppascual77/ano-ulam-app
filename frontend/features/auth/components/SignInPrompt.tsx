@@ -2,7 +2,7 @@ import { Text, View } from "react-native";
 import { Image } from "expo-image";
 import { AppText } from "@/frontend/components/ui";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
-import { GoogleSignInButton } from "./GoogleSignInButton";
+import { SignInButtons } from "./SignInButtons";
 import { TermsLine } from "./TermsLine";
 
 type SignInPromptProps = {
@@ -19,7 +19,7 @@ type SignInPromptProps = {
 
 // A guest hitting something that needs an account (someone's profile,
 // Browse's daily limit, the end of Discover's guest feed), in the app's own
-// style: art, a dotted title, one line of why, the Google button, terms.
+// style: art, a dotted title, one line of why, the sign-in buttons, terms.
 export function SignInPrompt({ title, description, onSignIn, signingIn = false, art, tone = "light" }: SignInPromptProps) {
   const reduceMotion = useReduceMotion();
   const dark = tone === "dark";
@@ -42,7 +42,7 @@ export function SignInPrompt({ title, description, onSignIn, signingIn = false, 
         </Text>
       </View>
       <View className="w-full max-w-[320px]">
-        <GoogleSignInButton onPress={onSignIn} signingIn={signingIn} />
+        <SignInButtons onGoogle={onSignIn} signingIn={signingIn} />
       </View>
       <TermsLine tone={tone} />
     </View>

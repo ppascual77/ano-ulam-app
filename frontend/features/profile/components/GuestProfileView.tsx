@@ -4,7 +4,7 @@ import { Check } from "lucide-react-native";
 import { AppText } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
-import { GoogleSignInButton } from "@/frontend/features/auth/components/GoogleSignInButton";
+import { SignInButtons } from "@/frontend/features/auth/components/SignInButtons";
 import { TermsLine } from "@/frontend/features/auth/components/TermsLine";
 
 // One per Profile tab a guest is missing out on.
@@ -16,8 +16,7 @@ type GuestProfileViewProps = {
 };
 
 // Profile while logged out, in the app's own style (the onboarding account
-// pitch's look). Google is the only way in (signing in with it also creates
-// the account), so one button.
+// pitch's look). Signing in with Apple or Google also creates the account.
 export function GuestProfileView({ onSignIn, signingIn = false }: GuestProfileViewProps) {
   const reduceMotion = useReduceMotion();
 
@@ -52,7 +51,7 @@ export function GuestProfileView({ onSignIn, signingIn = false }: GuestProfileVi
         ))}
       </View>
 
-      <GoogleSignInButton onPress={onSignIn} signingIn={signingIn} />
+      <SignInButtons onGoogle={onSignIn} signingIn={signingIn} />
 
       <TermsLine />
     </View>

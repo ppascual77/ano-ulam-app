@@ -6,9 +6,7 @@ type GoogleSignInButtonProps = {
   signingIn?: boolean;
 };
 
-// The one way to sign up or log in (no email/password): every guest gate,
-// the login sheet and onboarding use this. Apple goes next to it once
-// Sign in with Apple is built.
+// Used through SignInButtons, which pairs it with Apple.
 export function GoogleSignInButton({ onPress, signingIn = false }: GoogleSignInButtonProps) {
   return (
     <Button
