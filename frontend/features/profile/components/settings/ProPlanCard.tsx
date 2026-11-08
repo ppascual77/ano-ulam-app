@@ -5,37 +5,40 @@ import { ChevronRight } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 import type { ProSubscription } from "@/frontend/core/pro/store/useProStore";
-import { TRIAL_DAYS } from "@/frontend/core/pro/proContent";
-import { STATUS_LABEL, daysUntil, nextLine, planName } from "@/frontend/core/pro/subscriptionCopy";
+import { STATUS_LABEL, nextLine, planName, timeLeft } from "@/frontend/core/pro/subscriptionCopy";
 
 export const STATUS_CHIP: Record<ProSubscription["status"], { bg: string; text: string }> = {
   trial: { bg: "bg-accent/10", text: "text-accent" },
   active: { bg: "bg-primary/10", text: "text-primary" },
   cancelled: { bg: "bg-ink-emphasis/10", text: "text-ink-subtle" },
+  expired: { bg: "bg-ink-emphasis/10", text: "text-ink-subtle" },
 };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 // The time left on a trial (or, cancelled, of Pro), as a share of the
 // whole, 0..1: the bar drains as the days go, matching its "N days left"
 // caption. Active plans have no bar.
 function progressOf(sub: ProSubscription): { value: number; caption: string } | null {
-  const left = daysUntil(sub.renewsAt);
-  const leftText = `${left} ${left === 1 ? "day" : "days"} left`;
+  const leftText = `${timeLeft(sub.renewsAt)} left`;
   if (sub.status === "trial" && sub.trialEndsAt) {
-    return { value: (new Date(sub.trialEndsAt).getTime() - Date.now()) / (TRIAL_DAYS * DAY_MS), caption: `${leftText} in your free trial` };
+    // Against the trial's real length (start to end), not TRIAL_DAYS:
+    // sandbox trials last minutes.
+    const total = new Date(sub.trialEndsAt).getTime() - new Date(sub.startedAt).getTime();
+    return { value: (new Date(sub.trialEndsAt).getTime() - Date.now()) / Math.max(total, 60_000), caption: `${leftText} in your free trial` };
   }
   if (sub.status === "cancelled") {
     const total = new Date(sub.renewsAt).getTime() - new Date(sub.startedAt).getTime();
-    return { value: (new Date(sub.renewsAt).getTime() - Date.now()) / Math.max(total, DAY_MS), caption: `${leftText} of Pro` };
+    return { value: (new Date(sub.renewsAt).getTime() - Date.now()) / Math.max(total, 60_000), caption: `${leftText} of Pro` };
   }
   return null;
 }
 
 // Settings > Pro's "your plan" card: plan, status, what happens next and (on
-// a trial or a cancelled plan) how much time is left. Tap to manage.
+// a trial or a cancelled plan) how much time is left. Tap to manage; an
+// expired plan (Pro ended recently) taps through to renew instead.
 export function ProPlanCard({ subscription, onPress }: { subscription: ProSubscription; onPress: () => void }) {
   const chip = STATUS_CHIP[subscription.status];
+  const expired = subscription.status === "expired";
   const progress = progressOf(subscription);
   const fill = useSharedValue(0);
   useEffect(() => {
@@ -48,8 +51,9 @@ export function ProPlanCard({ subscription, onPress }: { subscription: ProSubscr
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={`${planName(subscription.plan)}, ${STATUS_LABEL[subscription.status]}. ${nextLine(subscription)}. Manage your plan`}
-        className="gap-3 rounded-2xl border border-accent/20 bg-accent/5 p-4 active:opacity-80"
+        accessibilityLabel={`${planName(subscription.plan)}, ${STATUS_LABEL[subscription.status]}. ${nextLine(subscription)}. ${expired ? "Renew Pro" : "Manage your plan"}`}
+        // Expired: quiet grey instead of Pro's orange (it's not Pro now).
+        className={`gap-3 rounded-2xl border p-4 active:opacity-80 ${expired ? "border-ink-emphasis/10 bg-ink-emphasis/5" : "border-accent/20 bg-accent/5"}`}
       >
         <View className="flex-row items-center gap-2">
           <ProBadge />

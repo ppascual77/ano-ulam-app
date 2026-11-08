@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Screen, Toast, type ToastState } from "@/frontend/components/ui";
-import { useAuth, useSignInWithGoogle } from "@/frontend/features/auth/hooks/useAuth";
+import { type SignInProvider, useAuth, useSignIn } from "@/frontend/features/auth/hooks/useAuth";
 import { useMe, useUserProfile } from "../hooks/useProfile";
 import { BackRow } from "../components/BackRow";
 import { ProfileHeader } from "../components/ProfileHeader";
@@ -35,7 +35,7 @@ function HeaderSkeleton() {
 export default function UserProfileScreen() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const { isSignedIn } = useAuth();
-  const signIn = useSignInWithGoogle();
+  const signIn = useSignIn();
   const me = useMe();
   const isGuest = !isSignedIn && !DEV_FORCE_SIGNED_IN;
   const isMe = userId === me.id;
@@ -50,9 +50,9 @@ export default function UserProfileScreen() {
     if (isMe) router.replace("/profile");
   }, [isMe]);
 
-  const logIn = async () => {
+  const logIn = async (provider: SignInProvider) => {
     try {
-      await signIn.mutateAsync();
+      await signIn.mutateAsync(provider);
     } catch {
       showToast("Sign-in didn't go through. Please try again.");
     }

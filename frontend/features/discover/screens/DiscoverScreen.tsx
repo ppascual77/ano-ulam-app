@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronUp } from "lucide-react-native";
 import { Spinner, Toast, isModalSheetOpen, usePageIntro, type ToastState } from "@/frontend/components/ui";
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
+import { allRewardsEarned, useProRewardProgress } from "@/frontend/core/pro/hooks/useProRewardProgress";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { colors } from "@/frontend/constants/theme";
@@ -17,7 +18,7 @@ import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
-import { useAuth, useSignInWithGoogle } from "@/frontend/features/auth/hooks/useAuth";
+import { type SignInProvider, useAuth, useSignIn } from "@/frontend/features/auth/hooks/useAuth";
 import { mealKey, useDiscoverFeed } from "../hooks/useDiscoverFeed";
 import { FeedTabs, type DiscoverTab } from "../components/FeedTabs";
 import { ActionRail } from "../components/ActionRail";
@@ -77,7 +78,7 @@ type PendingAction = { type: "save"; meal: MealType } | { type: "create" };
 export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
   const { isSignedIn, session } = useAuth();
-  const signIn = useSignInWithGoogle();
+  const signIn = useSignIn();
 
   // Dev-only: force the guest experience while signed in, to test the login
   // gates and end-card without signing out.
@@ -229,7 +230,7 @@ export default function DiscoverScreen() {
     // Only on the guest -> signed-in transition.
   }, [isGuest]);
 
-  const continueWithGoogle = async () => {
+  const continueWith = async (provider: SignInProvider) => {
     // Forced-guest dev mode is already signed in: "logging in" just turns
     // the override off (which replays the pending action above).
     if (forceGuest && isSignedIn) {
@@ -237,7 +238,7 @@ export default function DiscoverScreen() {
       return;
     }
     try {
-      await signIn.mutateAsync();
+      await signIn.mutateAsync(provider);
     } catch {
       showToast("Sign-in didn't go through. Please try again.");
     }
@@ -286,15 +287,18 @@ export default function DiscoverScreen() {
   // ---- "Your recipe could earn you Pro" --------------------------------------
   // For signed-in free users, once they've watched EARN_PRO_AFTER_REELS reels
   // in one visit (they've just seen what others share), when nothing else is
-  // open. At most once a day; gone for good after 3 dismissals (the store).
+  // open. At most once a day; gone for good after 3 dismissals (the store,
+  // on the account). Never once every reward is earned.
 
   const isPro = useIsPro();
   const [earnProOpen, setEarnProOpen] = useState(false);
   const reelsSeen = useRef(new Set<number>());
+  const userId = session?.user.id ?? null;
   const loadEarnPro = useEarnProPromptStore((s) => s.load);
   useEffect(() => {
-    void loadEarnPro();
-  }, [loadEarnPro]);
+    if (userId) void loadEarnPro(userId);
+  }, [loadEarnPro, userId]);
+  const rewardProgress = useProRewardProgress();
   // Counts per visit.
   useFocusEffect(
     useCallback(() => {
@@ -306,7 +310,9 @@ export default function DiscoverScreen() {
     reelsSeen.current.add(feed.activeIndex);
     if (reelsSeen.current.size < EARN_PRO_AFTER_REELS) return;
     if (earnProOpen || intro.showing || detailOpen || gate || composer.open || createSheetOpen || isModalSheetOpen()) return;
-    if (!canShowEarnProPrompt()) return;
+    if (!userId || !canShowEarnProPrompt(userId)) return;
+    // Wait for real progress, and skip it once there's nothing left to earn.
+    if (!rewardProgress.data || allRewardsEarned(rewardProgress.data)) return;
     useEarnProPromptStore.getState().markShown();
     setEarnProOpen(true);
     // On each reel change only.
@@ -330,7 +336,7 @@ export default function DiscoverScreen() {
     <LoginGateSheet
       reason={gate}
       onClose={closeGate}
-      onContinueWithGoogle={continueWithGoogle}
+      onSignIn={continueWith}
       isSigningIn={signIn.isPending}
       presentation={presentation}
       onClosed={() => {
@@ -358,7 +364,7 @@ export default function DiscoverScreen() {
                   {item.kind === "meal" ? (
                     <Image source={resolveMealImage(item.meal)} style={{ flex: 1 }} contentFit="cover" />
                   ) : (
-                    <GuestEndCard onSignIn={continueWithGoogle} signingIn={signIn.isPending} />
+                    <GuestEndCard onSignIn={continueWith} signingIn={signIn.isPending} />
                   )}
                 </View>
               )}
@@ -452,7 +458,7 @@ export default function DiscoverScreen() {
           isGuest={isGuest}
           currentUserId={isGuest ? null : (session?.user.id ?? null)}
           topInset={insets.top + TABS_TOP_OFFSET + TABS_ROW_HEIGHT}
-          onLogIn={continueWithGoogle}
+          onLogIn={continueWith}
           onToast={showToast}
           onEditPost={(post) => setComposer({ open: true, editPost: post })}
           refreshKey={communityRefreshKey}
@@ -520,7 +526,12 @@ export default function DiscoverScreen() {
         onClosed={afterCreateSheetClosed}
       />
 
-      <EarnProSheet visible={earnProOpen} onClose={() => setEarnProOpen(false)} onClosed={afterEarnProClosed} />
+      <EarnProSheet
+        visible={earnProOpen}
+        progress={rewardProgress.data ?? null}
+        onClose={() => setEarnProOpen(false)}
+        onClosed={afterEarnProClosed}
+      />
 
       <CreatePostSheet
         visible={composer.open}

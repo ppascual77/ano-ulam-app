@@ -2,7 +2,7 @@
 
 What runs on real data, what's partly real, and what's still mock or unbuilt, across the whole app.
 
-Last updated: **2026-11-06** (live state checked that day: deployed functions, tables, an anon write probe). Update this file whenever something moves between sections.
+Last updated: **2026-11-08** (App Store subscriptions tested in sandbox that day; live database state last checked 2026-11-06: deployed functions, tables, an anon write probe). Update this file whenever something moves between sections.
 
 **Legend**
 
@@ -15,7 +15,18 @@ Last updated: **2026-11-06** (live state checked that day: deployed functions, t
 
 ## Summary
 
-### Done since the last update (2026-11-01 to 11-06)
+### Done since the last update (2026-11-07 to 11-08)
+
+- **EAS dev build** (`expo-dev-client`, bundle `com.anoulam.app`): the app now runs in its own dev build, which Apple sign-in and purchases need. Expo Go still opens it (RevenueCat runs in a mock preview mode there).
+- **Sign in with Apple**: native sheet + `signInWithIdToken`, name saved on first sign-in. Tested in the dev build.
+- **Real App Store subscriptions** through RevenueCat, tested end to end in sandbox: trial, conversion, renewals, cancel, expiry, restore. See Pro subscription (Partly integrated) and `docs/compliance.md` for the App Store setup.
+- **Onboarding redesign**: liquid glass sign-in buttons, 2-column goal tiles with nothing preselected, no next arrow. Preferences (onboarding, Settings, Home's sheet) have no "None" chip any more: nothing selected means none, with a Clear button.
+- **Sign-in and log-out overlay** (full-screen spiral), guest profile rebalanced, guest avatar in the nav is a line icon.
+- **"Your recipe could earn you Pro" sheet** on real data (see Partly integrated).
+- **Meal Planner**: today's / whole-week grocery buttons (week locked for Free), orange locks, one back arrow while planning, the macro goal locked to Pro (a premium card), and locked days, the week's list and locked micronutrients open the full Pro page directly.
+- **Pro page**: press carousel (Radar, Interaksyon), yearly price ₱599, prices from the App Store, Restore purchases. Settings' "See all Pro features" opens it too.
+
+### Done in the round before (2026-11-01 to 11-06)
 
 - **`food_posts` migration applied**: the tables and `get_food_posts` are live (checked 2026-11-06), so the Community tab loads.
 - **Browse search shows avoided meals, blurred**: Pro's Ingredients to avoid no longer makes a search look empty. Matching meals stay in the results after the rest, blurred under "Uses an ingredient you avoid", with "Manage avoided ingredients" (opens the Settings sheet) and "View anyway". Adds `expo-blur`.
@@ -23,7 +34,7 @@ Last updated: **2026-11-06** (live state checked that day: deployed functions, t
 - **Home, Browse and Price Watch look**: green headers with a status bar strip that turns white on scroll, card shadows, and Home's Recommendations and budget form default to 2 servings.
 - **Meal seeding**: the `/seed-meal` tool can now fix a meal it already saved (`update-saved`), and many more catalog meals were seeded through it.
 
-### Done in the round before (to 2026-11-01)
+### Earlier (to 2026-11-01)
 
 - **Community feed and Food Posts** are real (`food_posts`, likes, photo uploads, link previews).
 - **Pro features are built**, working behind a mock subscription: ingredients to avoid (one food or a whole food), nutrition goals (as planning targets across the app), and a 5 or 7 day meal plan length. (Price alerts and weekly savings were built, then their Price Watch cards removed; see Partly integrated.)
@@ -38,15 +49,15 @@ Last updated: **2026-11-06** (live state checked that day: deployed functions, t
 2. **OpenAI model migration**: `gpt-4o-mini` and `gpt-4o` shut down on **2027-01-14**. Still used by `import-meal-from-url`, `verify-meal-ingredients`, `estimate-ingredient-ai`, `estimate-pack-sizes` and `generate-meal-image` (its style description). Each needs a redeploy after.
 3. **Security before release** (none of it started; an anon update on `ingredients` still succeeded on 2026-11-06): RLS lockdown (the `TEMP: anyone can update` policies, users setting their own `tier`), admin checks (`requireAdmin`) on the admin-only edge functions, the Klipy key behind a proxy (`EXPO_PUBLIC_KLIPY_API_KEY` is still in `api/klipy.ts`).
 4. **Community moderation**: reporting, and an admin way to remove a post.
-5. **Pro on the account instead of the phone** (see Pro subscription): a `pro_until` on `users`, set only by the database, so Pro survives reinstalls, the database's saved-meals limit and daily limits honour it, and **Pro rewards** become buildable (7 days per approved recipe, 2 for the first photo post). Then add a note to the sign-up sheets: **7 days of Pro free if you post a meal**.
+5. **Pro in the database** (see Pro subscription): the app knows Pro (RevenueCat), the database doesn't. A RevenueCat webhook to an edge function setting e.g. `users.pro_until`, set only server-side, so the database's saved-meals limit and daily limits honour it and `users.tier` stops being user-editable. Then **Pro rewards** become buildable (7 days per approved recipe, 2 for the first photo post; decide whether earned days only count for non-subscribers), and the sign-up sheets get a note: **7 days of Pro free if you post a meal**.
 6. **Price alerts and weekly savings**: still promised in the paywall (`proContent.ts` Free vs Pro table, `ProUpgradeSheet`, `unlockedFeatures.ts`) with no surface. Decide where they live, or drop them from Settings and the paywall.
 7. **Fresh picks swipe (Price Watch)**: on the phone, swiping the cards still doesn't page; the touch opens the item instead. Two fixes tried on `fix/fresh-picks-swipe` (the page scroll waits for the swipe; card taps moved to a gesture handler tap), neither worked. Needs debugging on a device.
 8. **Small leftovers**: the Meal Planner isn't locked for free users (only days after the first are); Profile's `MealPlanBanner` is unused (remove it, or show the saved plan there); "Your recipe could earn you Pro" counts on the phone.
 
 **Needs developer accounts (skipped for now)**
 
-- Real subscriptions and payments (App Store and Google Play billing, e.g. through RevenueCat, then a webhook that sets Pro on the account).
-- Apple sign-in, native Google sign-in.
+- Google Play subscriptions (needs a Play Console account; RevenueCat covers both stores).
+- Native Google sign-in.
 - Push notifications (e.g. sending the daily price alert to the phone).
 
 ---
@@ -55,7 +66,7 @@ Last updated: **2026-11-06** (live state checked that day: deployed functions, t
 
 | Area | What's real | Where |
 | --- | --- | --- |
-| Sign-in | Google OAuth through Supabase Auth. In Expo Go it only works when served with `npm run tunnel` ([supabase/auth#2039](https://github.com/supabase/auth/issues/2039)). The dev build (2026-11-07) redirects to `anoulam://`, which has to be in Supabase's Redirect URLs. | `api/auth.ts` |
+| Sign-in | Apple (iOS, native sheet, `signInWithIdToken`; Apple sends the name only on first sign-in, saved then) and Google OAuth through Supabase Auth. In Expo Go it only works when served with `npm run tunnel` ([supabase/auth#2039](https://github.com/supabase/auth/issues/2039)). The dev build (2026-11-07) redirects to `anoulam://`, which has to be in Supabase's Redirect URLs. | `api/auth.ts` |
 | Account and preferences | The `users` row: name, avatar, dietary focus, allergens, and the Pro settings in `users.preferences` (ingredients to avoid, nutrition goals, meal plan length, price alerts; acted on while Pro, see Partly integrated). Dietary focus and allergens **filter every "for you" list** (allergens always left out; vegetarian accepts vegan, pescatarian accepts both). | `api/auth.ts`, `core/preferences`, `core/budget/utils/budgetMatch.ts` |
 | Meals catalog | `meals` and `meal_ingredients`: Discover reel, Browse search (with a Protein Source filter), Recommendations, Best Value meals, Meal Detail. Opening a meal from any list loads the full meal first, so ingredients and micronutrients always show. | `api/meals.ts`, `core/meals/hooks/useFullMeal.ts` |
 | Ingredients and nutrition | `ingredients` grounded from USDA and FNRI, macros and micronutrients per meal, verification locks. | `api/ingredients.ts`, edge fns `ground-ingredients-usda`, `estimate-ingredient-ai`, `verify-meal-ingredients` |
@@ -87,13 +98,15 @@ Last updated: **2026-11-06** (live state checked that day: deployed functions, t
 
 ## Partly integrated
 
-Every row here works on real data, but is only as real as `isPro`, which comes from the **mock subscription on the phone** (see Pro subscription).
+Every row here works on real data. `isPro` is real now (the App Store subscription, through RevenueCat), but only the app knows it: the database doesn't yet (see Pro subscription).
 
 | Area | Real | Not real yet |
 | --- | --- | --- |
-| Ingredients to avoid (Pro) | Saved to `users.preferences.avoid_ingredients`. Meals using one are left out of every list that follows preferences (Suggest by Budget and Pantry, Recommendations, Surprise me, Today's pick, moods, Related meals, Community Favorites, the Meal Planner). Browse search is the exception: they stay in the results, last and blurred, with "Manage avoided ingredients" and "View anyway" (`AvoidedMealCover`). An entry is one food by base name (raw and cooked alike) or a whole food: picking a chicken cut asks "All chicken (21 kinds)" or "Just chicken wing" (the word anywhere in the catalog name, plus the whole category when the word names one, e.g. pork covers lechon and sisig; egg items only match "egg"). The sheet shows a live "meals hidden" count, rows with each entry's meal count, common picks, and Undo; Settings shows them as chips. | Mock Pro only. Whole-food grouping is by catalog wording, so a few groups are broad ("All gourd", "All pepper"), offered rather than forced. |
-| Nutrition goals (Pro) | Planning targets, no food logging. Set once with the guided setup (body stats, goal, recommended targets, adjustable) from Settings or the planner, saved to `users.preferences.nutrition_goals` (with the goal type). New plans aim at them and show each day's calories and macros against them; Home's planner card shows today vs the goals; meal cards get a "Fits your goals" tag (a serving within 20% of a third of the day's calories, with at least 85% of a third of the protein); Suggest by Budget has a "Best for my goals" sort; Meal Details shows one serving as a share of each goal. | Mock Pro only. Body stats stay on the phone. No logging of what was actually eaten (deliberately: plans stand in for it). The fit thresholds are a first guess. |
-| Meal plan length (Pro) | Settings' inline 5 days / 7 days choice (`users.preferences.planner_defaults.days`). New plans are that long; the budget splits evenly across the days, and the grocery list, locked days, titles and weekly savings follow each plan's own length. | Mock Pro only. |
+| Pro subscription (2026-11-08) | **Real App Store subscriptions, tested end to end in sandbox** (trial, conversion, renewals, cancel, expiry, restore). RevenueCat (`react-native-purchases` pinned to **10.16.0**: 11.x needs PurchasesHybridCommon 20.4.0, which isn't on CocoaPods trunk, so an EAS build would fail). `core/pro/store/useProStore.ts` reads the `anoulam_pro` entitlement (`isPro`), the App Store's prices and trial eligibility (no trial offered again once the account has had Pro), and logs RevenueCat in as the Supabase user (`_layout.tsx`), so Pro follows the account. Re-reads on Settings focus and after Apple's manage screen (cache skipped, purchases synced), and right when a period ends. The Pro page opens Apple's purchase sheet under a padlock confirm/unlock animation, asks guests to sign in first (`LoginGateSheet` reason `pro`), and has Restore purchases. Settings' plan card: Free trial / Active / Cancelled ("Pro until"), and Expired for 30 days after Pro ends (taps to the Pro page); Manage opens Apple's subscription screen. App Store Connect: group AnoUlam Pro, `com.anoulam.app.pro.monthly` ₱99 and `com.anoulam.app.pro.yearly` ₱599, 3-day trials, 148 countries (no EU), 16-day grace period, server notifications to RevenueCat; see `docs/compliance.md`. | **Not in the database**: nothing sets `users.tier`/Pro server-side, so the database still caps saved meals at 10 and counts daily limits for Pro (the app skips its own limits). Needs a RevenueCat webhook (Summary, item 5). Android not set up. The RevenueCat key (`EXPO_PUBLIC_REVENUECAT_IOS_KEY`) is only in `.env`: add it as an EAS environment variable before any preview/production build. |
+| "Your recipe could earn you Pro" sheet (2026-11-08) | Progress from the database: approved recipes (`meals.poster_id` + `status`) and the first photo post (`food_posts.image_url`), shown as "1 of 3 approved" / "Done", with only the days still to earn. The once-a-day / 3-dismissals record is on the account (`users.earn_pro_prompt`). Stops showing once everything is earned. | The Pro days themselves aren't granted: that's Pro rewards, which needs Pro on the account (Summary, item 5). Shown to free users. |
+| Ingredients to avoid (Pro) | Saved to `users.preferences.avoid_ingredients`. Meals using one are left out of every list that follows preferences (Suggest by Budget and Pantry, Recommendations, Surprise me, Today's pick, moods, Related meals, Community Favorites, the Meal Planner). Browse search is the exception: they stay in the results, last and blurred, with "Manage avoided ingredients" and "View anyway" (`AvoidedMealCover`). An entry is one food by base name (raw and cooked alike) or a whole food: picking a chicken cut asks "All chicken (21 kinds)" or "Just chicken wing" (the word anywhere in the catalog name, plus the whole category when the word names one, e.g. pork covers lechon and sisig; egg items only match "egg"). The sheet shows a live "meals hidden" count, rows with each entry's meal count, common picks, and Undo; Settings shows them as chips. | Whole-food grouping is by catalog wording, so a few groups are broad ("All gourd", "All pepper"), offered rather than forced. |
+| Nutrition goals (Pro) | Planning targets, no food logging. Set once with the guided setup (body stats, goal, recommended targets, adjustable) from Settings or the planner, saved to `users.preferences.nutrition_goals` (with the goal type). New plans aim at them and show each day's calories and macros against them; Home's planner card shows today vs the goals; meal cards get a "Fits your goals" tag (a serving within 20% of a third of the day's calories, with at least 85% of a third of the protein); Suggest by Budget has a "Best for my goals" sort; Meal Details shows one serving as a share of each goal. | Body stats stay on the phone. No logging of what was actually eaten (deliberately: plans stand in for it). The fit thresholds are a first guess. |
+| Meal plan length (Pro) | Settings' inline 5 days / 7 days choice (`users.preferences.planner_defaults.days`). New plans are that long; the budget splits evenly across the days, and the grocery list, locked days, titles and weekly savings follow each plan's own length. | |
 | Price alerts (Pro) | The Settings switch still saves (`users.preferences.price_alerts.enabled`). | **No surface right now**: the Price Watch card and tab dot were removed. Needs a new home (e.g. push, once developer accounts exist) or the switch and its paywall line removed. |
 | Meal Planner | Real catalog only, within budget, following preferences and ingredients to avoid; each meal fills the slots its meal-time tags say (fast food and untagged meals aren't planned). Saved to the account with its grocery ticks. | The planner isn't locked for free users (only the days after the first are). |
 
@@ -101,11 +114,9 @@ Every row here works on real data, but is only as real as `isPro`, which comes f
 
 | Area | Status |
 | --- | --- |
-| Pro subscription | **Mocked end to end, on the phone only** (`core/pro/store/useProStore.ts`, AsyncStorage). The Pro page's trial button opens a test checkout (plan, trial timeline, "Due today ₱0.00", no payment taken), then a plain white unlock screen (the padlock opens, then what Pro includes). Settings shows a plan card (plan, status, next charge or end date, days left), "See all Pro features", and Manage your plan: switch Monthly/Yearly (confirmed first; now during the trial, at the next renewal on a paid plan, shown as "Starts <date>"), cancel (one plain confirmation; Pro stays on until the period ends), resume, and "End Pro now (test)". Trials roll into active, cancelled plans end by date. No real subscriptions or payments (needs developer accounts). `users.tier` isn't set by anything: the app skips daily limits while mock Pro is on, but the database still refuses saved meals past 10. |
 | Pro rewards | 7 days of Pro per approved recipe (up to 3), 2 days for the first photo post. **Not built**; needs Pro on the account (see Summary, item 5). When it's built, the sign-up sheets get a note saying you get **7 days of Pro free if you post a meal** (Patrick, 2026-11-07). |
-| "Your recipe could earn you Pro" sheet | Works, but its counter is on the phone and it can't tell when rewards are claimed. |
 | Profile meal plan banner | `MealPlanBanner` exists but isn't shown anywhere (Home's planner card covers the running plan). Remove it, or show the saved plan on Profile. |
-| Apple sign-in | Not built (needs a paid Apple Developer account). |
+| Profile photo upload | **Not built.** Apple sign-in never shares a profile photo (only name on first sign-in, email and an ID), so Apple users always show initials. Google users get their Google photo. Needs a "Change photo" option in Edit Profile (image picker, upload to Storage, set `users.avatar_url`), which also lets Google users replace theirs (Patrick, 2026-11-08). |
 | Push notifications | None (needs developer accounts). |
 
 ## Built but not deployed
@@ -119,9 +130,10 @@ Every row here works on real data, but is only as real as `isPro`, which comes f
 
 - **RLS lockdown**: the `TEMP: anyone can update` policies, and users being able to set their own `tier` on `users`. When narrowing what users can update on their own row, keep `seen_intros`, `preferences`, display name, avatar, bio and the two profile settings editable.
 - **Edge functions**: admin checks on the admin-only ones.
+- **Subscriptions**: add `EXPO_PUBLIC_REVENUECAT_IOS_KEY` as an EAS environment variable (`.env` isn't uploaded to EAS; dev builds read it from Metro). Each subscription needs its review screenshot in App Store Connect, and the first subscription group goes to review with an app version. Keep the EU off (`docs/compliance.md`). The paywall still promises price drop alerts and weekly savings, which have no surface.
 - **Klipy**: move the API key behind a proxy.
 - **Community moderation**: posts go live at once, with no report or hide.
-- **Native sign-in**: native Google sign-in (instead of the browser flow) and Apple sign-in.
+- **Native sign-in**: native Google sign-in (instead of the browser flow). Apple sign-in is built (2026-11-08, native sheet + `signInWithIdToken`, Supabase Apple provider on with client ID `com.anoulam.app`); App Review requires it alongside Google, so test it on a device before submitting.
 - **Google sign-in URL looks sketchy**: the Google screen says it's continuing to `ykrultxqfxgyiziqrrgp.supabase.co`, the raw Supabase project address. Fix with native Google sign-in (Google then shows the app name), or a Supabase custom domain such as `auth.anoulam.com` (paid add-on), plus the app name, logo and support email on the Google Cloud OAuth consent screen.
 - **Supabase Site URL**: still `http://localhost:3000`, which is where a rejected redirect lands. Set it to a real page before release.
 - **Paywall promises**: price drop alerts and weekly savings are on the paywall but have no surface now; the rest are built and need real Pro (subscriptions) to reach paying users.

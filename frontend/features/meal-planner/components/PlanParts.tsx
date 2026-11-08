@@ -39,7 +39,7 @@ export function DateSelector({ plan, selected, isPremium, onSelect, onLocked }: 
           >
             <View className="flex-row items-center gap-1">
               <Text className={`font-inter-semibold text-small ${locked ? "text-web-ink-muted" : "text-web-ink"}`}>{dayLabel(day.date, i)}</Text>
-              {locked && <Lock color={colors.webInk.muted} size={10} />}
+              {locked && <Lock color={colors.brandOrange} size={10} />}
             </View>
             <Text className="mt-0.5 font-inter-regular text-sub text-web-ink-muted">{monthDay(day.date)}</Text>
           </Pressable>
@@ -393,7 +393,7 @@ type DayActionsProps = {
 function ActionButton({ Icon, label, locked, onPress }: { Icon: LucideIcon; label: string; locked: boolean; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} className="flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border border-web-divider bg-white py-3 active:bg-web-divider/50">
-      {locked ? <Lock color={colors.webInk.muted} size={13} /> : <Icon color={colors.webInk.soft} size={14} />}
+      {locked ? <Lock color={colors.brandOrange} size={13} /> : <Icon color={colors.webInk.soft} size={14} />}
       <Text className={`font-inter-semibold text-small ${locked ? "text-web-ink-muted" : "text-web-ink-soft"}`}>{label}</Text>
     </Pressable>
   );
@@ -415,16 +415,35 @@ export function useMeasuredWidth() {
   return { width, onLayout: (e: { nativeEvent: { layout: { width: number } } }) => setWidth(e.nativeEvent.layout.width) };
 }
 
-// "View Grocery List": the full-width dark button under the day; opens the
-// plan's grocery list (the same sheet as Profile's Grocery tab).
-export function GroceryListButton({ onPress }: { onPress: () => void }) {
+type GroceryListButtonsProps = {
+  /** The day being viewed: "today", or e.g. "Wed, Nov 12". */
+  dayName: string;
+  /** Free: the week's list shows a lock and opens the unlock sheet. */
+  weekLocked: boolean;
+  onDay: () => void;
+  onWeek: () => void;
+};
+
+// Under the day: the dark button opens the grocery list for the day being
+// viewed, the dashed one the whole plan's (both the same sheet as Profile's
+// Grocery tab).
+export function GroceryListButtons({ dayName, weekLocked, onDay, onWeek }: GroceryListButtonsProps) {
   return (
-    <Pressable onPress={onPress} className="flex-row items-center justify-center gap-2 rounded-2xl bg-brand-green-dark py-4 active:opacity-90">
-      <ShoppingCart color={colors.white} size={18} />
-      <Text className="font-inter-semibold text-body text-white">View Grocery List</Text>
-      <View className="absolute right-4">
-        <ChevronRight color={colors.white} size={18} />
-      </View>
-    </Pressable>
+    <View className="gap-2">
+      <Pressable onPress={onDay} className="flex-row items-center justify-center gap-2 rounded-2xl bg-brand-green-dark py-4 active:opacity-90">
+        <ShoppingCart color={colors.white} size={18} />
+        <Text className="font-inter-semibold text-body text-white">{dayName === "today" ? "Today's grocery list" : `Grocery list for ${dayName}`}</Text>
+        <View className="absolute right-4">
+          <ChevronRight color={colors.white} size={18} />
+        </View>
+      </Pressable>
+      <Pressable
+        onPress={onWeek}
+        className="flex-row items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-green-dark/30 py-3.5 active:bg-brand-green-dark/5"
+      >
+        {weekLocked ? <Lock color={colors.brandOrange} size={15} /> : <ShoppingCart color={colors.brandGreen.dark} size={17} />}
+        <Text className="font-inter-semibold text-body text-brand-green-dark">Shop the whole week in one trip</Text>
+      </Pressable>
+    </View>
   );
 }

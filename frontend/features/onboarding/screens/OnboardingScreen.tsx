@@ -6,14 +6,11 @@ import {
   NativeScrollEvent,
   useWindowDimensions,
   type ViewInstance,
-  type ScrollViewInstance,
 } from "react-native";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowRight } from "lucide-react-native";
-import { Button, CarouselIndicator } from "@/frontend/components/ui";
-import { colors } from "@/frontend/constants/theme";
+import { CarouselIndicator } from "@/frontend/components/ui";
 import { ContentSlide } from "../components/ContentSlide";
 import { PreferencesSlide } from "../components/PreferencesSlide";
 import { PreferenceGroupsSlide } from "../components/PreferenceGroupsSlide";
@@ -24,7 +21,8 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 import { RotatingBlob, type RotatingBlobHandle } from "../components/RotatingBlob";
 import { setDotRevealTarget, useDotRevealArriving } from "../components/DotReveal";
 import { onboardingSlides, type OnboardingSlideData, type PreferencesSlideData } from "../slides";
-import { useSignInWithGoogle } from "@/frontend/features/auth/hooks/useAuth";
+import { type SignInProvider, useSignIn } from "@/frontend/features/auth/hooks/useAuth";
+import { useAuthActivityStore } from "@/frontend/features/auth/store/useAuthActivityStore";
 import { useUpdateUserProfile } from "@/frontend/features/auth/hooks/useUserProfile";
 
 const preferencesSlide = onboardingSlides.find(
@@ -39,9 +37,11 @@ type SlideCallbacks = {
   onToggleGoal: (id: string) => void;
   groupSelections: Record<string, string[]>;
   onGroupChange: (groupId: string, value: string[]) => void;
-  onContinueWithGoogle: () => void;
+  onSignIn: (provider: SignInProvider) => void;
   onContinueWithoutAccount: () => void;
   isSigningIn: boolean;
+  /** The carousel has settled on the closing account pitch. */
+  accountActive: boolean;
   onOpenNumbers: () => void;
   /** The explainer slide's title period, where "Got it"'s dot lands. */
   numbersPeriod: ReactNode;
@@ -75,7 +75,8 @@ function renderSlide(slide: OnboardingSlideData, width: number, callbacks: Slide
           key={slide.id}
           slide={slide}
           width={width}
-          onContinueWithGoogle={callbacks.onContinueWithGoogle}
+          active={callbacks.accountActive}
+          onSignIn={callbacks.onSignIn}
           onContinueWithoutAccount={callbacks.onContinueWithoutAccount}
           isSigningIn={callbacks.isSigningIn}
         />
@@ -95,7 +96,6 @@ function renderSlide(slide: OnboardingSlideData, width: number, callbacks: Slide
 
 export default function OnboardingScreen() {
   const { width } = useWindowDimensions();
-  const scrollRef = useRef<ScrollViewInstance>(null);
   const topBlobRef = useRef<RotatingBlobHandle>(null);
   const bottomBlobRef = useRef<RotatingBlobHandle>(null);
   const indicatorDotRef = useRef<ViewInstance>(null);
@@ -122,7 +122,8 @@ export default function OnboardingScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const signInWithGoogle = useSignInWithGoogle();
+  // The "signing you in" screen stays up through saving the preferences.
+  const signIn = useSignIn({ holdOverlay: true });
   const updateProfile = useUpdateUserProfile();
 
   // Fires the blob speed-boost partway through a slide transition (tap or
@@ -170,12 +171,13 @@ export default function OnboardingScreen() {
     });
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleSignIn = async (provider: SignInProvider) => {
     try {
-      const session = await signInWithGoogle.mutateAsync();
+      const session = await signIn.mutateAsync(provider);
       if (!session) return; // user cancelled the browser flow
       await updateProfile.mutateAsync({
         preferences: {
+          // Nothing picked on the slide: no focus, no allergens.
           dietary_focus: groupSelections["dietary-focus"]?.[0] ?? "none",
           allergens: groupSelections["allergens"] ?? [],
           goals: Array.from(goals),
@@ -183,7 +185,10 @@ export default function OnboardingScreen() {
       });
       goHome();
     } catch (err) {
-      console.error("Google sign-in failed", err);
+      console.error("Sign-in failed", err);
+    } finally {
+      // Fades out as Home fades in.
+      useAuthActivityStore.getState().setActivity(null);
     }
   };
 
@@ -208,12 +213,6 @@ export default function OnboardingScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleNext = () => {
-    scrollStartOffsetRef.current = width * index;
-    hasPulsedRef.current = false;
-    scrollRef.current?.scrollTo({ x: width * (index + 1), animated: true });
-  };
-
   return (
     <View style={{ flex: 1 }} className="bg-white">
       <View className="absolute inset-0">
@@ -234,7 +233,6 @@ export default function OnboardingScreen() {
       </View>
       <SafeAreaView edges={["top", "bottom"]} style={{ flex: 1 }}>
         <ScrollView
-          ref={scrollRef}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
@@ -251,18 +249,19 @@ export default function OnboardingScreen() {
               onToggleGoal: toggleGoal,
               groupSelections,
               onGroupChange: handleGroupChange,
-              onContinueWithGoogle: handleGoogleSignIn,
+              onSignIn: handleSignIn,
               onContinueWithoutAccount: goHome,
-              isSigningIn: signInWithGoogle.isPending,
+              isSigningIn: signIn.isPending,
+              accountActive: isLast,
               onOpenNumbers: () => setNumbersOpen(true),
               numbersPeriod: <PeriodDot dotRef={numbersDotRef} hidden={!!numbersFlight} pulse={numbersPulse} />,
             }),
           )}
         </ScrollView>
 
-        {/* h-14 holds the row's height on the last slide, where the next
-            button goes away (the sign-in buttons on the slide take over). */}
-        <View className="h-14 flex-row items-center justify-between px-10 mb-6">
+        {/* No next button: the slides are swiped (the indicator shows
+            where you are), and the last one has its own actions. */}
+        <View className="h-8 flex-row items-center px-10 mb-6">
           {/* The flat accent pill squeezes into a ball, hops to the next
               page and flattens out again. */}
           <CarouselIndicator
@@ -273,14 +272,6 @@ export default function OnboardingScreen() {
             hopMarkerRef={indicatorDotRef}
             hopMarkerHidden={arriving}
           />
-          {!isLast && (
-            <Button
-              icon={<ArrowRight color={colors.white} size={24} />}
-              variant="primary"
-              shape="circle"
-              onPress={handleNext}
-            />
-          )}
         </View>
       </SafeAreaView>
 

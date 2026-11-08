@@ -36,10 +36,11 @@ export const COMPARE_ROWS: { label: string; free: CompareCell; pro: CompareCell 
   { label: "Fiber, sugar and sodium", free: false, pro: true },
 ];
 
-// PLACEHOLDER prices (no subscriptions yet): change here once decided.
+// The App Store prices for the Philippines (set 2026-11-08 in App Store
+// Connect). Keep in step with it until the page reads real store prices.
 export const PLANS = {
   monthly: { label: "Monthly", price: 99, per: "month" },
-  yearly: { label: "Yearly", price: 799, per: "year" },
+  yearly: { label: "Yearly", price: 599, per: "year" },
 } as const;
 export type PlanKey = keyof typeof PLANS;
 export const TRIAL_DAYS = 3;
@@ -52,11 +53,27 @@ export const POST_REWARD_DAYS = 2;
 
 export const YEARLY_SAVE_PCT = Math.round((1 - PLANS.yearly.price / (PLANS.monthly.price * 12)) * 100);
 
-// Radar's feature on the web app (tracking parameters stripped).
-export const RADAR = {
-  headline: "New Filipino web app helps answer the daily “Ano ulam?” dilemma",
-  url: "https://radar.ph/new-filipino-web-app-helps-answer-the-daily-ano-ulam-dilemma/",
-};
+// Press features on the web app (tracking parameters stripped). Logo sizes
+// at a 20px height: Radar's has its own navy box (cropped to a rounded
+// rectangle), Interaksyon's is transparent.
+export const PRESS = [
+  {
+    outlet: "Radar",
+    logo: require("@/assets/pro/radar-logo.png") as number,
+    logoWidth: 58,
+    boxedLogo: true,
+    headline: "New Filipino web app helps answer the daily “Ano ulam?” dilemma",
+    url: "https://radar.ph/new-filipino-web-app-helps-answer-the-daily-ano-ulam-dilemma/",
+  },
+  {
+    outlet: "Interaksyon",
+    logo: require("@/assets/pro/interaksyon-logo.png") as number,
+    logoWidth: 74,
+    boxedLogo: false,
+    headline: "No more decision fatigue: Pinoy creates app that suggests what to cook",
+    url: "https://interaksyon.philstar.com/trends-spotlights/2026/07/20/316109/pinoy-creates-app-suggests-what-to-cook/",
+  },
+];
 
 // Real Reddit comments on the web app (screenshots in
 // ano-ulam-reference/frontend/src/shared/assets/reviews), word for word

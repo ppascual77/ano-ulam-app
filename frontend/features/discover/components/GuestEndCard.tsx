@@ -1,8 +1,9 @@
 import { View } from "react-native";
 import { SignInPrompt } from "@/frontend/features/auth/components/SignInPrompt";
+import type { SignInProvider } from "@/frontend/features/auth/hooks/useAuth";
 
 type GuestEndCardProps = {
-  onSignIn: () => void;
+  onSignIn: (provider: SignInProvider) => void;
   signingIn?: boolean;
 };
 

@@ -136,17 +136,13 @@ export const onboardingSlides: OnboardingSlideData[] = [
     title: "What matters to you?",
     image: require("@/assets/onboarding/preferences.gif"),
     options: [
-      { id: "save-money", label: "Save money", icon: Wallet, defaultSelected: true },
-      { id: "protein", label: "Eat more protein", icon: Drumstick, defaultSelected: true },
+      // Nothing preselected: the picks should be the user's own.
+      { id: "save-money", label: "Save money", icon: Wallet },
+      { id: "protein", label: "Eat more protein", icon: Drumstick },
       { id: "healthier", label: "Eat healthier", icon: Leaf },
       { id: "use-what-i-have", label: "Use what I already have", icon: Refrigerator },
       { id: "track-macros", label: "Track macros", icon: TrendingUp },
-      {
-        id: "decision-fatigue",
-        label: "Reduce decision fatigue",
-        icon: Brain,
-        defaultSelected: true,
-      },
+      { id: "decision-fatigue", label: "Reduce decision fatigue", icon: Brain },
     ],
   },
   {
@@ -161,12 +157,12 @@ export const onboardingSlides: OnboardingSlideData[] = [
         id: "dietary-focus",
         title: "Dietary focus",
         mode: "single",
+        // No "None" chip in either group: nothing selected means none.
         options: [
-          { id: "vegan", label: "Vegan" },
           { id: "vegetarian", label: "Vegetarian" },
-          { id: "keto", label: "Keto" },
+          { id: "vegan", label: "Vegan" },
           { id: "pescatarian", label: "Pescatarian" },
-          { id: "none", label: "None" },
+          { id: "keto", label: "Keto" },
           { id: "paleo", label: "Paleo" },
         ],
       },
@@ -182,7 +178,6 @@ export const onboardingSlides: OnboardingSlideData[] = [
           { id: "soy", label: "Soy" },
           { id: "coconut", label: "Coconut" },
           { id: "sesame", label: "Sesame" },
-          { id: "none", label: "None" },
         ],
       },
     ],

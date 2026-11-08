@@ -5,7 +5,6 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { ArrowRight } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
-import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 import { useRealMeals } from "@/frontend/core/meals/hooks/useRealMeals";
 import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
@@ -76,16 +75,13 @@ function PlanWeekCardInner({ title = "Plan your week", subtitle, cta = "Start pl
       <Pressable
         onPress={() => router.push("/meal-planner")}
         accessibilityRole="button"
-        accessibilityLabel={`${title}, a Pro feature. ${line}`}
+        accessibilityLabel={`${title}. ${line}`}
         // White like Today's plan card, over Home's dark green.
         className="overflow-hidden rounded-3xl bg-white active:opacity-90"
       >
         <View className="flex-row items-center px-5 py-5">
           <View className="flex-1 gap-2 pr-2">
-            <View className="flex-row items-center gap-2">
-              <Text className="font-inter-bold text-sub uppercase text-primary">Meal planner</Text>
-              <ProBadge />
-            </View>
+            <Text className="font-inter-bold text-sub uppercase text-primary">Meal planner</Text>
             <Text className="font-inter-extrabold text-heading tracking-display text-ink-emphasis">
               {title}
               <Text className="text-accent">.</Text>

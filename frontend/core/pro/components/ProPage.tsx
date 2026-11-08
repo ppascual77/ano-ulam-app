@@ -1,22 +1,23 @@
-import { useEffect, useRef, useState } from "react";
-import { Linking, Pressable, ScrollView, Text, View } from "react-native";
+import { type ReactNode, useEffect, useState } from "react";
+import { Linking, Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { ArrowRight, Check, Minus, X } from "lucide-react-native";
-import { AppText, Button } from "@/frontend/components/ui";
+import { AppText, Button, showGlobalToast } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
+import { useAuth, useSignIn, type SignInProvider } from "@/frontend/features/auth/hooks/useAuth";
+import { LoginGateSheet } from "@/frontend/features/auth/components/LoginGateSheet";
 import { ProBadge } from "./ProBadge";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useProStore, useProSubscription } from "../store/useProStore";
 import { nextLine, planName } from "../subscriptionCopy";
-import { ProCheckoutSheet } from "./ProCheckoutSheet";
 import { ProUnlockOverlay } from "./ProUnlockOverlay";
 import {
   COMPARE_ROWS,
   PLANS,
   QUOTES,
-  RADAR,
+  PRESS,
   TRIAL_DAYS,
   YEARLY_SAVE_PCT,
   type CompareCell,
@@ -32,6 +33,11 @@ type ProPageProps = {
   allowLinks?: boolean;
   /** Settings' plan card: opens the plan's management instead. */
   onManage?: () => void;
+  /** From an upsell, speaking to what was tapped (e.g. "Your next 4 days
+   *  are ready", one word in orange). Defaults to "AnoUlam Pro". */
+  title?: ReactNode;
+  /** Defaults to Pro's one-line promise. */
+  subtitle?: string;
 };
 
 // The full Pro page (ProUpgradeSheet is the quick version, and links here):
@@ -40,27 +46,68 @@ type ProPageProps = {
 // screen, and inside the meal sheet (a screen can't open over it). Handles
 // its own safe area, so the unlock screen can cover the whole page.
 //
-// Starting Pro (MOCK, no payments yet): the button opens a test checkout
-// sheet; confirming starts the trial (useProStore) under the unlock screen,
-// which plays over this page. All of it lives in this page as layers, not
-// new screens or Modals, since it also runs inside the meal sheet.
-export function ProPage({ onClose, onStarted, allowLinks = true, onManage }: ProPageProps) {
+// Starting Pro: the button opens Apple's own purchase sheet (useProStore,
+// through RevenueCat); once it goes through, the unlock screen plays over
+// this page (the gates flip under it, so they're open when it ends). Guests
+// sign in first, since Pro is tied to the account. Prices are the App
+// Store's, in the buyer's currency (PLANS until they load).
+export function ProPage({ onClose, onStarted, allowLinks = true, onManage, title, subtitle }: ProPageProps) {
   const insets = useSafeAreaInsets();
   const subscription = useProSubscription();
-  const startTrial = useProStore((s) => s.startTrial);
+  const { purchase, restore, prices, trialEligible } = useProStore();
+  const { session } = useAuth();
+  const signIn = useSignIn();
   const [plan, setPlan] = useState<PlanKey>(subscription?.plan ?? "monthly");
   const chosen = PLANS[plan];
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const confirmed = useRef(false);
+  const price = prices[plan] ?? `₱${chosen.price}`;
+  // Only Apple knows if this Apple ID already had its trial; unknown counts
+  // as eligible (Apple's sheet shows the real terms either way).
+  const hasTrial = trialEligible[plan] !== false;
+  const [buying, setBuying] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [gateOpen, setGateOpen] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
 
-  // Once the checkout sheet has slid away: the trial starts and the unlock
-  // screen plays (the gates flip under it, so they're open when it ends).
-  const afterCheckout = () => {
-    if (!confirmed.current) return;
-    confirmed.current = false;
-    startTrial(plan);
-    setUnlocking(true);
+  const buy = async (userId: string) => {
+    setBuying(true);
+    try {
+      // Make sure RevenueCat is on this account before buying (right after
+      // signing in, the app-wide sync may not have run yet).
+      await useProStore.getState().setUser(userId);
+      if ((await purchase(plan)) === "purchased") setUnlocking(true);
+    } catch (error) {
+      showGlobalToast({ message: error instanceof Error ? error.message : "Couldn't start Pro. Try again.", tone: "error" });
+    } finally {
+      setBuying(false);
+    }
+  };
+
+  const start = () => {
+    if (session) void buy(session.user.id);
+    else setGateOpen(true);
+  };
+
+  const signInAndBuy = async (provider: SignInProvider) => {
+    const signedIn = await signIn.mutateAsync(provider).catch(() => null);
+    if (!signedIn) return;
+    setGateOpen(false);
+    void buy(signedIn.user.id);
+  };
+
+  const restorePurchases = async () => {
+    setRestoring(true);
+    try {
+      const found = await restore();
+      showGlobalToast(
+        found
+          ? { message: "Pro is back on.", tone: "success" }
+          : { message: "No Pro subscription found for this Apple ID.", tone: "error" },
+      );
+    } catch {
+      showGlobalToast({ message: "Couldn't restore. Check your connection.", tone: "error" });
+    } finally {
+      setRestoring(false);
+    }
   };
 
   return (
@@ -81,12 +128,12 @@ export function ProPage({ onClose, onStarted, allowLinks = true, onManage }: Pro
       <ScrollView contentContainerClassName="gap-8 px-6 pb-8 pt-2" showsVerticalScrollIndicator={false}>
         <View>
           <AppText variant="sectionTitle" dot>
-            AnoUlam Pro
+            {title ?? "AnoUlam Pro"}
           </AppText>
-          <Text className="mt-2 font-inter-regular text-body text-ink-subtle">Plan the week, spend less, and eat your way.</Text>
+          <Text className="mt-2 font-inter-regular text-body text-ink-subtle">{subtitle ?? "Plan the week, spend less, and eat your way."}</Text>
         </View>
 
-        <RadarFeature />
+        <PressFeatures />
         <CompareTable />
         <PlanPicker plan={plan} onChange={setPlan} />
         <Quotes />
@@ -107,51 +154,90 @@ export function ProPage({ onClose, onStarted, allowLinks = true, onManage }: Pro
         ) : (
           <>
             <Text className="text-center font-inter-regular text-small text-ink-subtle">
-              {TRIAL_DAYS} days free, then ₱{chosen.price}/{chosen.per}. Cancel anytime.
+              {hasTrial ? `${TRIAL_DAYS} days free, then ${price}/${chosen.per}.` : `${price}/${chosen.per}.`} Cancel anytime in the App Store.
             </Text>
-            <Button label={`Start ${TRIAL_DAYS}-day free trial`} variant="secondary" onPress={() => setCheckoutOpen(true)} />
+            <Button
+              label={hasTrial ? `Start ${TRIAL_DAYS}-day free trial` : `Subscribe for ${price}/${chosen.per}`}
+              variant="secondary"
+              loading={buying}
+              celebrate={false}
+              onPress={start}
+            />
+            <Pressable
+              onPress={() => void restorePurchases()}
+              disabled={restoring}
+              accessibilityRole="button"
+              hitSlop={8}
+              className="items-center py-1 active:opacity-60"
+            >
+              <Text className="font-inter-medium text-small text-ink-subtle">{restoring ? "Restoring..." : "Restore purchases"}</Text>
+            </Pressable>
           </>
         )}
       </View>
 
-      <ProCheckoutSheet
-        visible={checkoutOpen}
-        plan={plan}
-        onClose={() => setCheckoutOpen(false)}
-        onConfirm={() => {
-          confirmed.current = true;
-          setCheckoutOpen(false);
-        }}
-        onClosed={afterCheckout}
+      <LoginGateSheet
+        reason={gateOpen ? "pro" : null}
+        onClose={() => setGateOpen(false)}
+        onSignIn={(provider) => void signInAndBuy(provider)}
+        isSigningIn={signIn.isPending}
       />
 
-      {unlocking && <ProUnlockOverlay onDone={onStarted} />}
+      {/* From the tap until the purchase settles, then the unlock. */}
+      {(buying || unlocking) && <ProUnlockOverlay phase={unlocking ? "unlocked" : "confirming"} onDone={onStarted} />}
     </View>
   );
 }
 
-// "Featured on Radar": their logo (navy is part of the image) and headline,
-// opening the article.
-function RadarFeature() {
+// Each press card is the page width less a peek of the next one, so it's
+// clear there's more to swipe.
+const PRESS_PEEK = 28;
+const PRESS_GAP = 12;
+const PAGE_GUTTER = 24;
+
+// "Featured on": a swipeable row of cards, one per outlet (its logo and
+// headline), each opening its article. Cards snap one at a time and all
+// take the tallest one's height.
+function PressFeatures() {
+  const { width } = useWindowDimensions();
+  const cardWidth = width - PAGE_GUTTER * 2 - PRESS_PEEK;
   return (
-    <Pressable
-      onPress={() => void Linking.openURL(RADAR.url)}
-      accessibilityRole="link"
-      accessibilityLabel={`Featured on Radar: ${RADAR.headline}. Read the article.`}
-      className="gap-3 rounded-2xl border border-ink-emphasis/10 p-4 active:opacity-70"
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      snapToInterval={cardWidth + PRESS_GAP}
+      decelerationRate="fast"
+      className="-mx-6"
+      contentContainerStyle={{ gap: PRESS_GAP, paddingHorizontal: PAGE_GUTTER }}
     >
-      <View className="flex-row items-center gap-2">
-        <AppText variant="eyebrow" className="text-sub">
-          Featured on
-        </AppText>
-        <Image source={require("@/assets/pro/radar-logo.png")} style={{ width: 58, height: 20, borderRadius: 4 }} contentFit="cover" />
-      </View>
-      <Text className="font-inter-semibold text-body text-ink-emphasis">{RADAR.headline}</Text>
-      <View className="flex-row items-center gap-1">
-        <Text className="font-inter-medium text-small text-primary">Read the article</Text>
-        <ArrowRight color={colors.primary} size={14} />
-      </View>
-    </Pressable>
+      {PRESS.map((item) => (
+        <Pressable
+          key={item.outlet}
+          onPress={() => void Linking.openURL(item.url)}
+          accessibilityRole="link"
+          accessibilityLabel={`Featured on ${item.outlet}: ${item.headline}. Read the article.`}
+          style={{ width: cardWidth }}
+          className="gap-3 rounded-2xl border border-ink-emphasis/10 p-4 active:opacity-70"
+        >
+          <View className="flex-row items-center gap-2">
+            <AppText variant="eyebrow" className="text-sub">
+              Featured on
+            </AppText>
+            <Image
+              source={item.logo}
+              style={{ width: item.logoWidth, height: 20, borderRadius: item.boxedLogo ? 4 : 0 }}
+              contentFit={item.boxedLogo ? "cover" : "contain"}
+              accessibilityLabel={item.outlet}
+            />
+          </View>
+          <Text className="flex-1 font-inter-semibold text-body text-ink-emphasis">{item.headline}</Text>
+          <View className="flex-row items-center gap-1">
+            <Text className="font-inter-medium text-small text-primary">Read the article</Text>
+            <ArrowRight color={colors.primary} size={14} />
+          </View>
+        </Pressable>
+      ))}
+    </ScrollView>
   );
 }
 
@@ -239,6 +325,9 @@ const SELECT_MS = 220;
 // radio's dot in and gives the card a small press-and-settle.
 function PlanCard({ planKey, selected, onPress }: { planKey: PlanKey; selected: boolean; onPress: () => void }) {
   const option = PLANS[planKey];
+  // The App Store's price in the buyer's currency, once loaded.
+  const storePrice = useProStore((s) => s.prices[planKey]);
+  const yearlyPerMonth = useProStore((s) => s.yearlyPerMonth);
   const on = useSharedValue(selected ? 1 : 0);
   const press = useSharedValue(1);
   useEffect(() => {
@@ -271,10 +360,12 @@ function PlanCard({ planKey, selected, onPress }: { planKey: PlanKey; selected: 
           <Text className="font-inter-semibold text-body text-ink-emphasis">{option.label}</Text>
         </View>
         <Text className="mt-3 font-inter-extrabold text-heading text-ink-emphasis">
-          ₱{option.price}
+          {storePrice ?? `₱${option.price}`}
           <Text className="font-inter-regular text-small text-ink-subtle">/{option.per}</Text>
         </Text>
-        {planKey === "yearly" && <Text className="font-inter-regular text-small text-ink-subtle">₱{Math.round(option.price / 12)} a month</Text>}
+        {planKey === "yearly" && (
+          <Text className="font-inter-regular text-small text-ink-subtle">{yearlyPerMonth ?? `₱${Math.round(option.price / 12)}`} a month</Text>
+        )}
       </Animated.View>
     </Pressable>
   );

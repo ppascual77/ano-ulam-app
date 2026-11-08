@@ -10,13 +10,15 @@ import { OFFICIAL_POSTS, OfficialPostCard, WEB_APP_URL } from "@/frontend/core/p
 import { ImageLightbox } from "@/frontend/core/posts/components/ImageLightbox";
 import { PostSkeleton } from "@/frontend/core/posts/components/PostSkeleton";
 import { openProfile } from "@/frontend/core/users/openProfile";
+import { SignInButtons } from "@/frontend/features/auth/components/SignInButtons";
+import type { SignInProvider } from "@/frontend/features/auth/hooks/useAuth";
 
 type CommunityFeedProps = {
   isGuest: boolean;
   currentUserId: string | null;
   /** Space reserved above the list for the header + tabs. */
   topInset: number;
-  onLogIn: () => void;
+  onLogIn: (provider: SignInProvider) => void;
   onToast: (message: string, tone?: "success" | "error") => void;
   /** Opens the composer to edit one of your posts. */
   onEditPost: (post: FoodPost) => void;
@@ -57,14 +59,9 @@ export function CommunityFeed({
             Log in to see and share food posts from the community.
           </Text>
         </View>
-        <View className="w-full gap-2">
-          <Pressable onPress={onLogIn} className="items-center rounded-2xl bg-brand-green py-3">
-            <Text className="font-inter-semibold text-body text-white">Log in</Text>
-          </Pressable>
-          {/* Google sign-in covers both new and returning users. */}
-          <Pressable onPress={onLogIn} className="items-center rounded-2xl border border-web-divider py-3">
-            <Text className="font-inter-medium text-body text-web-ink-soft">Create account</Text>
-          </Pressable>
+        {/* Signing in also creates the account, so no separate sign-up. */}
+        <View className="w-full">
+          <SignInButtons onSignIn={onLogIn} />
         </View>
       </View>
     );

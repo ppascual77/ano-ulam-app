@@ -1,3 +1,4 @@
+import * as AppleAuthentication from "expo-apple-authentication";
 import * as WebBrowser from "expo-web-browser";
 import { makeRedirectUri } from "expo-auth-session";
 
@@ -140,7 +141,9 @@ async function createSessionFromUrl(url: string) {
   return data.session;
 }
 
-export async function signInWithGoogle() {
+/** `onApproved` fires once the provider's sheet says yes, before the
+ *  session is set up (the app shows its "signing you in" screen then). */
+export async function signInWithGoogle(onApproved?: () => void) {
   const redirectTo = makeRedirectUri();
   console.log("[auth debug] redirectTo:", redirectTo);
 
@@ -155,7 +158,49 @@ export async function signInWithGoogle() {
   console.log("[auth debug] browser result:", result);
   if (result.type !== "success") return null;
 
+  onApproved?.();
   return createSessionFromUrl(result.url);
+}
+
+// Native Apple sheet, no browser: Apple hands back an identity token that
+// Supabase verifies (https://supabase.com/docs/guides/auth/social-login/auth-apple).
+// Returns null when the user cancels, like signInWithGoogle.
+export async function signInWithApple(onApproved?: () => void) {
+  let credential: AppleAuthentication.AppleAuthenticationCredential;
+  try {
+    credential = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+    });
+  } catch (err) {
+    if ((err as { code?: string }).code === "ERR_REQUEST_CANCELED") return null;
+    throw err;
+  }
+  if (!credential.identityToken) throw new Error("Apple sign-in returned no identity token");
+
+  onApproved?.();
+  const { data, error } = await supabase.auth.signInWithIdToken({ provider: "apple", token: credential.identityToken });
+  if (error) throw error;
+
+  // Apple sends the name only on the very first sign-in (and never a photo),
+  // so keep it now: on the account, and on the profile row the new-user
+  // trigger created without one.
+  const fullName = credential.fullName
+    ? AppleAuthentication.formatFullName(credential.fullName).trim()
+    : "";
+  if (fullName && data.user) {
+    await supabase.auth.updateUser({ data: { full_name: fullName } });
+    await supabase.from("users").update({ display_name: fullName }).eq("id", data.user.id).is("display_name", null);
+  }
+  return data.session;
+}
+
+export type SignInProvider = "google" | "apple";
+
+export function signIn(provider: SignInProvider, onApproved?: () => void) {
+  return provider === "apple" ? signInWithApple(onApproved) : signInWithGoogle(onApproved);
 }
 
 export async function signOut() {

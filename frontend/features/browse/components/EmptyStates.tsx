@@ -1,5 +1,6 @@
 import { Image, Text, View, useWindowDimensions } from "react-native";
 import { SignInPrompt } from "@/frontend/features/auth/components/SignInPrompt";
+import type { SignInProvider } from "@/frontend/features/auth/hooks/useAuth";
 
 // No results ("We're curating your meals"), or the in-page daily limit.
 // The copy mentions budget because the web shares it with the budget
@@ -24,7 +25,7 @@ export function EmptyMealView({ limitReached = false }: { limitReached?: boolean
 }
 
 // Replaces the whole Browse screen once a guest uses up today's searches.
-export function GuestLimitGate({ onSignIn, signingIn = false }: { onSignIn: () => void; signingIn?: boolean }) {
+export function GuestLimitGate({ onSignIn, signingIn = false }: { onSignIn: (provider: SignInProvider) => void; signingIn?: boolean }) {
   return (
     <View className="flex-1 justify-center">
       <SignInPrompt

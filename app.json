@@ -10,6 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anoulam.app",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -58,6 +59,7 @@
         }
       ],
       "expo-audio",
+      "expo-apple-authentication",
       "expo-image",
       "expo-status-bar"
     ],

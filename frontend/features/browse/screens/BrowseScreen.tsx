@@ -26,7 +26,7 @@ import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
-import { useAuth, useSignInWithGoogle } from "@/frontend/features/auth/hooks/useAuth";
+import { type SignInProvider, useAuth, useSignIn } from "@/frontend/features/auth/hooks/useAuth";
 import { LoginGateSheet, type LoginGateReason } from "@/frontend/features/auth/components/LoginGateSheet";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
@@ -64,7 +64,7 @@ const SHOW_INTRO = true;
 // are limited per day (guests 3, free accounts 10, Pro none: useBrowseSearch).
 export default function BrowseScreen() {
   const { isSignedIn } = useAuth();
-  const signIn = useSignInWithGoogle();
+  const signIn = useSignIn();
   const [devGuest, setDevGuest] = useState(false);
   const isGuest = devGuest || (!isSignedIn && !DEV_FORCE_SIGNED_IN);
 
@@ -118,11 +118,11 @@ export default function BrowseScreen() {
     // Only on the guest -> signed-in transition.
   }, [isGuest]);
 
-  const continueWithGoogle = async () => {
+  const continueWith = async (provider: SignInProvider) => {
     // Forced-guest dev mode: "logging in" turns the override off.
     if (devGuest) return setDevGuest(false);
     try {
-      await signIn.mutateAsync();
+      await signIn.mutateAsync(provider);
     } catch {
       toastError("Sign-in didn't go through. Please try again.");
     }
@@ -135,7 +135,7 @@ export default function BrowseScreen() {
         setGate(null);
         pendingSave.current = null;
       }}
-      onContinueWithGoogle={continueWithGoogle}
+      onSignIn={continueWith}
       isSigningIn={signIn.isPending}
       presentation={presentation}
     />
@@ -175,7 +175,7 @@ export default function BrowseScreen() {
   if (isGuest && search.limitReached) {
     return (
       <Screen edges={["top"]}>
-        <GuestLimitGate onSignIn={continueWithGoogle} signingIn={signIn.isPending} />
+        <GuestLimitGate onSignIn={continueWith} signingIn={signIn.isPending} />
       </Screen>
     );
   }

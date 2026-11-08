@@ -4,9 +4,10 @@ import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChevronRight, LogOut, Trash2 } from "lucide-react-native";
-import { AppText, ChipSelect, ConfirmSheet, Screen, SegmentedSwitch, Spinner, Toast, type ToastState } from "@/frontend/components/ui";
+import { AppText, ChipSelect, ConfirmSheet, Screen, SegmentedSwitch, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useAuth, useDeleteAccount, useSignOut } from "@/frontend/features/auth/hooks/useAuth";
+import { useAuthActivityStore } from "@/frontend/features/auth/store/useAuthActivityStore";
 import type { UserPreferences } from "@/api/auth";
 import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
 import { ALLERGEN_OPTIONS, DIETARY_FOCUS_OPTIONS } from "@/frontend/core/preferences/options";
@@ -24,7 +25,6 @@ import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenInt
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
 import { ProPlanCard } from "../components/settings/ProPlanCard";
 import { ManagePlanSheet } from "../components/settings/ManagePlanSheet";
-import { ProFeaturesSheet } from "../components/settings/ProFeaturesSheet";
 import { AvoidSummary } from "../components/settings/AvoidSummary";
 import { ProUpgradeSheet } from "@/frontend/core/pro/components/ProUpgradeSheet";
 import { AvoidIngredientsSheet } from "../components/settings/AvoidIngredientsSheet";
@@ -122,15 +122,16 @@ export default function SettingsScreen() {
 
   // ---- Pro ------------------------------------------------------------------
   // Pro rows show for everyone (with a lock); without Pro they open the
-  // upsell instead. With a (mock) subscription, its plan card sits on top
+  // upsell instead. With a subscription, its plan card sits on top
   // and opens Manage your plan (see useProStore).
   const isPro = useProStore((s) => s.isPro);
   const subscription = useProStore((s) => s.subscription);
+  // Pro that ended in the last 30 days: shown as Expired, tapping to renew.
+  const lapsed = useProStore((s) => s.lapsed);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [proSheet, setProSheet] = useState<ProSettingKey | null>(null);
   const closeProSheet = () => setProSheet(null);
   const [manageOpen, setManageOpen] = useState(false);
-  const [featuresOpen, setFeaturesOpen] = useState(false);
   // A trial that ended or a cancelled plan that ran out, while away.
   useFocusEffect(useCallback(() => useProStore.getState().refresh(), []));
   // Deep links, once Settings has settled in (a sheet opening mid-push
@@ -163,14 +164,17 @@ export default function SettingsScreen() {
 
   // ---- log out ----------------------------------------------------------------
 
-  const [loggingOut, setLoggingOut] = useState(false);
+  // The app-wide overlay (the same spiral as signing in) covers the log-out
+  // and the trip Home, then fades once Home is in place.
   const logOut = () => {
-    setLoggingOut(true);
+    const { setActivity } = useAuthActivityStore.getState();
+    setActivity("loggingOut");
     setTimeout(async () => {
       try {
         if (isSignedIn) await signOut.mutateAsync();
       } finally {
         router.replace("/home");
+        setActivity(null);
       }
     }, LOG_OUT_DELAY_MS);
   };
@@ -209,11 +213,12 @@ export default function SettingsScreen() {
           <SettingsSection title="Meal preferences">
             <View className="gap-3">
               <SettingsLabel>Dietary focus</SettingsLabel>
+              {/* Nothing selected: no focus (stored as "none"). */}
               <ChipSelect
                 mode="single"
-                required
+                clearable
                 options={DIETARY_FOCUS_OPTIONS}
-                value={[prefs.dietary_focus]}
+                value={prefs.dietary_focus !== "none" ? [prefs.dietary_focus] : []}
                 onChange={(value) => setPrefs({ ...prefs, dietary_focus: value[0] ?? "none" })}
               />
             </View>
@@ -221,6 +226,7 @@ export default function SettingsScreen() {
               <SettingsLabel>Food allergies</SettingsLabel>
               <ChipSelect
                 mode="multi"
+                clearable
                 options={ALLERGEN_OPTIONS}
                 value={prefs.allergens}
                 onChange={(value) => setPrefs({ ...prefs, allergens: value })}
@@ -230,8 +236,11 @@ export default function SettingsScreen() {
 
           <SettingsSection title="Pro">
             {subscription && <ProPlanCard subscription={subscription} onPress={() => setManageOpen(true)} />}
+            {!subscription && lapsed && <ProPlanCard subscription={lapsed} onPress={() => router.push("/pro")} />}
+            {/* The same full Pro page as buying (for a subscriber its footer
+                shows the plan and Manage your plan instead of a price). */}
             {isPro && (
-              <Pressable onPress={() => setFeaturesOpen(true)} accessibilityRole="button" className="flex-row items-center gap-3 active:opacity-60">
+              <Pressable onPress={() => router.push("/pro")} accessibilityRole="button" className="flex-row items-center gap-3 active:opacity-60">
                 <View className="flex-1">
                   <SettingsRowLabel>See all Pro features</SettingsRowLabel>
                   <SettingsRowDescription>Everything included in your plan.</SettingsRowDescription>
@@ -392,7 +401,6 @@ export default function SettingsScreen() {
         }
       />
       <ManagePlanSheet visible={manageOpen} onClose={() => setManageOpen(false)} />
-      <ProFeaturesSheet visible={featuresOpen} onClose={() => setFeaturesOpen(false)} />
       <ProUpgradeSheet
         visible={upgradeOpen}
         title="Make every meal yours"
@@ -428,12 +436,6 @@ export default function SettingsScreen() {
         onConfirm={runDelete}
       />
 
-      {loggingOut && (
-        <View className="absolute inset-0 items-center justify-center gap-3 bg-white">
-          <Spinner size={28} color={colors.primary} trackColor={colors.webDivider} />
-          <Text className="font-inter-medium text-body-lg text-ink-subtle">Logging out...</Text>
-        </View>
-      )}
       <Toast toast={toast} onHide={() => setToast(null)} />
     </Screen>
   );

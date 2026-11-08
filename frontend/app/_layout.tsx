@@ -28,6 +28,7 @@ import { useAuthStore } from "@/frontend/features/auth/store/useAuthStore";
 import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { DotHandoffOverlay, GlobalToast } from "@/frontend/components/ui";
+import { AuthActivityOverlay } from "@/frontend/features/auth/components/AuthActivityOverlay";
 import { SaveFeedbackLayer } from "@/frontend/core/saved/components/SaveFeedbackLayer";
 import { noteTouch, useSaveFeedbackStore } from "@/frontend/core/saved/store/useSaveFeedbackStore";
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
@@ -62,7 +63,7 @@ export default function RootLayout() {
   const loadSeenIntros = useSeenIntrosStore((s) => s.load);
   // Save feedback's Profile dot and how many hint toasts have shown.
   const loadSaveFeedback = useSaveFeedbackStore((s) => s.load);
-  // The mock Pro subscription (on the phone until there are real ones).
+  // The App Store subscription (RevenueCat), prices and trial eligibility.
   const loadPro = useProStore((s) => s.load);
   useEffect(() => {
     void loadReduceMotion();
@@ -80,6 +81,11 @@ export default function RootLayout() {
   useEffect(() => {
     if (!authLoading) void syncSeenIntros(sessionUserId);
   }, [authLoading, sessionUserId, syncSeenIntros]);
+  // Pro follows the account the same way (RevenueCat logs in as the user).
+  const setProUser = useProStore((s) => s.setUser);
+  useEffect(() => {
+    if (!authLoading) void setProUser(sessionUserId);
+  }, [authLoading, sessionUserId, setProUser]);
   const setSession = useAuthStore((s) => s.setSession);
   const setLoading = useAuthStore((s) => s.setLoading);
 
@@ -152,6 +158,8 @@ export default function RootLayout() {
               <SaveFeedbackLayer />
               {/* App-wide toasts (e.g. "Saved to your Profile"). */}
               <GlobalToast />
+              {/* Full screen while a sign-in finishes or a log-out runs. */}
+              <AuthActivityOverlay />
             </QueryClientProvider>
           </SafeAreaProvider>
         </GestureHandlerRootView>

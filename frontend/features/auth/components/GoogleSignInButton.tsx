@@ -4,14 +4,15 @@ import { Button } from "@/frontend/components/ui";
 type GoogleSignInButtonProps = {
   onPress: () => void;
   signingIn?: boolean;
+  variant?: "social" | "glass";
 };
 
 // Used through SignInButtons, which pairs it with Apple.
-export function GoogleSignInButton({ onPress, signingIn = false }: GoogleSignInButtonProps) {
+export function GoogleSignInButton({ onPress, signingIn = false, variant = "social" }: GoogleSignInButtonProps) {
   return (
     <Button
       label={signingIn ? "Signing in..." : "Continue with Google"}
-      variant="social"
+      variant={variant}
       disabled={signingIn}
       icon={<Image source={require("@/assets/icons/google-logo.png")} style={{ width: 18, height: 18 }} contentFit="contain" />}
       onPress={onPress}

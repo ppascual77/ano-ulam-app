@@ -1,4 +1,5 @@
-import { router } from "expo-router";
+import { Text } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
 import { Screen } from "@/frontend/components/ui";
 import { ProPage } from "@/frontend/core/pro/components/ProPage";
 
@@ -10,9 +11,21 @@ import { ProPage } from "@/frontend/core/pro/components/ProPage";
 // modal that native view sometimes reads 0 on first show), so its unlock
 // screen can run under the status bar.
 export default function ProScreen() {
+  // Optional, from an upsell (e.g. the planner's locked days): the page's
+  // title speaks to what was tapped, ending in an orange `highlight` word.
+  const { title, highlight, subtitle } = useLocalSearchParams<{ title?: string; highlight?: string; subtitle?: string }>();
   return (
     <Screen edges={[]} padded={false} dismissKeyboardOnTap={false}>
       <ProPage
+        title={
+          title ? (
+            <>
+              {title}
+              {highlight ? <Text className="text-brand-orange"> {highlight}</Text> : null}
+            </>
+          ) : undefined
+        }
+        subtitle={subtitle}
         onClose={() => router.back()}
         onManage={() => {
           router.back();

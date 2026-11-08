@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   Easing,
@@ -12,7 +12,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react-native";
+import { ArrowRight, Check } from "lucide-react-native";
 import { Button, Spinner } from "@/frontend/components/ui";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { colors } from "@/frontend/constants/theme";
@@ -107,8 +107,6 @@ type GeneratingViewProps = {
   hasMacros: boolean;
   /** Days being planned (5, or 7 for Pro). */
   days?: number;
-  /** Back arrow: cancel and return to setup. */
-  onBack: () => void;
   /** "See my meal plan", shown once every step is done. */
   onDone: () => void;
   /** No plan could be built: skip the success state and call onDone
@@ -119,7 +117,7 @@ type GeneratingViewProps = {
 // "Planning your week...": the steps tick off one by one; then the title
 // changes to "Your week is planned!" and a "See my meal plan" button fades
 // in (which calls onDone).
-export function GeneratingView({ budgetLabel, meals, hasMacros, days = 5, onBack, onDone, failed = false }: GeneratingViewProps) {
+export function GeneratingView({ budgetLabel, meals, hasMacros, days = 5, onDone, failed = false }: GeneratingViewProps) {
   const list = steps(budgetLabel, hasMacros, days);
   // Index of the step in progress; list.length = all done.
   const [active, setActive] = useState(0);
@@ -141,11 +139,8 @@ export function GeneratingView({ budgetLabel, meals, hasMacros, days = 5, onBack
   const barStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
 
   return (
+    // No back arrow of its own: the screen's one cancels back to setup.
     <View className="flex-1 px-6 pt-2">
-      <Pressable onPress={onBack} hitSlop={10} accessibilityLabel="Back" className="self-start py-2">
-        <ArrowLeft color={colors.webInk.DEFAULT} size={20} />
-      </Pressable>
-
       <View className="mt-4 items-center">
         <OrbitLoader meals={meals} />
       </View>

@@ -263,7 +263,7 @@ type MealDetailContentProps = {
    *  the current servings. MealDetailSheet opens IngredientDetailSheet. */
   onSelectIngredient?: (ingredient: IngredientType) => void;
   /** A free user tapping locked micronutrients (they're Pro): open the
-   *  upsell. MealDetailSheet shows ProUpgradeSheet. */
+   *  upsell. MealDetailSheet shows the full Pro page. */
   onLockedPro?: () => void;
   /** Embedded preview (Add a Recipe's Preview step): no own ScrollView
    *  (it sits inside the form's), no Save footer, no related meals. The

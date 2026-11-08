@@ -2,13 +2,14 @@ import { Text, View } from "react-native";
 import { Image } from "expo-image";
 import { AppText } from "@/frontend/components/ui";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import type { SignInProvider } from "../hooks/useAuth";
 import { SignInButtons } from "./SignInButtons";
 import { TermsLine } from "./TermsLine";
 
 type SignInPromptProps = {
   title: string;
   description: string;
-  onSignIn: () => void;
+  onSignIn: (provider: SignInProvider) => void;
   signingIn?: boolean;
   /** An onboarding GIF (held still under reduce motion). Light only: the
    *  GIFs have white backgrounds. */
@@ -42,7 +43,7 @@ export function SignInPrompt({ title, description, onSignIn, signingIn = false, 
         </Text>
       </View>
       <View className="w-full max-w-[320px]">
-        <SignInButtons onGoogle={onSignIn} signingIn={signingIn} />
+        <SignInButtons onSignIn={onSignIn} signingIn={signingIn} />
       </View>
       <TermsLine tone={tone} />
     </View>

@@ -29,15 +29,27 @@ import { GeneratingView } from "../components/GeneratingView";
 import { MealPlannerIntro } from "../components/MealPlannerIntro";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
-import { DateSelector, DayActions, GroceryListButton, HeroCarousel, MealListRow, SummaryRow, useMeasuredWidth } from "../components/PlanParts";
-import { LockedDaySheet, SwapMealSheet } from "../components/PlannerSheets";
+import { DateSelector, DayActions, GroceryListButtons, HeroCarousel, MealListRow, SummaryRow, useMeasuredWidth } from "../components/PlanParts";
+import { SwapMealSheet } from "../components/PlannerSheets";
 
 // Meal Planner: setup (budget, people, optional macro goal) -> a short
 // timed "Planning your week" checklist -> a 5-day plan from today, from the
 // real catalog within budget. The plan is saved to the account and opens
 // again until it ends (useSavedMealPlan). Free users get day 1; days 2-5
-// are locked, and tapping them (or a day action) opens a light upgrade
-// sheet, which leads to the full Pro page.
+// are locked, and tapping them (or a day action, or the week's grocery
+// list) opens the full Pro page.
+
+// The Pro page's title for each locked thing in the planner.
+const LOCKED_DAYS_COPY = (days: number) => ({
+  title: `Your next ${days} days are`,
+  highlight: "ready",
+  subtitle: "Unlock every day of your plan with AnoUlam Pro.",
+});
+const MACRO_GOAL_COPY = {
+  title: "Plan around your",
+  highlight: "goals",
+  subtitle: "Pro aims every plan at your calories and protein, and keeps your nutrition goals across the app.",
+};
 
 // Plays the "one budget, seven days" intro on opening the planner (setup
 // stage only: that's where the "Let's plan your week." header is).
@@ -94,7 +106,6 @@ export default function MealPlannerScreen() {
     setSelectedDay(index);
     setSelectedMeal(0);
   };
-  const [lockedOpen, setLockedOpen] = useState(false);
   const [groceryOpen, setGroceryOpen] = useState(false);
   // Header actions, each confirmed in a sheet first.
   const [confirm, setConfirm] = useState<"regenerate" | "edit" | null>(null);
@@ -110,21 +121,21 @@ export default function MealPlannerScreen() {
 
   const budget = parseBudget(store.budget);
   const plan = store.plan;
-  // The grocery list covers the days you can see: the whole week for
-  // Premium, today for Free. Fetched while the plan is on screen, so it's
-  // ready when the sheet opens.
+  // Two grocery lists, picked by the button that opens the sheet: the day
+  // being viewed ("Today's grocery list"), or the whole plan (Pro; Free
+  // only sees day 1). Fetched while the plan is on screen, so they're ready
+  // when the sheet opens.
   const shownDays = plan?.days.length ?? planLength;
-  const groceryDays = useMemo(() => (isPro ? Array.from({ length: shownDays }, (_, i) => i) : [0]), [isPro, shownDays]);
-  const grocery = usePlanGroceryList(plan, groceryDays, store.stage === "plan", session?.user.id ?? null);
-  // Pro: the Meal plan tab can show just the day being viewed ("Today", or
-  // e.g. "Wed, Nov 5") or the whole plan. Day ticks live in the same "plan"
-  // list (one tick store for both, under day-prefixed keys); an item ticked
-  // on the whole plan counts as ticked for the day too, while a day's tick
-  // leaves the whole plan's bigger amount unticked (still more to buy).
+  const groceryDays = useMemo(() => Array.from({ length: shownDays }, (_, i) => i), [shownDays]);
+  const grocery = usePlanGroceryList(plan, groceryDays, store.stage === "plan" && isPro, session?.user.id ?? null);
+  // Day ticks live in the same "plan" list (one tick store for both, under
+  // day-prefixed keys); an item ticked on the whole plan counts as ticked
+  // for the day too, while a day's tick leaves the whole plan's bigger
+  // amount unticked (still more to buy).
   const [groceryScope, setGroceryScope] = useState<"day" | "all">("day");
   const groceryDay = plan ? Math.min(selectedDay, plan.days.length - 1) : 0;
   const groceryDayIndexes = useMemo(() => [groceryDay], [groceryDay]);
-  const dayGrocery = usePlanGroceryList(plan, groceryDayIndexes, store.stage === "plan" && isPro, session?.user.id ?? null);
+  const dayGrocery = usePlanGroceryList(plan, groceryDayIndexes, store.stage === "plan", session?.user.id ?? null);
   const wholeById = useMemo(() => new Map(grocery.items.map((item) => [item.id, item])), [grocery.items]);
   const dayKeyed = (item: GroceryItem): GroceryItem => ({ ...item, id: `day${groceryDay}:${item.id}` });
   const dayIsChecked = (item: GroceryItem) => {
@@ -140,7 +151,19 @@ export default function MealPlannerScreen() {
       grocery.toggle(dayKeyed(item));
     }
   };
-  const showDayList = isPro && groceryScope === "day" && !!plan;
+  const showDayList = groceryScope === "day" || !isPro;
+  // Free, tapping anything locked: straight to the full Pro page, titled for
+  // what was tapped (no quick sheet in between).
+  const openPro = (copy: { title: string; highlight: string; subtitle: string } = LOCKED_DAYS_COPY(shownDays - 1)) =>
+    router.push({ pathname: "/pro", params: copy });
+  // Macro goals are Pro (they're the nutrition goals): a free user's plans
+  // never use targets, even ones set before (e.g. while Pro).
+  const targets = isPro ? store.targets : null;
+  const openGrocery = (scope: "day" | "all") => {
+    if (scope === "all" && !isPro) return openPro();
+    setGroceryScope(scope);
+    setGroceryOpen(true);
+  };
   // The sheet's other tab: the saved-meals list (same as Profile's).
   const savedGrocery = useSavedGroceryList(session?.user.id ?? null);
   const { data: pantry = [] } = usePantry();
@@ -156,7 +179,7 @@ export default function MealPlannerScreen() {
 
   // seed: a fresh one from "Regenerate", for a different plan.
   const build = (seed = 0) => {
-    const next = generatePlan({ pool, budget, servings: store.servings, targets: store.targets, seed, length: planLength });
+    const next = generatePlan({ pool, budget, servings: store.servings, targets, seed, length: planLength });
     store.setPlan(next);
     selectDay(0);
     store.setStage("generating");
@@ -184,7 +207,13 @@ export default function MealPlannerScreen() {
     <Screen edges={["top"]} padded={false} dismissKeyboardOnTap={false}>
       {/* Opened from Home's "Plan your week" card (no longer a tab). */}
       <View className="px-5 pt-2">
-        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Back" className="h-9 w-9 justify-center">
+        {/* While planning, back cancels to the setup instead. */}
+        <Pressable
+          onPress={() => (store.stage === "generating" ? store.setStage("setup") : router.back())}
+          hitSlop={10}
+          accessibilityLabel="Back"
+          className="h-9 w-9 justify-center"
+        >
           <ArrowLeft color={colors.webInk.DEFAULT} size={20} />
         </Pressable>
       </View>
@@ -229,11 +258,13 @@ export default function MealPlannerScreen() {
             <BudgetInput value={store.budget} onChange={store.setBudget} />
             <ServingStepper value={store.servings} onChange={store.setServings} />
             <MacroGoalCard
-              targets={store.targets}
+              targets={targets}
               goal={store.goal}
               onEnable={() => setMacroSheetOpen(true)}
               onEdit={() => setMacroSheetOpen(true)}
               fromGoals={usingGoals}
+              locked={!isPro}
+              onLocked={() => openPro(MACRO_GOAL_COPY)}
             />
 
             <View className="mt-2">
@@ -248,9 +279,8 @@ export default function MealPlannerScreen() {
           <GeneratingView
             budgetLabel={formatPeso(budget)}
             meals={pool}
-            hasMacros={!!store.targets}
+            hasMacros={!!targets}
             days={planLength}
-            onBack={() => store.setStage("setup")}
             onDone={() => store.setStage(plan ? "plan" : "error")}
             failed={!plan}
           />
@@ -288,7 +318,7 @@ export default function MealPlannerScreen() {
             </View>
           </View>
 
-          <DateSelector plan={plan} selected={selectedDay} isPremium={isPro} onSelect={selectDay} onLocked={() => setLockedOpen(true)} />
+          <DateSelector plan={plan} selected={selectedDay} isPremium={isPro} onSelect={selectDay} onLocked={() => openPro()} />
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="gap-4 px-5 pb-10 pt-4">
             <SummaryRow plan={plan} day={plan.days[Math.min(selectedDay, plan.days.length - 1)]} />
@@ -324,15 +354,24 @@ export default function MealPlannerScreen() {
 
             <DayActions
               locked={!isPro}
-              onRegenerate={() => (isPro ? regenerate() : setLockedOpen(true))}
+              onRegenerate={() => (isPro ? regenerate() : openPro())}
               onSwap={() =>
                 isPro
                   ? setSwap({ dayIndex: selectedDay, slot: plan.days[Math.min(selectedDay, plan.days.length - 1)].meals[selectedMeal].slot })
-                  : setLockedOpen(true)
+                  : openPro()
               }
-              onEdit={() => (isPro ? showToast("Editing a day is coming soon") : setLockedOpen(true))}
+              onEdit={() => (isPro ? showToast("Editing a day is coming soon") : openPro())}
             />
-            <GroceryListButton onPress={() => setGroceryOpen(true)} />
+            <GroceryListButtons
+              dayName={
+                plan.days[groceryDay].date.toDateString() === new Date().toDateString()
+                  ? "today"
+                  : `${dayLabel(plan.days[groceryDay].date, 1)}, ${monthDay(plan.days[groceryDay].date)}`
+              }
+              weekLocked={!isPro}
+              onDay={() => openGrocery("day")}
+              onWeek={() => openGrocery("all")}
+            />
           </ScrollView>
         </Animated.View>
       )}
@@ -410,23 +449,6 @@ export default function MealPlannerScreen() {
             isChecked: showDayList ? dayIsChecked : grocery.isChecked,
             onToggle: showDayList ? dayToggle : grocery.toggle,
             emptyText: "Your meal plan's ingredients will show up here.",
-            scope:
-              isPro && plan
-                ? {
-                    options: [
-                      {
-                        value: "day",
-                        label:
-                          plan.days[groceryDay].date.toDateString() === new Date().toDateString()
-                            ? "Today"
-                            : `${dayLabel(plan.days[groceryDay].date, 1)}, ${monthDay(plan.days[groceryDay].date)}`,
-                      },
-                      { value: "all", label: "Whole plan" },
-                    ],
-                    value: groceryScope,
-                    onChange: (value) => setGroceryScope(value === "all" ? "all" : "day"),
-                  }
-                : undefined,
           },
           {
             key: "saved",
@@ -441,7 +463,6 @@ export default function MealPlannerScreen() {
         pantry={pantry}
       />
 
-      <LockedDaySheet visible={lockedOpen} lockedDays={shownDays - 1} onClose={() => setLockedOpen(false)} onOpenPro={() => router.push("/pro")} />
 
       <SwapMealSheet
         slot={swap?.slot ?? null}

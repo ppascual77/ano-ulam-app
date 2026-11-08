@@ -6,33 +6,6 @@ import { colors } from "@/frontend/constants/theme";
 import { SLOT_LABELS } from "../utils/generatePlan";
 import type { MealSlot, PlannerMeal } from "../utils/generatePlan";
 import { MealImage } from "./ImagePlaceholder";
-import { ProUpgradeSheet } from "@/frontend/core/pro/components/ProUpgradeSheet";
-
-type LockedDaySheetProps = {
-  visible: boolean;
-  /** How many days are locked (for the title). */
-  lockedDays: number;
-  onClose: () => void;
-  /** Off to the full Pro page (plans live there). */
-  onOpenPro: () => void;
-};
-
-// Free user tapping a locked day (or Swap): the shared Pro upsell.
-export function LockedDaySheet({ visible, lockedDays, onClose, onOpenPro }: LockedDaySheetProps) {
-  return (
-    <ProUpgradeSheet
-      visible={visible}
-      title={
-        <>
-          Your next {lockedDays} days are <Text className="text-brand-orange">ready</Text>
-        </>
-      }
-      body="Unlock every day of your plan with AnoUlam Pro."
-      onClose={onClose}
-      onOpenPro={onOpenPro}
-    />
-  );
-}
 
 type SwapMealSheetProps = {
   /** null closes the sheet. */
