@@ -167,6 +167,8 @@ export type Database = {
           caption: string | null
           created_at: string
           gif_url: string | null
+          hidden_at: string | null
+          hidden_reason: string | null
           id: string
           image_url: string | null
           link_description: string | null
@@ -181,6 +183,8 @@ export type Database = {
           caption?: string | null
           created_at?: string
           gif_url?: string | null
+          hidden_at?: string | null
+          hidden_reason?: string | null
           id?: string
           image_url?: string | null
           link_description?: string | null
@@ -195,6 +199,8 @@ export type Database = {
           caption?: string | null
           created_at?: string
           gif_url?: string | null
+          hidden_at?: string | null
+          hidden_reason?: string | null
           id?: string
           image_url?: string | null
           link_description?: string | null
@@ -635,6 +641,54 @@ export type Database = {
           },
         ]
       }
+      post_reports: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          post_id: string
+          reason: string
+          reporter_id: string
+          resolution: string | null
+          resolved_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          post_id: string
+          reason: string
+          reporter_id: string
+          resolution?: string | null
+          resolved_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          post_id?: string
+          reason?: string
+          reporter_id?: string
+          resolution?: string | null
+          resolved_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_reports_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "food_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pro_rewards: {
         Row: {
           days: number
@@ -776,6 +830,7 @@ export type Database = {
       }
       daily_limit: { Args: { p_kind: string }; Returns: number }
       daily_uses_left: { Args: { p_kind: string }; Returns: number }
+      dismiss_post_reports: { Args: { p_post: string }; Returns: undefined }
       get_food_posts: {
         Args: { p_limit?: number; p_offset?: number; p_user_id?: string }
         Returns: {
@@ -784,6 +839,7 @@ export type Database = {
           created_at: string
           display_name: string
           gif_url: string
+          hidden: boolean
           id: string
           image_url: string
           like_count: number
@@ -826,6 +882,26 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_reported_posts: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          caption: string
+          created_at: string
+          display_name: string
+          gif_url: string
+          hidden: boolean
+          id: string
+          image_url: string
+          last_reported_at: string
+          link_url: string
+          notes: string[]
+          reasons: string[]
+          report_count: number
+          sticker_url: string
+          user_id: string
+        }[]
+      }
       grant_pro_reward: {
         Args: {
           p_days: number
@@ -835,7 +911,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      is_admin: { Args: never; Returns: boolean }
       is_pro: { Args: { p_user: string }; Returns: boolean }
+      remove_post: { Args: { p_post: string }; Returns: undefined }
+      report_post: {
+        Args: { p_note?: string; p_post: string; p_reason: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

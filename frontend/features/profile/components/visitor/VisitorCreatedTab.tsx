@@ -10,6 +10,7 @@ import { ImageLightbox } from "@/frontend/core/posts/components/ImageLightbox";
 import { PostSkeleton } from "@/frontend/core/posts/components/PostSkeleton";
 import { WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
 import { usePostList } from "@/frontend/core/posts/hooks/usePosts";
+import { usePostModeration } from "@/frontend/core/posts/hooks/usePostModeration";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { useApprovedRecipes } from "../../hooks/useProfile";
 import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
@@ -33,6 +34,8 @@ export function VisitorCreatedTab({ userId, loadMoreSignal, onToast }: VisitorCr
   const posts = usePostList({ userId, pageSize: 10 });
   // Likes are the viewer's, not this user's.
   const viewerId = useAuth().session?.user.id ?? null;
+  // Report and admin Remove in each post's menu.
+  const moderation = usePostModeration(posts, viewerId, onToast);
   const detail = useMealDetail();
   const [lightbox, setLightbox] = useState<{ uri: string } | null>(null);
 
@@ -96,6 +99,7 @@ export function VisitorCreatedTab({ userId, loadMoreSignal, onToast }: VisitorCr
                   key={post.id}
                   post={post}
                   currentUserId={viewerId}
+                  {...moderation.actionsFor(post)}
                   onLike={() => void posts.toggleLike(post)}
                   onShare={() => void share(post.id)}
                   onOpenPhoto={(uri) => setLightbox({ uri })}
@@ -108,6 +112,7 @@ export function VisitorCreatedTab({ userId, loadMoreSignal, onToast }: VisitorCr
       )}
 
       <MealDetailSheet meal={detail.meal} onClose={detail.close} onNotify={onToast} />
+      {moderation.sheets}
       <ImageLightbox source={lightbox} onClose={() => setLightbox(null)} />
     </View>
   );

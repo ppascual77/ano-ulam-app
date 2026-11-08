@@ -121,6 +121,19 @@ RevenueCat's dashboard hides test data: switch on **Sandbox data** (top right) t
       Discover): the login sheet opens, no error toast. Signing in saves that meal straight away;
       swiping the sheet away saves nothing. Inside meal details the sheet opens over the meal.
 
+## Community moderation
+
+- [ ] **Report:** someone else's post → ⋯ → Report post: pick a reason (Send stays disabled until
+      one is picked), optional note, Send. Toast "Thanks for reporting", the post leaves your feed
+      (and stays gone after refresh). Your own posts have no Report.
+- [ ] **3 reports hide it for everyone** (needs 3 accounts): it disappears from other users' feeds
+      and shows as HIDDEN in Admin → Reported Posts; Restore brings it back.
+- [ ] **Admin Remove** from a post's ⋯ menu (admin account): confirmation, then gone for everyone;
+      the poster sees it in their Profile with "Removed by AnoUlam. Only you can see this post."
+- [ ] **Reported Posts screen:** reasons summary and notes, Remove / Dismiss, the list and feeds
+      update after each.
+- [ ] **Poster can't undo a removal** by editing the post (edit still saves the caption).
+
 ## Store setup (no device needed)
 
 - [ ] EU countries still off (148 countries) on the app and both subscriptions.

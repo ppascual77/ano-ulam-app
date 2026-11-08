@@ -5,11 +5,14 @@ import {
   deletePost,
   listCommunityPosts,
   listUserPosts,
+  reportPost,
   setPostLiked,
   updatePost,
   type FoodPost,
   type PostInput,
+  type ReportReason,
 } from "@/api/posts";
+import { removePost } from "@/api/moderation";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { postKeys } from "../queryKeys";
 import { proKeys } from "@/frontend/core/pro/queryKeys";
@@ -106,6 +109,32 @@ export function usePostList({ userId, enabled = true, pageSize, refreshKey = 0 }
     }
   };
 
+  // Reporting: the post leaves this viewer's lists right away (the feed
+  // stops returning it to them too). Resolves false, putting it back, if the
+  // report didn't go through.
+  const report = async (post: FoodPost, reason: ReportReason, note?: string): Promise<boolean> => {
+    patchAllLists(queryClient, viewerId, (list) => list.filter((p) => p.id !== post.id));
+    try {
+      await reportPost(post.id, reason, note);
+      return true;
+    } catch {
+      void queryClient.invalidateQueries({ queryKey: postKeys.all(viewerId) });
+      return false;
+    }
+  };
+
+  // Admin: hidden for everyone (moderation, not a delete). Same shape.
+  const adminRemove = async (post: FoodPost): Promise<boolean> => {
+    patchAllLists(queryClient, viewerId, (list) => list.filter((p) => p.id !== post.id));
+    try {
+      await removePost(post.id);
+      return true;
+    } catch {
+      void queryClient.invalidateQueries({ queryKey: postKeys.all(viewerId) });
+      return false;
+    }
+  };
+
   return {
     posts,
     loading: query.isLoading,
@@ -118,6 +147,8 @@ export function usePostList({ userId, enabled = true, pageSize, refreshKey = 0 }
     loadMore,
     toggleLike,
     remove,
+    report,
+    adminRemove,
   };
 }
 

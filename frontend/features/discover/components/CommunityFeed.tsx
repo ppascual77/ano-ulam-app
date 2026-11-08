@@ -5,6 +5,7 @@ import { ConfirmSheet } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import type { FoodPost } from "@/api/posts";
 import { usePostList } from "@/frontend/core/posts/hooks/usePosts";
+import { usePostModeration } from "@/frontend/core/posts/hooks/usePostModeration";
 import { FoodPostCard } from "@/frontend/core/posts/components/FoodPostCard";
 import { OFFICIAL_POSTS, OfficialPostCard, WEB_APP_URL } from "@/frontend/core/posts/components/OfficialPostCard";
 import { ImageLightbox } from "@/frontend/core/posts/components/ImageLightbox";
@@ -40,6 +41,8 @@ export function CommunityFeed({
 }: CommunityFeedProps) {
   const feed = usePostList({ userId: null, enabled: !isGuest, pageSize: 5, refreshKey });
   const [confirmPost, setConfirmPost] = useState<FoodPost | null>(null);
+  // Report (others' posts) and admin Remove, in each card's menu.
+  const moderation = usePostModeration(feed, currentUserId, (message, tone) => onToast(message, tone));
   const [lightbox, setLightbox] = useState<{ uri: string } | number | null>(null);
 
   const share = async (path: string) => {
@@ -116,6 +119,7 @@ export function CommunityFeed({
               onOpenPhoto={(uri) => setLightbox({ uri })}
               onEdit={isOwn ? () => onEditPost(post) : undefined}
               onDelete={isOwn ? () => setConfirmPost(post) : undefined}
+              {...moderation.actionsFor(post)}
               onPressAuthor={() => openProfile(post.user_id, currentUserId)}
             />
           );
@@ -147,6 +151,7 @@ export function CommunityFeed({
         }
       />
 
+      {moderation.sheets}
       <ConfirmSheet
         visible={!!confirmPost}
         title="Delete this post?"

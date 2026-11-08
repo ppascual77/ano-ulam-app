@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Heart, MoreHorizontal, Pencil, Share2, Trash2 } from "lucide-react-native";
+import { Flag, Heart, MoreHorizontal, Pencil, Share2, ShieldOff, Trash2 } from "lucide-react-native";
 import { Confetti, Dropdown, useBurstOnActivate } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import type { FoodPost } from "@/api/posts";
@@ -16,6 +16,10 @@ type FoodPostCardProps = {
   /** Own posts only: the "..." menu shows when these are passed. */
   onEdit?: () => void;
   onDelete?: () => void;
+  /** Someone else's post: report it (usePostModeration). */
+  onReport?: () => void;
+  /** Admins, someone else's post: hide it for everyone. */
+  onAdminRemove?: () => void;
   /** Tapping the author (opens their profile). */
   onPressAuthor?: () => void;
   /** A card of its own (rounded, bordered) instead of a feed row with a
@@ -25,7 +29,19 @@ type FoodPostCardProps = {
 
 // One community post: author, caption, then whichever attachment it has
 // (link preview, GIF, sticker, photo), then like + share.
-export function FoodPostCard({ post, currentUserId, onLike, onShare, onOpenPhoto, onEdit, onDelete, onPressAuthor, framed = false }: FoodPostCardProps) {
+export function FoodPostCard({
+  post,
+  currentUserId,
+  onLike,
+  onShare,
+  onOpenPhoto,
+  onEdit,
+  onDelete,
+  onReport,
+  onAdminRemove,
+  onPressAuthor,
+  framed = false,
+}: FoodPostCardProps) {
   const liked = !!currentUserId && post.liked;
   const likeCount = post.like_count;
   // Hearts burst when a like lands (not on unlike, not on first render).
@@ -36,10 +52,21 @@ export function FoodPostCard({ post, currentUserId, onLike, onShare, onOpenPhoto
     ...(onDelete
       ? [{ label: "Delete", icon: <Trash2 color={colors.like} size={12} />, onPress: onDelete, destructive: true }]
       : []),
+    ...(onReport ? [{ label: "Report post", icon: <Flag color={colors.webInk.soft} size={12} />, onPress: onReport }] : []),
+    ...(onAdminRemove
+      ? [{ label: "Remove post (admin)", icon: <ShieldOff color={colors.like} size={12} />, onPress: onAdminRemove, destructive: true }]
+      : []),
   ];
 
   return (
     <View className={framed ? "overflow-hidden rounded-2xl border border-ink-emphasis/10 bg-white pb-3" : "border-b border-web-divider pb-3"}>
+      {/* Only its poster still sees a removed post: say so, and why. */}
+      {post.hidden && (
+        <View className="mx-4 mt-3 flex-row items-center gap-2 rounded-xl bg-like-soft px-3 py-2">
+          <ShieldOff color={colors.like} size={13} />
+          <Text className="flex-1 font-inter-medium text-small text-like">Removed by AnoUlam. Only you can see this post.</Text>
+        </View>
+      )}
       <PostAuthor
         name={post.display_name ?? "User"}
         avatarUrl={post.avatar_url}
