@@ -27,6 +27,7 @@ tax parts once.
 | U.S. Form W-8BEN | Active (submitted 2026-11-08) | Foreign TIN = BIR TIN. Treaty claim below |
 | EU Digital Services Act | Active: "not a trader, or don't plan to distribute in the EU" | Only true while the EU stays off |
 | Small Business Program | Submitted 2026-11-08, pending | Answered No to all four associated-account questions (this is the only developer account). Apple emails the result |
+| App Store Server Notifications | Set 2026-11-08 | Production and Sandbox both point at RevenueCat's Apple Server to Server notification URL (Version 2), so cancellations, refunds, billing issues and renewals reach RevenueCat straight away |
 
 ### W-8BEN treaty claim
 

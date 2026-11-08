@@ -157,9 +157,8 @@ export const onboardingSlides: OnboardingSlideData[] = [
         id: "dietary-focus",
         title: "Dietary focus",
         mode: "single",
-        // "None" leads both groups: it's the most common answer.
+        // No "None" chip in either group: nothing selected means none.
         options: [
-          { id: "none", label: "None" },
           { id: "vegetarian", label: "Vegetarian" },
           { id: "vegan", label: "Vegan" },
           { id: "pescatarian", label: "Pescatarian" },
@@ -172,7 +171,6 @@ export const onboardingSlides: OnboardingSlideData[] = [
         title: "Allergens",
         mode: "multi",
         options: [
-          { id: "none", label: "None" },
           { id: "nuts", label: "Nuts" },
           { id: "gluten", label: "Gluten" },
           { id: "dairy", label: "Dairy" },

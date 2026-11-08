@@ -63,7 +63,7 @@ export default function RootLayout() {
   const loadSeenIntros = useSeenIntrosStore((s) => s.load);
   // Save feedback's Profile dot and how many hint toasts have shown.
   const loadSaveFeedback = useSaveFeedbackStore((s) => s.load);
-  // The mock Pro subscription (on the phone until there are real ones).
+  // The App Store subscription (RevenueCat), prices and trial eligibility.
   const loadPro = useProStore((s) => s.load);
   useEffect(() => {
     void loadReduceMotion();
@@ -81,6 +81,11 @@ export default function RootLayout() {
   useEffect(() => {
     if (!authLoading) void syncSeenIntros(sessionUserId);
   }, [authLoading, sessionUserId, syncSeenIntros]);
+  // Pro follows the account the same way (RevenueCat logs in as the user).
+  const setProUser = useProStore((s) => s.setUser);
+  useEffect(() => {
+    if (!authLoading) void setProUser(sessionUserId);
+  }, [authLoading, sessionUserId, setProUser]);
   const setSession = useAuthStore((s) => s.setSession);
   const setLoading = useAuthStore((s) => s.setLoading);
 

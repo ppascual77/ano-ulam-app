@@ -39,6 +39,18 @@ import { SwapMealSheet } from "../components/PlannerSheets";
 // are locked, and tapping them (or a day action, or the week's grocery
 // list) opens the full Pro page.
 
+// The Pro page's title for each locked thing in the planner.
+const LOCKED_DAYS_COPY = (days: number) => ({
+  title: `Your next ${days} days are`,
+  highlight: "ready",
+  subtitle: "Unlock every day of your plan with AnoUlam Pro.",
+});
+const MACRO_GOAL_COPY = {
+  title: "Plan around your",
+  highlight: "goals",
+  subtitle: "Pro aims every plan at your calories and protein, and keeps your nutrition goals across the app.",
+};
+
 // Plays the "one budget, seven days" intro on opening the planner (setup
 // stage only: that's where the "Let's plan your week." header is).
 // TODO: gate this behind a first-time-user flag (the auto tour).
@@ -142,11 +154,11 @@ export default function MealPlannerScreen() {
   const showDayList = groceryScope === "day" || !isPro;
   // Free, tapping anything locked: straight to the full Pro page, titled for
   // what was tapped (no quick sheet in between).
-  const openPro = () =>
-    router.push({
-      pathname: "/pro",
-      params: { title: `Your next ${shownDays - 1} days are`, highlight: "ready", subtitle: "Unlock every day of your plan with AnoUlam Pro." },
-    });
+  const openPro = (copy: { title: string; highlight: string; subtitle: string } = LOCKED_DAYS_COPY(shownDays - 1)) =>
+    router.push({ pathname: "/pro", params: copy });
+  // Macro goals are Pro (they're the nutrition goals): a free user's plans
+  // never use targets, even ones set before (e.g. while Pro).
+  const targets = isPro ? store.targets : null;
   const openGrocery = (scope: "day" | "all") => {
     if (scope === "all" && !isPro) return openPro();
     setGroceryScope(scope);
@@ -167,7 +179,7 @@ export default function MealPlannerScreen() {
 
   // seed: a fresh one from "Regenerate", for a different plan.
   const build = (seed = 0) => {
-    const next = generatePlan({ pool, budget, servings: store.servings, targets: store.targets, seed, length: planLength });
+    const next = generatePlan({ pool, budget, servings: store.servings, targets, seed, length: planLength });
     store.setPlan(next);
     selectDay(0);
     store.setStage("generating");
@@ -246,11 +258,13 @@ export default function MealPlannerScreen() {
             <BudgetInput value={store.budget} onChange={store.setBudget} />
             <ServingStepper value={store.servings} onChange={store.setServings} />
             <MacroGoalCard
-              targets={store.targets}
+              targets={targets}
               goal={store.goal}
               onEnable={() => setMacroSheetOpen(true)}
               onEdit={() => setMacroSheetOpen(true)}
               fromGoals={usingGoals}
+              locked={!isPro}
+              onLocked={() => openPro(MACRO_GOAL_COPY)}
             />
 
             <View className="mt-2">
@@ -265,7 +279,7 @@ export default function MealPlannerScreen() {
           <GeneratingView
             budgetLabel={formatPeso(budget)}
             meals={pool}
-            hasMacros={!!store.targets}
+            hasMacros={!!targets}
             days={planLength}
             onDone={() => store.setStage(plan ? "plan" : "error")}
             failed={!plan}

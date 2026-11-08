@@ -40,6 +40,7 @@ export function PreferencesSheet({
           </AppText>
           <ChipSelect
             mode="single"
+            clearable
             options={DIETARY_FOCUS_OPTIONS}
             value={dietaryFocus}
             onChange={onDietaryFocusChange}
@@ -52,6 +53,7 @@ export function PreferencesSheet({
           </AppText>
           <ChipSelect
             mode="multi"
+            clearable
             options={ALLERGEN_OPTIONS}
             value={allergens}
             onChange={onAllergensChange}

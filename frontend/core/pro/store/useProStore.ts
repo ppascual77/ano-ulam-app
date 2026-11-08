@@ -1,139 +1,284 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
+import Purchases, {
+  INTRO_ELIGIBILITY_STATUS,
+  LOG_LEVEL,
+  PURCHASES_ERROR_CODE,
+  type CustomerInfo,
+  type PurchasesPackage,
+} from "react-native-purchases";
 import { create } from "zustand";
-import { TRIAL_DAYS, type PlanKey } from "../proContent";
+import type { PlanKey } from "../proContent";
 
-// MOCK Pro subscription: no payments yet (subscriptions need the App Store
-// and Google Play). Starting the "trial" on the Pro page makes one here, and
-// Settings shows and manages it (switch plan, cancel, resume). It behaves
-// like a real one (trial, renewal dates, Pro until the period ends after a
-// cancel) but lives on this phone only (AsyncStorage) and nothing is
-// charged. Every Pro gate reads `isPro` from here, so swapping in a real
-// entitlement later is one place.
+// Pro is a real App Store subscription, through RevenueCat: it checks the
+// receipts with Apple and tells us whether this person has the `anoulam_pro`
+// entitlement (Monthly or Yearly, both attached to it in RevenueCat). Every
+// Pro gate reads `isPro` from here. RevenueCat is logged in as the Supabase
+// user, so Pro follows the account (see `setUser`); buying needs an account
+// (the Pro page asks guests to sign in first).
+//
+// iOS only for now (Android comes later): elsewhere nothing is configured
+// and nobody is Pro. In Expo Go RevenueCat runs in a mock "preview" mode:
+// test real purchases in a dev build, with a sandbox tester.
 
-export type ProStatus = "trial" | "active" | "cancelled";
+/** "expired" only ever appears on `lapsed`, never on `subscription`. */
+export type ProStatus = "trial" | "active" | "cancelled" | "expired";
 
 export type ProSubscription = {
   plan: PlanKey;
   status: ProStatus;
-  /** ISO times. */
+  /** ISO times. The latest purchase or renewal. */
   startedAt: string;
   /** End of the free trial (the first charge), null once past it. */
   trialEndsAt: string | null;
   /** The next charge, or (cancelled) when Pro ends. */
   renewsAt: string;
-  /** Cancelled during the trial: Pro ends with the trial, never charged. */
-  cancelledInTrial?: boolean;
-  /** A switch scheduled for the next renewal (paid plans only: a trial
-   *  switches right away, since nothing has been charged yet). */
-  nextPlan?: PlanKey;
 };
+
+/** The RevenueCat entitlement both plans unlock (its identifier, set when
+ *  the RevenueCat project was created; identifiers can't be renamed). */
+const ENTITLEMENT = "anoulam_pro";
+const API_KEY = Platform.OS === "ios" ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY : undefined;
 
 type ProStore = {
+  /** The running subscription (trial, active or cancelled-but-running). */
   subscription: ProSubscription | null;
   isPro: boolean;
+  /** Not Pro, but Pro ended within the last LAPSED_DAYS: Settings shows it
+   *  as Expired with a way back. Its renewsAt is when Pro ended. */
+  lapsed: ProSubscription | null;
+  /** The store's price for each plan, in the buyer's currency ("₱99.00");
+   *  missing until the offerings load (the Pro page falls back to PLANS). */
+  prices: Partial<Record<PlanKey, string>>;
+  /** Yearly's price per month, the same way ("₱49.92"). */
+  yearlyPerMonth: string | null;
+  /** Whether each plan's free trial is still open to this Apple ID (Apple
+   *  gives one per subscription group). Missing: unknown, show the trial. */
+  trialEligible: Partial<Record<PlanKey, boolean>>;
+  /** Configures RevenueCat and loads Pro, prices and trial eligibility.
+   *  Once, at launch. */
   load: () => Promise<void>;
-  /** Re-checks dates (a trial that ended, a cancelled plan that ran out). */
+  /** Signed in: RevenueCat logs in as this user, so their Pro follows the
+   *  account. null (signed out): back to an anonymous RevenueCat user. */
+  setUser: (userId: string | null) => Promise<void>;
+  /** Re-reads Pro (e.g. coming back to Settings after managing it in the
+   *  App Store). */
   refresh: () => void;
-  startTrial: (plan: PlanKey) => void;
-  /** Trial: changes the plan now. Active: schedules it for the next renewal
-   *  (switching back to the current plan drops a scheduled switch). */
-  switchPlan: (plan: PlanKey) => void;
-  cancel: () => void;
-  resume: () => void;
-  /** Test only: Pro ends right now, as if the period ran out. */
-  endNow: () => void;
+  /** Apple's purchase sheet for this plan. "cancelled" when the person
+   *  closes it; throws on a real failure. */
+  purchase: (plan: PlanKey) => Promise<"purchased" | "cancelled">;
+  /** Finds this Apple ID's subscription again (new phone, reinstall).
+   *  Resolves whether Pro is now on. */
+  restore: () => Promise<boolean>;
 };
 
-const STORAGE_KEY = "anoulam.mockProSubscription";
+const planOf = (productId: string): PlanKey => (productId.includes("yearly") ? "yearly" : "monthly");
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const addPeriod = (iso: string, plan: PlanKey) => {
-  const date = new Date(iso);
-  if (plan === "yearly") date.setFullYear(date.getFullYear() + 1);
-  else date.setMonth(date.getMonth() + 1);
-  return date.toISOString();
-};
-
-// Moves a subscription to now: a trial past its end becomes active (the
-// first renewal), renewals roll forward (taking up a scheduled plan switch),
-// a cancelled plan past its end is gone.
-function advance(sub: ProSubscription | null, now = Date.now()): ProSubscription | null {
-  if (!sub) return null;
-  let next = { ...sub };
-  if (next.status === "cancelled") return new Date(next.renewsAt).getTime() > now ? next : null;
-  if (next.status === "trial" && next.trialEndsAt && new Date(next.trialEndsAt).getTime() <= now) {
-    next = { ...next, status: "active", trialEndsAt: null, renewsAt: addPeriod(next.trialEndsAt, next.plan) };
-  }
-  while (new Date(next.renewsAt).getTime() <= now) {
-    const plan = next.nextPlan ?? next.plan;
-    next = { ...next, plan, nextPlan: undefined, renewsAt: addPeriod(next.renewsAt, plan) };
-  }
-  return next;
+// The `anoulam_pro` entitlement as the app's subscription: a trial while in Apple's
+// free trial, cancelled once it won't renew (Pro still runs to the end of
+// the period), else active.
+function subscriptionOf(info: CustomerInfo): ProSubscription | null {
+  const entitlement = info.entitlements.active[ENTITLEMENT];
+  return entitlement ? fromEntitlement(entitlement) : null;
 }
 
-function parse(value: string | null): ProSubscription | null {
-  if (!value) return null;
-  try {
-    const o = JSON.parse(value) as Partial<ProSubscription>;
-    const ok =
-      (o.plan === "monthly" || o.plan === "yearly") &&
-      (o.status === "trial" || o.status === "active" || o.status === "cancelled") &&
-      typeof o.startedAt === "string" &&
-      typeof o.renewsAt === "string";
-    return ok ? (o as ProSubscription) : null;
-  } catch {
-    return null;
-  }
+// How long an ended subscription keeps showing in Settings as Expired.
+const LAPSED_DAYS = 30;
+
+// Pro that has ended (RevenueCat keeps it under `all`, not `active`), while
+// it's recent enough to show.
+function lapsedOf(info: CustomerInfo): ProSubscription | null {
+  const entitlement = info.entitlements.all[ENTITLEMENT];
+  const ended = entitlement && fromEntitlement(entitlement);
+  return ended ? asLapsed(ended) : null;
+}
+
+function asLapsed(sub: ProSubscription): ProSubscription | null {
+  const endedMs = new Date(sub.renewsAt).getTime();
+  if (endedMs > Date.now() || Date.now() - endedMs > LAPSED_DAYS * 24 * 60 * 60 * 1000) return null;
+  return { ...sub, status: "expired", trialEndsAt: null };
+}
+
+function fromEntitlement(entitlement: CustomerInfo["entitlements"]["all"][string]): ProSubscription | null {
+  if (!entitlement.expirationDate) return null;
+  const inTrial = entitlement.periodType === "TRIAL";
+  return {
+    plan: planOf(entitlement.productIdentifier),
+    status: !entitlement.willRenew ? "cancelled" : inTrial ? "trial" : "active",
+    startedAt: entitlement.latestPurchaseDate,
+    trialEndsAt: inTrial ? entitlement.expirationDate : null,
+    renewsAt: entitlement.expirationDate,
+  };
 }
 
 export const useProStore = create<ProStore>((set, get) => {
-  const save = (subscription: ProSubscription | null) => {
-    set({ subscription, isPro: !!subscription });
-    const write = subscription ? AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(subscription)) : AsyncStorage.removeItem(STORAGE_KEY);
-    write.catch(() => {});
+  // configure() runs once; everything else waits for it.
+  let configured: Promise<boolean> | null = null;
+  let packages: Partial<Record<PlanKey, PurchasesPackage>> = {};
+  let currentUser: string | null = null;
+
+  // Re-reads Pro the moment the current period ends, so Pro switches off
+  // on time without waiting for the next refresh (sandbox periods last
+  // minutes; real ones, if the app stays open across the renewal).
+  let expiryTimer: ReturnType<typeof setTimeout> | null = null;
+  // This account has had Pro before (RevenueCat keeps ended entitlements):
+  // Apple gives one free trial per subscription group, so no trial is
+  // offered again, whatever the eligibility check said (it runs only at
+  // launch and sign-in, and often answers "unknown").
+  let hadPro = false;
+  const NO_TRIAL: Partial<Record<PlanKey, boolean>> = { monthly: false, yearly: false };
+
+  const apply = (info: CustomerInfo) => {
+    hadPro = !!info.entitlements.all[ENTITLEMENT];
+    if (hadPro) set({ trialEligible: NO_TRIAL });
+    let subscription = subscriptionOf(info);
+    let lapsed = subscription ? null : lapsedOf(info);
+    // Customer info can be older than the period it describes: one that
+    // has already ended isn't Pro, whatever it last said.
+    if (subscription && new Date(subscription.renewsAt).getTime() <= Date.now()) {
+      lapsed = asLapsed(subscription);
+      subscription = null;
+    }
+    set({ subscription, isPro: !!subscription, lapsed });
+
+    if (expiryTimer) clearTimeout(expiryTimer);
+    expiryTimer = null;
+    const msLeft = subscription ? new Date(subscription.renewsAt).getTime() - Date.now() : 0;
+    // Only within a day (timers that long are unreliable; a later launch
+    // or Settings visit catches the rest). A beat after the end, so
+    // RevenueCat has the renewal or expiry by then.
+    if (subscription && msLeft < 24 * 60 * 60 * 1000) {
+      expiryTimer = setTimeout(() => get().refresh(), msLeft + 3000);
+    }
+  };
+
+  const ready = () => {
+    if (!configured) {
+      configured = (async () => {
+        if (!API_KEY) return false;
+        if (__DEV__) await Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+        Purchases.configure({ apiKey: API_KEY });
+        Purchases.addCustomerInfoUpdateListener(apply);
+        return true;
+      })().catch(() => false);
+    }
+    return configured;
+  };
+
+  // Prices from the current offering, then whether each plan's trial is
+  // still open to this Apple ID.
+  const loadOffering = async () => {
+    const offerings = await Purchases.getOfferings();
+    const current = offerings.current;
+    packages = { monthly: current?.monthly ?? undefined, yearly: current?.annual ?? undefined };
+    const prices: Partial<Record<PlanKey, string>> = {};
+    for (const [plan, pkg] of Object.entries(packages) as [PlanKey, PurchasesPackage | undefined][]) {
+      if (pkg) prices[plan] = pkg.product.priceString;
+    }
+    set({ prices, yearlyPerMonth: packages.yearly?.product.pricePerMonthString ?? null });
+    await loadTrialEligibility();
+  };
+
+  const loadTrialEligibility = async () => {
+    if (hadPro) return set({ trialEligible: NO_TRIAL });
+    const ids = Object.values(packages)
+      .filter((pkg): pkg is PurchasesPackage => !!pkg)
+      .map((pkg) => pkg.product.identifier);
+    if (ids.length === 0) return;
+    const result = await Purchases.checkTrialOrIntroductoryPriceEligibility(ids);
+    const trialEligible: Partial<Record<PlanKey, boolean>> = {};
+    for (const [plan, pkg] of Object.entries(packages) as [PlanKey, PurchasesPackage | undefined][]) {
+      const status = pkg && result[pkg.product.identifier]?.status;
+      if (status === INTRO_ELIGIBILITY_STATUS.INTRO_ELIGIBILITY_STATUS_ELIGIBLE) trialEligible[plan] = true;
+      else if (status === INTRO_ELIGIBILITY_STATUS.INTRO_ELIGIBILITY_STATUS_INELIGIBLE) trialEligible[plan] = false;
+    }
+    // A purchase may have landed while Apple was answering.
+    set({ trialEligible: hadPro ? NO_TRIAL : trialEligible });
   };
 
   return {
     subscription: null,
     isPro: false,
+    lapsed: null,
+    prices: {},
+    yearlyPerMonth: null,
+    trialEligible: {},
     load: async () => {
+      if (!(await ready())) return;
       try {
-        save(advance(parse(await AsyncStorage.getItem(STORAGE_KEY))));
+        apply(await Purchases.getCustomerInfo());
+        await loadOffering();
       } catch {
-        // Unreadable: not Pro.
+        // Offline or the store is unreachable: not Pro for now, and the Pro
+        // page shows its own prices. The listener catches up later.
+      }
+    },
+    setUser: async (userId) => {
+      if (!(await ready()) || userId === currentUser) return;
+      currentUser = userId;
+      try {
+        if (userId) {
+          apply((await Purchases.logIn(userId)).customerInfo);
+        } else if (!(await Purchases.isAnonymous())) {
+          apply(await Purchases.logOut());
+        }
+        // A different person (or Apple ID history) can change trial
+        // eligibility.
+        await loadTrialEligibility();
+      } catch {
+        // Retried on the next sign-in or launch.
+        currentUser = null;
       }
     },
     refresh: () => {
-      const { subscription } = get();
-      const next = advance(subscription);
-      if (JSON.stringify(next) !== JSON.stringify(subscription)) save(next);
+      void (async () => {
+        if (!(await ready())) return;
+        try {
+          // Past RevenueCat's few-minute cache: a cancel or switch made in
+          // Apple's subscription screen should show as soon as we're back.
+          await Purchases.invalidateCustomerInfoCache();
+          apply(await Purchases.getCustomerInfo());
+        } catch {
+          // Keep what we had.
+        }
+      })();
     },
-    startTrial: (plan) => {
-      const now = new Date();
-      const trialEndsAt = new Date(now.getTime() + TRIAL_DAYS * DAY_MS).toISOString();
-      save({ plan, status: "trial", startedAt: now.toISOString(), trialEndsAt, renewsAt: trialEndsAt });
-    },
-    switchPlan: (plan) => {
-      const { subscription } = get();
-      if (!subscription || subscription.status === "cancelled") return;
-      if (subscription.status === "trial") save({ ...subscription, plan, nextPlan: undefined });
-      else save({ ...subscription, nextPlan: plan === subscription.plan ? undefined : plan });
-    },
-    cancel: () => {
-      const { subscription } = get();
-      if (subscription && subscription.status !== "cancelled") {
-        save({ ...subscription, status: "cancelled", cancelledInTrial: subscription.status === "trial", nextPlan: undefined });
+    purchase: async (plan) => {
+      if (!(await ready())) throw new Error("Purchases aren't available on this device yet.");
+      if (!packages[plan]) await loadOffering();
+      const pkg = packages[plan];
+      if (!pkg) throw new Error("This plan isn't available right now. Try again in a moment.");
+      try {
+        const { customerInfo } = await Purchases.purchasePackage(pkg);
+        apply(customerInfo);
+        return get().isPro ? "purchased" : "cancelled";
+      } catch (error) {
+        const code = (error as { code?: string }).code;
+        if (code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) return "cancelled";
+        throw error;
       }
     },
-    resume: () => {
-      const { subscription } = get();
-      if (!subscription || subscription.status !== "cancelled") return;
-      const inTrial = !!subscription.trialEndsAt && new Date(subscription.trialEndsAt).getTime() > Date.now();
-      save({ ...subscription, status: inTrial ? "trial" : "active", cancelledInTrial: undefined });
+    restore: async () => {
+      if (!(await ready())) return false;
+      apply(await Purchases.restorePurchases());
+      return get().isPro;
     },
-    endNow: () => save(null),
   };
 });
+
+/** Apple's own subscription screen (switch plan, cancel). */
+export const manageSubscription = async () => {
+  await Purchases.showManageSubscriptions();
+  // It opens over the app (Settings never loses focus), so re-read once
+  // it's closed. Syncing first makes RevenueCat re-check the subscription
+  // with Apple, so a cancel or switch made there shows straight away
+  // instead of waiting for Apple's server notification.
+  try {
+    await Purchases.syncPurchases();
+  } catch {
+    // The refresh below still runs; the notification catches up later.
+  }
+  useProStore.getState().refresh();
+};
 
 export const useIsPro = () => useProStore((s) => s.isPro);
 export const useProSubscription = () => useProStore((s) => s.subscription);

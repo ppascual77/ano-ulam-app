@@ -3,7 +3,7 @@ import { AppText, BottomSheet } from "@/frontend/components/ui";
 import type { SignInProvider } from "../hooks/useAuth";
 import { SignInButtons } from "./SignInButtons";
 
-export type LoginGateReason = "save" | "create";
+export type LoginGateReason = "save" | "create" | "pro";
 
 // Copy from the web app's SaveMealLoginPrompt. The second half of the title
 // is colored (orange for save, green for create).
@@ -19,6 +19,13 @@ const COPY: Record<LoginGateReason, { title: string; highlight: string; tone: st
     highlight: "community!",
     tone: "text-brand-green",
     description: "Sign in to post food finds, share recipes, and join the conversation.",
+  },
+  // Buying Pro (the Pro page): it's tied to the account.
+  pro: {
+    title: "Pro stays with ",
+    highlight: "your account!",
+    tone: "text-brand-orange",
+    description: "Sign in first, so Pro works on any phone you sign in on and you can always get it back.",
   },
 };
 

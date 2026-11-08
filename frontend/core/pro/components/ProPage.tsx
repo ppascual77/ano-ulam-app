@@ -1,16 +1,17 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Linking, Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { ArrowRight, Check, Minus, X } from "lucide-react-native";
-import { AppText, Button } from "@/frontend/components/ui";
+import { AppText, Button, showGlobalToast } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
+import { useAuth, useSignIn, type SignInProvider } from "@/frontend/features/auth/hooks/useAuth";
+import { LoginGateSheet } from "@/frontend/features/auth/components/LoginGateSheet";
 import { ProBadge } from "./ProBadge";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useProStore, useProSubscription } from "../store/useProStore";
 import { nextLine, planName } from "../subscriptionCopy";
-import { ProCheckoutSheet } from "./ProCheckoutSheet";
 import { ProUnlockOverlay } from "./ProUnlockOverlay";
 import {
   COMPARE_ROWS,
@@ -45,27 +46,68 @@ type ProPageProps = {
 // screen, and inside the meal sheet (a screen can't open over it). Handles
 // its own safe area, so the unlock screen can cover the whole page.
 //
-// Starting Pro (MOCK, no payments yet): the button opens a test checkout
-// sheet; confirming starts the trial (useProStore) under the unlock screen,
-// which plays over this page. All of it lives in this page as layers, not
-// new screens or Modals, since it also runs inside the meal sheet.
+// Starting Pro: the button opens Apple's own purchase sheet (useProStore,
+// through RevenueCat); once it goes through, the unlock screen plays over
+// this page (the gates flip under it, so they're open when it ends). Guests
+// sign in first, since Pro is tied to the account. Prices are the App
+// Store's, in the buyer's currency (PLANS until they load).
 export function ProPage({ onClose, onStarted, allowLinks = true, onManage, title, subtitle }: ProPageProps) {
   const insets = useSafeAreaInsets();
   const subscription = useProSubscription();
-  const startTrial = useProStore((s) => s.startTrial);
+  const { purchase, restore, prices, trialEligible } = useProStore();
+  const { session } = useAuth();
+  const signIn = useSignIn();
   const [plan, setPlan] = useState<PlanKey>(subscription?.plan ?? "monthly");
   const chosen = PLANS[plan];
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const confirmed = useRef(false);
+  const price = prices[plan] ?? `₱${chosen.price}`;
+  // Only Apple knows if this Apple ID already had its trial; unknown counts
+  // as eligible (Apple's sheet shows the real terms either way).
+  const hasTrial = trialEligible[plan] !== false;
+  const [buying, setBuying] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [gateOpen, setGateOpen] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
 
-  // Once the checkout sheet has slid away: the trial starts and the unlock
-  // screen plays (the gates flip under it, so they're open when it ends).
-  const afterCheckout = () => {
-    if (!confirmed.current) return;
-    confirmed.current = false;
-    startTrial(plan);
-    setUnlocking(true);
+  const buy = async (userId: string) => {
+    setBuying(true);
+    try {
+      // Make sure RevenueCat is on this account before buying (right after
+      // signing in, the app-wide sync may not have run yet).
+      await useProStore.getState().setUser(userId);
+      if ((await purchase(plan)) === "purchased") setUnlocking(true);
+    } catch (error) {
+      showGlobalToast({ message: error instanceof Error ? error.message : "Couldn't start Pro. Try again.", tone: "error" });
+    } finally {
+      setBuying(false);
+    }
+  };
+
+  const start = () => {
+    if (session) void buy(session.user.id);
+    else setGateOpen(true);
+  };
+
+  const signInAndBuy = async (provider: SignInProvider) => {
+    const signedIn = await signIn.mutateAsync(provider).catch(() => null);
+    if (!signedIn) return;
+    setGateOpen(false);
+    void buy(signedIn.user.id);
+  };
+
+  const restorePurchases = async () => {
+    setRestoring(true);
+    try {
+      const found = await restore();
+      showGlobalToast(
+        found
+          ? { message: "Pro is back on.", tone: "success" }
+          : { message: "No Pro subscription found for this Apple ID.", tone: "error" },
+      );
+    } catch {
+      showGlobalToast({ message: "Couldn't restore. Check your connection.", tone: "error" });
+    } finally {
+      setRestoring(false);
+    }
   };
 
   return (
@@ -112,25 +154,37 @@ export function ProPage({ onClose, onStarted, allowLinks = true, onManage, title
         ) : (
           <>
             <Text className="text-center font-inter-regular text-small text-ink-subtle">
-              {TRIAL_DAYS} days free, then ₱{chosen.price}/{chosen.per}. Cancel anytime.
+              {hasTrial ? `${TRIAL_DAYS} days free, then ${price}/${chosen.per}.` : `${price}/${chosen.per}.`} Cancel anytime in the App Store.
             </Text>
-            <Button label={`Start ${TRIAL_DAYS}-day free trial`} variant="secondary" onPress={() => setCheckoutOpen(true)} />
+            <Button
+              label={hasTrial ? `Start ${TRIAL_DAYS}-day free trial` : `Subscribe for ${price}/${chosen.per}`}
+              variant="secondary"
+              loading={buying}
+              celebrate={false}
+              onPress={start}
+            />
+            <Pressable
+              onPress={() => void restorePurchases()}
+              disabled={restoring}
+              accessibilityRole="button"
+              hitSlop={8}
+              className="items-center py-1 active:opacity-60"
+            >
+              <Text className="font-inter-medium text-small text-ink-subtle">{restoring ? "Restoring..." : "Restore purchases"}</Text>
+            </Pressable>
           </>
         )}
       </View>
 
-      <ProCheckoutSheet
-        visible={checkoutOpen}
-        plan={plan}
-        onClose={() => setCheckoutOpen(false)}
-        onConfirm={() => {
-          confirmed.current = true;
-          setCheckoutOpen(false);
-        }}
-        onClosed={afterCheckout}
+      <LoginGateSheet
+        reason={gateOpen ? "pro" : null}
+        onClose={() => setGateOpen(false)}
+        onSignIn={(provider) => void signInAndBuy(provider)}
+        isSigningIn={signIn.isPending}
       />
 
-      {unlocking && <ProUnlockOverlay onDone={onStarted} />}
+      {/* From the tap until the purchase settles, then the unlock. */}
+      {(buying || unlocking) && <ProUnlockOverlay phase={unlocking ? "unlocked" : "confirming"} onDone={onStarted} />}
     </View>
   );
 }
@@ -271,6 +325,9 @@ const SELECT_MS = 220;
 // radio's dot in and gives the card a small press-and-settle.
 function PlanCard({ planKey, selected, onPress }: { planKey: PlanKey; selected: boolean; onPress: () => void }) {
   const option = PLANS[planKey];
+  // The App Store's price in the buyer's currency, once loaded.
+  const storePrice = useProStore((s) => s.prices[planKey]);
+  const yearlyPerMonth = useProStore((s) => s.yearlyPerMonth);
   const on = useSharedValue(selected ? 1 : 0);
   const press = useSharedValue(1);
   useEffect(() => {
@@ -303,10 +360,12 @@ function PlanCard({ planKey, selected, onPress }: { planKey: PlanKey; selected: 
           <Text className="font-inter-semibold text-body text-ink-emphasis">{option.label}</Text>
         </View>
         <Text className="mt-3 font-inter-extrabold text-heading text-ink-emphasis">
-          ₱{option.price}
+          {storePrice ?? `₱${option.price}`}
           <Text className="font-inter-regular text-small text-ink-subtle">/{option.per}</Text>
         </Text>
-        {planKey === "yearly" && <Text className="font-inter-regular text-small text-ink-subtle">₱{Math.round(option.price / 12)} a month</Text>}
+        {planKey === "yearly" && (
+          <Text className="font-inter-regular text-small text-ink-subtle">{yearlyPerMonth ?? `₱${Math.round(option.price / 12)}`} a month</Text>
+        )}
       </Animated.View>
     </Pressable>
   );

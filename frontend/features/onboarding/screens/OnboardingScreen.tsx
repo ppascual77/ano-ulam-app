@@ -177,9 +177,9 @@ export default function OnboardingScreen() {
       if (!session) return; // user cancelled the browser flow
       await updateProfile.mutateAsync({
         preferences: {
+          // Nothing picked on the slide: no focus, no allergens.
           dietary_focus: groupSelections["dietary-focus"]?.[0] ?? "none",
-          // "None" is only a choice on the slide, not an allergen.
-          allergens: (groupSelections["allergens"] ?? []).filter((id) => id !== "none"),
+          allergens: groupSelections["allergens"] ?? [],
           goals: Array.from(goals),
         },
       });

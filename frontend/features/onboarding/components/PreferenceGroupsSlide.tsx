@@ -14,16 +14,6 @@ type Props = {
   onGroupChange: (groupId: string, value: string[]) => void;
 };
 
-// "None" is the default and can't sit alongside real picks: choosing it
-// clears the rest, choosing anything else clears it, and clearing the last
-// pick falls back to it.
-function withExclusiveNone(prev: string[], next: string[]) {
-  const added = next.find((id) => !prev.includes(id));
-  if (added === "none") return ["none"];
-  if (added) return next.filter((id) => id !== "none");
-  return next.length ? next : ["none"];
-}
-
 // Same header shape as "What matters to you?" (title, one line of how it
 // works, the art on the right), then one section per group. The note about changing these later
 // sits quietly at the bottom instead of being pushed down by fixed gaps.
@@ -48,10 +38,11 @@ export function PreferenceGroupsSlide({ slide, width, selections, onGroupChange 
             <GroupSection
               key={group.id}
               group={group}
-              value={selections[group.id] ?? ["none"]}
+              // Nothing selected (the start) means none.
+              value={selections[group.id] ?? []}
               onChange={(value) => {
                 Haptics.selectionAsync();
-                onGroupChange(group.id, withExclusiveNone(selections[group.id] ?? ["none"], value));
+                onGroupChange(group.id, value);
               }}
             />
           ))}
@@ -74,7 +65,7 @@ function GroupSection({ group, value, onChange }: { group: PreferenceGroup; valu
       <AppText variant="sectionSubtitle" dot className="mb-4">
         {group.title}
       </AppText>
-      <ChipSelect options={group.options} mode={group.mode} value={value} onChange={onChange} />
+      <ChipSelect options={group.options} mode={group.mode} clearable value={value} onChange={onChange} />
     </View>
   );
 }

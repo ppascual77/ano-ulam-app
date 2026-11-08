@@ -4,7 +4,7 @@ import { colors } from "@/frontend/constants/theme";
 import type { UnlockedFeature } from "./unlockedFeatures";
 
 // One Pro feature as a plain row (not tappable): icon, what it is, and a
-// check. Shared by the unlock screen and Settings' "See all Pro features".
+// check. Used by the unlock screen.
 export function ProFeatureRow({ feature, last = false }: { feature: UnlockedFeature; last?: boolean }) {
   const Icon = feature.Icon;
   return (

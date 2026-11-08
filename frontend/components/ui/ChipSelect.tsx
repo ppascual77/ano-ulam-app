@@ -1,11 +1,14 @@
 import { useEffect } from "react";
 import { View, Pressable } from "react-native";
 import Animated, {
+  FadeIn,
+  FadeOut,
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   interpolateColor,
 } from "react-native-reanimated";
+import { X } from "lucide-react-native";
 import { AppText } from "./AppText";
 import { colors } from "@/frontend/constants/theme";
 
@@ -25,6 +28,9 @@ type ChipSelectProps = {
   variant?: ChipVariant;
   /** With mode="single", disallows deselecting down to none — one option is always selected. */
   required?: boolean;
+  /** A quiet "Clear" after the chips while anything is selected, for
+   *  choices where nothing selected is a real answer (e.g. no allergens). */
+  clearable?: boolean;
   value: string[];
   onChange: (value: string[]) => void;
 };
@@ -84,9 +90,13 @@ export function ChipSelect({
   mode = "multi",
   variant = "default",
   required = false,
+  clearable = false,
   value,
   onChange,
 }: ChipSelectProps) {
+  // Only what's still an option counts (a stored value no longer offered
+  // shouldn't keep Clear showing).
+  const hasSelection = value.some((id) => options.some((option) => option.id === id));
   const toggle = (id: string) => {
     const isSelected = value.includes(id);
     if (mode === "single") {
@@ -108,6 +118,23 @@ export function ChipSelect({
           onPress={() => toggle(option.id)}
         />
       ))}
+      {clearable && hasSelection && (
+        <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(140)}>
+          {/* Chip height (10px padding + one line), so it sits on the row. */}
+          <Pressable
+            onPress={() => onChange([])}
+            accessibilityRole="button"
+            accessibilityLabel="Clear selection"
+            hitSlop={6}
+            className="flex-row items-center gap-1 px-2 py-2.5 active:opacity-60"
+          >
+            <X color={colors.ink.subtle} size={14} strokeWidth={2.5} />
+            <AppText variant="bodyMedium" className="text-ink-subtle">
+              Clear
+            </AppText>
+          </Pressable>
+        </Animated.View>
+      )}
     </View>
   );
 }
