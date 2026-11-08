@@ -22,8 +22,8 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 import { useProSubscription } from "../store/useProStore";
 import { formatPlanDate, planName } from "../subscriptionCopy";
 import { TRIAL_DAYS } from "../proContent";
-import { UNLOCKED_FEATURES, type UnlockedFeature } from "./unlockedFeatures";
-import { ProFeatureRow } from "./ProFeatureRow";
+import { CompareTable } from "./ProCompareTable";
+import { COMPARE_ROWS } from "../proContent";
 
 type ProUnlockOverlayProps = {
   /** "confirming": Apple's purchase sheet is up, or the purchase is being
@@ -174,17 +174,6 @@ function Padlock({ open: isOpen, reduceMotion }: { open: boolean; reduceMotion: 
   );
 }
 
-// One unlocked feature (ProFeatureRow), fading up in its turn.
-function FeatureRow({ feature, index, reduceMotion }: { feature: UnlockedFeature; index: number; reduceMotion: boolean }) {
-  return (
-    <Animated.View
-      entering={reduceMotion ? FadeIn.duration(200) : FadeInDown.delay(T.list + index * T.rowStagger).duration(320).easing(EASE)}
-    >
-      <ProFeatureRow feature={feature} />
-    </Animated.View>
-  );
-}
-
 // Under the closed lock while confirming, by where the purchase is: Apple's
 // sheet still opening, open (the app goes inactive under it), then back
 // with us while RevenueCat confirms the receipt.
@@ -240,7 +229,7 @@ export function ProUnlockOverlay({ phase, onDone }: ProUnlockOverlayProps) {
 
   const trialEnd = subscription?.trialEndsAt ? formatPlanDate(subscription.trialEndsAt) : null;
   const fadeUp = (delay: number) => (reduceMotion ? FadeIn.duration(200) : FadeInDown.delay(delay).duration(360).easing(EASE));
-  const listEnd = T.list + UNLOCKED_FEATURES.length * T.rowStagger;
+  const listEnd = T.list + COMPARE_ROWS.filter((row) => row.free !== row.pro).length * T.rowStagger;
 
   return (
     <Animated.View
@@ -284,14 +273,13 @@ export function ProUnlockOverlay({ phase, onDone }: ProUnlockOverlayProps) {
                 </View>
               </Animated.View>
 
+              {/* The Pro page's table, Pro column only: what's yours now,
+                  each row rising in turn. */}
               <Animated.View entering={fadeUp(T.list - 100)}>
-                <Text className="mt-8 font-inter-bold text-small uppercase text-ink-subtle">Now included</Text>
+                <View className="mt-8">
+                  <CompareTable title="Now included" proOnly rowEntering={(i) => fadeUp(T.list + i * T.rowStagger)} />
+                </View>
               </Animated.View>
-              <View className="mt-1">
-                {UNLOCKED_FEATURES.map((feature, i) => (
-                  <FeatureRow key={feature.key} feature={feature} index={i} reduceMotion={reduceMotion} />
-                ))}
-              </View>
             </>
           )}
         </ScrollView>

@@ -13,8 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useProStore, useProSubscription } from "../store/useProStore";
 import { nextLine, planName } from "../subscriptionCopy";
 import { ProUnlockOverlay } from "./ProUnlockOverlay";
-import { ProFeatureRow } from "./ProFeatureRow";
-import { UNLOCKED_FEATURES } from "./unlockedFeatures";
+import { CompareTable } from "./ProCompareTable";
 import {
   PLANS,
   QUOTES,
@@ -41,7 +40,7 @@ type ProPageProps = {
 };
 
 // The full Pro page (ProUpgradeSheet is the quick version, and links here):
-// the promise, press, everything Pro includes, a plan, then what people say. The button
+// the promise, press, Free vs Pro, a plan, then what people say. The button
 // stays pinned at the bottom while the rest scrolls. Shown as the /pro
 // screen, and inside the meal sheet (a screen can't open over it). Handles
 // its own safe area, so the unlock screen can cover the whole page.
@@ -134,7 +133,7 @@ export function ProPage({ onClose, onStarted, allowLinks = true, onManage, title
         </View>
 
         <PressFeatures />
-        <FeatureList />
+        <CompareTable />
         <PlanPicker plan={plan} onChange={setPlan} />
         <Quotes />
       </ScrollView>
@@ -238,23 +237,6 @@ function PressFeatures() {
         </Pressable>
       ))}
     </ScrollView>
-  );
-}
-
-// What Pro includes, as the same plain rows the "You're Pro" screen shows:
-// an icon tile, the feature, a one-line detail and a check.
-function FeatureList() {
-  return (
-    <View>
-      <AppText variant="sectionSubtitle" dot>
-        Everything in Pro
-      </AppText>
-      <View className="mt-1">
-        {UNLOCKED_FEATURES.map((feature, i) => (
-          <ProFeatureRow key={feature.key} feature={feature} last={i === UNLOCKED_FEATURES.length - 1} />
-        ))}
-      </View>
-    </View>
   );
 }
 

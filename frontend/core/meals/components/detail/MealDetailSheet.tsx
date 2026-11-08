@@ -9,6 +9,7 @@ import { MealDetailContent } from "./MealDetailContent";
 import { IngredientDetailSheet } from "./IngredientDetailSheet";
 import { ProPage } from "@/frontend/core/pro/components/ProPage";
 import { GlobalLoginGate } from "@/frontend/features/auth/components/GlobalLoginGate";
+import { SaveLimitSheet } from "@/frontend/core/saved/components/SaveLimitSheet";
 import { useLoginGateStore } from "@/frontend/features/auth/store/useLoginGateStore";
 import type { IngredientType, MealType } from "../../mealTypes";
 
@@ -196,6 +197,9 @@ export function MealDetailSheet({
           />
           {/* A guest saving from here: the login sheet inside this one. */}
           {meal && <GlobalLoginGate presentation="inline" />}
+          {/* Saving past the free cap from here: the Pro pitch inside this
+              sheet, and its Unlock Pro opens the Pro page in this sheet too. */}
+          {meal && <SaveLimitSheet presentation="inline" onOpenPro={() => setProPageOpen(true)} />}
           {/* Above the ingredient sheet, which can open it too. */}
           <BottomSheet visible={proPageOpen} onClose={() => setProPageOpen(false)} presentation="inline" fullScreen>
             {/* No Settings link: it would navigate under this sheet. */}

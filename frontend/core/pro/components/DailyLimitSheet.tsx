@@ -15,14 +15,23 @@ type DailyLimitSheetProps = {
   /** "Unlock Pro": called once this sheet has fully closed (see
    *  ProUpgradeSheet's onOpenPro), e.g. to open the Pro page. */
   onOpenPro: () => void;
+  /** Other limits (e.g. the saved-meals cap): replace the daily wording. */
+  title?: string;
+  body?: string;
+  /** A quiet link under the button (e.g. "Manage saved meals"), run once
+   *  the sheet has closed. */
+  secondary?: { label: string; onPress: () => void };
+  /** "inline" when shown over another open sheet (Meal Details). */
+  presentation?: "modal" | "inline";
 };
 
 // Shown when a free user tries something new after using up a daily limit
 // (see dailyLimits): Browse search, Suggest by Budget, Suggest by Pantry.
 // Same look as ProUpgradeSheet, kept short: what ran out, the same quiet
 // "See all Pro features" line, and Unlock Pro.
-export function DailyLimitSheet({ visible, what, limit, onClose, onOpenPro }: DailyLimitSheetProps) {
+export function DailyLimitSheet({ visible, what, limit, onClose, onOpenPro, title, body, secondary, presentation }: DailyLimitSheetProps) {
   const openProPending = useRef(false);
+  const secondaryPending = useRef(false);
   const openPro = () => {
     openProPending.current = true;
     onClose();
@@ -32,21 +41,26 @@ export function DailyLimitSheet({ visible, what, limit, onClose, onOpenPro }: Da
       visible={visible}
       onClose={onClose}
       onClosed={() => {
+        if (secondaryPending.current) {
+          secondaryPending.current = false;
+          secondary?.onPress();
+        }
         if (!openProPending.current) return;
         openProPending.current = false;
         onOpenPro();
       }}
       fitContent
+      presentation={presentation}
     >
       <View className="px-6 pb-8 pt-10">
         <View className="items-start gap-3">
           <ProBadge />
           <View>
             <AppText variant="sectionTitle" dot>
-              {`You're out of ${what} for today`}
+              {title ?? `You're out of ${what} for today`}
             </AppText>
             <Text className="mt-1 font-inter-regular text-body text-ink-subtle">
-              Free accounts get {limit ?? ""} {what} a day, and they reset at midnight. Pro has no daily limit.
+              {body ?? `Free accounts get ${limit ?? ""} ${what} a day, and they reset at midnight. Pro has no daily limit.`}
             </Text>
           </View>
         </View>
@@ -67,6 +81,19 @@ export function DailyLimitSheet({ visible, what, limit, onClose, onOpenPro }: Da
         <View className="mt-7">
           <Button label="Unlock Pro" variant="secondary" onPress={openPro} />
         </View>
+        {secondary && (
+          <Pressable
+            onPress={() => {
+              secondaryPending.current = true;
+              onClose();
+            }}
+            accessibilityRole="button"
+            hitSlop={8}
+            className="mt-4 items-center py-1 active:opacity-60"
+          >
+            <Text className="font-inter-semibold text-small text-ink-subtle">{secondary.label}</Text>
+          </Pressable>
+        )}
       </View>
     </BottomSheet>
   );

@@ -56,6 +56,9 @@ const HINT_BOTTOM = 12;
 const TABS_TOP_OFFSET = 12;
 const TABS_ROW_HEIGHT = 44;
 
+// The + button's highlight waits this long after the intro hands off.
+const HIGHLIGHT_AFTER_INTRO_MS = 350;
+
 // Plays the "your turn, share it" intro on moving to Discover.
 // TODO: gate this behind a first-time-user flag (the auto tour), e.g. a
 // stored "seen" flag, instead of always.
@@ -103,7 +106,9 @@ export default function DiscoverScreen() {
   const [createHighlight, setCreateHighlight] = useState(0);
   const finishIntro = () => {
     intro.finish();
-    setCreateHighlight((n) => n + 1);
+    // A beat after the intro's layer has gone, so the whole swell and lap
+    // play in the open (fired at once, they ran under it).
+    setTimeout(() => setCreateHighlight((n) => n + 1), HIGHLIGHT_AFTER_INTRO_MS);
   };
 
   // Status bar follows the tab while Discover is focused (light over the

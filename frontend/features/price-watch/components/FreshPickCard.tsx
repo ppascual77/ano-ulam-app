@@ -1,8 +1,6 @@
-import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Minus, TrendingDown, TrendingUp } from "lucide-react-native";
-import { BoilingDoodle, TREND_DOODLES, drawBoilPair } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { formatPeso, trendOf, unitSuffix, type PriceItem, type Trend } from "@/frontend/core/prices/utils/prices";
 import { RollingPrice } from "./RollingPrice";
@@ -21,13 +19,16 @@ const GRADIENTS: [string, string][] = [
   ["#15803d", "#134e4a"], // green-700 -> teal-900
 ];
 
-// Big faint hand-drawn trend arrow in the corner, with the same two-version
-// "line boil" as the confetti doodles. Purely decorative.
-function TrendScribble({ trend, paused }: { trend: Trend; paused: boolean }) {
-  const [versions] = useState(() => drawBoilPair(TREND_DOODLES[trend]));
+// The trend as a large, still, thin-line watermark in the top right corner
+// (fully inside the card): down for a drop, up for a rise, flat for
+// stable. Purely decorative.
+const WATERMARK: Record<Trend, typeof TrendingDown> = { down: TrendingDown, up: TrendingUp, flat: Minus };
+
+function TrendWatermark({ trend }: { trend: Trend }) {
+  const Icon = WATERMARK[trend];
   return (
-    <View pointerEvents="none" className="absolute right-4 top-4 opacity-20">
-      <BoilingDoodle versions={versions} size={76} color={colors.white} strokeWidth={2} paused={paused} />
+    <View pointerEvents="none" className="absolute right-4 top-3 opacity-10">
+      <Icon color={colors.white} size={110} strokeWidth={1.25} />
     </View>
   );
 }
@@ -41,7 +42,7 @@ type FreshPickCardProps = {
   onPress: () => void;
 };
 
-// No product photo — the gradient, a hand-drawn trend arrow, and the text.
+// No product photo: the gradient, a faint trend watermark, and the text.
 //
 // The gradient is an absolute-fill background behind a plain View, rather
 // than LinearGradient itself being the outer/touchable element — inside a
@@ -72,8 +73,7 @@ export function FreshPickCard({ item, index, width, active, onPress }: FreshPick
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
-      {/* Only the shown slide boils; the others hold still. */}
-      <TrendScribble key={trend} trend={trend} paused={!active} />
+      <TrendWatermark trend={trend} />
 
       <View className="flex-1 justify-between p-5">
         <View className="flex-row items-center gap-1 self-start rounded-full border border-white/20 bg-white/15 px-2.5 py-1">

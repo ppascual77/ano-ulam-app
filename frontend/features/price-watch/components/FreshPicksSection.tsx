@@ -78,6 +78,9 @@ type FreshPicksSectionProps = {
   picks: PriceItem[];
   loading: boolean;
   onSelect: (item: PriceItem) => void;
+  /** Price Watch is on screen (focused, past its intro): the shown slide's
+   *  prices roll then, and again on each return to the tab. */
+  visible: boolean;
 };
 
 // Paging is a native horizontal ScrollView snapping one card at a time
@@ -86,7 +89,7 @@ type FreshPicksSectionProps = {
 // on the cards come for free. A custom pan here (two attempts, see
 // fix/fresh-picks-swipe) never swiped on the phone: the touch went to the
 // card's tap instead. The tilt still comes from the scroll position.
-function FreshPicksSectionInner({ picks, loading, onSelect }: FreshPicksSectionProps) {
+function FreshPicksSectionInner({ picks, loading, onSelect, visible }: FreshPicksSectionProps) {
   const { width: windowWidth } = useWindowDimensions();
   const cardWidth = windowWidth - SCREEN_PADDING;
   const step = cardWidth + CARD_GAP;
@@ -162,7 +165,7 @@ function FreshPicksSectionInner({ picks, loading, onSelect }: FreshPicksSectionP
             >
               {hasBoard && (
                 <PagedCard i={0} pos={pos} scrollX={scrollX} step={step}>
-                  <FreshPicksBoard items={boardItems} width={cardWidth} active={current === 0} onSelect={onSelect} />
+                  <FreshPicksBoard items={boardItems} width={cardWidth} active={visible && current === 0} onSelect={onSelect} />
                 </PagedCard>
               )}
               {cardItems.map((item, i) => (
@@ -171,7 +174,7 @@ function FreshPicksSectionInner({ picks, loading, onSelect }: FreshPicksSectionP
                     item={item}
                     index={i}
                     width={cardWidth}
-                    active={current === i + firstCard}
+                    active={visible && current === i + firstCard}
                     onPress={() => onSelect(item)}
                   />
                 </PagedCard>

@@ -30,7 +30,7 @@ import { CreatedTab } from "../components/created/CreatedTab";
 import { RecipeLimitSheet } from "../components/created/RecipeLimitSheet";
 import { GroceryTab } from "../components/grocery/GroceryTab";
 import { PantryTab } from "../components/pantry/PantryTab";
-import { ProAvatarRing, ProMemberLine, ProNameBadge } from "@/frontend/core/pro/components/ProProfileFlair";
+import { ProAvatarRing, ProNameBadge } from "@/frontend/core/pro/components/ProProfileFlair";
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
 import { MealPlanBanner } from "../components/MealPlanBanner";
 
@@ -103,8 +103,6 @@ export default function ProfileScreen() {
   }, [params.at]);
   const bio = useMyBio();
   const isPro = useProStore((s) => s.isPro);
-  const proSubscription = useProStore((s) => s.subscription);
-  const earnedUntil = useProStore((s) => s.earnedUntil);
   const updateBio = useUpdateBio();
   const recipes = useMyRecipes(me.id);
   // Same rule as Add a Recipe's limit check: rejected recipes don't count.
@@ -238,9 +236,7 @@ export default function ProfileScreen() {
                     showToast("Couldn't save your bio. Please try again.");
                   }
                 }}
-              >
-                {isPro && <ProMemberLine since={proSubscription?.since} earnedUntil={proSubscription ? null : earnedUntil} />}
-              </ProfileHeader>
+              />
               {/* While a meal plan runs today (same as Home's plan card). */}
               <MealPlanBanner />
             </>

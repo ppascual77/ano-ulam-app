@@ -57,6 +57,8 @@ export function CreateButton({ onPress, variant, landingRef, highlightId = 0 }: 
 
   useEffect(() => {
     if (highlightId === 0) return;
+    // TEMP: confirming the highlight fires after the intro. Remove once seen.
+    if (__DEV__) console.log("[CreateButton] highlight", highlightId);
     pulse.value = withSequence(
       withTiming(1.15, { duration: PULSE_UP_MS, easing: Easing.out(Easing.quad) }),
       withSpring(1, { damping: 7, stiffness: 260, mass: 0.5 }),
@@ -99,22 +101,25 @@ export function CreateButton({ onPress, variant, landingRef, highlightId = 0 }: 
             style={{ position: "absolute", width: LANDING_DOT, height: LANDING_DOT }}
           />
         )}
-        <Svg pointerEvents="none" style={StyleSheet.absoluteFill}>
-          <AnimatedCircle
-            cx={SIZE / 2}
-            cy={SIZE / 2}
-            r={LAP_RADIUS}
-            fill="none"
-            stroke={colors.accent}
-            strokeWidth={LAP_STROKE}
-            strokeLinecap="round"
-            strokeDasharray={[LAP_LENGTH, LAP_LENGTH]}
-            strokeOpacity={0}
-            transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
-            animatedProps={lapProps}
-          />
-        </Svg>
       </Pressable>
+      {/* On the outer layer at the full size, not inside the button: the
+          dark variant's 1px border shrinks the button's own box, which
+          clipped the lap's lower right. */}
+      <Svg pointerEvents="none" width={SIZE} height={SIZE} style={{ position: "absolute", top: 0, left: 0 }}>
+        <AnimatedCircle
+          cx={SIZE / 2}
+          cy={SIZE / 2}
+          r={LAP_RADIUS}
+          fill="none"
+          stroke={colors.accent}
+          strokeWidth={LAP_STROKE}
+          strokeLinecap="round"
+          strokeDasharray={[LAP_LENGTH, LAP_LENGTH]}
+          strokeOpacity={0}
+          transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
+          animatedProps={lapProps}
+        />
+      </Svg>
     </Animated.View>
   );
 }

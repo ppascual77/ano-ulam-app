@@ -7,7 +7,7 @@ import { create } from "zustand";
 import { isModalSheetOpen, showGlobalToast } from "@/frontend/components/ui";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
-import { SAVED_MEALS_LIMIT, savedKeyOf } from "../types";
+import { savedKeyOf } from "../types";
 
 // What a save looks like from anywhere in the app, so people learn where
 // saved meals live (Profile > Saved):
@@ -17,7 +17,7 @@ import { SAVED_MEALS_LIMIT, savedKeyOf } from "../types";
 //   3. a "Saved to your Profile" toast, only while it's still being learned
 //      (first HINT_LIMIT saves, or until the Saved tab is opened), or
 //      whenever the flight can't play (nav covered, no tap, Reduce motion)
-// Unsaving gets an Undo toast; the saved-meals limit gets a Manage one.
+// Unsaving gets an Undo toast; the saved-meals limit opens SaveLimitSheet.
 
 const STORAGE_KEY = "anoulam.saveFeedback";
 const HINT_LIMIT = 3;
@@ -38,6 +38,8 @@ type SaveFeedbackState = Persisted & {
   landed: number;
   /** Set by SaveFeedbackLayer from useReduceMotion (no hook here). */
   reduceMotion: boolean;
+  /** A free account hit the saved-meals cap: SaveLimitSheet's Pro pitch. */
+  limitOpen: boolean;
   load: () => Promise<void>;
 };
 
@@ -49,6 +51,7 @@ export const useSaveFeedbackStore = create<SaveFeedbackState>((set) => ({
   flight: null,
   landed: 0,
   reduceMotion: false,
+  limitOpen: false,
   load: async () => {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
@@ -154,12 +157,15 @@ export function announceRemoved(meal: MealType, undo: () => void) {
 }
 
 export function announceSaveError(message: string, isLimit: boolean) {
-  showGlobalToast({
-    message: isLimit ? `You've saved ${SAVED_MEALS_LIMIT} meals, the free max. Remove one, or go Pro for unlimited.` : message,
-    tone: "error",
-    action: isLimit ? { label: "Manage", onPress: openSavedTab } : undefined,
-  });
+  // The free cap is a Pro pitch, not an error (SaveLimitSheet).
+  if (isLimit) {
+    useSaveFeedbackStore.setState({ limitOpen: true });
+    return;
+  }
+  showGlobalToast({ message, tone: "error" });
 }
+
+export const closeSaveLimit = () => useSaveFeedbackStore.setState({ limitOpen: false });
 
 /** The Saved tab is on screen: clear the dot, stop the hint toasts. Returns
  *  the key of the meal to pulse once (saved since the tab was last seen). */

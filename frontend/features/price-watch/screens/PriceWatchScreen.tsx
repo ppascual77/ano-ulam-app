@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import { useWindowDimensions, View, type ScrollViewInstance } from "react-native";
 // Gesture handler's ScrollView (and RefreshControl), not React Native's: the
 // fresh picks carousel pages with a gesture-handler pan, and inside RN's
@@ -112,6 +113,15 @@ export default function PriceWatchScreen() {
   const [headerBottom, setHeaderBottom] = useState<number | null>(null);
   // Dark green behind the clock over the header, white once it has scrolled
   // up past it. Dark clock over the intro.
+  // On screen: the fresh picks' prices roll then (not hidden under the
+  // intro, or on a tab that isn't showing), and again on each return.
+  const [focused, setFocused] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => setFocused(false);
+    }, []),
+  );
   const statusBar = useStatusBarStrip({ color: colors.home.top, darkUntil: headerBottom ?? 190, forceDark: intro.showing });
   // Focusing search parks its section (title, sort chip, search box) at the
   // top of the screen, below the status bar strip, and the min height below
@@ -166,7 +176,7 @@ export default function PriceWatchScreen() {
         </View>
 
         <View className="mt-6">
-          <FreshPicksSection picks={picks} loading={items.isLoading} onSelect={setSelected} />
+          <FreshPicksSection picks={picks} loading={items.isLoading} onSelect={setSelected} visible={focused && !intro.showing} />
         </View>
 
         <View className="mt-6">

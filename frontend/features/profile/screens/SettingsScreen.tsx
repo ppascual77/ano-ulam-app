@@ -315,16 +315,22 @@ export default function SettingsScreen() {
               value={reduceMotion}
               onChange={setReduceMotion}
             />
+            {/* Reduce motion skips intros, so replaying them would do
+                nothing: disabled and dimmed, saying why. */}
             <Pressable
               onPress={() => {
                 resetIntros();
                 setToast({ id: Date.now(), message: "Page intros will play again on your next visit.", tone: "success" });
               }}
-              className="active:opacity-60"
+              disabled={reduceMotion}
+              accessibilityState={{ disabled: reduceMotion }}
+              className={reduceMotion ? "opacity-40" : "active:opacity-60"}
             >
               <SettingsRowLabel>Replay page intros</SettingsRowLabel>
               <SettingsRowDescription>
-                Each page's quick intro plays once. This shows them again the next time you open each page.
+                {reduceMotion
+                  ? "Page intros are off while Reduce motion is on."
+                  : "Each page's quick intro plays once. This shows them again the next time you open each page."}
               </SettingsRowDescription>
             </Pressable>
           </SettingsSection>
