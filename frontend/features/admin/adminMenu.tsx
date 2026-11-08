@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { ClipboardCheck, Carrot, Landmark, Sprout, User, Users, Utensils } from "lucide-react-native";
+import { ClipboardCheck, Carrot, Flag, Landmark, Sprout, User, Users, Utensils } from "lucide-react-native";
 import type { DropdownItem } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 
@@ -15,6 +15,7 @@ export function adminMenuItems(): DropdownItem[] {
     { label: "DA Daily Prices", icon: icon(Landmark), onPress: () => router.push("/da-prices") },
     { label: "Seed Meal", icon: icon(Sprout), onPress: () => router.push("/seed-meal") },
     { label: "Review Recipes", icon: icon(ClipboardCheck), onPress: () => router.push("/review-recipes") },
+    { label: "Reported Posts", icon: icon(Flag), onPress: () => router.push("/reported-posts") },
     { label: "Visit Profile", icon: icon(User), onPress: () => router.navigate("/profile") },
   ];
 }

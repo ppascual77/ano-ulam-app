@@ -25,7 +25,13 @@ export type FoodPost = {
   like_count: number;
   /** Whether the signed-in user liked it. */
   liked: boolean;
+  /** Removed by moderation (an admin, or 3 reports). Only its poster still
+   *  gets it, so the app can label it. */
+  hidden: boolean;
 };
+
+/** Why a post was reported (post_reports.reason). */
+export type ReportReason = "spam" | "not_food" | "offensive" | "misleading" | "other";
 
 export type PostInput = {
   caption: string;
@@ -64,6 +70,7 @@ function toPost(row: FeedRow): FoodPost {
     created_at: row.created_at,
     like_count: row.like_count ?? 0,
     liked: !!row.liked,
+    hidden: !!row.hidden,
   };
 }
 
@@ -273,4 +280,11 @@ export async function setPostLiked(postId: string, liked: boolean): Promise<void
     const { error } = await supabase.from("food_post_likes").delete().eq("post_id", postId).eq("user_id", userId);
     if (error) throw error;
   }
+}
+
+/** Reports someone else's post. It leaves the reporter's feed straight
+ *  away; 3 open reports hide it for everyone until an admin reviews it. */
+export async function reportPost(postId: string, reason: ReportReason, note?: string): Promise<void> {
+  const { error } = await supabase.rpc("report_post", { p_post: postId, p_reason: reason, p_note: note?.trim() || undefined });
+  if (error) throw error;
 }
