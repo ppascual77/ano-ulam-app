@@ -80,7 +80,10 @@ export function Dropdown({ trigger, items, headerLabel, headerIcon, matchTrigger
                 : align === "left"
                   ? // Clamped so a left-aligned menu still fits on screen.
                     { left: Math.min(position.left, screenWidth - SCREEN_MARGIN - MENU_MIN_WIDTH) }
-                  : { right: position.right },
+                  : // Same for right-aligned: a trigger left of center (e.g.
+                    // a post card in a grid's left column) would push its
+                    // left edge off screen.
+                    { right: Math.min(position.right, screenWidth - SCREEN_MARGIN - MENU_MIN_WIDTH) },
             ]}
             className={`rounded-2xl border border-ink-emphasis/10 bg-white py-2 ${matchTriggerWidth ? "" : "min-w-[200px]"}`}
           >

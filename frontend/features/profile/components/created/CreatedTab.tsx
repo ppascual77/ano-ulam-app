@@ -56,26 +56,17 @@ function OwnerMenu({ status, onEdit, onDelete }: { status?: string; onEdit: () =
   );
 }
 
-function SectionHeader({ title, onCreate, canCreate }: { title: string; onCreate?: () => void; canCreate: boolean }) {
+// A section's label: small, quiet, with how many it holds. Creating is
+// Profile's floating + (ProfileScreen), so no button here.
+function SectionLabel({ title, count }: { title: string; count?: number }) {
   return (
-    <View className="flex-row items-center justify-between">
-      <Text className="font-inter-semibold text-subheading text-web-ink-body">{title}</Text>
-      {onCreate && (
-        <Pressable
-          onPress={onCreate}
-          disabled={!canCreate}
-          accessibilityLabel="Create"
-          className={`h-10 w-10 items-center justify-center ${canCreate ? "" : "opacity-30"}`}
-        >
-          <Plus color={colors.webInk.body} size={28} strokeWidth={1.5} />
-        </Pressable>
-      )}
-    </View>
+    <Text className="font-inter-bold text-sub uppercase tracking-wide text-ink-subtle">
+      {title}
+      {count !== undefined && <Text className="text-ink-subtle/60">{`  ·  ${count}`}</Text>}
+    </Text>
   );
 }
 
-// Owner's recipes (every status, with badges and an Edit/Delete menu) and
-// food posts (paged, owner menu on each).
 export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMoreSignal, onToast }: CreatedTabProps) {
   const recipesQuery = useMyRecipes(posterId);
   const recipes = recipesQuery.data ?? [];
@@ -128,6 +119,7 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
 
   const isEmpty = !recipesQuery.isLoading && !posts.loading && recipes.length === 0 && posts.posts.length === 0;
 
+
   return (
     <View className="gap-8 pb-6">
       {isEmpty && (
@@ -140,63 +132,56 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
         />
       )}
 
-      {recipesQuery.isLoading && (
-        <View className="gap-5">
-          <SectionHeader title="My Recipes" canCreate={canCreate} />
-          <MealGridSkeleton />
-        </View>
-      )}
-
-      {recipes.length > 0 && (
-        <View className="gap-5">
-          <SectionHeader title="My Recipes" onCreate={onCreate} canCreate={canCreate} />
-          <MealGrid
-            items={recipes}
-            keyOf={(meal) => meal.id ?? meal.name}
-            renderItem={(meal, width) => {
-              const live = !meal.status || meal.status === "approved";
-              return (
-                <MealCard
-                  meal={meal}
-                  width={width}
-                  layout="grid"
-                  onPress={() => setDetailId(meal.id ?? null)}
-                  hideActions={!live}
-                  dimmed={meal.status === "rejected"}
-                  topLeft={live ? undefined : <RecipeStatusBadge status={meal.status} reason={meal.rejection_reason} />}
-                  topRight={
-                    <OwnerMenu
-                      status={meal.status}
-                      onEdit={() => edit(meal)}
-                      onDelete={() => setConfirmDelete({ meal, fromDetails: false })}
-                    />
-                  }
-                />
-              );
-            }}
-          />
+      {(recipesQuery.isLoading || recipes.length > 0) && (
+        <View className="gap-3">
+          <SectionLabel title="Recipes" count={recipesQuery.isLoading ? undefined : recipes.length} />
+          {recipesQuery.isLoading ? (
+            <MealGridSkeleton />
+          ) : (
+            <MealGrid
+              items={recipes}
+              keyOf={(meal) => meal.id ?? meal.name}
+              renderItem={(meal, width) => {
+                const live = !meal.status || meal.status === "approved";
+                return (
+                  <MealCard
+                    meal={meal}
+                    width={width}
+                    layout="grid"
+                    onPress={() => setDetailId(meal.id ?? null)}
+                    hideActions={!live}
+                    dimmed={meal.status === "rejected"}
+                    topLeft={live ? undefined : <RecipeStatusBadge status={meal.status} reason={meal.rejection_reason} />}
+                    topRight={
+                      <OwnerMenu
+                        status={meal.status}
+                        onEdit={() => edit(meal)}
+                        onDelete={() => setConfirmDelete({ meal, fromDetails: false })}
+                      />
+                    }
+                  />
+                );
+              }}
+            />
+          )}
         </View>
       )}
 
       {(posts.loading || posts.posts.length > 0) && !isEmpty && (
-        <View className="gap-4">
-          <SectionHeader
-            title="Food Posts"
-            // The "+" moves here when there are no recipes to sit beside.
-            onCreate={recipes.length === 0 && !recipesQuery.isLoading ? onCreate : undefined}
-            canCreate={canCreate}
-          />
+        <View className="gap-3">
+          <SectionLabel title="Food posts" count={posts.loading ? undefined : posts.posts.length} />
           {posts.loading ? (
-            <View>
+            <View className="gap-3">
               <PostSkeleton />
               <PostSkeleton />
             </View>
           ) : (
-            <View className="gap-6">
+            <View className="gap-3">
               {posts.posts.map((post) => (
                 <FoodPostCard
                   key={post.id}
                   post={post}
+                  framed
                   currentUserId={posterId}
                   onLike={() => void posts.toggleLike(post)}
                   onShare={() => void share(post)}

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { BlurView } from "expo-blur";
+import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Settings } from "lucide-react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
+import { Plus, Settings } from "lucide-react-native";
 import { AppText, Avatar, LandingTitle, Screen, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { RECIPE_LIMIT } from "@/api/recipes";
@@ -18,7 +21,6 @@ import {
   useUpdateBio,
 } from "../hooks/useProfile";
 import { ProfileHeader } from "../components/ProfileHeader";
-import { CommunityFeedLink } from "../components/CommunityFeedLink";
 import { OWN_TABS, type ProfileTab } from "../components/ProfileTabBar";
 import { ProfileScaffold } from "../components/ProfileScaffold";
 import { OfficialProfileView } from "../components/official/OfficialProfileView";
@@ -30,6 +32,7 @@ import { GroceryTab } from "../components/grocery/GroceryTab";
 import { PantryTab } from "../components/pantry/PantryTab";
 import { ProAvatarRing, ProMemberLine, ProNameBadge } from "@/frontend/core/pro/components/ProProfileFlair";
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
+import { MealPlanBanner } from "../components/MealPlanBanner";
 
 // Signed out: the guest view (sign in / create account), like the web's.
 // Dev only: the DEV chip in the top bar cycles signed in -> official
@@ -45,6 +48,38 @@ const TAB_PARAMS: ProfileTab[] = ["saved", "recipes", "grocery", "pantry"];
 // Grocery / Pantry tabs. Deep link: /profile?tab=recipes|grocery|pantry.
 // The official AnoUlam account gets the official profile instead (no
 // users.is_official yet: only reachable through the DEV switch).
+// The floating + : a small white liquid glass circle (iOS 26), the list
+// showing softly through it as it scrolls past, with an orange +. Older
+// iOS gets a frosted blur instead, Android a near-solid white. Fades in
+// with Profile and dims a touch when pressed.
+const LIQUID_GLASS = isLiquidGlassAvailable();
+const FAB_SIZE = 48;
+const FAB_CIRCLE = { borderRadius: FAB_SIZE / 2 };
+
+function CreateFab({ onPress }: { onPress: () => void }) {
+  const fill = LIQUID_GLASS ? "bg-white/30" : Platform.OS === "ios" ? "bg-white/60" : "bg-white/95";
+  return (
+    // The shadow sits on this wrapper: the button's own overflow-hidden
+    // (which rounds the glass) would clip it on iOS.
+    <Animated.View entering={FadeIn.duration(220)} className="absolute bottom-5 right-5 rounded-full shadow-sm">
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel="Create a post or recipe"
+        style={[{ width: FAB_SIZE, height: FAB_SIZE }, FAB_CIRCLE]}
+        className={`items-center justify-center overflow-hidden border border-white/80 active:opacity-80 ${fill}`}
+      >
+        {LIQUID_GLASS ? (
+          <GlassView glassEffectStyle="regular" isInteractive style={[StyleSheet.absoluteFill, FAB_CIRCLE]} />
+        ) : (
+          Platform.OS === "ios" && <BlurView intensity={30} tint="light" pointerEvents="none" style={[StyleSheet.absoluteFill, FAB_CIRCLE]} />
+        )}
+        <Plus color={colors.accent} size={22} strokeWidth={2.2} />
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 export default function ProfileScreen() {
   const params = useLocalSearchParams<{ tab?: string; at?: string }>();
   const queryClient = useQueryClient();
@@ -206,18 +241,14 @@ export default function ProfileScreen() {
               >
                 {isPro && <ProMemberLine since={proSubscription?.since} earnedUntil={proSubscription ? null : earnedUntil} />}
               </ProfileHeader>
-              <CommunityFeedLink
-                onPress={() =>
-                  router.navigate({ pathname: "/discover", params: { tab: "community", at: String(Date.now()) } })
-                }
-              />
+              {/* While a meal plan runs today (same as Home's plan card). */}
+              <MealPlanBanner />
             </>
           }
           tabs={OWN_TABS}
           activeTab={tab}
           onTabChange={changeTab}
           miniName={me.name}
-          onCreate={() => openCreate(true)}
           onNearEnd={() => tab === "recipes" && setLoadMoreSignal((n) => n + 1)}
         >
           {tab === "saved" && <SavedTab onToast={showToast} />}
@@ -255,6 +286,9 @@ export default function ProfileScreen() {
       <RecipeLimitSheet visible={limitOpen} onClose={() => setLimitOpen(false)} />
 
       <Toast toast={toast} onHide={() => setToast(null)} />
+      {/* Create (post or recipe), floating at the lower right: the same
+          Create sheet as Discover's +. Signed-in members only. */}
+      {!isGuest && !isOfficial && <CreateFab onPress={() => openCreate(false)} />}
     </Screen>
   );
 }

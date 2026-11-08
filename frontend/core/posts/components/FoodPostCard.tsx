@@ -18,11 +18,14 @@ type FoodPostCardProps = {
   onDelete?: () => void;
   /** Tapping the author (opens their profile). */
   onPressAuthor?: () => void;
+  /** A card of its own (rounded, bordered) instead of a feed row with a
+   *  divider under it: for lists inside padded pages (Profile's Created). */
+  framed?: boolean;
 };
 
 // One community post: author, caption, then whichever attachment it has
 // (link preview, GIF, sticker, photo), then like + share.
-export function FoodPostCard({ post, currentUserId, onLike, onShare, onOpenPhoto, onEdit, onDelete, onPressAuthor }: FoodPostCardProps) {
+export function FoodPostCard({ post, currentUserId, onLike, onShare, onOpenPhoto, onEdit, onDelete, onPressAuthor, framed = false }: FoodPostCardProps) {
   const liked = !!currentUserId && post.liked;
   const likeCount = post.like_count;
   // Hearts burst when a like lands (not on unlike, not on first render).
@@ -36,7 +39,7 @@ export function FoodPostCard({ post, currentUserId, onLike, onShare, onOpenPhoto
   ];
 
   return (
-    <View className="border-b border-web-divider pb-3">
+    <View className={framed ? "overflow-hidden rounded-2xl border border-ink-emphasis/10 bg-white pb-3" : "border-b border-web-divider pb-3"}>
       <PostAuthor
         name={post.display_name ?? "User"}
         avatarUrl={post.avatar_url}

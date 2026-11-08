@@ -58,8 +58,9 @@ Last updated: **2026-11-08** (App Store subscriptions tested in sandbox that day
 4. **Community moderation**: reporting, and an admin way to remove a post.
 5. **Test Pro on device** (`docs/to-test.md`): the webhook, rewards, celebration and lockdown are live but only partly tested on a phone.
 6. **Price alerts and weekly savings**: still promised in the paywall (`proContent.ts` Free vs Pro table, `ProUpgradeSheet`, `unlockedFeatures.ts`) with no surface. Decide where they live, or drop them from Settings and the paywall.
-7. **Fresh picks swipe (Price Watch)**: on the phone, swiping the cards still doesn't page; the touch opens the item instead. Two fixes tried on `fix/fresh-picks-swipe` (the page scroll waits for the swipe; card taps moved to a gesture handler tap), neither worked. Needs debugging on a device.
-8. **Small leftovers**: the Meal Planner isn't locked for free users (only days after the first are); Profile's `MealPlanBanner` is unused (remove it, or show the saved plan there); "Your recipe could earn you Pro" counts on the phone.
+7. ~~**Fresh picks swipe (Price Watch)**~~ **Fixed 2026-11-08** (`fix/fresh-picks-native-scroll`, confirmed on the phone): the custom pan is gone; the cards page in a native horizontal ScrollView (gesture handler's, snapping one card at a time) inside the page's vertical one, with the tilt driven by the scroll position. The old attempts stay on `fix/fresh-picks-swipe`.
+8. ~~**Small leftovers**~~ **Done 2026-11-08**: the planner's free tier (day 1 open, the rest locked) is by design now; "Your recipe could earn you Pro" moved to the account (and its progress to `pro_rewards`); `MealPlanBanner` is rebuilt and shown on Profile under the header while a plan runs today (today's meals, day N of M, what's up next; same rules as Home's plan card).
+9. **Daily DA price import (cron job)**: Price Watch's DA prices only update when someone runs Admin → DA Daily Prices by hand. Schedule it daily (e.g. Supabase cron calling an edge function, each morning Manila time after DA posts the day's PDF). Design first: `ingest-da-daily-prices` only lists and parses (the app does the database write), and DA's site throttles server IPs on PDF downloads, so the cron needs a server-side write path and may be blocked from fetching the PDF. Also redeploy `ingest-da-daily-prices` (it's stale) as part of this.
 
 **Needs developer accounts (skipped for now)**
 
@@ -122,7 +123,6 @@ Every row here works on real data. `isPro` is real now (the App Store subscripti
 
 | Area | Status |
 | --- | --- |
-| Profile meal plan banner | `MealPlanBanner` exists but isn't shown anywhere (Home's planner card covers the running plan). Remove it, or show the saved plan on Profile. |
 | Profile photo upload | **Not built.** Apple sign-in never shares a profile photo (only name on first sign-in, email and an ID), so Apple users always show initials. Google users get their Google photo. Needs a "Change photo" option in Edit Profile (image picker, upload to Storage, set `users.avatar_url`), which also lets Google users replace theirs (Patrick, 2026-11-08). |
 | Push notifications | None (needs developer accounts). |
 

@@ -1,8 +1,14 @@
-import { memo, useEffect, useState } from "react";
-import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, type SharedValue, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
-import { scheduleOnRN } from "react-native-worklets";
+import { memo, useState } from "react";
+import { Pressable, useWindowDimensions, View } from "react-native";
+import { ScrollView as GestureScrollView } from "react-native-gesture-handler";
+import Animated, {
+  type SharedValue,
+  useAnimatedRef,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useDerivedValue,
+  useSharedValue,
+} from "react-native-reanimated";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { AppText, CarouselIndicator } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -22,33 +28,45 @@ const CARD_HEIGHT = FRESH_PICK_CARD_HEIGHT;
 // neighbor never peeks in past the screen edge.
 const CARD_GAP = 40;
 // Paging: cards slide over with a slight tilt, like the showreel.
-const PAGE_MS = 380;
 const PAGE_TILT_DEG = 8;
-const PAGE_EASING = Easing.inOut(Easing.cubic);
 // Arrow buttons (h-9 w-9), centered on the card's edges so they sit in the
 // screen padding instead of over the card's text.
 const ARROW_SIZE = 36;
-// A swipe pages when it's dragged this share of a card, or flicked.
-const SWIPE_DISTANCE = 0.2;
-const SWIPE_VELOCITY = 500;
-// Dragging past the first/last card moves at this fraction (rubber band).
-const EDGE_RESISTANCE = 0.3;
+// Gesture handler's ScrollView, animated: the page scrolls in the same kind
+// (PriceWatchScreen), so the two are native scroll views nested the way iOS
+// expects.
+const AnimatedGestureScrollView = Animated.createAnimatedComponent(GestureScrollView);
 
-// One card, placed by the shared page position: `pos` 1.4 means 40% of the
-// way from card 1 to card 2. Off-page cards are hidden, so nothing peeks in.
-function PagedCard({ i, pos, step, children }: { i: number; pos: SharedValue<number>; step: number; children: React.ReactNode }) {
+// One card, placed by the page position `pos` (scroll x / step: 1.4 means
+// 40% of the way from card 1 to card 2). The cards live inside a horizontal
+// ScrollView but are drawn on a fixed "stage": translateX adds the scroll
+// back (`scrollX`), then slides and tilts them like the showreel, so the
+// look is the same as before. Off-page cards are hidden, so nothing peeks in.
+function PagedCard({
+  i,
+  pos,
+  scrollX,
+  step,
+  children,
+}: {
+  i: number;
+  pos: SharedValue<number>;
+  scrollX: SharedValue<number>;
+  step: number;
+  children: React.ReactNode;
+}) {
   const style = useAnimatedStyle(() => {
     const offset = i - pos.value;
     const tilt = Math.max(-1, Math.min(1, offset)) * PAGE_TILT_DEG;
     return {
       opacity: Math.abs(offset) >= 1 ? 0 : 1,
-      transform: [{ translateX: offset * step }, { rotate: `${tilt}deg` }],
+      transform: [{ translateX: scrollX.value + offset * step }, { rotate: `${tilt}deg` }],
     };
   });
   // The shadow sits on a wrapper: each card's own overflow-hidden (for its
   // rounded corners) would clip it on iOS.
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, style]}>
+    <Animated.View style={[{ position: "absolute", top: 0, left: 0, bottom: 0 }, style]}>
       <View style={{ flex: 1, borderRadius: 24 }} className="bg-white shadow-sm">
         {children}
       </View>
@@ -62,13 +80,12 @@ type FreshPicksSectionProps = {
   onSelect: (item: PriceItem) => void;
 };
 
-// Swipe or arrow-button paging. Not a horizontal ScrollView: nested in the
-// page's vertical one it blocked both scroll directions for this whole
-// section (a pan responder conflict). The pan below only takes over once a
-// drag is clearly horizontal, so vertical scrolling still starts on the card.
-// The page must scroll in gesture handler's ScrollView (PriceWatchScreen):
-// inside React Native's, its native pan wins on the phone and this never
-// swipes.
+// Paging is a native horizontal ScrollView snapping one card at a time
+// (gesture handler's, like the page's own): iOS sorts a sideways scroll
+// inside the vertical page by itself (direction lock), and taps vs. swipes
+// on the cards come for free. A custom pan here (two attempts, see
+// fix/fresh-picks-swipe) never swiped on the phone: the touch went to the
+// card's tap instead. The tilt still comes from the scroll position.
 function FreshPicksSectionInner({ picks, loading, onSelect }: FreshPicksSectionProps) {
   const { width: windowWidth } = useWindowDimensions();
   const cardWidth = windowWidth - SCREEN_PADDING;
@@ -82,13 +99,13 @@ function FreshPicksSectionInner({ picks, loading, onSelect }: FreshPicksSectionP
   const firstCard = hasBoard ? 1 : 0;
   const count = cardItems.length + firstCard;
   const current = Math.min(index, Math.max(count - 1, 0));
-  const pos = useSharedValue(0);
-  const dragStart = useSharedValue(0);
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const scrollX = useSharedValue(0);
+  const pos = useDerivedValue(() => scrollX.value / step);
 
-  // Keep the cards on the shown page if the list shrinks under them.
-  useEffect(() => {
-    pos.value = current;
-  }, [count]);
+  const onScroll = useAnimatedScrollHandler((e) => {
+    scrollX.value = e.contentOffset.x;
+  });
 
   // No arrows on the board: they'd cover its trend chips. It's swipe-only,
   // and the dots under it show there's more.
@@ -98,33 +115,12 @@ function FreshPicksSectionInner({ picks, loading, onSelect }: FreshPicksSectionP
 
   const goTo = (next: number) => {
     setIndex(next);
-    pos.value = withTiming(next, { duration: PAGE_MS, easing: PAGE_EASING });
+    scrollRef.current?.scrollTo({ x: next * step, animated: true });
   };
 
-  const pan = Gesture.Pan()
-    .activeOffsetX([-12, 12])
-    .failOffsetY([-12, 12])
-    .onStart(() => {
-      dragStart.value = pos.value;
-    })
-    .onUpdate((e) => {
-      const max = count - 1;
-      let p = dragStart.value - e.translationX / step;
-      if (p < 0) p *= EDGE_RESISTANCE;
-      else if (p > max) p = max + (p - max) * EDGE_RESISTANCE;
-      pos.value = p;
-    })
-    .onEnd((e) => {
-      const from = Math.round(dragStart.value);
-      const moved = pos.value - from;
-      const flick = -e.velocityX / step;
-      let target = from;
-      if (moved > SWIPE_DISTANCE || flick > SWIPE_VELOCITY / step) target = from + 1;
-      else if (moved < -SWIPE_DISTANCE || flick < -SWIPE_VELOCITY / step) target = from - 1;
-      target = Math.max(0, Math.min(count - 1, target));
-      pos.value = withTiming(target, { duration: PAGE_MS, easing: PAGE_EASING });
-      scheduleOnRN(setIndex, target);
-    });
+  // The page settles: which card is shown (for the dots, arrows and the
+  // shown card's own animations).
+  const settle = (x: number) => setIndex(Math.max(0, Math.min(count - 1, Math.round(x / step))));
 
   return (
     <View className="gap-3">
@@ -145,26 +141,42 @@ function FreshPicksSectionInner({ picks, loading, onSelect }: FreshPicksSectionP
       ) : (
         <>
           <View className="items-center">
-            <GestureDetector gesture={pan}>
-              <View style={{ width: cardWidth, height: CARD_HEIGHT }}>
-                {hasBoard && (
-                  <PagedCard i={0} pos={pos} step={step}>
-                    <FreshPicksBoard items={boardItems} width={cardWidth} active={current === 0} onSelect={onSelect} />
-                  </PagedCard>
-                )}
-                {cardItems.map((item, i) => (
-                  <PagedCard key={item.id} i={i + firstCard} pos={pos} step={step}>
-                    <FreshPickCard
-                      item={item}
-                      index={i}
-                      width={cardWidth}
-                      active={current === i + firstCard}
-                      onPress={() => onSelect(item)}
-                    />
-                  </PagedCard>
-                ))}
-              </View>
-            </GestureDetector>
+            <AnimatedGestureScrollView
+              ref={scrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={step}
+              decelerationRate="fast"
+              disableIntervalMomentum
+              onScroll={onScroll}
+              scrollEventThrottle={16}
+              onMomentumScrollEnd={(e) => settle(e.nativeEvent.contentOffset.x)}
+              onScrollEndDrag={(e) => {
+                // A slow drag that lands exactly on a card has no momentum.
+                if (Math.abs((e.nativeEvent.velocity?.x ?? 0)) < 0.01) settle(e.nativeEvent.contentOffset.x);
+              }}
+              // The cards are drawn on the fixed stage (PagedCard), so they
+              // can tilt past the edges without being clipped.
+              style={{ width: cardWidth, height: CARD_HEIGHT, overflow: "visible" }}
+              contentContainerStyle={{ width: cardWidth + (count - 1) * step, height: CARD_HEIGHT }}
+            >
+              {hasBoard && (
+                <PagedCard i={0} pos={pos} scrollX={scrollX} step={step}>
+                  <FreshPicksBoard items={boardItems} width={cardWidth} active={current === 0} onSelect={onSelect} />
+                </PagedCard>
+              )}
+              {cardItems.map((item, i) => (
+                <PagedCard key={item.id} i={i + firstCard} pos={pos} scrollX={scrollX} step={step}>
+                  <FreshPickCard
+                    item={item}
+                    index={i}
+                    width={cardWidth}
+                    active={current === i + firstCard}
+                    onPress={() => onSelect(item)}
+                  />
+                </PagedCard>
+              ))}
+            </AnimatedGestureScrollView>
 
             {canGoPrev && (
               <Pressable
