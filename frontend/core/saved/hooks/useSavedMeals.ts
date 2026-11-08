@@ -8,6 +8,7 @@ import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { SAVED_MEALS_LIMIT, savedKeyOf, savedMealsLimit, type SavedMeal } from "../types";
 import { announceRemoved, announceSaveError, announceSaved } from "../store/useSaveFeedbackStore";
+import { useLoginGateStore } from "@/frontend/features/auth/store/useLoginGateStore";
 
 // Only free accounts ever hit it in practice (Pro's cap is a technical one).
 export const SAVED_LIMIT_MESSAGE = `You've reached the free limit of ${SAVED_MEALS_LIMIT} saved meals. Remove one, or go Pro for unlimited.`;
@@ -15,8 +16,8 @@ const SAVE_FAILED_MESSAGE = "Couldn't update your saved meals. Please try again.
 
 // The one saved-meals list every save button reads (MealCard, Discover,
 // Meal Details, Profile's Saved tab), so a save anywhere shows everywhere.
-// Saved to the account (public.saved_meals); a guest has none (saving asks
-// them to sign in first).
+// Saved to the account (public.saved_meals); a guest has none: saving opens
+// the login sheet (useLoginGateStore), from any screen.
 export function useSavedMeals() {
   const userId = useAuth().session?.user.id ?? null;
   return useQuery({
@@ -60,6 +61,12 @@ export function useSavedMealActions() {
 
   // `quiet`: an Undo putting a meal back, which needs no "saved" feedback.
   const save = async (meal: MealType, servings?: number, quiet = false): Promise<string | null> => {
+    // A guest has nowhere to save to: the app-wide login sheet instead,
+    // which saves this meal once they've signed in (GlobalLoginGate).
+    if (!userId) {
+      useLoginGateStore.getState().open("save", meal);
+      return null;
+    }
     const before = read();
     const key = savedKeyOf(meal);
     if (before.some((entry) => entry.meal_catalog_id === key)) return null;

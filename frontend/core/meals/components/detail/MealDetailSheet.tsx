@@ -8,6 +8,8 @@ import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
 import { MealDetailContent } from "./MealDetailContent";
 import { IngredientDetailSheet } from "./IngredientDetailSheet";
 import { ProPage } from "@/frontend/core/pro/components/ProPage";
+import { GlobalLoginGate } from "@/frontend/features/auth/components/GlobalLoginGate";
+import { useLoginGateStore } from "@/frontend/features/auth/store/useLoginGateStore";
 import type { IngredientType, MealType } from "../../mealTypes";
 
 // The meal detail is full screen; the ingredient sheet tops out at 75% of
@@ -81,6 +83,16 @@ export function MealDetailSheet({
   // the full Pro page straight away: in this sheet's overlay, since a /pro
   // screen would open behind it.
   const [proPageOpen, setProPageOpen] = useState(false);
+
+  // While open, a guest's login sheet shows inside this one (its overlay)
+  // instead of as a second Modal from the app root.
+  const open = !!meal;
+  useEffect(() => {
+    if (!open) return;
+    const { addHost, removeHost } = useLoginGateStore.getState();
+    addHost();
+    return removeHost;
+  }, [open]);
 
   useEffect(() => {
     if (meal) {
@@ -182,6 +194,8 @@ export function MealDetailSheet({
             onCancel={() => setPendingServings(null)}
             onConfirm={confirmUpdate}
           />
+          {/* A guest saving from here: the login sheet inside this one. */}
+          {meal && <GlobalLoginGate presentation="inline" />}
           {/* Above the ingredient sheet, which can open it too. */}
           <BottomSheet visible={proPageOpen} onClose={() => setProPageOpen(false)} presentation="inline" fullScreen>
             {/* No Settings link: it would navigate under this sheet. */}

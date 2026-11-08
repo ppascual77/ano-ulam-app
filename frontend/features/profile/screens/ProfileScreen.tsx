@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Settings } from "lucide-react-native";
-import { AppText, LandingTitle, Screen, Toast, type ToastState } from "@/frontend/components/ui";
+import { AppText, Avatar, LandingTitle, Screen, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { RECIPE_LIMIT } from "@/api/recipes";
 import { type SignInProvider, useAuth, useSignIn } from "@/frontend/features/auth/hooks/useAuth";
@@ -28,6 +28,8 @@ import { CreatedTab } from "../components/created/CreatedTab";
 import { RecipeLimitSheet } from "../components/created/RecipeLimitSheet";
 import { GroceryTab } from "../components/grocery/GroceryTab";
 import { PantryTab } from "../components/pantry/PantryTab";
+import { ProAvatarRing, ProMemberLine, ProNameBadge } from "@/frontend/core/pro/components/ProProfileFlair";
+import { useProStore } from "@/frontend/core/pro/store/useProStore";
 
 // Signed out: the guest view (sign in / create account), like the web's.
 // Dev only: the DEV chip in the top bar cycles signed in -> official
@@ -65,6 +67,9 @@ export default function ProfileScreen() {
     // Only on a new visit.
   }, [params.at]);
   const bio = useMyBio();
+  const isPro = useProStore((s) => s.isPro);
+  const proSubscription = useProStore((s) => s.subscription);
+  const earnedUntil = useProStore((s) => s.earnedUntil);
   const updateBio = useUpdateBio();
   const recipes = useMyRecipes(me.id);
   // Same rule as Add a Recipe's limit check: rejected recipes don't count.
@@ -182,6 +187,15 @@ export default function ProfileScreen() {
                 name={me.name}
                 avatarUrl={me.avatarUrl}
                 bio={bio}
+                // Pro: the ring, the badge and "Pro since…" (ProProfileFlair).
+                avatar={
+                  isPro ? (
+                    <ProAvatarRing size={64}>
+                      <Avatar name={me.name} imageUri={me.avatarUrl ?? undefined} size={64} />
+                    </ProAvatarRing>
+                  ) : undefined
+                }
+                badge={isPro ? <ProNameBadge /> : undefined}
                 onSaveBio={async (bio) => {
                   try {
                     await updateBio.mutateAsync(bio);
@@ -189,7 +203,9 @@ export default function ProfileScreen() {
                     showToast("Couldn't save your bio. Please try again.");
                   }
                 }}
-              />
+              >
+                {isPro && <ProMemberLine since={proSubscription?.since} earnedUntil={proSubscription ? null : earnedUntil} />}
+              </ProfileHeader>
               <CommunityFeedLink
                 onPress={() =>
                   router.navigate({ pathname: "/discover", params: { tab: "community", at: String(Date.now()) } })

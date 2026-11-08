@@ -2,6 +2,7 @@ import { type ReactNode, useEffect } from "react";
 import { View } from "react-native";
 import { Image } from "expo-image";
 import { Check } from "lucide-react-native";
+import { EarnProNote } from "@/frontend/core/pro/components/EarnProNote";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { AppText } from "@/frontend/components/ui";
 import { SignInButtons } from "@/frontend/features/auth/components/SignInButtons";
@@ -55,6 +56,10 @@ export function AccountPitchSlide({ slide, width, active, onSignIn, onContinueWi
               </AppText>
             </View>
           ))}
+          {/* Pro rewards, set apart under a rule. */}
+          <View className="border-t border-ink-emphasis/10 pt-3.5">
+            <EarnProNote />
+          </View>
         </View>
       </View>
 

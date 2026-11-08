@@ -26,6 +26,7 @@ export { Toast } from "./Toast";
 export type { ToastState } from "./Toast";
 export { GlobalToast, showGlobalToast, hideGlobalToast } from "./GlobalToast";
 export { Confetti, useBurstOnActivate } from "./Confetti";
+export { Medallion } from "./Medallion";
 export { Spinner } from "./Spinner";
 export { SoftShade } from "./SoftShade";
 export { SelectField } from "./SelectField";

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import { router } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, X } from "lucide-react-native";
+import { X } from "lucide-react-native";
 import { AppText, Button, LoadingState, Screen } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
@@ -19,6 +19,7 @@ import {
   type RecipeDraft,
   type StepErrors,
 } from "../types";
+import { RecipeSubmittedView } from "../components/RecipeSubmittedView";
 import { StepProgress } from "../components/StepProgress";
 import { DetailsStep } from "../components/DetailsStep";
 import { IngredientsStep } from "../components/IngredientsStep";
@@ -171,18 +172,7 @@ export default function AddRecipeScreen() {
   if (submit.isSuccess) {
     return (
       <Screen padded={false}>
-        <View className="flex-1 items-center justify-center gap-4 px-8">
-          <CheckCircle2 color={colors.primary} size={48} />
-          <AppText variant="heading" className="text-center">
-            Submitted for review
-          </AppText>
-          <AppText variant="body" className="text-center">
-            Thanks for sharing {draft.name}! We'll review it and it'll show up for everyone once approved.
-          </AppText>
-          <View className="mt-2 w-full">
-            <Button label="Done" onPress={() => router.back()} />
-          </View>
-        </View>
+        <RecipeSubmittedView recipeName={draft.name} onDone={() => router.back()} />
       </Screen>
     );
   }

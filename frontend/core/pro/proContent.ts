@@ -44,12 +44,11 @@ export const PLANS = {
 } as const;
 export type PlanKey = keyof typeof PLANS;
 export const TRIAL_DAYS = 3;
-// Earned Pro time: an approved recipe earns RECIPE_REWARD_DAYS, up to
-// RECIPE_REWARD_MAX recipes; the first Food Post with a real photo earns
-// POST_REWARD_DAYS, once.
+// Earned Pro time, each claimed once: the first approved recipe earns
+// RECIPE_REWARD_DAYS, the first Food Post with a photo POST_REWARD_DAYS.
+// Granted by the database (pro_rewards migration): change both together.
 export const RECIPE_REWARD_DAYS = 7;
-export const RECIPE_REWARD_MAX = 3;
-export const POST_REWARD_DAYS = 2;
+export const POST_REWARD_DAYS = 7;
 
 export const YEARLY_SAVE_PCT = Math.round((1 - PLANS.yearly.price / (PLANS.monthly.price * 12)) * 100);
 

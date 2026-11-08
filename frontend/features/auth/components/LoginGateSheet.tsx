@@ -1,7 +1,9 @@
+import { useRef } from "react";
 import { Text, View } from "react-native";
 import { AppText, BottomSheet } from "@/frontend/components/ui";
 import type { SignInProvider } from "../hooks/useAuth";
 import { SignInButtons } from "./SignInButtons";
+import { EarnProNote } from "@/frontend/core/pro/components/EarnProNote";
 
 export type LoginGateReason = "save" | "create" | "pro";
 
@@ -53,7 +55,11 @@ export function LoginGateSheet({
   presentation = "modal",
   onClosed,
 }: LoginGateSheetProps) {
-  const copy = COPY[reason ?? "save"];
+  // The last reason shown, so the content holds while the sheet closes.
+  const lastReason = useRef<LoginGateReason>(reason ?? "save");
+  if (reason) lastReason.current = reason;
+  const shown = lastReason.current;
+  const copy = COPY[shown];
 
   return (
     <BottomSheet
@@ -71,6 +77,12 @@ export function LoginGateSheet({
           <Text className={copy.tone}>{copy.highlight}</Text>
         </AppText>
         <Text className="mt-3 font-inter-regular text-body text-web-ink-muted">{copy.description}</Text>
+        {/* Pro rewards (not on the "pro" gate: that one is buying Pro). */}
+        {shown !== "pro" && (
+          <View className="mt-5 rounded-2xl bg-accent/5 px-4 py-3">
+            <EarnProNote />
+          </View>
+        )}
         <View className="mt-8">
           <SignInButtons onSignIn={onSignIn} signingIn={isSigningIn} />
         </View>

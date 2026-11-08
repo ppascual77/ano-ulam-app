@@ -14,7 +14,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { Hamburger, Moon, Sun, Sunrise, type LucideIcon } from "lucide-react-native";
+import { CloudSun, Hamburger, Moon, Sun, type LucideIcon } from "lucide-react-native";
 import { AppText, LandingTitle, type LandingDot } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
@@ -43,7 +43,7 @@ export type { CategoryId };
 type IconBeat = "rise" | "turn" | "rock" | "bounce";
 
 const CATEGORIES: { id: CategoryId; label: string; image: number; tint: string; icon: LucideIcon; iconColor: string; beat: IconBeat }[] = [
-  { id: "breakfast", label: "Breakfast", image: require("@/assets/icons/breakfast-category-logo.png"), tint: colors.category.breakfast, icon: Sunrise, iconColor: colors.accent, beat: "rise" },
+  { id: "breakfast", label: "Breakfast", image: require("@/assets/icons/breakfast-category-logo.png"), tint: colors.category.breakfast, icon: CloudSun, iconColor: colors.accent, beat: "rise" },
   { id: "lunch", label: "Lunch", image: require("@/assets/icons/lunch-category-logo.png"), tint: colors.category.lunch, icon: Sun, iconColor: colors.primary, beat: "turn" },
   { id: "dinner", label: "Dinner", image: require("@/assets/icons/dinner-category-logo.png"), tint: colors.category.dinner, icon: Moon, iconColor: colors.category.dinnerIcon, beat: "rock" },
   { id: "fastfood", label: "Fastfood", image: require("@/assets/icons/fastfood-category-logo.png"), tint: colors.category.fastfood, icon: Hamburger, iconColor: colors.category.fastfoodIcon, beat: "bounce" },
