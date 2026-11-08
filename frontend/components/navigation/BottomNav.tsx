@@ -3,9 +3,9 @@ import { Pressable, View, type ViewInstance } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, usePathname } from "expo-router";
-import { House, Lock, Search, TrendingUp, Utensils } from "lucide-react-native";
+import { CircleUserRound, House, Lock, Search, TrendingUp, Utensils } from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
-import { AppText, Avatar, Dropdown } from "@/frontend/components/ui";
+import { ActivePill, AppText, Avatar, Dropdown } from "@/frontend/components/ui";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { useDisplayName } from "@/frontend/features/auth/hooks/useDisplayName";
 import { adminMenuItems } from "@/frontend/features/admin/adminMenu";
@@ -101,7 +101,7 @@ function ProfileTabButton() {
   const active = pathname === "/profile";
   const { session, isAdmin } = useAuth();
   const meta = session?.user.user_metadata ?? {};
-  // A guest gets a plain circle (no initials).
+  const isGuest = !session;
   const name = useDisplayName().fullName ?? "";
   const avatarUrl = (meta.avatar_url as string | undefined) ?? (meta.picture as string | undefined);
 
@@ -132,10 +132,17 @@ function ProfileTabButton() {
   const content = (
     <View className="items-center justify-center gap-1">
       <View className="h-8 w-14 items-center justify-center">
+        {/* A guest has no face to show, so the tab reads like its
+            neighbors: a line icon with the same active pill. */}
+        {isGuest && <ActivePill active={active} />}
         <Animated.View style={popStyle}>
-          <View className={`rounded-full p-0.5 ${active ? "border-2 border-primary" : "border-2 border-transparent"}`}>
-            <Avatar name={name} imageUri={avatarUrl} size={NAV_AVATAR} />
-          </View>
+          {isGuest ? (
+            <CircleUserRound color={active ? colors.primary : colors.ink.subtle} size={22} strokeWidth={active ? 2.4 : 2} />
+          ) : (
+            <View className={`rounded-full p-0.5 ${active ? "border-2 border-primary" : "border-2 border-transparent"}`}>
+              <Avatar name={name} imageUri={avatarUrl} size={NAV_AVATAR} />
+            </View>
+          )}
           {/* Always laid out (just hidden), so the flight can measure it. */}
           <View ref={dotRef} collapsable={false} pointerEvents="none" style={{ position: "absolute", top: 0, right: 0, width: DOT_SIZE, height: DOT_SIZE }}>
             <Animated.View style={[{ flex: 1 }, dotStyle]}>

@@ -28,6 +28,7 @@ import { useAuthStore } from "@/frontend/features/auth/store/useAuthStore";
 import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { DotHandoffOverlay, GlobalToast } from "@/frontend/components/ui";
+import { AuthActivityOverlay } from "@/frontend/features/auth/components/AuthActivityOverlay";
 import { SaveFeedbackLayer } from "@/frontend/core/saved/components/SaveFeedbackLayer";
 import { noteTouch, useSaveFeedbackStore } from "@/frontend/core/saved/store/useSaveFeedbackStore";
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
@@ -152,6 +153,8 @@ export default function RootLayout() {
               <SaveFeedbackLayer />
               {/* App-wide toasts (e.g. "Saved to your Profile"). */}
               <GlobalToast />
+              {/* Full screen while a sign-in finishes or a log-out runs. */}
+              <AuthActivityOverlay />
             </QueryClientProvider>
           </SafeAreaProvider>
         </GestureHandlerRootView>

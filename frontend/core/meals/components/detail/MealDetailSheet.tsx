@@ -7,7 +7,6 @@ import { colors } from "@/frontend/constants/theme";
 import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
 import { MealDetailContent } from "./MealDetailContent";
 import { IngredientDetailSheet } from "./IngredientDetailSheet";
-import { ProUpgradeSheet } from "@/frontend/core/pro/components/ProUpgradeSheet";
 import { ProPage } from "@/frontend/core/pro/components/ProPage";
 import type { IngredientType, MealType } from "../../mealTypes";
 
@@ -78,10 +77,9 @@ export function MealDetailSheet({
   // The ingredient whose detail sheet is open on top of this one, already
   // scaled to the servings shown when it was tapped. null = closed.
   const [selectedIngredient, setSelectedIngredient] = useState<IngredientType | null>(null);
-  // Locked micronutrients (meal or ingredient) tapped by a free user.
-  const [proUpsellOpen, setProUpsellOpen] = useState(false);
-  // The full Pro page, from the upsell's "See all Pro features": shown in
-  // this sheet's overlay, since a /pro screen would open behind it.
+  // Locked micronutrients (meal or ingredient) tapped by a free user open
+  // the full Pro page straight away: in this sheet's overlay, since a /pro
+  // screen would open behind it.
   const [proPageOpen, setProPageOpen] = useState(false);
 
   useEffect(() => {
@@ -160,7 +158,7 @@ export function MealDetailSheet({
             ingredient={selectedIngredient}
             onClose={() => setSelectedIngredient(null)}
             maxHeightPercent={INGREDIENT_SHEET_HEIGHT_PERCENT}
-            onLockedPro={() => setProUpsellOpen(true)}
+            onLockedPro={() => setProPageOpen(true)}
           />
           <ConfirmSheet
             presentation="inline"
@@ -185,21 +183,19 @@ export function MealDetailSheet({
             onConfirm={confirmUpdate}
           />
           {/* Above the ingredient sheet, which can open it too. */}
-          <ProUpgradeSheet
-            presentation="inline"
-            visible={proUpsellOpen}
-            title={
-              <>
-                Know what's in <Text className="text-brand-orange">every</Text> meal
-              </>
-            }
-            body="Pro shows fiber, sugar and sodium for every meal and ingredient, measured against a day's recommended amount."
-            onClose={() => setProUpsellOpen(false)}
-            onOpenPro={() => setProPageOpen(true)}
-          />
           <BottomSheet visible={proPageOpen} onClose={() => setProPageOpen(false)} presentation="inline" fullScreen>
             {/* No Settings link: it would navigate under this sheet. */}
-            <ProPage allowLinks={false} onClose={() => setProPageOpen(false)} onStarted={() => setProPageOpen(false)} />
+            <ProPage
+              allowLinks={false}
+              title={
+                <>
+                  Know what&apos;s in <Text className="text-brand-orange">every</Text> meal
+                </>
+              }
+              subtitle="Pro shows fiber, sugar and sodium for every meal and ingredient, measured against a day's recommended amount."
+              onClose={() => setProPageOpen(false)}
+              onStarted={() => setProPageOpen(false)}
+            />
           </BottomSheet>
           {overlay}
           {/* White status bar over the photo while open. As an element (not
@@ -230,7 +226,7 @@ export function MealDetailSheet({
           onArchive={onArchive}
           onDelete={onDelete}
           onSelectIngredient={setSelectedIngredient}
-          onLockedPro={() => setProUpsellOpen(true)}
+          onLockedPro={() => setProPageOpen(true)}
           review={review}
         />
       )}

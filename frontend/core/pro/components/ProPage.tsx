@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Linking, Pressable, ScrollView, Text, View } from "react-native";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { Linking, Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
@@ -16,7 +16,7 @@ import {
   COMPARE_ROWS,
   PLANS,
   QUOTES,
-  RADAR,
+  PRESS,
   TRIAL_DAYS,
   YEARLY_SAVE_PCT,
   type CompareCell,
@@ -32,6 +32,11 @@ type ProPageProps = {
   allowLinks?: boolean;
   /** Settings' plan card: opens the plan's management instead. */
   onManage?: () => void;
+  /** From an upsell, speaking to what was tapped (e.g. "Your next 4 days
+   *  are ready", one word in orange). Defaults to "AnoUlam Pro". */
+  title?: ReactNode;
+  /** Defaults to Pro's one-line promise. */
+  subtitle?: string;
 };
 
 // The full Pro page (ProUpgradeSheet is the quick version, and links here):
@@ -44,7 +49,7 @@ type ProPageProps = {
 // sheet; confirming starts the trial (useProStore) under the unlock screen,
 // which plays over this page. All of it lives in this page as layers, not
 // new screens or Modals, since it also runs inside the meal sheet.
-export function ProPage({ onClose, onStarted, allowLinks = true, onManage }: ProPageProps) {
+export function ProPage({ onClose, onStarted, allowLinks = true, onManage, title, subtitle }: ProPageProps) {
   const insets = useSafeAreaInsets();
   const subscription = useProSubscription();
   const startTrial = useProStore((s) => s.startTrial);
@@ -81,12 +86,12 @@ export function ProPage({ onClose, onStarted, allowLinks = true, onManage }: Pro
       <ScrollView contentContainerClassName="gap-8 px-6 pb-8 pt-2" showsVerticalScrollIndicator={false}>
         <View>
           <AppText variant="sectionTitle" dot>
-            AnoUlam Pro
+            {title ?? "AnoUlam Pro"}
           </AppText>
-          <Text className="mt-2 font-inter-regular text-body text-ink-subtle">Plan the week, spend less, and eat your way.</Text>
+          <Text className="mt-2 font-inter-regular text-body text-ink-subtle">{subtitle ?? "Plan the week, spend less, and eat your way."}</Text>
         </View>
 
-        <RadarFeature />
+        <PressFeatures />
         <CompareTable />
         <PlanPicker plan={plan} onChange={setPlan} />
         <Quotes />
@@ -130,28 +135,55 @@ export function ProPage({ onClose, onStarted, allowLinks = true, onManage }: Pro
   );
 }
 
-// "Featured on Radar": their logo (navy is part of the image) and headline,
-// opening the article.
-function RadarFeature() {
+// Each press card is the page width less a peek of the next one, so it's
+// clear there's more to swipe.
+const PRESS_PEEK = 28;
+const PRESS_GAP = 12;
+const PAGE_GUTTER = 24;
+
+// "Featured on": a swipeable row of cards, one per outlet (its logo and
+// headline), each opening its article. Cards snap one at a time and all
+// take the tallest one's height.
+function PressFeatures() {
+  const { width } = useWindowDimensions();
+  const cardWidth = width - PAGE_GUTTER * 2 - PRESS_PEEK;
   return (
-    <Pressable
-      onPress={() => void Linking.openURL(RADAR.url)}
-      accessibilityRole="link"
-      accessibilityLabel={`Featured on Radar: ${RADAR.headline}. Read the article.`}
-      className="gap-3 rounded-2xl border border-ink-emphasis/10 p-4 active:opacity-70"
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      snapToInterval={cardWidth + PRESS_GAP}
+      decelerationRate="fast"
+      className="-mx-6"
+      contentContainerStyle={{ gap: PRESS_GAP, paddingHorizontal: PAGE_GUTTER }}
     >
-      <View className="flex-row items-center gap-2">
-        <AppText variant="eyebrow" className="text-sub">
-          Featured on
-        </AppText>
-        <Image source={require("@/assets/pro/radar-logo.png")} style={{ width: 58, height: 20, borderRadius: 4 }} contentFit="cover" />
-      </View>
-      <Text className="font-inter-semibold text-body text-ink-emphasis">{RADAR.headline}</Text>
-      <View className="flex-row items-center gap-1">
-        <Text className="font-inter-medium text-small text-primary">Read the article</Text>
-        <ArrowRight color={colors.primary} size={14} />
-      </View>
-    </Pressable>
+      {PRESS.map((item) => (
+        <Pressable
+          key={item.outlet}
+          onPress={() => void Linking.openURL(item.url)}
+          accessibilityRole="link"
+          accessibilityLabel={`Featured on ${item.outlet}: ${item.headline}. Read the article.`}
+          style={{ width: cardWidth }}
+          className="gap-3 rounded-2xl border border-ink-emphasis/10 p-4 active:opacity-70"
+        >
+          <View className="flex-row items-center gap-2">
+            <AppText variant="eyebrow" className="text-sub">
+              Featured on
+            </AppText>
+            <Image
+              source={item.logo}
+              style={{ width: item.logoWidth, height: 20, borderRadius: item.boxedLogo ? 4 : 0 }}
+              contentFit={item.boxedLogo ? "cover" : "contain"}
+              accessibilityLabel={item.outlet}
+            />
+          </View>
+          <Text className="flex-1 font-inter-semibold text-body text-ink-emphasis">{item.headline}</Text>
+          <View className="flex-row items-center gap-1">
+            <Text className="font-inter-medium text-small text-primary">Read the article</Text>
+            <ArrowRight color={colors.primary} size={14} />
+          </View>
+        </Pressable>
+      ))}
+    </ScrollView>
   );
 }
 

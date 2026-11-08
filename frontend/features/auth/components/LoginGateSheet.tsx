@@ -1,5 +1,6 @@
 import { Text, View } from "react-native";
 import { AppText, BottomSheet } from "@/frontend/components/ui";
+import type { SignInProvider } from "../hooks/useAuth";
 import { SignInButtons } from "./SignInButtons";
 
 export type LoginGateReason = "save" | "create";
@@ -25,7 +26,7 @@ type LoginGateSheetProps = {
   /** null closes the sheet. */
   reason: LoginGateReason | null;
   onClose: () => void;
-  onContinueWithGoogle: () => void;
+  onSignIn: (provider: SignInProvider) => void;
   isSigningIn: boolean;
   /** "inline" when shown on top of another open sheet (e.g. a guest liking
    *  from inside MealDetailSheet): pass it through that sheet's `overlay`,
@@ -35,12 +36,12 @@ type LoginGateSheetProps = {
   onClosed?: () => void;
 };
 
-// Shown when a guest tries a logged-in action. Uses the app's real Google
-// sign-in; the screen replays the pending action once a session appears.
+// Shown when a guest tries a logged-in action. Uses the app's real Apple /
+// Google sign-in; the screen replays the pending action once a session appears.
 export function LoginGateSheet({
   reason,
   onClose,
-  onContinueWithGoogle,
+  onSignIn,
   isSigningIn,
   presentation = "modal",
   onClosed,
@@ -64,7 +65,7 @@ export function LoginGateSheet({
         </AppText>
         <Text className="mt-3 font-inter-regular text-body text-web-ink-muted">{copy.description}</Text>
         <View className="mt-8">
-          <SignInButtons onGoogle={onContinueWithGoogle} signingIn={isSigningIn} />
+          <SignInButtons onSignIn={onSignIn} signingIn={isSigningIn} />
         </View>
       </View>
     </BottomSheet>

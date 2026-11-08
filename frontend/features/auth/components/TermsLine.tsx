@@ -7,7 +7,7 @@ export function TermsLine({ tone = "light" }: { tone?: "light" | "dark" }) {
   const base = tone === "dark" ? "text-white/60" : "text-ink-subtle";
   const link = tone === "dark" ? "text-white" : "text-primary";
   return (
-    <Text className={`text-center font-inter-regular text-small leading-4 ${base}`}>
+    <Text className={`text-center font-inter-regular text-small leading-5 ${base}`}>
       By continuing, you agree to our{" "}
       <Text onPress={() => router.push("/terms")} className={`font-inter-semibold ${link}`}>
         Terms of Service

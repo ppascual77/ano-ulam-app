@@ -6,7 +6,7 @@ import { Settings } from "lucide-react-native";
 import { AppText, LandingTitle, Screen, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { RECIPE_LIMIT } from "@/api/recipes";
-import { useAuth, useSignInWithGoogle } from "@/frontend/features/auth/hooks/useAuth";
+import { type SignInProvider, useAuth, useSignIn } from "@/frontend/features/auth/hooks/useAuth";
 import { CreateSheet, type CreateChoice } from "@/frontend/core/posts/components/CreateSheet";
 import { CreatePostSheet } from "@/frontend/core/posts/components/CreatePostSheet";
 import type { FoodPost, PostInput } from "@/api/posts";
@@ -47,7 +47,7 @@ export default function ProfileScreen() {
   const params = useLocalSearchParams<{ tab?: string; at?: string }>();
   const queryClient = useQueryClient();
   const { isSignedIn } = useAuth();
-  const signIn = useSignInWithGoogle();
+  const signIn = useSignIn();
   const me = useMe();
 
   const [devAccount, setDevAccount] = useState<DevAccount>("user");
@@ -131,9 +131,9 @@ export default function ProfileScreen() {
     }
   };
 
-  const signInWithGoogle = async () => {
+  const signInWith = async (provider: SignInProvider) => {
     try {
-      await signIn.mutateAsync();
+      await signIn.mutateAsync(provider);
     } catch {
       showToast("Sign-in didn't go through. Please try again.");
     }
@@ -164,9 +164,11 @@ export default function ProfileScreen() {
       </View>
 
       {isGuest ? (
-        <ScrollView showsVerticalScrollIndicator={false}>
+        // flexGrow: the guest view fills the height so it can center its
+        // pitch and pin its actions (still scrolls on short screens).
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
           <GuestProfileView
-            onSignIn={signInWithGoogle}
+            onSignIn={signInWith}
             signingIn={signIn.isPending}
           />
         </ScrollView>

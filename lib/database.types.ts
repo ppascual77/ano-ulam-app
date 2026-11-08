@@ -682,6 +682,7 @@ export type Database = {
           bio: string | null
           created_at: string
           display_name: string | null
+          earn_pro_prompt: Json
           email: string
           id: string
           newsletter_subscribed: boolean
@@ -695,6 +696,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string | null
+          earn_pro_prompt?: Json
           email: string
           id: string
           newsletter_subscribed?: boolean
@@ -708,6 +710,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string | null
+          earn_pro_prompt?: Json
           email?: string
           id?: string
           newsletter_subscribed?: boolean

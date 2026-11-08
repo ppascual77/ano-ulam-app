@@ -1,5 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
-import { View, Pressable, PressableProps, StyleProp, ViewStyle } from "react-native";
+import { View, Platform, Pressable, PressableProps, StyleProp, StyleSheet, ViewStyle } from "react-native";
+import { BlurView } from "expo-blur";
+import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import Animated, { FadeOut, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { colors } from "@/frontend/constants/theme";
 import { AppText } from "./AppText";
@@ -11,7 +13,13 @@ import { Spinner } from "./Spinner";
 // "tinted" is a soft, low-emphasis fill (e.g. a meal card's "View Details").
 // "muted" is a generic neutral white/bordered button (e.g. an icon-only
 // filter trigger) — same treatment as "social" but not scoped to auth.
-type Variant = "primary" | "secondary" | "outline" | "social" | "tinted" | "muted";
+// "glass" is an iOS liquid glass capsule for buttons over moving art (e.g.
+// onboarding's blobs), so what's behind shows through. Where liquid glass
+// isn't available (older iOS, Android) it falls back to a frosted white.
+type Variant = "primary" | "secondary" | "outline" | "social" | "tinted" | "muted" | "glass";
+
+const LIQUID_GLASS = isLiquidGlassAvailable();
+const CAPSULE = { borderRadius: 999 };
 // "default" spans its parent's width (e.g. a carousel's bottom CTA).
 // "pill" hugs its content and pushes to the left edge of its parent
 // (align-self: flex-start gives both at once) — e.g. a corner "Get Started".
@@ -26,6 +34,11 @@ const containerClasses: Record<Variant, string> = {
   social: "bg-white border border-ink-emphasis/10 active:bg-ink-emphasis/5",
   tinted: "bg-tinted-bg active:opacity-80",
   muted: "bg-white border border-ink-emphasis/10 active:bg-ink-emphasis/5",
+  // Before iOS 26: a light blur (below) under a faint white wash and a
+  // bright hairline edge. Android: the wash and edge only.
+  glass: LIQUID_GLASS
+    ? "overflow-hidden"
+    : `overflow-hidden border border-white/70 active:bg-white/40 ${Platform.OS === "ios" ? "bg-white/15" : "bg-white/35"}`,
 };
 
 const labelClasses: Record<Variant, string> = {
@@ -37,6 +50,7 @@ const labelClasses: Record<Variant, string> = {
   // subheading/semibold (last class wins on a shared property).
   tinted: "text-primary text-body font-inter-light",
   muted: "text-ink",
+  glass: "text-ink",
 };
 
 const shapeClasses: Record<Shape, string> = {
@@ -122,11 +136,19 @@ export function Button({
   return (
     <Pressable
       className={`items-center justify-center ${containerClasses[variant]} ${shapeClasses[shape]} ${disabled ? "opacity-30" : ""}`}
-      style={[shapeStyles[shape], style]}
+      style={[shapeStyles[shape], variant === "glass" && CAPSULE, style]}
       disabled={disabled || busy}
       accessibilityState={{ disabled: disabled || busy, busy }}
       {...props}
     >
+      {variant === "glass" && LIQUID_GLASS && (
+        // "clear": the most see-through glass, so the art behind reads
+        // through. isInteractive: it flexes and glows under the finger.
+        <GlassView glassEffectStyle="clear" isInteractive style={[StyleSheet.absoluteFill, CAPSULE]} />
+      )}
+      {variant === "glass" && !LIQUID_GLASS && Platform.OS === "ios" && (
+        <BlurView intensity={12} tint="light" pointerEvents="none" style={[StyleSheet.absoluteFill, CAPSULE]} />
+      )}
       {/* Content stays mounted (just hidden) while busy so the button
           doesn't change size under the wave. */}
       <Animated.View className={isFullPill ? "w-full" : ""} style={contentStyle}>

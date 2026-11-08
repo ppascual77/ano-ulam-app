@@ -4,9 +4,10 @@ import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChevronRight, LogOut, Trash2 } from "lucide-react-native";
-import { AppText, ChipSelect, ConfirmSheet, Screen, SegmentedSwitch, Spinner, Toast, type ToastState } from "@/frontend/components/ui";
+import { AppText, ChipSelect, ConfirmSheet, Screen, SegmentedSwitch, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useAuth, useDeleteAccount, useSignOut } from "@/frontend/features/auth/hooks/useAuth";
+import { useAuthActivityStore } from "@/frontend/features/auth/store/useAuthActivityStore";
 import type { UserPreferences } from "@/api/auth";
 import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
 import { ALLERGEN_OPTIONS, DIETARY_FOCUS_OPTIONS } from "@/frontend/core/preferences/options";
@@ -163,14 +164,17 @@ export default function SettingsScreen() {
 
   // ---- log out ----------------------------------------------------------------
 
-  const [loggingOut, setLoggingOut] = useState(false);
+  // The app-wide overlay (the same spiral as signing in) covers the log-out
+  // and the trip Home, then fades once Home is in place.
   const logOut = () => {
-    setLoggingOut(true);
+    const { setActivity } = useAuthActivityStore.getState();
+    setActivity("loggingOut");
     setTimeout(async () => {
       try {
         if (isSignedIn) await signOut.mutateAsync();
       } finally {
         router.replace("/home");
+        setActivity(null);
       }
     }, LOG_OUT_DELAY_MS);
   };
@@ -428,12 +432,6 @@ export default function SettingsScreen() {
         onConfirm={runDelete}
       />
 
-      {loggingOut && (
-        <View className="absolute inset-0 items-center justify-center gap-3 bg-white">
-          <Spinner size={28} color={colors.primary} trackColor={colors.webDivider} />
-          <Text className="font-inter-medium text-body-lg text-ink-subtle">Logging out...</Text>
-        </View>
-      )}
       <Toast toast={toast} onHide={() => setToast(null)} />
     </Screen>
   );

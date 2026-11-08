@@ -1,6 +1,9 @@
 import { useMutation } from "@tanstack/react-query";
-import { deleteAccount, signInWithGoogle, signOut } from "@/api/auth";
+import { deleteAccount, signIn, signOut, type SignInProvider } from "@/api/auth";
 import { useAuthStore } from "../store/useAuthStore";
+import { useAuthActivityStore } from "../store/useAuthActivityStore";
+
+export type { SignInProvider };
 
 export function useAuth() {
   const session = useAuthStore((s) => s.session);
@@ -11,8 +14,19 @@ export function useAuth() {
   return { session, loading, isSignedIn: !!session, isAdmin };
 }
 
-export function useSignInWithGoogle() {
-  return useMutation({ mutationFn: signInWithGoogle });
+/** Apple or Google: `mutateAsync("apple")`. Resolves null if the user
+ *  cancels. Once the provider says yes, AuthActivityOverlay covers the app until
+ *  the sign-in settles. `holdOverlay`: keep it up after a successful sign-in,
+ *  for a screen with more to do first (onboarding saving preferences), which
+ *  then takes it down with `useAuthActivityStore.getState().setActivity(null)`. */
+export function useSignIn({ holdOverlay = false }: { holdOverlay?: boolean } = {}) {
+  const setActivity = useAuthActivityStore((s) => s.setActivity);
+  return useMutation({
+    mutationFn: (provider: SignInProvider) => signIn(provider, () => setActivity("signingIn")),
+    onSettled: (session, error) => {
+      if (!holdOverlay || error || !session) setActivity(null);
+    },
+  });
 }
 
 export function useSignOut() {
