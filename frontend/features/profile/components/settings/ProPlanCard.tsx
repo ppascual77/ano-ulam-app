@@ -5,7 +5,7 @@ import { ChevronRight } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 import type { ProSubscription } from "@/frontend/core/pro/store/useProStore";
-import { STATUS_LABEL, nextLine, planName, timeLeft } from "@/frontend/core/pro/subscriptionCopy";
+import { STATUS_LABEL, formatPlanDate, nextLine, planName, timeLeft } from "@/frontend/core/pro/subscriptionCopy";
 
 export const STATUS_CHIP: Record<ProSubscription["status"], { bg: string; text: string }> = {
   trial: { bg: "bg-accent/10", text: "text-accent" },
@@ -74,6 +74,34 @@ export function ProPlanCard({ subscription, onPress }: { subscription: ProSubscr
             <Text className="font-inter-medium text-sub text-ink-subtle">{progress.caption}</Text>
           </View>
         )}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+// Settings > Pro while earned Pro is running with no subscription (Pro
+// rewards: a first approved recipe, a first photo post). Same shape as the
+// plan card, an EARNED chip; tap to see Pro (and subscribe to keep it).
+export function EarnedProCard({ until, onPress }: { until: string; onPress: () => void }) {
+  return (
+    <Animated.View entering={FadeIn.duration(260)} layout={LinearTransition.duration(220)}>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`Pro, earned. Pro until ${formatPlanDate(until)}, ${timeLeft(until)} left. See Pro`}
+        className="gap-3 rounded-2xl border border-accent/20 bg-accent/5 p-4 active:opacity-80"
+      >
+        <View className="flex-row items-center gap-2">
+          <ProBadge />
+          <Text className="flex-1 font-inter-bold text-subheading text-ink-emphasis">Earned Pro</Text>
+          <View className="rounded-full bg-accent/10 px-2 py-1">
+            <Text className="font-inter-bold text-sub text-accent">EARNED</Text>
+          </View>
+          <ChevronRight color={colors.ink.subtle} size={18} />
+        </View>
+        <Text className="font-inter-regular text-small text-ink-subtle">
+          Pro until {formatPlanDate(until)}, earned by sharing with the community. {timeLeft(until)} left.
+        </Text>
       </Pressable>
     </Animated.View>
   );

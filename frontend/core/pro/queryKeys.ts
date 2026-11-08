@@ -1,3 +1,4 @@
 export const proKeys = {
-  rewardProgress: (userId: string) => ["pro", "rewardProgress", userId] as const,
+  all: ["pro"] as const,
+  rewards: (userId: string) => ["pro", "rewards", userId] as const,
 };

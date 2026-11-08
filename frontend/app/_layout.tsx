@@ -29,6 +29,8 @@ import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferenc
 import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { DotHandoffOverlay, GlobalToast } from "@/frontend/components/ui";
 import { AuthActivityOverlay } from "@/frontend/features/auth/components/AuthActivityOverlay";
+import { GlobalLoginGate, PendingSaveReplay } from "@/frontend/features/auth/components/GlobalLoginGate";
+import { RewardCelebration } from "@/frontend/core/pro/components/RewardCelebration";
 import { SaveFeedbackLayer } from "@/frontend/core/saved/components/SaveFeedbackLayer";
 import { noteTouch, useSaveFeedbackStore } from "@/frontend/core/saved/store/useSaveFeedbackStore";
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
@@ -159,6 +161,11 @@ export default function RootLayout() {
               {/* App-wide toasts (e.g. "Saved to your Profile"). */}
               <GlobalToast />
               {/* Full screen while a sign-in finishes or a log-out runs. */}
+              {/* A guest's save (any screen): the login sheet, then the save. */}
+              <GlobalLoginGate />
+              <PendingSaveReplay />
+              {/* A Pro reward landing (first photo post, first approved recipe). */}
+              <RewardCelebration />
               <AuthActivityOverlay />
             </QueryClientProvider>
           </SafeAreaProvider>

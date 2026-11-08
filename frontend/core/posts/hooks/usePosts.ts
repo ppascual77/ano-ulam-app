@@ -12,6 +12,8 @@ import {
 } from "@/api/posts";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { postKeys } from "../queryKeys";
+import { proKeys } from "@/frontend/core/pro/queryKeys";
+import { useProStore } from "@/frontend/core/pro/store/useProStore";
 
 type Pages = InfiniteData<FoodPost[], number>;
 
@@ -129,5 +131,11 @@ export function useSavePost() {
     if (editing) await updatePost(editing, input);
     else await createPost(input);
     await queryClient.resetQueries({ queryKey: postKeys.all(viewerId) });
+    // A first photo post earns Pro days (granted by the database): pick up
+    // the claimed reward and the new Pro straight away.
+    if (!editing && input.image_uri) {
+      void queryClient.invalidateQueries({ queryKey: proKeys.all });
+      useProStore.getState().refresh();
+    }
   };
 }

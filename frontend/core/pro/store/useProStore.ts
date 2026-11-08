@@ -7,12 +7,14 @@ import Purchases, {
   type PurchasesPackage,
 } from "react-native-purchases";
 import { create } from "zustand";
+import { getEarnedProUntil } from "@/api/proRewards";
 import type { PlanKey } from "../proContent";
 
 // Pro is a real App Store subscription, through RevenueCat: it checks the
 // receipts with Apple and tells us whether this person has the `anoulam_pro`
 // entitlement (Monthly or Yearly, both attached to it in RevenueCat). Every
-// Pro gate reads `isPro` from here. RevenueCat is logged in as the Supabase
+// Pro gate reads `isPro` from here: that subscription, or earned Pro days
+// still running (Pro rewards, from the database). RevenueCat is logged in as the Supabase
 // user, so Pro follows the account (see `setUser`); buying needs an account
 // (the Pro page asks guests to sign in first).
 //
@@ -32,6 +34,8 @@ export type ProSubscription = {
   trialEndsAt: string | null;
   /** The next charge, or (cancelled) when Pro ends. */
   renewsAt: string;
+  /** The very first purchase of Pro on this account ("Pro since"). */
+  since: string;
 };
 
 /** The RevenueCat entitlement both plans unlock (its identifier, set when
@@ -46,6 +50,10 @@ type ProStore = {
   /** Not Pro, but Pro ended within the last LAPSED_DAYS: Settings shows it
    *  as Expired with a way back. Its renewsAt is when Pro ended. */
   lapsed: ProSubscription | null;
+  /** Earned Pro (Pro rewards: a first approved recipe, a first photo post),
+   *  granted by the database: when it runs out (ISO), or null. While it's
+   *  running the user is Pro even without a subscription. */
+  earnedUntil: string | null;
   /** The store's price for each plan, in the buyer's currency ("₱99.00");
    *  missing until the offerings load (the Pro page falls back to PLANS). */
   prices: Partial<Record<PlanKey, string>>;
@@ -105,6 +113,7 @@ function fromEntitlement(entitlement: CustomerInfo["entitlements"]["all"][string
     plan: planOf(entitlement.productIdentifier),
     status: !entitlement.willRenew ? "cancelled" : inTrial ? "trial" : "active",
     startedAt: entitlement.latestPurchaseDate,
+    since: entitlement.originalPurchaseDate,
     trialEndsAt: inTrial ? entitlement.expirationDate : null,
     renewsAt: entitlement.expirationDate,
   };
@@ -127,6 +136,30 @@ export const useProStore = create<ProStore>((set, get) => {
   let hadPro = false;
   const NO_TRIAL: Partial<Record<PlanKey, boolean>> = { monthly: false, yearly: false };
 
+  // Pro is a running subscription or earned days still left.
+  const earnedActive = (until: string | null) => !!until && new Date(until).getTime() > Date.now();
+  const publishPro = () => set({ isPro: !!get().subscription || earnedActive(get().earnedUntil) });
+
+  // Earned Pro comes from the database, not RevenueCat (so it works even
+  // where purchases aren't set up). Re-read on sign-in and refresh, and
+  // switched off right when it ends.
+  let earnedUser: string | null = null;
+  let earnedTimer: ReturnType<typeof setTimeout> | null = null;
+  const loadEarned = async () => {
+    let earnedUntil: string | null = null;
+    try {
+      earnedUntil = earnedUser ? await getEarnedProUntil(earnedUser) : null;
+    } catch {
+      return; // Keep what we had.
+    }
+    set({ earnedUntil });
+    publishPro();
+    if (earnedTimer) clearTimeout(earnedTimer);
+    earnedTimer = null;
+    const msLeft = earnedUntil ? new Date(earnedUntil).getTime() - Date.now() : 0;
+    if (msLeft > 0 && msLeft < 24 * 60 * 60 * 1000) earnedTimer = setTimeout(publishPro, msLeft + 1000);
+  };
+
   const apply = (info: CustomerInfo) => {
     hadPro = !!info.entitlements.all[ENTITLEMENT];
     if (hadPro) set({ trialEligible: NO_TRIAL });
@@ -138,7 +171,8 @@ export const useProStore = create<ProStore>((set, get) => {
       lapsed = asLapsed(subscription);
       subscription = null;
     }
-    set({ subscription, isPro: !!subscription, lapsed });
+    set({ subscription, lapsed });
+    publishPro();
 
     if (expiryTimer) clearTimeout(expiryTimer);
     expiryTimer = null;
@@ -199,6 +233,7 @@ export const useProStore = create<ProStore>((set, get) => {
     subscription: null,
     isPro: false,
     lapsed: null,
+    earnedUntil: null,
     prices: {},
     yearlyPerMonth: null,
     trialEligible: {},
@@ -213,6 +248,8 @@ export const useProStore = create<ProStore>((set, get) => {
       }
     },
     setUser: async (userId) => {
+      earnedUser = userId;
+      void loadEarned();
       if (!(await ready()) || userId === currentUser) return;
       currentUser = userId;
       try {
@@ -230,6 +267,7 @@ export const useProStore = create<ProStore>((set, get) => {
       }
     },
     refresh: () => {
+      void loadEarned();
       void (async () => {
         if (!(await ready())) return;
         try {
@@ -281,4 +319,9 @@ export const manageSubscription = async () => {
 };
 
 export const useIsPro = () => useProStore((s) => s.isPro);
+/** A subscription past its free trial (active, or cancelled but running).
+ *  Pro rewards aren't pitched to these: earned days would only overlap Pro
+ *  they're paying for. Trial users still see them, since earned days keep
+ *  Pro on if they cancel the trial. */
+export const usePaysForPro = () => useProStore((s) => !!s.subscription && s.subscription.status !== "trial");
 export const useProSubscription = () => useProStore((s) => s.subscription);

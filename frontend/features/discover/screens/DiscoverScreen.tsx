@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronUp } from "lucide-react-native";
 import { Spinner, Toast, isModalSheetOpen, usePageIntro, type ToastState } from "@/frontend/components/ui";
-import { useIsPro } from "@/frontend/core/pro/store/useProStore";
+import { usePaysForPro } from "@/frontend/core/pro/store/useProStore";
 import { allRewardsEarned, useProRewardProgress } from "@/frontend/core/pro/hooks/useProRewardProgress";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
@@ -290,7 +290,9 @@ export default function DiscoverScreen() {
   // open. At most once a day; gone for good after 3 dismissals (the store,
   // on the account). Never once every reward is earned.
 
-  const isPro = useIsPro();
+  // Not for subscribers (earned days would overlap paid Pro); earned Pro
+  // still sees it while a reward is left, since a second one stacks.
+  const subscribed = usePaysForPro();
   const [earnProOpen, setEarnProOpen] = useState(false);
   const reelsSeen = useRef(new Set<number>());
   const userId = session?.user.id ?? null;
@@ -306,7 +308,7 @@ export default function DiscoverScreen() {
     }, []),
   );
   useEffect(() => {
-    if (tab !== "recipes" || isGuest || isPro || !activeMeal) return;
+    if (tab !== "recipes" || isGuest || subscribed || !activeMeal) return;
     reelsSeen.current.add(feed.activeIndex);
     if (reelsSeen.current.size < EARN_PRO_AFTER_REELS) return;
     if (earnProOpen || intro.showing || detailOpen || gate || composer.open || createSheetOpen || isModalSheetOpen()) return;

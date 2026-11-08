@@ -635,6 +635,41 @@ export type Database = {
           },
         ]
       }
+      pro_rewards: {
+        Row: {
+          days: number
+          granted_at: string
+          id: string
+          kind: string
+          source_id: string
+          user_id: string
+        }
+        Insert: {
+          days: number
+          granted_at?: string
+          id?: string
+          kind: string
+          source_id: string
+          user_id: string
+        }
+        Update: {
+          days?: number
+          granted_at?: string
+          id?: string
+          kind?: string
+          source_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pro_rewards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_meals: {
         Row: {
           id: string
@@ -687,6 +722,8 @@ export type Database = {
           id: string
           newsletter_subscribed: boolean
           preferences: Json
+          pro_reward_until: string | null
+          pro_until: string | null
           seen_intros: string[]
           show_saved_public: boolean
           tier: string
@@ -701,6 +738,8 @@ export type Database = {
           id: string
           newsletter_subscribed?: boolean
           preferences?: Json
+          pro_reward_until?: string | null
+          pro_until?: string | null
           seen_intros?: string[]
           show_saved_public?: boolean
           tier?: string
@@ -715,6 +754,8 @@ export type Database = {
           id?: string
           newsletter_subscribed?: boolean
           preferences?: Json
+          pro_reward_until?: string | null
+          pro_until?: string | null
           seen_intros?: string[]
           show_saved_public?: boolean
           tier?: string
@@ -785,6 +826,16 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      grant_pro_reward: {
+        Args: {
+          p_days: number
+          p_kind: string
+          p_source: string
+          p_user: string
+        }
+        Returns: undefined
+      }
+      is_pro: { Args: { p_user: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

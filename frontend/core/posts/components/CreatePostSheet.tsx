@@ -1,12 +1,27 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { ImageIcon, Link2, X } from "lucide-react-native";
+import { Check, Gift, ImageIcon, Link2, X } from "lucide-react-native";
 import { Avatar, BottomSheet, Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
+import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { usePaysForPro } from "@/frontend/core/pro/store/useProStore";
+import { useProRewardProgress } from "@/frontend/core/pro/hooks/useProRewardProgress";
+import { POST_REWARD_DAYS } from "@/frontend/core/pro/proContent";
 import type { FoodPost, PostInput } from "@/api/posts";
 import type { KlipyKind } from "@/api/klipy";
 import { LinkPreviewCard } from "./LinkPreviewCard";
@@ -30,25 +45,100 @@ function ToolbarPill({
   label,
   icon,
   active = false,
+  highlight = false,
   onPress,
 }: {
   label: string;
   icon?: ReactNode;
   active?: boolean;
+  /** Pro's accent (the Photo pill while a first photo post earns Pro). */
+  highlight?: boolean;
   onPress: () => void;
 }) {
+  const tone = active ? "border-brand-green bg-brand-green/10" : highlight ? "border-accent bg-accent/5" : "border-web-divider";
+  const text = active ? "text-brand-green" : highlight ? "text-accent" : "text-web-ink-soft";
   return (
-    <Pressable
-      onPress={onPress}
-      className={`flex-row items-center gap-1.5 rounded-full border px-3 py-1.5 ${
-        active ? "border-brand-green bg-brand-green/10" : "border-web-divider"
-      }`}
-    >
+    <Pressable onPress={onPress} className={`flex-row items-center gap-1.5 rounded-full border px-3 py-1.5 ${tone}`}>
       {icon}
-      <Text className={`font-inter-semibold text-small ${active ? "text-brand-green" : "text-web-ink-soft"}`}>
-        {label}
-      </Text>
+      <Text className={`font-inter-semibold text-small ${text}`}>{label}</Text>
     </Pressable>
+  );
+}
+
+// The gift on the reward bar: one small wiggle as it appears.
+function WigglingGift({ reduceMotion }: { reduceMotion: boolean }) {
+  const turn = useSharedValue(0);
+  useEffect(() => {
+    if (reduceMotion) return;
+    turn.value = withDelay(
+      350,
+      withSequence(
+        withTiming(-14, { duration: 90 }),
+        withTiming(12, { duration: 110 }),
+        withTiming(-6, { duration: 90 }),
+        withTiming(0, { duration: 110 }),
+      ),
+    );
+    // Once, as it appears.
+  }, []);
+  const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.value}deg` }] }));
+  return (
+    <Animated.View style={style}>
+      <Gift color={colors.white} size={13} strokeWidth={2.5} />
+    </Animated.View>
+  );
+}
+
+// The check once a photo is in: pops in with a spring.
+function PoppingCheck({ reduceMotion }: { reduceMotion: boolean }) {
+  const pop = useSharedValue(reduceMotion ? 1 : 0);
+  useEffect(() => {
+    if (!reduceMotion) pop.value = withSpring(1, { damping: 9, stiffness: 220, mass: 0.6 });
+    // Once, as it appears.
+  }, []);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: 0.3 + 0.7 * pop.value }] }));
+  return (
+    <Animated.View style={style}>
+      <Check color={colors.white} size={13} strokeWidth={3} />
+    </Animated.View>
+  );
+}
+
+// A first post while the photo reward is open: just above the toolbar (so
+// it rides on the keyboard), "Add a photo to earn 7 days of Pro" with an
+// Add photo button; with a photo in, it turns into "Nice! This post earns
+// you 7 days of Pro" with a check popping in. Crossfades in place.
+function PhotoRewardBar({ hasPhoto, onAddPhoto }: { hasPhoto: boolean; onAddPhoto: () => void }) {
+  const reduceMotion = useReduceMotion();
+  return (
+    <Animated.View layout={reduceMotion ? undefined : LinearTransition.duration(220)} className="mb-2">
+      {hasPhoto ? (
+        <Animated.View key="earned" entering={FadeIn.duration(220)} exiting={FadeOut.duration(120)}>
+          <View className="flex-row items-center gap-2.5 rounded-2xl bg-accent/10 px-3.5 py-2.5">
+            <View className="h-6 w-6 items-center justify-center rounded-full bg-accent">
+              <PoppingCheck reduceMotion={reduceMotion} />
+            </View>
+            <Text className="flex-1 font-inter-semibold text-small text-accent">
+              Nice! This post earns you {POST_REWARD_DAYS} days of Pro
+            </Text>
+          </View>
+        </Animated.View>
+      ) : (
+        <Animated.View key="ask" entering={FadeIn.duration(220)} exiting={FadeOut.duration(120)}>
+          <View className="flex-row items-center gap-2.5 rounded-2xl border border-accent/25 bg-accent/5 py-2 pl-3.5 pr-2">
+            <View className="h-6 w-6 items-center justify-center rounded-full bg-accent">
+              <WigglingGift reduceMotion={reduceMotion} />
+            </View>
+            <Text className="flex-1 font-inter-semibold text-small text-ink-emphasis">
+              Add a photo to earn <Text className="text-accent">{POST_REWARD_DAYS} days of Pro</Text>
+            </Text>
+            <Pressable onPress={onAddPhoto} accessibilityRole="button" className="rounded-full bg-accent px-3 py-1.5 active:opacity-80">
+              <Text className="font-inter-bold text-sub text-white">Add photo</Text>
+            </Pressable>
+          </View>
+        </Animated.View>
+      )}
+    </Animated.View>
   );
 }
 
@@ -66,6 +156,11 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
   // Which Klipy picker is open inline, if any.
   const [picker, setPicker] = useState<KlipyKind | null>(null);
   const [posting, setPosting] = useState(false);
+  // A first photo post earns Pro days: nudged while that's still open (new
+  // posts only, not to paying subscribers).
+  const paying = usePaysForPro();
+  const { data: rewardProgress } = useProRewardProgress();
+  const photoRewardOpen = !editPost && !paying && !!rewardProgress && !rewardProgress.hasPhotoPost;
 
   // Space under the toolbar that tracks the keyboard, so the Link / Photo /
   // GIF / STK row rides right on top of it (like Facebook's composer).
@@ -239,6 +334,8 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
 
         </ScrollView>
 
+        {photoRewardOpen && <PhotoRewardBar hasPhoto={attachment?.kind === "photo"} onAddPhoto={() => void pickPhoto()} />}
+
         {/* Toolbar: sits on top of the keyboard while it's open, otherwise
             at the bottom of the sheet (with a picker under it, if open). */}
         <View className="flex-row flex-wrap gap-2 border-t border-web-divider py-2">
@@ -254,9 +351,13 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
           <ToolbarPill
             label="Photo"
             icon={
-              <ImageIcon color={attachment?.kind === "photo" ? colors.brandGreen.DEFAULT : colors.webInk.soft} size={14} />
+              <ImageIcon
+                color={attachment?.kind === "photo" ? colors.brandGreen.DEFAULT : photoRewardOpen ? colors.accent : colors.webInk.soft}
+                size={14}
+              />
             }
             active={attachment?.kind === "photo"}
+            highlight={photoRewardOpen}
             onPress={pickPhoto}
           />
           <ToolbarPill

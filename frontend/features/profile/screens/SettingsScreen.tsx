@@ -23,7 +23,7 @@ import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferenc
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
-import { ProPlanCard } from "../components/settings/ProPlanCard";
+import { EarnedProCard, ProPlanCard } from "../components/settings/ProPlanCard";
 import { ManagePlanSheet } from "../components/settings/ManagePlanSheet";
 import { AvoidSummary } from "../components/settings/AvoidSummary";
 import { ProUpgradeSheet } from "@/frontend/core/pro/components/ProUpgradeSheet";
@@ -128,6 +128,7 @@ export default function SettingsScreen() {
   const subscription = useProStore((s) => s.subscription);
   // Pro that ended in the last 30 days: shown as Expired, tapping to renew.
   const lapsed = useProStore((s) => s.lapsed);
+  const earnedUntil = useProStore((s) => s.earnedUntil);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [proSheet, setProSheet] = useState<ProSettingKey | null>(null);
   const closeProSheet = () => setProSheet(null);
@@ -236,7 +237,11 @@ export default function SettingsScreen() {
 
           <SettingsSection title="Pro">
             {subscription && <ProPlanCard subscription={subscription} onPress={() => setManageOpen(true)} />}
-            {!subscription && lapsed && <ProPlanCard subscription={lapsed} onPress={() => router.push("/pro")} />}
+            {/* Earned Pro (no subscription) comes before an expired plan. */}
+            {!subscription && earnedUntil && new Date(earnedUntil).getTime() > Date.now() && (
+              <EarnedProCard until={earnedUntil} onPress={() => router.push("/pro")} />
+            )}
+            {!subscription && !isPro && lapsed && <ProPlanCard subscription={lapsed} onPress={() => router.push("/pro")} />}
             {/* The same full Pro page as buying (for a subscriber its footer
                 shows the plan and Manage your plan instead of a price). */}
             {isPro && (
