@@ -14,6 +14,14 @@ export const PLAN_LENGTHS = [5, 7] as const;
 export const SLOTS: MealSlot[] = ["breakfast", "lunch", "dinner"];
 export const SLOT_LABELS: Record<MealSlot, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
 
+// Which of today's meals is up next, by the time of day: breakfast until
+// 10, lunch until 3, then dinner ("Tonight"). Home's plan card and
+// Profile's plan banner.
+export function upNextSlot(now = new Date()): MealSlot {
+  const h = now.getHours();
+  return h < 10 ? "breakfast" : h < 15 ? "lunch" : "dinner";
+}
+
 export type PlannedMeal = { slot: MealSlot; meal: PlannerMeal };
 export type PlanDay = { date: Date; meals: PlannedMeal[] };
 export type MealPlan = { days: PlanDay[]; budget: number; servings: number; targets: MacroTargets | null };

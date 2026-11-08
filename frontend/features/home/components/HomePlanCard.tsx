@@ -13,7 +13,7 @@ import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { planKey, useSavedMealPlan } from "@/frontend/features/meal-planner/hooks/useSavedMealPlan";
 import { usePlannerStore } from "@/frontend/features/meal-planner/store/usePlannerStore";
-import { SLOT_LABELS, dayTotals, type MealPlan, type MealSlot } from "@/frontend/features/meal-planner/utils/generatePlan";
+import { SLOT_LABELS, dayTotals, upNextSlot, type MealPlan } from "@/frontend/features/meal-planner/utils/generatePlan";
 import type { NutritionGoals } from "@/api/auth";
 import { PlanWeekCard } from "./PlanWeekCard";
 
@@ -53,13 +53,6 @@ function GoalLine({ calories, protein, goals }: { calories: number; protein: num
       </View>
     </View>
   );
-}
-
-// Which of today's meals is up next, by the time of day: breakfast until
-// 10, lunch until 3, then dinner ("Tonight").
-function upNextSlot(now = new Date()): MealSlot {
-  const h = now.getHours();
-  return h < 10 ? "breakfast" : h < 15 ? "lunch" : "dinner";
 }
 
 // Over the hero photo: clear at the top, darker at the bottom so the white

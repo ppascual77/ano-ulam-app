@@ -55,9 +55,6 @@ const HINT_BOTTOM = 12;
 // above the Community list.
 const TABS_TOP_OFFSET = 12;
 const TABS_ROW_HEIGHT = 44;
-// Space kept clear on the right of the tabs row for the Create button, so
-// its expanded "Create +" pill doesn't cover the Community tab.
-const CREATE_BUTTON_SPACE = 72;
 
 // Plays the "your turn, share it" intro on moving to Discover.
 // TODO: gate this behind a first-time-user flag (the auto tour), e.g. a
@@ -98,16 +95,11 @@ export default function DiscoverScreen() {
   const pending = useRef<PendingAction | null>(null);
 
   // The intro, replayed on every visit to the tab (see usePageIntro): its
-  // dot flies into the Create button, which pulses and runs a lap of its
-  // border.
+  // dot flies into the Create button.
   const reduceMotion = useReduceMotion();
   const introOnce = useIntroOnce("discover");
   const intro = usePageIntro({ enabled: SHOW_INTRO && !reduceMotion && introOnce.due, onFinish: introOnce.markSeen });
-  const [createHighlight, setCreateHighlight] = useState(0);
-  const finishIntro = () => {
-    intro.finish();
-    setCreateHighlight((n) => n + 1);
-  };
+  const finishIntro = () => intro.finish();
 
   // Status bar follows the tab while Discover is focused (light over the
   // dark reel, dark over Community's white), and goes back to dark when
@@ -159,7 +151,6 @@ export default function DiscoverScreen() {
   // ---- Create: button, chooser, composer ---------------------------------
 
   const savePost = useSavePost();
-  const [createExpanded, setCreateExpanded] = useState(false);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
   const [composer, setComposer] = useState<{ open: boolean; editPost: FoodPost | null }>({
     open: false,
@@ -176,19 +167,14 @@ export default function DiscoverScreen() {
     avatarUrl: (meta.avatar_url as string | undefined) ?? (meta.picture as string | undefined) ?? null,
   };
 
-  // Two taps: the first expands the pill, the second collapses it and opens
-  // the Create sheet. Guests get the "create" login gate instead.
+  // One tap opens the Create sheet. Guests get the "create" login gate
+  // instead.
   const pressCreate = () => {
     if (isGuest) {
       pending.current = { type: "create" };
       setGate("create");
       return;
     }
-    if (!createExpanded) {
-      setCreateExpanded(true);
-      return;
-    }
-    setCreateExpanded(false);
     setCreateSheetOpen(true);
   };
 
@@ -470,14 +456,13 @@ export default function DiscoverScreen() {
       {/* Tabs row, fixed on top of both tabs. */}
       {/* box-none: the full-width row itself passes touches through (so the
           area beside the pills still swipes); the pills stay tappable. */}
-      {/* On Community the row gets a white background, so posts scrolling
-          up behind it stay hidden. */}
+      {/* No background on either tab: on Community the posts scroll past
+          under the (glass) tabs and the +. */}
       <View
         pointerEvents="box-none"
-        className={`absolute left-0 right-0 top-0 items-center ${tab === "community" ? "bg-white" : ""}`}
+        className="absolute left-0 right-0 top-0 items-center"
         style={{
           paddingTop: insets.top + TABS_TOP_OFFSET,
-          paddingRight: CREATE_BUTTON_SPACE,
           height: insets.top + TABS_TOP_OFFSET + TABS_ROW_HEIGHT,
         }}
       >
@@ -489,14 +474,10 @@ export default function DiscoverScreen() {
         />
       </View>
 
-      <View className="absolute right-4" style={{ top: insets.top + TABS_TOP_OFFSET - 6 }}>
-        <CreateButton
-          expanded={createExpanded}
-          onPress={pressCreate}
-          variant={tab === "recipes" ? "dark" : "light"}
-          landingRef={intro.targetRef}
-          highlightId={createHighlight}
-        />
+      {/* Same top and height as the tabs capsule, so the + and the tabs
+          share a center line. */}
+      <View className="absolute right-4" style={{ top: insets.top + TABS_TOP_OFFSET }}>
+        <CreateButton onPress={pressCreate} variant={tab === "recipes" ? "dark" : "light"} landingRef={intro.targetRef} />
       </View>
 
       {__DEV__ && isSignedIn && (

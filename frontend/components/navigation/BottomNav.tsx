@@ -88,12 +88,12 @@ const DOT_SIZE = 10;
 
 // Without a session (dev on a device): the same mock name the rest of the
 // app uses.
-const NAV_AVATAR = 28;
+const NAV_AVATAR = 24;
 
 // The last tab (it took Meal Planner's spot, 2026-10-10: saved meals, the
 // grocery list and pantry get used daily; the planner is a weekly Pro task,
 // opened from Home's "Plan your week" card). Shows the user's avatar or
-// initials, ringed in green when active, with an orange dot while there's a
+// initials, on the same soft pill as the other tabs when active, with an orange dot while there's a
 // newly saved meal the Saved tab hasn't shown yet. Admins get the admin menu (opening
 // upward); everyone else goes straight to their profile.
 function ProfileTabButton() {
@@ -132,14 +132,17 @@ function ProfileTabButton() {
   const content = (
     <View className="items-center justify-center gap-1">
       <View className="h-8 w-14 items-center justify-center">
-        {/* A guest has no face to show, so the tab reads like its
-            neighbors: a line icon with the same active pill. */}
-        {isGuest && <ActivePill active={active} />}
+        {/* The same active pill as the other tabs, behind the avatar (or,
+            for a guest with no face to show, a line icon like its
+            neighbors). */}
+        <ActivePill active={active} />
         <Animated.View style={popStyle}>
           {isGuest ? (
             <CircleUserRound color={active ? colors.primary : colors.ink.subtle} size={22} strokeWidth={active ? 2.4 : 2} />
           ) : (
-            <View className={`rounded-full p-0.5 ${active ? "border-2 border-primary" : "border-2 border-transparent"}`}>
+            // A thin white edge lifts it off the pill; it fits the 32px slot,
+            // so the label keeps its usual gap (the old green ring didn't).
+            <View className="rounded-full border-2 border-white">
               <Avatar name={name} imageUri={avatarUrl} size={NAV_AVATAR} />
             </View>
           )}
