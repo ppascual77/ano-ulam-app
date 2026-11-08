@@ -2,7 +2,7 @@
 
 What runs on real data, what's partly real, and what's still mock or unbuilt, across the whole app.
 
-Last updated: **2026-11-08** (App Store subscriptions tested in sandbox that day; live database state last checked 2026-11-06: deployed functions, tables, an anon write probe). Update this file whenever something moves between sections.
+Last updated: **2026-11-08**, evening (App Store subscriptions tested in sandbox that day; live database state last checked 2026-11-06: deployed functions, tables, an anon write probe). Update this file whenever something moves between sections.
 
 **Legend**
 
@@ -23,6 +23,11 @@ Last updated: **2026-11-08** (App Store subscriptions tested in sandbox that day
 - **Guest saves anywhere open the login sheet** (no more server error), then save the meal once signed in.
 - **Pro on your own profile**: accent avatar ring, PRO badge with a glint (again every 10 s), "Pro since …" / "Earned Pro · until …".
 - **Planner**: the macro goal is a Pro lock (premium card). Categories' breakfast icon matches the planner's.
+- **Home's Community Favorites** is a magazine spread of the top 5 (wide hero, tall card with two small beside it, full-width closer; big rank numerals, saves as a top-right pill), no carousel.
+- **Profile**: "Your plan this week" banner under the header (same rules as Home's plan card), a white liquid glass floating + (the only + on Profile; the Created tab's and the sticky header's are gone), the Created tab as simple labeled sections (RECIPES · n, FOOD POSTS · n) with posts as cards, the Community feed shortcut removed, and the bottom nav's Profile tab on the same pill as the other tabs.
+- **Discover**: Recipes / Community as a centered glass capsule with a sliding white thumb and icons; the + is a plain circle the same height, aligned with it, opening the Create sheet in one tap; Community posts scroll under the tabs (white glass there).
+- **Create sheet** redesigned (two cards with reward strips), and a first-post nudge in the composer ("Add a photo to earn 7 days of Pro").
+- **Fresh picks (Price Watch)** swipe on the phone (native horizontal scroll). Dropdown menus stay on screen when right-aligned.
 
 - **EAS dev build** (`expo-dev-client`, bundle `com.anoulam.app`): the app now runs in its own dev build, which Apple sign-in and purchases need. Expo Go still opens it (RevenueCat runs in a mock preview mode there).
 - **Sign in with Apple**: native sheet + `signInWithIdToken`, name saved on first sign-in. Tested in the dev build.

@@ -98,6 +98,18 @@ RevenueCat's dashboard hides test data: switch on **Sandbox data** (top right) t
 - [ ] **Locked micronutrients** in meal details open the Pro page inside the meal sheet and return
       to the meal when closed.
 
+## Home, Profile and Discover polish
+
+- [ ] **Community Favorites** (Home): the 5-tile magazine spread (hero, tall + two small, full-width
+      closer), rank numerals, saves pill top right, blocks rise in turn; tapping opens the meal;
+      fewer than 5 favorites still lays out.
+- [ ] **Profile**: the plan banner shows only while a plan runs today (free: day 1 only) and opens
+      the planner on today; the floating + opens Create (glass, no pulse); Created shows
+      RECIPES · n and FOOD POSTS · n with post cards; the Profile tab's selected state doesn't touch
+      its label.
+- [ ] **Discover tabs**: glass capsule over the reel, white glass on Community, thumb slides, the +
+      lines up with it and opens Create in one tap; Community posts scroll under the tabs.
+
 ## Onboarding and preferences
 
 - [ ] **Onboarding:** no goals preselected, no "None" chips, Clear appears once something is

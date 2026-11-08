@@ -95,11 +95,16 @@ export default function DiscoverScreen() {
   const pending = useRef<PendingAction | null>(null);
 
   // The intro, replayed on every visit to the tab (see usePageIntro): its
-  // dot flies into the Create button.
+  // dot flies into the Create button, which swells and runs an orange lap
+  // of its border.
   const reduceMotion = useReduceMotion();
   const introOnce = useIntroOnce("discover");
   const intro = usePageIntro({ enabled: SHOW_INTRO && !reduceMotion && introOnce.due, onFinish: introOnce.markSeen });
-  const finishIntro = () => intro.finish();
+  const [createHighlight, setCreateHighlight] = useState(0);
+  const finishIntro = () => {
+    intro.finish();
+    setCreateHighlight((n) => n + 1);
+  };
 
   // Status bar follows the tab while Discover is focused (light over the
   // dark reel, dark over Community's white), and goes back to dark when
@@ -477,7 +482,12 @@ export default function DiscoverScreen() {
       {/* Same top and height as the tabs capsule, so the + and the tabs
           share a center line. */}
       <View className="absolute right-4" style={{ top: insets.top + TABS_TOP_OFFSET }}>
-        <CreateButton onPress={pressCreate} variant={tab === "recipes" ? "dark" : "light"} landingRef={intro.targetRef} />
+        <CreateButton
+          onPress={pressCreate}
+          variant={tab === "recipes" ? "dark" : "light"}
+          landingRef={intro.targetRef}
+          highlightId={createHighlight}
+        />
       </View>
 
       {__DEV__ && isSignedIn && (

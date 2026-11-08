@@ -3,7 +3,7 @@ import { Linking, Pressable, ScrollView, Text, View, useWindowDimensions } from 
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
-import { ArrowRight, Check, Minus, X } from "lucide-react-native";
+import { ArrowRight, X } from "lucide-react-native";
 import { AppText, Button, showGlobalToast } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useAuth, useSignIn, type SignInProvider } from "@/frontend/features/auth/hooks/useAuth";
@@ -13,14 +13,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useProStore, useProSubscription } from "../store/useProStore";
 import { nextLine, planName } from "../subscriptionCopy";
 import { ProUnlockOverlay } from "./ProUnlockOverlay";
+import { ProFeatureRow } from "./ProFeatureRow";
+import { UNLOCKED_FEATURES } from "./unlockedFeatures";
 import {
-  COMPARE_ROWS,
   PLANS,
   QUOTES,
   PRESS,
   TRIAL_DAYS,
   YEARLY_SAVE_PCT,
-  type CompareCell,
   type PlanKey,
 } from "../proContent";
 
@@ -41,7 +41,7 @@ type ProPageProps = {
 };
 
 // The full Pro page (ProUpgradeSheet is the quick version, and links here):
-// the promise, press, Free vs Pro, a plan, then what people say. The button
+// the promise, press, everything Pro includes, a plan, then what people say. The button
 // stays pinned at the bottom while the rest scrolls. Shown as the /pro
 // screen, and inside the meal sheet (a screen can't open over it). Handles
 // its own safe area, so the unlock screen can cover the whole page.
@@ -134,7 +134,7 @@ export function ProPage({ onClose, onStarted, allowLinks = true, onManage, title
         </View>
 
         <PressFeatures />
-        <CompareTable />
+        <FeatureList />
         <PlanPicker plan={plan} onChange={setPlan} />
         <Quotes />
       </ScrollView>
@@ -241,49 +241,19 @@ function PressFeatures() {
   );
 }
 
-function Cell({ value, pro }: { value: CompareCell; pro?: boolean }) {
-  if (value === true) return <Check color={pro ? colors.accent : colors.primary} size={18} strokeWidth={3} />;
-  if (value === false) return <Minus color={colors.ink.placeholder} size={16} />;
+// What Pro includes, as the same plain rows the "You're Pro" screen shows:
+// an icon tile, the feature, a one-line detail and a check.
+function FeatureList() {
   return (
-    <Text className={`text-center font-inter-semibold text-small ${pro ? "text-accent" : "text-ink-subtle"}`} numberOfLines={1}>
-      {value}
-    </Text>
-  );
-}
-
-// Free vs Pro, with the Pro column tinted orange top to bottom.
-function CompareTable() {
-  return (
-    // No grid: whitespace lines the rows up, and the Pro column is one soft
-    // orange band behind its cells (a little wider than Free's, so "Whole
-    // week" fits with room). The title shares the header row with the Free
-    // and PRO column labels.
     <View>
-      <View pointerEvents="none" className="absolute bottom-0 right-0 top-0 w-24 rounded-2xl bg-accent/5" />
-      <View className="flex-row items-center">
-        <View className="flex-1 pr-2">
-          <AppText variant="sectionSubtitle" dot>
-            Free vs Pro
-          </AppText>
-        </View>
-        <View className="w-20 items-center py-3">
-          <Text className="font-inter-bold text-small text-ink-subtle">Free</Text>
-        </View>
-        <View className="w-24 items-center py-3">
-          <ProBadge />
-        </View>
+      <AppText variant="sectionSubtitle" dot>
+        Everything in Pro
+      </AppText>
+      <View className="mt-1">
+        {UNLOCKED_FEATURES.map((feature, i) => (
+          <ProFeatureRow key={feature.key} feature={feature} last={i === UNLOCKED_FEATURES.length - 1} />
+        ))}
       </View>
-      {COMPARE_ROWS.map((row) => (
-        <View key={row.label} className="flex-row items-stretch">
-          <Text className="flex-1 py-3 pr-2 font-inter-medium text-body text-ink-emphasis">{row.label}</Text>
-          <View className="w-20 items-center justify-center py-3">
-            <Cell value={row.free} />
-          </View>
-          <View className="w-24 items-center justify-center py-3">
-            <Cell value={row.pro} pro />
-          </View>
-        </View>
-      ))}
     </View>
   );
 }

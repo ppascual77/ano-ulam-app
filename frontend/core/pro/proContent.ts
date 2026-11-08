@@ -1,9 +1,5 @@
-import { SAVED_MEALS_LIMIT } from "@/frontend/core/saved/types";
-
-// What the Pro page shows that isn't layout: the Free vs Pro rows, the
-// plans, the press feature and real quotes.
-
-export type CompareCell = boolean | string;
+// What the Pro page shows that isn't layout: the plans, the press feature
+// and real quotes (its feature list is unlockedFeatures.ts).
 
 // Daily limits for guests, then signed-in free accounts; Pro has none.
 // Counted per account by the database (a Philippine day), or on the phone
@@ -18,23 +14,6 @@ export const FREE_DAILY_SUGGESTIONS = 5;
 /** A free user's daily limit for this tier, null for Pro. */
 export const dailyLimitFor = (tier: { isPro: boolean; isGuest: boolean }, guest: number, free: number) =>
   tier.isPro ? null : tier.isGuest ? guest : free;
-
-// Free first, so the page shows how much stays free before what Pro adds.
-export const COMPARE_ROWS: { label: string; free: CompareCell; pro: CompareCell }[] = [
-  { label: "Meal ideas, prices, macros, allergens", free: true, pro: true },
-  { label: "Saved meals", free: String(SAVED_MEALS_LIMIT), pro: "Unlimited" },
-  { label: "Meal searches", free: `${FREE_DAILY_SEARCHES} a day`, pro: "Unlimited" },
-  { label: "Suggest by budget", free: `${FREE_DAILY_SUGGESTIONS} a day`, pro: "Unlimited" },
-  { label: "Suggest by pantry", free: `${FREE_DAILY_SUGGESTIONS} a day`, pro: "Unlimited" },
-  { label: "Meal plan", free: "1 day", pro: "Up to 7 days" },
-  { label: "Grocery list", free: "1 day", pro: "Whole week" },
-  { label: "Swap meals", free: false, pro: true },
-  { label: "Price drop alerts", free: false, pro: true },
-  { label: "Weekly savings, in pesos", free: false, pro: true },
-  { label: "Ingredients to avoid", free: false, pro: true },
-  { label: "Nutrition goals", free: false, pro: true },
-  { label: "Fiber, sugar and sodium", free: false, pro: true },
-];
 
 // The App Store prices for the Philippines (set 2026-11-08 in App Store
 // Connect). Keep in step with it until the page reads real store prices.
