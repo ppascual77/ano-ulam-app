@@ -19,6 +19,7 @@ import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { type SignInProvider, useAuth, useSignIn } from "@/frontend/features/auth/hooks/useAuth";
+import { useMyAvatarUrl } from "@/frontend/features/auth/hooks/useUserProfile";
 import { mealKey, useDiscoverFeed } from "../hooks/useDiscoverFeed";
 import { FeedTabs, type DiscoverTab } from "../components/FeedTabs";
 import { ActionRail } from "../components/ActionRail";
@@ -172,9 +173,10 @@ export default function DiscoverScreen() {
   const createChoice = useRef<CreateChoice | null>(null);
 
   const meta = session?.user.user_metadata ?? {};
+  const myAvatarUrl = useMyAvatarUrl();
   const author = {
     name: (meta.full_name as string | undefined) ?? (meta.name as string | undefined) ?? "You",
-    avatarUrl: (meta.avatar_url as string | undefined) ?? (meta.picture as string | undefined) ?? null,
+    avatarUrl: myAvatarUrl,
   };
 
   // One tap opens the Create sheet. Guests get the "create" login gate

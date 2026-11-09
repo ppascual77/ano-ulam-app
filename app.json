@@ -55,7 +55,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "AnoUlam accesses your photos so an admin can set a meal's photo."
+          "photosPermission": "AnoUlam uses your photos for your profile picture, food posts and recipes."
         }
       ],
       "expo-audio",

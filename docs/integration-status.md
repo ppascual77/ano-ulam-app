@@ -2,7 +2,7 @@
 
 What runs on real data, what's partly real, and what's still mock or unbuilt, across the whole app.
 
-Last updated: **2026-11-08**, evening (App Store subscriptions tested in sandbox that day; live database state last checked 2026-11-06: deployed functions, tables, an anon write probe). Update this file whenever something moves between sections.
+Last updated: **2026-11-09** (profile photo upload; App Store subscriptions tested in sandbox 2026-11-08; live database state last checked 2026-11-06: deployed functions, tables, an anon write probe). Update this file whenever something moves between sections.
 
 **Legend**
 
@@ -15,7 +15,9 @@ Last updated: **2026-11-08**, evening (App Store subscriptions tested in sandbox
 
 ## Summary
 
-### Done since the last update (2026-11-07 to 11-08)
+### Done since the last update (2026-11-07 to 11-09)
+
+- **Profile photo upload** (2026-11-09, not tested on a device yet): tap your avatar on Profile to choose, change or remove a photo; Apple users no longer stuck on initials. See Integrated. The photo permission text in `app.json` now covers profile photos, posts and recipes (takes effect in the next dev build).
 
 - **Pro in the database** (migration `20261108010000_pro_in_database`, applied): `users.pro_until` (the subscription, written by the `revenuecat-webhook` edge function) and `users.pro_reward_until` (earned), `is_pro()` used by the saved-meals cap and daily limits, and the `users` row locked down: the app can only update profile fields, never Pro, rewards or `tier` (checked: a signed-in user setting their own tier is denied). **Pro rewards** are live: 7 days for a user's first approved recipe and 7 for their first photo post (raised from 2 in `20261108020000`), granted by database triggers (once each, logged in `pro_rewards`, no backfill). The app counts earned days as Pro (Settings shows an Earned Pro card), and the login gate sheets and onboarding's account slide say "Share your first recipe, get 7 days of Pro free".
 - **Webhook connected** (2026-11-08): `revenuecat-webhook` gets every subscription event from RevenueCat (secrets `REVENUECAT_WEBHOOK_AUTH` and `REVENUECAT_SECRET_API_KEY` set; tested end to end, wrong password refused), so `users.pro_until` follows the subscription and the database's limits honour Pro.
@@ -98,6 +100,7 @@ Last updated: **2026-11-08**, evening (App Store subscriptions tested in sandbox
 | Meal list ("See all") | Real meals. From Suggest by Budget: priced for the servings. From This week's best value meals: its own card. No filters. | `features/meals/screens/MealListScreen.tsx` |
 | Meal popularity (saves) | Saves are the popularity signal. Each meal's `save_count` is kept by a database trigger on `saved_meals`; shown under the bookmark on meal cards and the Discover rail, and as a saved pill in Meal Details. Migration `20261101020000`. | `core/saved/hooks/useSavedMeals.ts`, `core/meals/components/card/MealCard.tsx` |
 | Profile | Name and avatar from the session; Saved, Created recipes (with Food Posts) and Pantry are real. Bio (`users.bio`, 50 characters) and the settings "Show saved meals on your profile" (`users.show_saved_public`) and "Email newsletter" (`users.newsletter_subscribed`, saved only: nothing sends emails yet). Migration `20261101030000`. | `features/profile/hooks/useProfile.ts`, `api/auth.ts` |
+| Profile photo | Tap your avatar on Profile (camera badge): Choose a photo / Change photo / Remove photo. The photo is cropped square, shrunk to 512 px and uploaded to `post-images` at `<user id>/avatar-<time>.jpg` (top of the user's folder, so `delete-account` removes it); `users.avatar_url` points at it and the previous one is removed. Remove goes back to initials (a Google photo is only unlinked). Your own avatar everywhere (Profile, bottom nav, the post composer) now reads `users.avatar_url`, not the sign-in metadata; others see it through `get_public_profile` / `get_food_posts`. No migration (the bucket's own-folder policies and the `avatar_url` grant already allow it). Not tested on a device yet. | `api/auth.ts` (`uploadAvatar`, `removeAvatar`), `features/profile/hooks/useProfile.ts` (`useAvatarActions`), `features/auth/hooks/useUserProfile.ts` (`useMyAvatarUrl`) |
 | Other users' profiles | Real users (recipe posters and post authors): name, avatar, bio, approved recipes, food posts, and their saved meals when public. Read through `get_public_profile` and `get_public_saved_meals` (signed-in only, nothing private returned). | `api/profiles.ts`, `features/profile/screens/UserProfileScreen.tsx` |
 | Community feed and Food Posts | `food_posts` and `food_post_likes` (migration `20261101060000`, applied). Discover's Community tab (5 at a time, pull to refresh) and each profile's Food Posts (10 at a time) read through `get_food_posts` (author name and avatar, live like count, your like; signed-in only). Post, edit and delete your own (RLS); photos in the `post-images` bucket under your own folder, removed with the post; link previews from the page's Open Graph tags (hostname if unreadable). Optimistic likes. No comments. | `api/posts.ts`, `core/posts/hooks/usePosts.ts` |
 | Meal plans | One current plan per account (`meal_plans`, owner-only, migration `20261101040000`): the inputs plus the meal id in each slot per day (5 or 7 days), rebuilt from the catalog when opened. Saved after building, regenerating a day or swapping a meal. A running plan reopens as it was; an ended one goes back to setup with the budget, people and goal filled in. Its grocery ticks are the `plan` list. Guests plan in memory only. | `api/mealPlans.ts`, `features/meal-planner/hooks/useSavedMealPlan.ts` |
@@ -128,7 +131,6 @@ Every row here works on real data. `isPro` is real now (the App Store subscripti
 
 | Area | Status |
 | --- | --- |
-| Profile photo upload | **Not built.** Apple sign-in never shares a profile photo (only name on first sign-in, email and an ID), so Apple users always show initials. Google users get their Google photo. Needs a "Change photo" option in Edit Profile (image picker, upload to Storage, set `users.avatar_url`), which also lets Google users replace theirs (Patrick, 2026-11-08). |
 | Push notifications | None (needs developer accounts). |
 
 ## Built but not deployed

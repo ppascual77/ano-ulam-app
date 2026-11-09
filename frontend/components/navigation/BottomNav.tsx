@@ -8,6 +8,7 @@ import type { LucideIcon } from "lucide-react-native";
 import { ActivePill, AppText, Avatar, Dropdown } from "@/frontend/components/ui";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { useDisplayName } from "@/frontend/features/auth/hooks/useDisplayName";
+import { useMyAvatarUrl } from "@/frontend/features/auth/hooks/useUserProfile";
 import { adminMenuItems } from "@/frontend/features/admin/adminMenu";
 import { colors } from "@/frontend/constants/theme";
 import { registerProfileDot, useSaveFeedbackStore } from "@/frontend/core/saved/store/useSaveFeedbackStore";
@@ -100,10 +101,9 @@ function ProfileTabButton() {
   const pathname = usePathname();
   const active = pathname === "/profile";
   const { session, isAdmin } = useAuth();
-  const meta = session?.user.user_metadata ?? {};
   const isGuest = !session;
   const name = useDisplayName().fullName ?? "";
-  const avatarUrl = (meta.avatar_url as string | undefined) ?? (meta.picture as string | undefined);
+  const avatarUrl = useMyAvatarUrl() ?? undefined;
 
   // Save feedback (see useSaveFeedbackStore): a saved meal flies into the
   // dot's spot, the avatar pops as it lands, and the orange dot stays until

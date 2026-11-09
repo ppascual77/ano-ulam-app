@@ -1,6 +1,7 @@
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as WebBrowser from "expo-web-browser";
 import { makeRedirectUri } from "expo-auth-session";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 
 import { invokeEdgeFunction, supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
@@ -231,6 +232,88 @@ export async function updateUserProfile(userId: string, patch: Partial<UserProfi
     .single();
   if (error) throw error;
   return data;
+}
+
+// ---- profile photo ---------------------------------------------------------
+
+// Profile photos share the post-images bucket (public read; each user writes
+// only under their own `<user id>/` folder). They sit at the top of that
+// folder, not in a subfolder, so delete-account's top-level sweep removes
+// them with the user's post photos.
+const AVATAR_BUCKET = "post-images";
+const AVATAR_SIZE = 512;
+
+// The bucket path of a profile photo we host, or null for anything else
+// (a Google photo, no photo).
+function ownAvatarPath(url: string | null | undefined, userId: string): string | null {
+  if (!url) return null;
+  const marker = `/storage/v1/object/public/${AVATAR_BUCKET}/`;
+  const at = url.indexOf(marker);
+  if (at === -1) return null;
+  const path = decodeURIComponent(url.slice(at + marker.length).split("?")[0]);
+  return path.startsWith(`${userId}/avatar-`) ? path : null;
+}
+
+// Best effort: a leftover old photo isn't worth failing the change.
+async function removeOwnAvatarFile(url: string | null | undefined, userId: string) {
+  const path = ownAvatarPath(url, userId);
+  if (!path) return;
+  try {
+    await supabase.storage.from(AVATAR_BUCKET).remove([path]);
+  } catch {
+    // keep going
+  }
+}
+
+/** A picked photo: expo-image-picker's local uri and its pixel size. */
+export type PickedPhoto = { uri: string; width: number; height: number };
+
+// Center-crops the photo to a square, shrinks it to 512 px, uploads it as
+// a JPEG, points users.avatar_url at it, then removes the previous one.
+export async function uploadAvatar(
+  userId: string,
+  photo: PickedPhoto,
+  previousUrl: string | null,
+): Promise<UserProfile> {
+  const side = Math.min(photo.width, photo.height);
+  const context = ImageManipulator.manipulate(photo.uri);
+  if (side > 0 && photo.width !== photo.height) {
+    context.crop({
+      originX: Math.floor((photo.width - side) / 2),
+      originY: Math.floor((photo.height - side) / 2),
+      width: side,
+      height: side,
+    });
+  }
+  if (side === 0 || side > AVATAR_SIZE) context.resize({ width: AVATAR_SIZE, height: AVATAR_SIZE });
+  const image = await context.renderAsync();
+  const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.8 });
+
+  const blob = await (await fetch(saved.uri)).blob();
+  const path = `${userId}/avatar-${Date.now()}.jpg`;
+  const { error } = await supabase.storage
+    .from(AVATAR_BUCKET)
+    .upload(path, blob, { contentType: "image/jpeg" });
+  if (error) throw error;
+  const url = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path).data.publicUrl;
+
+  let row: UserProfile;
+  try {
+    row = await updateUserProfile(userId, { avatar_url: url });
+  } catch (e) {
+    await removeOwnAvatarFile(url, userId);
+    throw e;
+  }
+  if (previousUrl !== url) await removeOwnAvatarFile(previousUrl, userId);
+  return row;
+}
+
+// Back to initials: clears users.avatar_url and removes the photo if we host
+// it (a Google photo is only unlinked).
+export async function removeAvatar(userId: string, previousUrl: string | null): Promise<UserProfile> {
+  const row = await updateUserProfile(userId, { avatar_url: null });
+  await removeOwnAvatarFile(previousUrl, userId);
+  return row;
 }
 
 // The page intros this user has seen (users.seen_intros), so each plays once

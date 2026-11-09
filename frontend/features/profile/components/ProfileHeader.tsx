@@ -1,7 +1,7 @@
 import { ReactNode, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { Pencil } from "lucide-react-native";
-import { Avatar } from "@/frontend/components/ui";
+import { Camera, Pencil } from "lucide-react-native";
+import { Avatar, Dropdown, Spinner, type DropdownItem } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 
 // Matches the users.bio check in the database.
@@ -15,6 +15,11 @@ type ProfileHeaderProps = {
   onSaveBio?: (bio: string) => Promise<void>;
   /** Replaces the generated avatar (the official profile's logo). */
   avatar?: ReactNode;
+  /** Owner only: tapping the avatar opens these (change / remove photo),
+   *  and a camera badge shows it can be tapped. Omit for read-only. */
+  avatarItems?: DropdownItem[];
+  /** A photo change is saving: dims the avatar under a spinner. */
+  avatarBusy?: boolean;
   /** After the name (the official verified badge). */
   badge?: ReactNode;
   /** Under the bio (the official profile's mail link). */
@@ -23,7 +28,17 @@ type ProfileHeaderProps = {
 
 // Avatar, name and bio. The owner edits the bio in place: saves on return
 // or blur, blocked while over the 50-character limit.
-export function ProfileHeader({ name, avatarUrl, bio, onSaveBio, avatar, badge, children }: ProfileHeaderProps) {
+export function ProfileHeader({
+  name,
+  avatarUrl,
+  bio,
+  onSaveBio,
+  avatar,
+  avatarItems,
+  avatarBusy = false,
+  badge,
+  children,
+}: ProfileHeaderProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
@@ -49,9 +64,17 @@ export function ProfileHeader({ name, avatarUrl, bio, onSaveBio, avatar, badge, 
     }
   };
 
+  const avatarNode = avatar ?? <Avatar name={name} imageUri={avatarUrl ?? undefined} size={64} />;
+
   return (
     <View className="flex-row items-center gap-4 px-5 pt-5">
-      {avatar ?? <Avatar name={name} imageUri={avatarUrl ?? undefined} size={64} />}
+      {avatarItems ? (
+        <EditableAvatar items={avatarItems} busy={avatarBusy}>
+          {avatarNode}
+        </EditableAvatar>
+      ) : (
+        avatarNode
+      )}
       <View className="flex-1">
         <View className="flex-row items-center gap-1.5">
           <Text numberOfLines={1} className="shrink font-inter-bold text-subheading text-web-ink">
@@ -101,4 +124,24 @@ export function ProfileHeader({ name, avatarUrl, bio, onSaveBio, avatar, badge, 
       </View>
     </View>
   );
+}
+
+// The owner's avatar: opens the photo menu, with a small camera badge on its
+// corner. While saving, the menu is off and a spinner sits over the photo.
+function EditableAvatar({ items, busy, children }: { items: DropdownItem[]; busy: boolean; children: ReactNode }) {
+  const avatar = (
+    <View>
+      {children}
+      {busy && (
+        <View className="absolute inset-0 items-center justify-center rounded-full bg-web-ink/40">
+          <Spinner size={20} color={colors.white} />
+        </View>
+      )}
+      <View className="absolute -bottom-0.5 -right-0.5 h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-brand-green">
+        <Camera color={colors.white} size={12} />
+      </View>
+    </View>
+  );
+  if (busy) return avatar;
+  return <Dropdown trigger={avatar} items={items} align="left" />;
 }
