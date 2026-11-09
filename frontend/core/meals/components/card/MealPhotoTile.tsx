@@ -7,8 +7,9 @@ import { useLiveSaveCount } from "@/frontend/core/meals/hooks/useLiveSaveCount";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 
-// Over the photos: clear at the top, dark at the bottom so white text reads.
-const PHOTO_SHADE = ["rgba(0,0,0,0)", "rgba(0,0,0,0.05)", "rgba(0,0,0,0.72)"] as const;
+// Over the photos: a light shade at the top (the big stat stays readable on a
+// bright plate), clear through the middle, dark at the bottom for the name.
+const PHOTO_SHADE = ["rgba(0,0,0,0.3)", "rgba(0,0,0,0)", "rgba(0,0,0,0.05)", "rgba(0,0,0,0.72)"] as const;
 
 /** "large": the wide lead tile. "medium": tall or wide supporting tiles.
  *  "small": the stacked half-height tiles (no price line). */
@@ -57,7 +58,7 @@ export function MealPhotoTile({ meal, size, height, stat, caption, onPress, acce
       className="overflow-hidden rounded-2xl bg-ink-emphasis/5 active:opacity-90"
     >
       <Image source={resolveMealImage(meal)} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} contentFit="cover" transition={250} />
-      <LinearGradient colors={PHOTO_SHADE} locations={[0, 0.4, 1]} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
+      <LinearGradient colors={PHOTO_SHADE} locations={[0, 0.28, 0.45, 1]} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
 
       <View className={`absolute flex-row items-start justify-between ${small ? "left-3 right-2.5 top-2.5" : "left-4 right-3 top-3"}`}>
         <Text className={`font-inter-extrabold tracking-display text-white ${big ? "text-heading" : "text-subheading"}`}>
@@ -74,7 +75,7 @@ export function MealPhotoTile({ meal, size, height, stat, caption, onPress, acce
         >
           {meal.name}
         </Text>
-        {!small && <Text className="mt-1 font-inter-bold text-small text-white">{caption ?? mealPriceLabel(meal)}</Text>}
+        {!small && <Text numberOfLines={1} className="mt-1 font-inter-bold text-small text-white">{caption ?? mealPriceLabel(meal)}</Text>}
       </View>
     </Pressable>
   );

@@ -3,7 +3,7 @@ import { View } from "react-native";
 import * as Haptics from "expo-haptics";
 import Animated, { Easing, FadeIn, FadeInDown, FadeOut } from "react-native-reanimated";
 import { AppText, Button, SegmentedSwitch } from "@/frontend/components/ui";
-import { MealPhotoTile, mealPriceLabel } from "@/frontend/core/meals/components/card/MealPhotoTile";
+import { MealPhotoTile } from "@/frontend/core/meals/components/card/MealPhotoTile";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { usePreferredMeals } from "@/frontend/core/meals/hooks/usePreferredMeals";
 import { scaleMeal } from "@/frontend/core/meals/utils/scaleMeal";
@@ -12,6 +12,8 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 type MoodId = "tipid" | "highProtein" | "quickEasy";
 
 const priceOf = (m: MealType) => Number(m.price);
+// Per-serving prices come out of scaleMeal with decimals ("140.00"): whole pesos read cleaner.
+const pesoLabel = (m: MealType) => `₱${Math.round(priceOf(m))}`;
 const proteinLabel = (m: MealType) => `${Math.round(m.protein)}g protein`;
 const timeLabel = (m: MealType) => (m.total_time != null ? `${m.total_time} min` : null);
 
@@ -26,11 +28,13 @@ type Mood = {
   sort: (a: MealType, b: MealType) => number;
   /** The tile's big number: what proves the meal fits. */
   stat: (m: MealType) => string;
-  /** The line under the name: the meal's other two facts. */
-  facts: (m: MealType) => string;
+  /** The line under the name: the meal's other two facts (just the first
+   *  on the narrow side-by-side tiles). */
+  facts: (m: MealType, short?: boolean) => string;
 };
 
-const join = (...parts: (string | null)[]) => parts.filter(Boolean).join(" · ");
+const join = (short: boolean | undefined, ...parts: (string | null)[]) =>
+  parts.filter(Boolean).slice(0, short ? 1 : undefined).join(" · ");
 
 const MOODS: Mood[] = [
   {
@@ -39,8 +43,8 @@ const MOODS: Mood[] = [
     caption: "Under ₱150 a serving",
     fits: (m) => priceOf(m) > 0 && priceOf(m) < 150,
     sort: (a, b) => priceOf(a) - priceOf(b),
-    stat: (m) => `₱${Math.round(priceOf(m))}`,
-    facts: (m) => join(proteinLabel(m), timeLabel(m)),
+    stat: pesoLabel,
+    facts: (m, short) => join(short, proteinLabel(m), timeLabel(m)),
   },
   {
     id: "highProtein",
@@ -49,7 +53,7 @@ const MOODS: Mood[] = [
     fits: (m) => m.protein >= 30,
     sort: (a, b) => b.protein - a.protein,
     stat: (m) => `${Math.round(m.protein)}g`,
-    facts: (m) => join(mealPriceLabel(m), timeLabel(m)),
+    facts: (m, short) => join(short, pesoLabel(m), timeLabel(m)),
   },
   {
     id: "quickEasy",
@@ -58,7 +62,7 @@ const MOODS: Mood[] = [
     fits: (m) => m.total_time != null && m.total_time <= 20,
     sort: (a, b) => (a.total_time ?? 0) - (b.total_time ?? 0),
     stat: (m) => `${m.total_time} min`,
-    facts: (m) => join(mealPriceLabel(m), proteinLabel(m)),
+    facts: (m, short) => join(short, pesoLabel(m), proteinLabel(m)),
   },
 ];
 
@@ -117,14 +121,14 @@ export function MoodSelection({ onSelectMeal }: MoodSelectionProps) {
   const enter = (i: number) =>
     reduce ? FadeIn.duration(180) : FadeInDown.delay((i % PAGE_SIZE) * 60).duration(320).easing(EASE);
 
-  const tile = (meal: MealType, i: number, size: "large" | "medium", height: number) => (
+  const tile = (meal: MealType, i: number, size: "large" | "medium", height: number, narrow = false) => (
     <Animated.View key={`${moodId}-${meal.id}`} entering={enter(i)} exiting={FadeOut.duration(120)} style={{ flex: 1 }}>
       <MealPhotoTile
         meal={meal}
         size={size}
         height={height}
         stat={mood.stat(meal)}
-        caption={mood.facts(meal)}
+        caption={mood.facts(meal, narrow)}
         onPress={() => onSelectMeal?.(meal)}
         accessibilityLabel={`${meal.name}, ${mood.stat(meal)}, ${mood.facts(meal)}`}
       />
@@ -162,8 +166,8 @@ export function MoodSelection({ onSelectMeal }: MoodSelectionProps) {
                 {lead && <View className="flex-row">{tile(lead, at, "large", WIDE_HEIGHT)}</View>}
                 {left && (
                   <View className="flex-row" style={{ gap: GAP }}>
-                    {tile(left, at + 1, "medium", PAIR_HEIGHT)}
-                    {right ? tile(right, at + 2, "medium", PAIR_HEIGHT) : <View style={{ flex: 1 }} />}
+                    {tile(left, at + 1, "medium", PAIR_HEIGHT, true)}
+                    {right ? tile(right, at + 2, "medium", PAIR_HEIGHT, true) : <View style={{ flex: 1 }} />}
                   </View>
                 )}
                 {closer && <View className="flex-row">{tile(closer, at + 3, "medium", CLOSER_HEIGHT)}</View>}
