@@ -14,7 +14,7 @@ import {
   Screen,
   usePageIntro,
   useStatusBarStrip,
-  type HeaderCurves,
+  TAB_HEADER_CURVES,
 } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { BestValueMealsSection } from "@/frontend/core/meals/components/BestValueMealsSection";
@@ -43,13 +43,6 @@ const SHOW_INTRO = true;
 // Breathing room above the list section when search scrolls it to the top.
 const SEARCH_TOP_GAP = 12;
 
-// The green header's curve, different from Browse's: dark green only (no
-// pale layer), level with the caption's bottom on the right (so it never
-// cuts into "for less."), dropping deep towards the left.
-const HEADER_CURVES: HeaderCurves = {
-  splitAt: 0.72,
-  dark: { left: 46, right: 4, bends: [0.85, 0.45], pull: [0, 26] },
-};
 
 export default function PriceWatchScreen() {
   const items = usePriceItems();
@@ -152,7 +145,7 @@ export default function PriceWatchScreen() {
           <RefreshControl refreshing={items.isRefetching} onRefresh={() => void items.refetch()} tintColor={colors.white} />
         }
       >
-        <HeaderBackdrop bottom={headerBottom} curves={HEADER_CURVES} />
+        <HeaderBackdrop bottom={headerBottom} curves={TAB_HEADER_CURVES} texture />
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-3">
             {/* "Price Watch." like the other section titles, with a real

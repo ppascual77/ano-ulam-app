@@ -14,6 +14,7 @@ import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
 import { usePantryMatches, type MatchTier, type PantryMealMatch } from "@/frontend/core/pantry/hooks/usePantryMatches";
+import { formatMealPrice } from "@/frontend/core/prices/utils/prices";
 
 // Motion: sections land in order (Cook now first), cards slide up one after
 // another within that order, then each card's ingredient bar fills to how
@@ -236,8 +237,7 @@ function MatchCard({
           <Image source={resolveMealImage(meal)} style={StyleSheet.absoluteFill} contentFit="cover" />
           <View className="absolute bottom-2 left-2 rounded-full bg-ink-emphasis/75 px-2 py-1">
             <Text className="font-inter-extrabold text-small text-white">
-              ₱{meal.price}
-              {meal.buffer_price ? ` – ₱${meal.buffer_price}` : ""}
+              {formatMealPrice(meal.price, meal.buffer_price)}
             </Text>
           </View>
         </View>

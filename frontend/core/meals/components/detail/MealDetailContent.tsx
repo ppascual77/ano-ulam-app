@@ -64,6 +64,7 @@ import { scaleIngredient } from "../../utils/scaleMeal";
 import { DIETARY_ICONS, capitalize } from "../../utils/dietary";
 import type { IngredientType, MealType } from "../../mealTypes";
 import { useDaWeekChanges, type DaWeekChange } from "@/frontend/core/prices/hooks/useDaWeekChanges";
+import { formatMealPrice } from "@/frontend/core/prices/utils/prices";
 
 // Small circular icon buttons (back/edit/like) and the servings +/- steppers
 // are visually ~32-36px, under the ~44pt minimum recommended touch target —
@@ -678,8 +679,7 @@ export function MealDetailContent({
           {/* Extra bold, like the ingredient prices. Plain Text so the
               title variant's own semibold doesn't compete with it. */}
           <Text className="font-inter-extrabold text-subheading text-primary">
-            ₱{displayPrice.toFixed(2)}
-            {displayBufferPrice ? ` – ₱${displayBufferPrice.toFixed(2)}` : ""}
+            {formatMealPrice(displayPrice, displayBufferPrice)}
           </Text>
           <AppText
             variant="caption"

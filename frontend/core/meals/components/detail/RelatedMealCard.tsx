@@ -4,6 +4,7 @@ import { Clock } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { resolveMealImage } from "../../resolveMealImage";
 import type { MealType } from "../../mealTypes";
+import { formatMealPrice } from "@/frontend/core/prices/utils/prices";
 
 type RelatedMealCardProps = {
   meal: MealType;
@@ -28,8 +29,7 @@ export function RelatedMealCard({ meal, onPress, width = "48%" }: RelatedMealCar
           {meal.name}
         </Text>
         <Text className="font-inter-semibold text-body text-primary">
-          ₱{meal.price}
-          {meal.buffer_price ? ` – ₱${meal.buffer_price}` : ""}
+          {formatMealPrice(meal.price, meal.buffer_price)}
         </Text>
         <View className="flex-row items-center justify-between">
           {meal.total_time != null && (

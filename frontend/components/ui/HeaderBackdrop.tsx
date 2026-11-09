@@ -1,8 +1,9 @@
 import { memo, useCallback, useState } from "react";
 import { View, useWindowDimensions } from "react-native";
 import { useFocusEffect } from "expo-router";
-import Svg, { Path } from "react-native-svg";
+import Svg, { ClipPath, Defs, G, Path, RadialGradient, Rect, Stop } from "react-native-svg";
 import { colors } from "@/frontend/constants/theme";
+import { DOODLES, drawDoodle } from "./doodles";
 
 // One screen's curves (px). The dark edge is measured from `splitAt` of the
 // way down to `bottom`; the pale edge (no pale layer without it) from
@@ -20,11 +21,36 @@ type Edge = { left: number; right: number; bends: Pair; pull: Pair };
 
 type Pair = [right: number, left: number];
 
+// The tab headers' shared curve (Browse, Price Watch): dark green only,
+// higher on the right, dipping towards the left. One shape so the tabs read
+// as one family (each visit still nudges it a little, below).
+export const TAB_HEADER_CURVES: HeaderCurves = {
+  splitAt: 0.74,
+  dark: { left: 40, right: -18, bends: [0.8, 0.4], pull: [-6, 18] },
+};
+
+// The texture over the dark green: a soft light from the top right, and the
+// brand's hand-drawn doodles (the onboarding set) scattered faintly. Spots
+// are shares of the width / of the header's height.
+const LIGHT_OPACITY = 0.16;
+const DOODLE_OPACITY = 0.08;
+const DOODLE_SPOTS: { doodle: keyof typeof DOODLES; x: number; y: number; size: number; rotate: number }[] = [
+  { doodle: "spiral", x: 0.78, y: 0.16, size: 30, rotate: 0 },
+  { doodle: "star", x: 0.92, y: 0.42, size: 22, rotate: 14 },
+  { doodle: "zigzags", x: 0.6, y: 0.08, size: 26, rotate: -10 },
+  { doodle: "circle", x: 0.66, y: 0.5, size: 16, rotate: 0 },
+  { doodle: "triangle", x: 0.86, y: 0.7, size: 14, rotate: 24 },
+  { doodle: "dots", x: 0.46, y: 0.3, size: 18, rotate: 0 },
+  { doodle: "zigzags", x: 0.08, y: 0.86, size: 22, rotate: 8 },
+];
+
 type HeaderBackdropProps = {
   /** Where the header's content ends (in the scroll content), e.g. Browse's
    *  search row: the green covers everything above it. */
   bottom: number | null;
   curves: HeaderCurves;
+  /** The soft light and faint doodles over the green. */
+  texture?: boolean;
 };
 
 // Before the content's first layout: about where it ends.
@@ -65,9 +91,12 @@ const lowest = (base: number, e: Edge) =>
 // ending in one smooth sweep, slightly reshaped at random on every visit to
 // the tab.
 // Scrolls with the page: render it first inside the ScrollView's content.
-export const HeaderBackdrop = memo(function HeaderBackdrop({ bottom, curves: c }: HeaderBackdropProps) {
+export const HeaderBackdrop = memo(function HeaderBackdrop({ bottom, curves: c, texture = false }: HeaderBackdropProps) {
   const { width: w } = useWindowDimensions();
   const [n, setN] = useState(randomNudges);
+  // Drawn once per mount: the doodles keep their hand-drawn wobble but don't
+  // change shape on every render.
+  const [doodles] = useState(() => DOODLE_SPOTS.map((spot) => ({ ...spot, version: drawDoodle(DOODLES[spot.doodle]) })));
   useFocusEffect(useCallback(() => setN(randomNudges()), []));
 
   const b = bottom ?? DEFAULT_BOTTOM;
@@ -82,6 +111,41 @@ export const HeaderBackdrop = memo(function HeaderBackdrop({ bottom, curves: c }
       <Svg width={w} height={h}>
         {pale && <Path d={pale} fill={colors.home.pale} fillOpacity={PALE_OPACITY} />}
         <Path d={dark} fill={colors.home.top} />
+        {texture && (
+          <>
+            <Defs>
+              <ClipPath id="headerDark">
+                <Path d={dark} />
+              </ClipPath>
+              <RadialGradient id="headerLight" cx={w * 0.85} cy={0} r={w * 0.9} gradientUnits="userSpaceOnUse">
+                <Stop offset="0" stopColor={colors.white} stopOpacity={LIGHT_OPACITY} />
+                <Stop offset="1" stopColor={colors.white} stopOpacity={0} />
+              </RadialGradient>
+            </Defs>
+            <G clipPath="url(#headerDark)">
+              <Rect x={0} y={0} width={w} height={h} fill="url(#headerLight)" />
+              {doodles.map(({ version, x, y, size, rotate }, i) => (
+                <G key={i} transform={`translate(${w * x} ${s * y}) rotate(${rotate}) scale(${size / 24}) translate(-12 -12)`}>
+                  {version.d ? (
+                    <Path
+                      d={version.d}
+                      stroke={colors.white}
+                      strokeOpacity={DOODLE_OPACITY}
+                      strokeWidth={2.4}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill={version.filled ? colors.white : "none"}
+                      fillOpacity={version.filled ? DOODLE_OPACITY : 0}
+                    />
+                  ) : null}
+                  {version.dots.map(([cx, cy, r], k) => (
+                    <Rect key={k} x={cx - r} y={cy - r} width={r * 2} height={r * 2} rx={r} fill={colors.white} fillOpacity={DOODLE_OPACITY} />
+                  ))}
+                </G>
+              ))}
+            </G>
+          </>
+        )}
       </Svg>
     </View>
   );
