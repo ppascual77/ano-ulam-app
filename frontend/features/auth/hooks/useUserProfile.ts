@@ -33,3 +33,14 @@ export function useUpdateUserProfile() {
     },
   });
 }
+
+// The signed-in user's own photo. users.avatar_url is the source once the row
+// has loaded (it can be changed or removed in the app); until then, the photo
+// the sign-in provider sent, which is what the row starts with anyway.
+export function useMyAvatarUrl(): string | null {
+  const { session } = useAuth();
+  const row = useUserProfile().data;
+  if (row) return row.avatar_url;
+  const meta = session?.user.user_metadata ?? {};
+  return (meta.avatar_url as string | undefined) ?? (meta.picture as string | undefined) ?? null;
+}

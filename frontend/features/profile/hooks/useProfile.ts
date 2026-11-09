@@ -5,10 +5,14 @@ import { listApprovedRecipesByPoster, listMyRecipes } from "@/api/recipes";
 import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 import { listPublicSavedMeals } from "@/frontend/core/saved/savedMeals";
 import type { SavedMeal } from "@/frontend/core/saved/types";
-import type { UserProfile } from "@/api/auth";
+import { removeAvatar, uploadAvatar, type PickedPhoto, type UserProfile } from "@/api/auth";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { authKeys } from "@/frontend/features/auth/queryKeys";
-import { useUpdateUserProfile, useUserProfile as useOwnUserRow } from "@/frontend/features/auth/hooks/useUserProfile";
+import {
+  useMyAvatarUrl,
+  useUpdateUserProfile,
+  useUserProfile as useOwnUserRow,
+} from "@/frontend/features/auth/hooks/useUserProfile";
 
 export type PublicProfile = {
   id: string;
@@ -28,11 +32,12 @@ const profileKeys = {
 export function useMe() {
   const { session } = useAuth();
   const meta = session?.user.user_metadata ?? {};
+  const avatarUrl = useMyAvatarUrl();
   return {
     id: session?.user.id ?? null,
     name:
       (meta.full_name as string | undefined) ?? (meta.name as string | undefined) ?? session?.user.email ?? "User",
-    avatarUrl: (meta.avatar_url as string | undefined) ?? (meta.picture as string | undefined) ?? null,
+    avatarUrl,
   };
 }
 
@@ -44,6 +49,34 @@ export function useMyBio(): string | null {
 export function useUpdateBio() {
   const update = useUpdateUserProfile();
   return { mutateAsync: (bio: string) => update.mutateAsync({ bio: bio.trim() || null }) };
+}
+
+// Change or remove the signed-in user's photo. The row's cache takes the new
+// avatar_url at once, and post lists refetch so your posts show it too.
+export function useAvatarActions() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user.id ?? null;
+  const current = useMyAvatarUrl();
+  const onSuccess = (row: UserProfile) => {
+    queryClient.setQueryData(authKeys.userProfile(row.id), row);
+    void queryClient.invalidateQueries({ queryKey: ["posts"] });
+  };
+  const upload = useMutation({
+    mutationFn: (photo: PickedPhoto) => {
+      if (!userId) throw new Error("Not signed in");
+      return uploadAvatar(userId, photo, current);
+    },
+    onSuccess,
+  });
+  const remove = useMutation({
+    mutationFn: () => {
+      if (!userId) throw new Error("Not signed in");
+      return removeAvatar(userId, current);
+    },
+    onSuccess,
+  });
+  return { upload, remove, busy: upload.isPending || remove.isPending };
 }
 
 // Real: the user's submitted recipes, every status.

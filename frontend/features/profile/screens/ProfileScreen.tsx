@@ -5,7 +5,8 @@ import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { Plus, Settings } from "lucide-react-native";
+import * as ImagePicker from "expo-image-picker";
+import { ImageIcon, Plus, Settings, Trash2 } from "lucide-react-native";
 import { AppText, Avatar, LandingTitle, Screen, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { RECIPE_LIMIT } from "@/api/recipes";
@@ -15,6 +16,7 @@ import { CreatePostSheet } from "@/frontend/core/posts/components/CreatePostShee
 import type { FoodPost, PostInput } from "@/api/posts";
 import { useSavePost } from "@/frontend/core/posts/hooks/usePosts";
 import {
+  useAvatarActions,
   useMe,
   useMyRecipes,
   useMyBio,
@@ -38,6 +40,9 @@ import { MealPlanBanner } from "../components/MealPlanBanner";
 // Dev only: the DEV chip in the top bar cycles signed in -> official
 // account -> guest, to preview the other views while signed in.
 type DevAccount = "user" | "official" | "guest";
+
+// How long the Dropdown menu's fade-out takes before the photo picker opens.
+const MENU_FADE_MS = 350;
 const NEXT_DEV_ACCOUNT: Record<DevAccount, DevAccount> = { user: "official", official: "guest", guest: "user" };
 const DEV_ACCOUNT_LABEL: Record<DevAccount, string> = { user: "signed in", official: "official", guest: "guest" };
 
@@ -104,6 +109,7 @@ export default function ProfileScreen() {
   const bio = useMyBio();
   const isPro = useProStore((s) => s.isPro);
   const updateBio = useUpdateBio();
+  const avatar = useAvatarActions();
   const recipes = useMyRecipes(me.id);
   // Same rule as Add a Recipe's limit check: rejected recipes don't count.
   const recipeCount = (recipes.data ?? []).filter((meal) => meal.status !== "rejected").length;
@@ -111,6 +117,52 @@ export default function ProfileScreen() {
 
   const [toast, setToast] = useState<ToastState | null>(null);
   const showToast = (message: string, tone: ToastState["tone"] = "error") => setToast({ id: Date.now(), message, tone });
+
+  // ---- Profile photo: tap the avatar to change or remove it ----------------
+  const pickAvatar = async () => {
+    // The photo menu is a Modal still fading out: iOS won't present the
+    // picker over a view that's being dismissed, so give it a moment.
+    await new Promise((resolve) => setTimeout(resolve, MENU_FADE_MS));
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+    const asset = result.canceled ? null : result.assets[0];
+    if (!asset) return;
+    try {
+      await avatar.upload.mutateAsync({ uri: asset.uri, width: asset.width, height: asset.height });
+      showToast("Profile photo updated", "success");
+    } catch {
+      showToast("Couldn't update your photo. Please try again.");
+    }
+  };
+  const removeAvatar = async () => {
+    try {
+      await avatar.remove.mutateAsync();
+      showToast("Profile photo removed", "success");
+    } catch {
+      showToast("Couldn't remove your photo. Please try again.");
+    }
+  };
+  const avatarItems = [
+    {
+      label: me.avatarUrl ? "Change photo" : "Choose a photo",
+      icon: <ImageIcon color={colors.webInk.soft} size={16} />,
+      onPress: () => void pickAvatar(),
+    },
+    ...(me.avatarUrl
+      ? [
+          {
+            label: "Remove photo",
+            icon: <Trash2 color={colors.like} size={16} />,
+            onPress: () => void removeAvatar(),
+            destructive: true,
+          },
+        ]
+      : []),
+  ];
 
   // Bumped near the bottom of the Created tab: load more posts.
   const [loadMoreSignal, setLoadMoreSignal] = useState(0);
@@ -229,6 +281,8 @@ export default function ProfileScreen() {
                   ) : undefined
                 }
                 badge={isPro ? <ProNameBadge /> : undefined}
+                avatarItems={avatarItems}
+                avatarBusy={avatar.busy}
                 onSaveBio={async (bio) => {
                   try {
                     await updateBio.mutateAsync(bio);
