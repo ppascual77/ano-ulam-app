@@ -1,16 +1,11 @@
 import { useMemo, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { View } from "react-native";
 import Animated, { Easing, FadeIn, FadeInDown } from "react-native-reanimated";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import { Bookmark } from "lucide-react-native";
 import { AppText } from "@/frontend/components/ui";
-import { colors } from "@/frontend/constants/theme";
+import { MealPhotoTile, mealPriceLabel, type MealPhotoTileSize } from "@/frontend/core/meals/components/card/MealPhotoTile";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useFullMeal } from "@/frontend/core/meals/hooks/useFullMeal";
-import { useLiveSaveCount } from "@/frontend/core/meals/hooks/useLiveSaveCount";
 import { usePreferredMeals } from "@/frontend/core/meals/hooks/usePreferredMeals";
-import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 
@@ -22,60 +17,23 @@ const HERO_HEIGHT = 200;
 const TALL_HEIGHT = 250;
 const CLOSER_HEIGHT = 170;
 const EASE = Easing.out(Easing.cubic);
-// Over the photos: clear at the top, dark at the bottom so white text reads.
-const PHOTO_SHADE = ["rgba(0,0,0,0)", "rgba(0,0,0,0.05)", "rgba(0,0,0,0.72)"] as const;
 
 type Variant = "hero" | "tall" | "small" | "closer";
 
 const rank = (i: number) => String(i + 1).padStart(2, "0");
-const priceOf = (meal: MealType) => `₱${meal.price}${meal.buffer_price ? `–${meal.buffer_price}` : ""}`;
+const TILE_SIZE: Record<Variant, MealPhotoTileSize> = { hero: "large", tall: "medium", small: "small", closer: "medium" };
 
-// The save count as a pill at a tile's top right: a bookmark and the number,
-// on a dark see-through backing so it reads on any photo.
-function SavesPill({ meal, compact }: { meal: MealType; compact: boolean }) {
-  const saves = useLiveSaveCount(meal);
+// A spread tile: the shared photo tile with the meal's rank as its stat.
+function PhotoTile({ meal, index, variant, height, onPress }: { meal: MealType; index: number; variant: Variant; height: number; onPress: () => void }) {
   return (
-    <View className={`flex-row items-center gap-1 rounded-full bg-black/35 ${compact ? "px-2 py-1" : "px-2.5 py-1.5"}`}>
-      <Bookmark color={colors.white} fill={colors.white} size={compact ? 11 : 13} strokeWidth={2.5} />
-      <Text className={`font-inter-bold text-white ${compact ? "text-sub" : "text-small"}`}>{saves.toLocaleString("en-PH")}</Text>
-    </View>
-  );
-}
-
-// A photo tile: the meal's photo, a dark fade, the rank top left and the
-// saves top right, the name and price over the photo at the bottom.
-function PhotoTile({ meal, index, variant, height, onPress }: { meal: MealType; index: number; variant: Exclude<Variant, "row">; height: number; onPress: () => void }) {
-  const big = variant === "hero";
-  const small = variant === "small";
-  return (
-    <Pressable
+    <MealPhotoTile
+      meal={meal}
+      size={TILE_SIZE[variant]}
+      height={height}
+      stat={rank(index)}
       onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`Number ${index + 1}, ${meal.name}, ${priceOf(meal)}`}
-      style={{ height }}
-      className="overflow-hidden rounded-2xl bg-ink-emphasis/5 active:opacity-90"
-    >
-      <Image source={resolveMealImage(meal)} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} contentFit="cover" transition={250} />
-      <LinearGradient colors={PHOTO_SHADE} locations={[0, 0.4, 1]} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
-
-      <View className={`absolute flex-row items-start justify-between ${small ? "left-3 right-2.5 top-2.5" : "left-4 right-3 top-3"}`}>
-        <Text className={`font-inter-extrabold tracking-display text-white ${big ? "text-heading" : "text-subheading"}`}>
-          {rank(index)}
-          <Text className="text-accent">.</Text>
-        </Text>
-        <SavesPill meal={meal} compact={small} />
-      </View>
-
-      <View className={`absolute bottom-0 left-0 right-0 ${small ? "p-3" : "p-4"}`}>
-        <Text
-          numberOfLines={2}
-          className={`font-inter-extrabold tracking-display text-white ${big ? "text-heading" : small ? "text-body" : "text-subheading"}`}
-        >
-          {meal.name}
-        </Text>
-        {!small && <Text className="mt-1 font-inter-bold text-small text-white">{priceOf(meal)}</Text>}
-      </View>
-    </Pressable>
+      accessibilityLabel={`Number ${index + 1}, ${meal.name}, ${mealPriceLabel(meal)}`}
+    />
   );
 }
 
