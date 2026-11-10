@@ -115,7 +115,11 @@ export function parseDailyPriceIndex(pages: TextItem[][]): DaParseResult {
     const find = (re: RegExp) => items.find((it) => re.test(it.str.trim()));
     const commodityHeader = find(/^COMMODITY$/);
     const specHeader = find(/^SPECIFICATION$/);
-    const priceHeader = find(/^RETAIL PRICE PER$/i);
+    // The same header on the page, cut into different text pieces over time:
+    // "PREVAILING" + "RETAIL PRICE PER" (to mid Oct 2026), "PREVAILING
+    // RETAIL" + "PRICE PER UNIT" (late Oct), "PREVAILING RETAIL PRICE PER"
+    // (Nov). The piece with "PRICE PER" sits over the price column.
+    const priceHeader = find(/^(PREVAILING )?(RETAIL )?PRICE PER( UNIT)?$/i);
     if (!commodityHeader || !specHeader || !priceHeader) return; // not a table page
 
     const tableTop = Math.min(...items.filter((it) => /^UNIT \(P\/UNIT\)$|^COMMODITY$/.test(it.str.trim())).map((it) => it.y));
@@ -153,7 +157,10 @@ export function parseDailyPriceIndex(pages: TextItem[][]): DaParseResult {
         continue;
       }
       const prev = pageRows.at(-1);
-      if (last === "row" && prev && prev.bottom - line.y <= LINE_GAP && isUnfinished(prev.commodity.join(" "))) {
+      // "No. 10" on its own line under "Corn Grits (Yellow, Feed Grade)" is
+      // part of that name (the sieve size tells the feed grades apart).
+      const sieveNumber = /^No\.\s*\d+$/i.test(line.text.trim());
+      if (last === "row" && prev && prev.bottom - line.y <= LINE_GAP && (isUnfinished(prev.commodity.join(" ")) || sieveNumber)) {
         prev.commodity.push(line.text);
         prev.bottom = line.y;
       } else {

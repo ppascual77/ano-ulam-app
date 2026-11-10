@@ -1,0 +1,83 @@
+# DA Daily Price Index, imported every day without an admin.
+#
+# DA's site blocks or throttles Supabase's servers, so everything that
+# touches DA happens here (GitHub's servers) instead: load DA's price page,
+# let the function read the PDF links out of it, download each PDF, and send
+# it to the function's secret-guarded "ingest" action, which parses and
+# saves it.
+#
+# Twice a day (10:00 and 16:00 PH): GitHub sometimes skips or delays a
+# scheduled run, and saving a date again just overwrites it. The newest 3
+# dates each time, so a missed day or a late DA upload is caught up.
+#
+# Repo secrets (Settings → Secrets and variables → Actions):
+#   SUPABASE_URL       the project URL (same as EXPO_PUBLIC_SUPABASE_URL)
+#   SUPABASE_ANON_KEY  the anon key (same as EXPO_PUBLIC_SUPABASE_ANON_KEY)
+#   DA_CRON_SECRET     must match the function secret of the same name
+#
+# Run it by hand: Actions → DA daily prices → Run workflow.
+
+name: DA daily prices
+
+on:
+  schedule:
+    - cron: "0 2 * * *" # 10:00 PH
+    - cron: "0 8 * * *" # 16:00 PH
+  workflow_dispatch:
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FN_URL: ${{ secrets.SUPABASE_URL }}/functions/v1/ingest-da-daily-prices
+      ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      CRON_SECRET: ${{ secrets.DA_CRON_SECRET }}
+      DATES: 3
+    steps:
+      - name: Import the newest DA price PDFs
+        run: |
+          set -euo pipefail
+          call() {
+            curl -sS --fail-with-body --max-time 120 -X POST "$FN_URL" \
+              -H "Authorization: Bearer $ANON_KEY" -H "apikey: $ANON_KEY" \
+              -H "Content-Type: application/json" "$@"
+          }
+
+          # DA's page from here (it's slow: up to ~20s), the links read out of
+          # it by the function (same parser as the admin screen).
+          echo "Loading DA's price monitoring page..."
+          if curl -sS --fail --retry 3 --retry-delay 15 --max-time 60 \
+              -A "Mozilla/5.0 (AnoUlam daily import)" -o page.html https://www.da.gov.ph/price-monitoring/; then
+            jq -n --rawfile html page.html '{action:"list", html:$html}' > list-body.json
+            call --data @list-body.json > list.json
+          else
+            echo "::warning::DA's page didn't load from GitHub, asking the function to load it"
+            call -d '{"action":"list"}' > list.json
+          fi
+          echo "Listed: $(jq -c '[.pdfs[].date]' list.json)"
+          jq -r ".pdfs[:$DATES] | reverse | .[] | \"\(.date) \(.url)\"" list.json > todo.txt
+          if [ ! -s todo.txt ]; then echo "::error::No PDFs listed on DA's page"; exit 1; fi
+
+          failed=0
+          while read -r date url; do
+            echo "== $date: $url"
+            # A browser-like user agent: DA rejects requests without one.
+            if ! curl -sS --fail --retry 3 --retry-delay 10 --max-time 90 \
+                -A "Mozilla/5.0 (AnoUlam daily import)" -o price.pdf "$url"; then
+              echo "::warning::Download from DA failed for $date"
+              failed=1
+              continue
+            fi
+            echo "Downloaded $(wc -c < price.pdf) bytes"
+            base64 -w0 price.pdf > price.b64
+            jq -n --rawfile b price.b64 --arg url "$url" '{action:"ingest", pdfBase64:$b, url:$url}' > body.json
+            if call -H "x-cron-secret: $CRON_SECRET" --data @body.json > result.json; then
+              echo "Saved: $(cat result.json)"
+            else
+              echo "::warning::Saving $date failed: $(cat result.json)"
+              failed=1
+            fi
+          done < todo.txt
+
+          exit $failed

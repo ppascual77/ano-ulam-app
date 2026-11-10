@@ -5,15 +5,29 @@
 // pdf.js, which is heavy and awkward to run on the device.
 //
 //   { action: "list" }              → the newest Daily Price Index PDFs on DA's page
+//   { action: "list", html }        → same, from the page's HTML fetched by the
+//                                     caller (the daily job: DA is often too slow
+//                                     or blocking from here)
 //   { action: "parse", pdfBase64 }  → { date, rows } for one PDF (see parse.ts)
 //   { action: "parse", url }        → same, fetching the PDF here
+//   { action: "ingest", pdfBase64, url }  → parse AND save (the daily
+//       GitHub Actions job, .github/workflows/da-daily-prices.yml). Needs the
+//       `x-cron-secret` header to match the DA_CRON_SECRET function secret;
+//       saves with the service role, the same two upserts as the admin's
+//       save (api/daPrices.ts saveDaDailyPrices). Saving a date again
+//       overwrites it, so reruns are harmless.
 //
 // The app sends pdfBase64: DA's site throttles or blocks this server's IPs
 // on PDF downloads (timeouts here while instant from a phone), so the app
 // downloads the PDF itself. The url form is kept for testing.
 
 import { getDocumentProxy } from "npm:unpdf@0.12.1";
-import { DA_UPLOADS_PREFIX, listDailyPdfs, parseDailyPriceIndex, type ListedPdf, type TextItem } from "./parse.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { DA_UPLOADS_PREFIX, listDailyPdfs, parseDailyPriceIndex, type DaParseResult, type ListedPdf, type TextItem } from "./parse.ts";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const DA_CRON_SECRET = Deno.env.get("DA_CRON_SECRET");
 
 const DA_PRICE_PAGE = "https://www.da.gov.ph/price-monitoring/";
 const LIST_LIMIT = 14;
@@ -74,12 +88,51 @@ async function parsePdf(bytes: Uint8Array) {
   return parseDailyPriceIndex(pages);
 }
 
+// Same as api/daPrices.ts saveDaDailyPrices (keep the two in step): the
+// commodities first (new ones added), then that day's prices. The price
+// triggers re-pick each linked ingredient's cheapest price from there.
+async function savePrices(parsed: DaParseResult, sourceUrl: string) {
+  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const priced = parsed.rows.filter((r) => r.price != null);
+  if (priced.length === 0) throw new Error(`No prices found in the PDF for ${parsed.date}`);
+  const { data: commodities, error } = await admin
+    .from("da_commodities")
+    .upsert(
+      priced.map((r) => ({
+        commodity: r.commodity,
+        specification: r.specification,
+        section: r.section,
+        unit: r.unit,
+        unit_size: r.unitSize,
+      })),
+      { onConflict: "commodity,specification" },
+    )
+    .select("id, commodity, specification");
+  if (error) throw new Error(`Saving commodities failed: ${error.message}`);
+  const key = (c: { commodity: string; specification: string }) => `${c.commodity}|${c.specification}`;
+  const idByKey = new Map(commodities.map((c) => [key(c), c.id]));
+  const { error: priceError } = await admin.from("daily_prices").upsert(
+    priced.map((r) => ({
+      da_commodity_id: idByKey.get(key(r))!,
+      price_date: parsed.date,
+      price: r.price!,
+      source_url: sourceUrl,
+    })),
+    { onConflict: "da_commodity_id,price_date" },
+  );
+  if (priceError) throw new Error(`Saving prices failed: ${priceError.message}`);
+  return { date: parsed.date, saved: priced.length };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
   try {
     const body = await req.json();
     if (body?.action === "list") {
+      if (typeof body.html === "string" && body.html.length > 0) {
+        return json({ pdfs: listDailyPdfs(body.html, LIST_LIMIT) });
+      }
       return json({ pdfs: await listPdfs() });
     }
     if (body?.action === "parse") {
@@ -92,7 +145,21 @@ Deno.serve(async (req: Request) => {
       }
       return json(await parsePdf(await fetchPdf(url)));
     }
-    return json({ error: "action must be \"list\" or \"parse\"" }, 400);
+    if (body?.action === "ingest") {
+      // Only the scheduled job: without the secret this is a public write.
+      if (!DA_CRON_SECRET || req.headers.get("x-cron-secret") !== DA_CRON_SECRET) {
+        return json({ error: "not allowed" }, 401);
+      }
+      const url = body.url;
+      if (typeof url !== "string" || !url.startsWith(DA_UPLOADS_PREFIX)) {
+        return json({ error: `send the PDF's url (under ${DA_UPLOADS_PREFIX}) with pdfBase64` }, 400);
+      }
+      if (typeof body.pdfBase64 !== "string" || body.pdfBase64.length === 0) {
+        return json({ error: "send pdfBase64" }, 400);
+      }
+      return json(await savePrices(await parsePdf(decodeBase64(body.pdfBase64)), url));
+    }
+    return json({ error: "action must be \"list\", \"parse\" or \"ingest\"" }, 400);
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
