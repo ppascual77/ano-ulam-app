@@ -96,9 +96,11 @@ Supabase project config don't get tangled with UI code.
   | `api/` Hono server (DB access)        | none, app queries Supabase directly | n/a |
   | `ai/` service (holds OpenAI key)      | `supabase/functions/*`    | Server     |
 
-  With no server in front of the database, **RLS is the security boundary**. The current
-  `TEMP: anyone can update ingredients` policies are fine for the solo-admin phase but must be
-  tightened before public release.
+  With no server in front of the database, **RLS is the security boundary**. Shared reference
+  data (meals, meal_ingredients, ingredients, DA prices, meal images) is admin-only to write
+  (`public.is_admin()`, the `app_metadata` role); regular users can only write their own
+  pending recipe (`20261109000000_rls_lockdown`). A new table needs its own policies in the
+  same migration that creates it.
 - `lib/` — infrastructure shared by both `api/` and `frontend/`: `supabase.ts` (the
   `createClient<Database>(...)` instance), `database.types.ts` (generated wholesale by
   `supabase gen types typescript`, regenerated on every schema change), `queryClient.ts` (shared
