@@ -79,19 +79,19 @@ export function RecipeSubmittedView({ recipeName, onDone }: { recipeName: string
   const subscribed = usePaysForPro();
   const { data: progress } = useProRewardProgress();
   const rewardOpen = !subscribed && !!progress && progress.approvedRecipes === 0;
-  // Not asked again once refused, or with Recipe updates off in Settings.
+  // Not asked again once refused, or with notifications off in Settings.
   const push = usePushPermission();
-  const recipeUpdates = useAccountSettings().data?.push_recipe_updates ?? true;
+  const pushEnabled = useAccountSettings().data?.push_enabled ?? true;
   const settingsActions = useAccountSettingsActions();
   const [asking, setAsking] = useState(false);
   const notifyMe = async () => {
     setAsking(true);
     const allowed = await enablePush().catch(() => false);
-    if (allowed && !recipeUpdates) settingsActions.setRecipeUpdates(true);
+    if (allowed && !pushEnabled) settingsActions.setPushEnabled(true);
     push.refresh();
     setAsking(false);
   };
-  const willNotify = push.permission === "granted" && recipeUpdates;
+  const willNotify = push.permission === "granted" && pushEnabled;
   const canAsk = push.permission === "undetermined";
   const fadeUp = (delay: number) => (reduceMotion ? FadeIn.duration(200) : FadeInDown.delay(delay).duration(320).easing(EASE));
 

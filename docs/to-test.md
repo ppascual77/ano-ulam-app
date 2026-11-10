@@ -61,7 +61,7 @@ Notifications" when `eas build --profile development --platform ios` asks.
       the app and the reward celebration plays.
 - [ ] **Later approvals:** a second approved recipe says "… is now on AnoUlam for everyone to cook."
 - [ ] **App open:** approving while the app is open still shows the banner.
-- [ ] **Settings → Recipe updates:** off, approve another: no push. On again: pushes resume. With
+- [ ] **Settings → Notifications → Push notifications:** off, approve another: no push. On again: pushes resume. With
       notifications refused in iOS Settings, the toggle shows off and turning it on opens iOS Settings.
 - [ ] **Log out:** the phone's `push_tokens` row is gone; another account signing in on the same
       phone gets its own pushes, not the old account's.

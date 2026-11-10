@@ -115,14 +115,14 @@ export default function SettingsScreen() {
   const setShowSurpriseMe = useSurpriseMeStore((s) => s.setShow);
 
   const settings = useAccountSettings();
-  // Recipe updates: on only while the account setting is on AND iOS allows
-  // AnoUlam's notifications. Turning it on asks iOS the first time, or opens
-  // iOS Settings once it's been refused there.
+  // Push notifications: on only while the account setting is on AND iOS
+  // allows AnoUlam's notifications. Turning it on asks iOS the first time, or
+  // opens iOS Settings once it's been refused there.
   const push = usePushPermission();
-  const recipeUpdatesOn = (settings.data?.push_recipe_updates ?? true) && push.permission === "granted";
-  const setRecipeUpdates = async (on: boolean) => {
-    if (!on) return settingsActions.setRecipeUpdates(false);
-    settingsActions.setRecipeUpdates(true);
+  const pushOn = (settings.data?.push_enabled ?? true) && push.permission === "granted";
+  const setPushOn = async (on: boolean) => {
+    if (!on) return settingsActions.setPushEnabled(false);
+    settingsActions.setPushEnabled(true);
     if (push.permission === "denied") return void Linking.openSettings();
     const allowed = await enablePush().catch(() => false);
     push.refresh();
@@ -350,17 +350,33 @@ export default function SettingsScreen() {
             </Pressable>
           </SettingsSection>
 
-          {/* The newsletter deep link (?section=newsletter) centers this one. */}
-          <SettingsSection
-            title="Privacy & notifications"
-            onLayout={(e) => setNewsletterLayout({ y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height })}
-          >
+          <SettingsSection title="Privacy">
             <SettingsToggle
               label="Show saved meals on your profile"
               description="When enabled, visitors to your profile can see the meals you've saved."
               value={settings.data?.show_saved_public ?? false}
               onChange={settingsActions.setShowSaved}
             />
+          </SettingsSection>
+
+          {/* The newsletter deep link (?section=newsletter) centers this one. */}
+          <SettingsSection
+            title="Notifications"
+            onLayout={(e) => setNewsletterLayout({ y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height })}
+          >
+            {/* Hidden on a build without the notifications module. */}
+            {push.permission != null && push.permission !== "unavailable" && (
+              <SettingsToggle
+                label="Push notifications"
+                description={
+                  push.permission === "denied"
+                    ? "Notifications are off for AnoUlam in iOS Settings. Turn this on to open them."
+                    : "Updates on your phone, like when a recipe you shared is approved and live."
+                }
+                value={pushOn}
+                onChange={(on) => void setPushOn(on)}
+              />
+            )}
             <SettingsToggle
               label="Email newsletter"
               description="Receive occasional emails about new meals, features, and food tips from AnoUlam."
@@ -368,19 +384,6 @@ export default function SettingsScreen() {
               // Turning it off asks first; turning it on just saves.
               onChange={(on) => (on ? settingsActions.setNewsletter(true) : setConfirmUnsubscribe(true))}
             />
-            {/* Hidden on a build without the notifications module. */}
-            {push.permission != null && push.permission !== "unavailable" && (
-              <SettingsToggle
-                label="Recipe updates"
-                description={
-                  push.permission === "denied"
-                    ? "Notifications are off for AnoUlam in iOS Settings. Turn this on to open them."
-                    : "A notification when a recipe you shared is approved and live."
-                }
-                value={recipeUpdatesOn}
-                onChange={(on) => void setRecipeUpdates(on)}
-              />
-            )}
           </SettingsSection>
 
           <SettingsSection title="About">

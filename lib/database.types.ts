@@ -807,7 +807,7 @@ export type Database = {
           preferences: Json
           pro_reward_until: string | null
           pro_until: string | null
-          push_recipe_updates: boolean
+          push_enabled: boolean
           seen_intros: string[]
           show_saved_public: boolean
           tier: string
@@ -824,7 +824,7 @@ export type Database = {
           preferences?: Json
           pro_reward_until?: string | null
           pro_until?: string | null
-          push_recipe_updates?: boolean
+          push_enabled?: boolean
           seen_intros?: string[]
           show_saved_public?: boolean
           tier?: string
@@ -841,7 +841,7 @@ export type Database = {
           preferences?: Json
           pro_reward_until?: string | null
           pro_until?: string | null
-          push_recipe_updates?: boolean
+          push_enabled?: boolean
           seen_intros?: string[]
           show_saved_public?: boolean
           tier?: string
