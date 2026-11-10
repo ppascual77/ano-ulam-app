@@ -11,7 +11,6 @@ type HeaderProps = {
   children?: ReactNode;
 };
 
-
 // The avatar (and the admin menu) moved to the bottom nav's Profile tab.
 // White text: it sits on HomeBackdrop's dark green.
 function HeaderInner({ name, children }: HeaderProps) {
