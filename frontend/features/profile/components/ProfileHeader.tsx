@@ -22,6 +22,8 @@ type ProfileHeaderProps = {
   avatarBusy?: boolean;
   /** After the name (the official verified badge). */
   badge?: ReactNode;
+  /** Replaces the plain name (Pro: ProName, in accent with the shimmer). */
+  nameNode?: ReactNode;
   /** Under the bio (the official profile's mail link). */
   children?: ReactNode;
 };
@@ -37,6 +39,7 @@ export function ProfileHeader({
   avatarItems,
   avatarBusy = false,
   badge,
+  nameNode,
   children,
 }: ProfileHeaderProps) {
   const [editing, setEditing] = useState(false);
@@ -77,9 +80,11 @@ export function ProfileHeader({
       )}
       <View className="flex-1">
         <View className="flex-row items-center gap-1.5">
-          <Text numberOfLines={1} className="shrink font-inter-bold text-subheading text-web-ink">
-            {name}
-          </Text>
+          {nameNode ?? (
+            <Text numberOfLines={1} className="shrink font-inter-bold text-subheading text-web-ink">
+              {name}
+            </Text>
+          )}
           {badge}
         </View>
 
@@ -137,8 +142,10 @@ function EditableAvatar({ items, busy, children }: { items: DropdownItem[]; busy
           <Spinner size={20} color={colors.white} />
         </View>
       )}
-      <View className="absolute -bottom-0.5 -right-0.5 h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-brand-green">
-        <Camera color={colors.white} size={12} />
+      {/* Light like the app's other small controls (Profile's floating +):
+          a white disc with a soft edge and shadow, a thin green camera. */}
+      <View className="absolute -bottom-0.5 -right-0.5 h-6 w-6 items-center justify-center rounded-full border border-ink-emphasis/10 bg-white shadow-sm">
+        <Camera color={colors.primary} size={13} strokeWidth={2.2} />
       </View>
     </View>
   );

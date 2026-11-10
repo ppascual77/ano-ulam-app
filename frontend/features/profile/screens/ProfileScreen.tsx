@@ -32,7 +32,7 @@ import { CreatedTab } from "../components/created/CreatedTab";
 import { RecipeLimitSheet } from "../components/created/RecipeLimitSheet";
 import { GroceryTab } from "../components/grocery/GroceryTab";
 import { PantryTab } from "../components/pantry/PantryTab";
-import { ProAvatarRing, ProNameBadge } from "@/frontend/core/pro/components/ProProfileFlair";
+import { ProAvatarRing, ProName, ProNameBadge } from "@/frontend/core/pro/components/ProProfileFlair";
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
 import { MealPlanBanner } from "../components/MealPlanBanner";
 
@@ -281,6 +281,7 @@ export default function ProfileScreen() {
                   ) : undefined
                 }
                 badge={isPro ? <ProNameBadge /> : undefined}
+                nameNode={isPro ? <ProName name={me.name} className="font-inter-bold text-subheading text-web-ink" /> : undefined}
                 avatarItems={avatarItems}
                 avatarBusy={avatar.busy}
                 onSaveBio={async (bio) => {

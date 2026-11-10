@@ -12,7 +12,7 @@ import type { SavedMeal } from "@/frontend/core/saved/types";
 import { MealGrid } from "../MealGrid";
 import { MealGridSkeleton } from "../MealGridSkeleton";
 import { EmptyState } from "../EmptyState";
-import { CatalogStatusStrip, PosterChip } from "../CardOverlays";
+import { CatalogStatusStrip, hasCatalogStrip, PosterChip } from "../CardOverlays";
 import { openProfile } from "@/frontend/core/users/openProfile";
 import { useMe } from "../../hooks/useProfile";
 import { UpdatedMealPrompt } from "./UpdatedMealPrompt";
@@ -100,7 +100,7 @@ export function SavedTab({ onToast }: SavedTabProps) {
                   onPress={() => openCard(entry)}
                   onBookmarkPress={() => setConfirmRemove(entry)}
                   topLeft={entry.poster_id ? <PosterChip onPress={() => openProfile(entry.poster_id, me.id)} /> : undefined}
-                  imageFooter={<CatalogStatusStrip status={entry.catalog_status} />}
+                  imageFooter={hasCatalogStrip(entry.catalog_status) ? <CatalogStatusStrip status={entry.catalog_status} /> : undefined}
                 />
               </FreshPulse>
             )}

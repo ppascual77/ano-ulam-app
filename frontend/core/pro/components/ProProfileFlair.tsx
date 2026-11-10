@@ -16,14 +16,13 @@ import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { ProBadge } from "./ProBadge";
 
-// A Pro user's own profile header, in two quiet layers (still with Reduce
-// motion):
+// A Pro user's own profile header (all still with Reduce motion):
 // - ProAvatarRing: an accent ring around the avatar that settles in like a
-//   halo, then one soft glow ripples out from it; a glint crosses the
-//   avatar as the profile opens and every 10 seconds;
-// - ProNameBadge: the PRO badge after the name, popping in a beat later
-//   with a glint of light crossing it (again every 10 seconds, in step
-//   with the same glint on the avatar).
+//   halo, then one soft glow ripples out from it;
+// - ProName: the name, which the sweep passes over;
+// - ProNameBadge: the PRO badge after the name, popping in a beat later.
+// One glint sweeps across all three in turn, avatar → name → badge, as the
+// profile opens and every 10 seconds (SWEEP).
 
 const EASE = Easing.out(Easing.cubic);
 // The timeline, in ms from the profile appearing.
@@ -44,7 +43,7 @@ export function ProAvatarRing({ size, children }: { size: number; children: Reac
     glow.value = withDelay(T.glow, withTiming(1, { duration: 900, easing: Easing.out(Easing.quad) }));
     // The same glint as the PRO badge, on the same beat: as the profile
     // opens, then every GLINT_EVERY_MS.
-    glint.value = repeatingGlint();
+    glint.value = repeatingGlint(SWEEP.avatar);
     return () => cancelAnimation(glint);
   }, []);
 
@@ -84,20 +83,24 @@ export function ProAvatarRing({ size, children }: { size: number; children: Reac
   );
 }
 
-// The glint: a narrow white band crossing the badge, as it pops in and then
-// every 10 seconds.
-const GLINT_MS = 520;
+// The glint: one sweep travelling avatar → name → PRO badge, as the profile
+// opens and then every 10 seconds. Each element's pass takes GLINT_MS, and
+// the next one starts just before it ends, so it reads as one.
+const GLINT_MS = 860;
+const GLINT_STEP_MS = Math.round(GLINT_MS * 0.85);
+/** When each element's pass starts within the sweep. */
+const SWEEP = { avatar: 0, name: GLINT_STEP_MS, badge: GLINT_STEP_MS * 2 };
 const GLINT_EVERY_MS = 10_000;
 const GLINT_WIDTH = 14;
 const GLINT_BAND = ["rgba(255,255,255,0)", "rgba(255,255,255,0.85)", "rgba(255,255,255,0)"] as const;
 const AVATAR_GLINT_BAND = ["rgba(255,255,255,0)", "rgba(255,255,255,0.45)", "rgba(255,255,255,0)"] as const;
 
-// The glint's timing, shared by the badge and the avatar so they shine
-// together: across (hidden at the far edge), a rest, then back to the start
-// while invisible; first as the profile opens.
-function repeatingGlint() {
+// One element's part of the sweep: across (hidden at the far edge), a rest,
+// then back to the start while invisible, every GLINT_EVERY_MS; `offset`
+// is its place in the sweep (SWEEP), so the three stay in order.
+function repeatingGlint(offset: number) {
   return withDelay(
-    T.glint,
+    T.glint + offset,
     withRepeat(
       withSequence(
         withTiming(1, { duration: GLINT_MS, easing: Easing.inOut(Easing.quad) }),
@@ -123,9 +126,8 @@ export function ProNameBadge() {
   }, []);
   useEffect(() => {
     if (reduceMotion || width === 0) return;
-    // A glint as it pops in, then one every GLINT_EVERY_MS (in step with
-    // the avatar's).
-    glint.value = repeatingGlint();
+    // Its part of the sweep: after the avatar and the name.
+    glint.value = repeatingGlint(SWEEP.badge);
     return () => cancelAnimation(glint);
   }, [width]);
 
@@ -146,5 +148,37 @@ export function ProNameBadge() {
         )}
       </View>
     </Animated.View>
+  );
+}
+
+const NAME_GLINT_WIDTH = 28;
+const NAME_GLINT_BAND = ["rgba(255,255,255,0)", "rgba(255,255,255,0.75)", "rgba(255,255,255,0)"] as const;
+
+/** A Pro user's own name, with the sweep passing over it between the avatar
+ *  and the badge. `className` is the name's usual text style. */
+export function ProName({ name, className }: { name: string; className: string }) {
+  const reduceMotion = useReduceMotion();
+  const [width, setWidth] = useState(0);
+  const glint = useSharedValue(0);
+  useEffect(() => {
+    if (reduceMotion || width === 0) return;
+    glint.value = repeatingGlint(SWEEP.name);
+    return () => cancelAnimation(glint);
+  }, [width, reduceMotion]);
+  const glintStyle = useAnimatedStyle(() => ({
+    opacity: glint.value > 0 && glint.value < 1 ? 1 : 0,
+    transform: [{ translateX: -NAME_GLINT_WIDTH + (width + NAME_GLINT_WIDTH * 2) * glint.value }, { rotate: "20deg" }],
+  }));
+  return (
+    <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} className="shrink overflow-hidden">
+      <Text numberOfLines={1} className={className}>
+        {name}
+      </Text>
+      {!reduceMotion && (
+        <Animated.View pointerEvents="none" style={[{ position: "absolute", top: -8, bottom: -8, left: 0, width: NAME_GLINT_WIDTH }, glintStyle]}>
+          <LinearGradient colors={NAME_GLINT_BAND} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={{ flex: 1 }} />
+        </Animated.View>
+      )}
+    </View>
   );
 }

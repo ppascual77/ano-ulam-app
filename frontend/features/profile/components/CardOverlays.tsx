@@ -12,6 +12,11 @@ const CATALOG_STRIPS: Partial<Record<NonNullable<CatalogStatus>, { bg: string; l
 
 // Saved card's bottom-edge strip: what happened to the original recipe
 // since it was saved. Nothing for active.
+/** Whether a saved meal's status gets a strip at all (a normal one
+ *  doesn't). Pass the strip only then: a card lifts its pills to make room
+ *  for any footer it's given, empty or not. */
+export const hasCatalogStrip = (status: CatalogStatus) => !!status && !!CATALOG_STRIPS[status];
+
 export function CatalogStatusStrip({ status }: { status: CatalogStatus }) {
   const strip = status ? CATALOG_STRIPS[status] : undefined;
   if (!strip) return null;
