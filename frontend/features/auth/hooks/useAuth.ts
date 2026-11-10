@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { deleteAccount, signIn, signOut, type SignInProvider } from "@/api/auth";
+import { forgetPushToken } from "@/frontend/core/notifications/push";
 import { useAuthStore } from "../store/useAuthStore";
 import { useAuthActivityStore } from "../store/useAuthActivityStore";
 
@@ -30,7 +31,13 @@ export function useSignIn({ holdOverlay = false }: { holdOverlay?: boolean } = {
 }
 
 export function useSignOut() {
-  return useMutation({ mutationFn: signOut });
+  // This phone stops getting the account's pushes first (needs the session).
+  return useMutation({
+    mutationFn: async () => {
+      await forgetPushToken();
+      await signOut();
+    },
+  });
 }
 
 export function useDeleteAccount() {

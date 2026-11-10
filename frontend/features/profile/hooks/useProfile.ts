@@ -150,14 +150,22 @@ export function useApprovedRecipes(userId: string) {
 export type AccountSettings = {
   show_saved_public: boolean;
   newsletter_subscribed: boolean;
+  /** Push when one of your recipes is approved (Settings; on by default). */
+  push_recipe_updates: boolean;
 };
 
-// Privacy and newsletter, on the user's row (users.show_saved_public,
-// users.newsletter_subscribed).
+// Privacy, newsletter and notifications, on the user's row
+// (users.show_saved_public, newsletter_subscribed, push_recipe_updates).
 export function useAccountSettings(): { data: AccountSettings | undefined } {
   const row = useOwnUserRow().data;
   return {
-    data: row ? { show_saved_public: row.show_saved_public, newsletter_subscribed: row.newsletter_subscribed } : undefined,
+    data: row
+      ? {
+          show_saved_public: row.show_saved_public,
+          newsletter_subscribed: row.newsletter_subscribed,
+          push_recipe_updates: row.push_recipe_updates,
+        }
+      : undefined,
   };
 }
 
@@ -176,5 +184,6 @@ export function useAccountSettingsActions() {
   return {
     setShowSaved: (show: boolean) => save({ show_saved_public: show }),
     setNewsletter: (on: boolean) => save({ newsletter_subscribed: on }),
+    setRecipeUpdates: (on: boolean) => save({ push_recipe_updates: on }),
   };
 }

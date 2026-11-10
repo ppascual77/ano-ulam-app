@@ -724,6 +724,35 @@ export type Database = {
           },
         ]
       }
+      push_tokens: {
+        Row: {
+          platform: string
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          platform: string
+          token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          platform?: string
+          token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_meals: {
         Row: {
           id: string
@@ -778,6 +807,7 @@ export type Database = {
           preferences: Json
           pro_reward_until: string | null
           pro_until: string | null
+          push_recipe_updates: boolean
           seen_intros: string[]
           show_saved_public: boolean
           tier: string
@@ -794,6 +824,7 @@ export type Database = {
           preferences?: Json
           pro_reward_until?: string | null
           pro_until?: string | null
+          push_recipe_updates?: boolean
           seen_intros?: string[]
           show_saved_public?: boolean
           tier?: string
@@ -810,6 +841,7 @@ export type Database = {
           preferences?: Json
           pro_reward_until?: string | null
           pro_until?: string | null
+          push_recipe_updates?: boolean
           seen_intros?: string[]
           show_saved_public?: boolean
           tier?: string
@@ -913,11 +945,16 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_pro: { Args: { p_user: string }; Returns: boolean }
+      register_push_token: {
+        Args: { p_platform: string; p_token: string }
+        Returns: undefined
+      }
       remove_post: { Args: { p_post: string }; Returns: undefined }
       report_post: {
         Args: { p_note?: string; p_post: string; p_reason: string }
         Returns: undefined
       }
+      unregister_push_token: { Args: { p_token: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

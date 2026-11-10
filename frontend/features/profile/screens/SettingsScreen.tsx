@@ -32,6 +32,8 @@ import { MacroGoalSheet } from "@/frontend/core/nutrition/components/MacroGoalSh
 import { GOAL_OPTIONS, goalsFromTargets, targetsFromGoals } from "@/frontend/core/nutrition/macros";
 import { DEFAULT_NUTRITION_GOALS } from "@/api/auth";
 import { ProSettingRow } from "../components/settings/ProSettingRow";
+import { enablePush } from "@/frontend/core/notifications/push";
+import { usePushPermission } from "@/frontend/core/notifications/hooks/usePushPermission";
 
 const LOG_OUT_DELAY_MS = 2000;
 const SUPPORT_EMAIL = "anoulam.app@gmail.com";
@@ -113,6 +115,19 @@ export default function SettingsScreen() {
   const setShowSurpriseMe = useSurpriseMeStore((s) => s.setShow);
 
   const settings = useAccountSettings();
+  // Recipe updates: on only while the account setting is on AND iOS allows
+  // AnoUlam's notifications. Turning it on asks iOS the first time, or opens
+  // iOS Settings once it's been refused there.
+  const push = usePushPermission();
+  const recipeUpdatesOn = (settings.data?.push_recipe_updates ?? true) && push.permission === "granted";
+  const setRecipeUpdates = async (on: boolean) => {
+    if (!on) return settingsActions.setRecipeUpdates(false);
+    settingsActions.setRecipeUpdates(true);
+    if (push.permission === "denied") return void Linking.openSettings();
+    const allowed = await enablePush().catch(() => false);
+    push.refresh();
+    if (!allowed) setToast({ id: Date.now(), message: "Notifications are off for AnoUlam. Turn them on in iOS Settings.", tone: "error" });
+  };
   const settingsActions = useAccountSettingsActions();
   const [confirmUnsubscribe, setConfirmUnsubscribe] = useState(false);
 
@@ -352,6 +367,16 @@ export default function SettingsScreen() {
               value={settings.data?.newsletter_subscribed ?? false}
               // Turning it off asks first; turning it on just saves.
               onChange={(on) => (on ? settingsActions.setNewsletter(true) : setConfirmUnsubscribe(true))}
+            />
+            <SettingsToggle
+              label="Recipe updates"
+              description={
+                push.permission === "denied"
+                  ? "Notifications are off for AnoUlam in iOS Settings. Turn this on to open them."
+                  : "A notification when a recipe you shared is approved and live."
+              }
+              value={recipeUpdatesOn}
+              onChange={(on) => void setRecipeUpdates(on)}
             />
           </SettingsSection>
 

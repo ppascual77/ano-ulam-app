@@ -1,13 +1,16 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import Animated, { Easing, FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from "react-native-reanimated";
-import { Check, Gift } from "lucide-react-native";
+import { Bell, Check, Gift } from "lucide-react-native";
 import { AppText, Button, Medallion } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { usePaysForPro } from "@/frontend/core/pro/store/useProStore";
 import { useProRewardProgress } from "@/frontend/core/pro/hooks/useProRewardProgress";
 import { RECIPE_REWARD_DAYS } from "@/frontend/core/pro/proContent";
+import { enablePush } from "@/frontend/core/notifications/push";
+import { usePushPermission } from "@/frontend/core/notifications/hooks/usePushPermission";
+import { useAccountSettings, useAccountSettingsActions } from "@/frontend/features/profile/hooks/useProfile";
 
 const EASE = Easing.out(Easing.cubic);
 // The timeline, in ms from the screen appearing: the medallion, the words,
@@ -68,12 +71,28 @@ function ReviewTrack({ reduceMotion }: { reduceMotion: boolean }) {
 // "In review" (its dot breathing while it waits), and, while the
 // first-recipe reward is open (not subscribed), one accent pill: approval
 // earns 7 days of Pro (celebrated by RewardCelebration the next time the
-// app opens after approval). Reduce motion: fades only.
+// app opens after approval). Then the notification ask, the moment the
+// reason is obvious: "Notify me when it's live" (iOS's prompt, once); once
+// allowed, a line saying we will. Reduce motion: fades only.
 export function RecipeSubmittedView({ recipeName, onDone }: { recipeName: string; onDone: () => void }) {
   const reduceMotion = useReduceMotion();
   const subscribed = usePaysForPro();
   const { data: progress } = useProRewardProgress();
   const rewardOpen = !subscribed && !!progress && progress.approvedRecipes === 0;
+  // Not asked again once refused, or with Recipe updates off in Settings.
+  const push = usePushPermission();
+  const recipeUpdates = useAccountSettings().data?.push_recipe_updates ?? true;
+  const settingsActions = useAccountSettingsActions();
+  const [asking, setAsking] = useState(false);
+  const notifyMe = async () => {
+    setAsking(true);
+    const allowed = await enablePush().catch(() => false);
+    if (allowed && !recipeUpdates) settingsActions.setRecipeUpdates(true);
+    push.refresh();
+    setAsking(false);
+  };
+  const willNotify = push.permission === "granted" && recipeUpdates;
+  const canAsk = push.permission === "undetermined";
   const fadeUp = (delay: number) => (reduceMotion ? FadeIn.duration(200) : FadeInDown.delay(delay).duration(320).easing(EASE));
 
   return (
@@ -108,6 +127,21 @@ export function RecipeSubmittedView({ recipeName, onDone }: { recipeName: string
 
       <Animated.View entering={fadeUp(T.button)}>
         <View className="mt-9">
+          {canAsk && (
+            <Button
+              variant="outline"
+              label={asking ? "One moment…" : "Notify me when it's live"}
+              onPress={() => void notifyMe()}
+              disabled={asking}
+              style={{ marginBottom: 12 }}
+            />
+          )}
+          {willNotify && (
+            <View className="mb-4 flex-row items-center justify-center gap-1.5">
+              <Bell color={colors.primary} size={14} strokeWidth={2.5} />
+              <Text className="font-inter-semibold text-small text-primary">We&apos;ll notify you when it&apos;s live</Text>
+            </View>
+          )}
           <Button label="Done" onPress={onDone} />
           <Text className="mt-3 text-center font-inter-regular text-small text-ink-subtle">Find it anytime under Created in your Profile.</Text>
         </View>

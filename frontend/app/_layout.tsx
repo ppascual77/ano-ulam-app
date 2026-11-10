@@ -31,6 +31,7 @@ import { DotHandoffOverlay, GlobalToast } from "@/frontend/components/ui";
 import { AuthActivityOverlay } from "@/frontend/features/auth/components/AuthActivityOverlay";
 import { GlobalLoginGate, PendingSaveReplay } from "@/frontend/features/auth/components/GlobalLoginGate";
 import { RewardCelebration } from "@/frontend/core/pro/components/RewardCelebration";
+import { usePushTokenSync } from "@/frontend/core/notifications/hooks/usePushPermission";
 import { SaveLimitSheet } from "@/frontend/core/saved/components/SaveLimitSheet";
 import { SaveFeedbackLayer } from "@/frontend/core/saved/components/SaveFeedbackLayer";
 import { noteTouch, useSaveFeedbackStore } from "@/frontend/core/saved/store/useSaveFeedbackStore";
@@ -45,6 +46,9 @@ WebBrowser.maybeCompleteAuthSession();
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  // Signed in with notifications allowed: this phone's push token stays
+  // saved to the account (recipe approval pushes).
+  usePushTokenSync();
   const [fontsLoaded, fontError] = useFonts({
     Inter_300Light,
     Inter_400Regular,
