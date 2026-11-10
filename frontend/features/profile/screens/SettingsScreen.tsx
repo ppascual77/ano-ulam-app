@@ -368,16 +368,19 @@ export default function SettingsScreen() {
               // Turning it off asks first; turning it on just saves.
               onChange={(on) => (on ? settingsActions.setNewsletter(true) : setConfirmUnsubscribe(true))}
             />
-            <SettingsToggle
-              label="Recipe updates"
-              description={
-                push.permission === "denied"
-                  ? "Notifications are off for AnoUlam in iOS Settings. Turn this on to open them."
-                  : "A notification when a recipe you shared is approved and live."
-              }
-              value={recipeUpdatesOn}
-              onChange={(on) => void setRecipeUpdates(on)}
-            />
+            {/* Hidden on a build without the notifications module. */}
+            {push.permission != null && push.permission !== "unavailable" && (
+              <SettingsToggle
+                label="Recipe updates"
+                description={
+                  push.permission === "denied"
+                    ? "Notifications are off for AnoUlam in iOS Settings. Turn this on to open them."
+                    : "A notification when a recipe you shared is approved and live."
+                }
+                value={recipeUpdatesOn}
+                onChange={(on) => void setRecipeUpdates(on)}
+              />
+            )}
           </SettingsSection>
 
           <SettingsSection title="About">

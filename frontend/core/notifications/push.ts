@@ -1,17 +1,31 @@
 import { Platform } from "react-native";
 import Constants from "expo-constants";
-import * as Notifications from "expo-notifications";
 import { registerPushToken, unregisterPushToken } from "@/api/push";
 
 // Push notifications (for now: "Your recipe is live", sent by the database
 // when an admin approves a user's recipe). The phone's side: the permission,
 // this install's Expo push token, and saving it to the account.
 
-export type PushPermission = "granted" | "denied" | "undetermined";
+/** "unavailable": this build has no notifications module (a dev build made
+ *  before expo-notifications was added): everything here is a no-op and the
+ *  notification UI hides, instead of the app crashing on launch. */
+export type PushPermission = "granted" | "denied" | "undetermined" | "unavailable";
+
+type NotificationsModule = typeof import("expo-notifications");
+
+// Loaded optionally: importing expo-notifications throws ("Cannot find
+// native module 'ExpoPushTokenManager'") on a build without it.
+const Notifications: NotificationsModule | null = (() => {
+  try {
+    return require("expo-notifications") as NotificationsModule;
+  } catch {
+    return null;
+  }
+})();
 
 // Shown as a banner even while the app is open (the reward celebration plays
 // on the next foreground either way).
-Notifications.setNotificationHandler({
+Notifications?.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,
@@ -22,19 +36,20 @@ Notifications.setNotificationHandler({
 
 const projectId: string | undefined = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
 
-const toPermission = (settings: Notifications.NotificationPermissionsStatus): PushPermission => {
-  if (settings.granted || settings.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL) return "granted";
+function toPermission(settings: Awaited<ReturnType<NotificationsModule["getPermissionsAsync"]>>): PushPermission {
+  if (settings.granted || settings.ios?.status === Notifications?.IosAuthorizationStatus.PROVISIONAL) return "granted";
   return settings.canAskAgain ? "undetermined" : "denied";
-};
+}
 
 export async function getPushPermission(): Promise<PushPermission> {
+  if (!Notifications) return "unavailable";
   return toPermission(await Notifications.getPermissionsAsync());
 }
 
-// This install's token, or null where there isn't one (no projectId, a
-// simulator without push, or no network).
+// This install's token, or null where there isn't one (no module or
+// projectId, a simulator without push, or no network).
 async function currentToken(): Promise<string | null> {
-  if (!projectId) return null;
+  if (!Notifications || !projectId) return null;
   try {
     return (await Notifications.getExpoPushTokenAsync({ projectId })).data;
   } catch {
@@ -50,6 +65,7 @@ async function saveToken() {
 /** Asks for permission (the system prompt, once), then saves this phone's
  *  token. True when notifications are allowed. */
 export async function enablePush(): Promise<boolean> {
+  if (!Notifications) return false;
   let permission = await getPushPermission();
   if (permission === "undetermined") permission = toPermission(await Notifications.requestPermissionsAsync());
   if (permission !== "granted") return false;
