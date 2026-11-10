@@ -1,17 +1,28 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { Image } from "expo-image";
 import { AppText } from "@/frontend/components/ui";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 
 type HeaderProps = {
-  /** Undefined/guest shows "Hello" only, no name. */
+  /** Undefined/guest shows the greeting only, no name. */
   name?: string;
+  /** Under the greeting (Home's live price line). */
+  children?: ReactNode;
 };
+
+// Filipino greeting by the phone's time of day.
+export function greetingNow(date = new Date()): string {
+  const h = date.getHours();
+  if (h >= 4 && h < 11) return "Magandang umaga";
+  if (h >= 11 && h < 13) return "Magandang tanghali";
+  if (h >= 13 && h < 18) return "Magandang hapon";
+  return "Magandang gabi";
+}
 
 // The avatar (and the admin menu) moved to the bottom nav's Profile tab.
 // White text: it sits on HomeBackdrop's dark green.
-function HeaderInner({ name }: HeaderProps) {
+function HeaderInner({ name, children }: HeaderProps) {
   // Reduce motion: the "today?" GIF holds still on its first frame.
   // `autoplay` only applies when the image loads, and Home stays mounted
   // while the setting changes, so the key reloads it either way.
@@ -20,13 +31,12 @@ function HeaderInner({ name }: HeaderProps) {
     <View className="ml-2 flex-row items-center justify-between">
       <View>
         <AppText variant="title" className="text-white">
+          {greetingNow()}
           {name ? (
             <>
-              Hello, <Text className="font-inter-bold text-home-name">{name}</Text>
+              , <Text className="font-inter-bold text-home-name">{name}</Text>
             </>
-          ) : (
-            "Hello"
-          )}
+          ) : null}
         </AppText>
         <View className="flex-row items-center gap-1">
           <AppText variant="heading" className="text-white">Ano ulam mo</AppText>
@@ -38,6 +48,7 @@ function HeaderInner({ name }: HeaderProps) {
             autoplay={!reduceMotion}
           />
         </View>
+        {children}
       </View>
     </View>
   );
