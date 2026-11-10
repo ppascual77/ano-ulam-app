@@ -4,6 +4,9 @@ import { Info, User2 } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { MealCardSkeleton } from "@/frontend/core/meals/components/card/MealCardSkeleton";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
+import { SeeAllMatchesCard } from "@/frontend/core/pro/components/SeeAllMatchesCard";
+import { FREE_RESULTS_CAP } from "@/frontend/core/pro/proContent";
+import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 
 const CARD_WIDTH = 250;
 const CARD_GAP = 16;
@@ -70,11 +73,16 @@ type SearchResultsProps = {
 // "Search Results": one swipeable row per category (Luto, Snacks, Fast
 // food). While loading every row shows skeletons; after, empty rows hide.
 export function SearchResults({ results, loading, renderCard }: SearchResultsProps) {
+  // A free account sees the first FREE_RESULTS_CAP of each category, then a
+  // "See every match with Pro" card at the row's end.
+  const isPro = useIsPro();
   return (
     <View className="gap-6">
       {SECTIONS.map((section) => {
-        const meals = results.filter((meal) => meal.category === section.category);
-        if (!loading && meals.length === 0) return null;
+        const all = results.filter((meal) => meal.category === section.category);
+        if (!loading && all.length === 0) return null;
+        const meals = isPro ? all : all.slice(0, FREE_RESULTS_CAP);
+        const hiddenCount = all.length - meals.length;
         return (
           <View key={section.category}>
             <SectionHeader section={section} />
@@ -94,6 +102,9 @@ export function SearchResults({ results, loading, renderCard }: SearchResultsPro
                 data={meals}
                 keyExtractor={(meal) => meal.id ?? meal.name}
                 renderItem={({ item }) => <>{renderCard(item)}</>}
+                // The row's own gap spaces it from the last card.
+                ListFooterComponent={hiddenCount > 0 ? <SeeAllMatchesCard hiddenCount={hiddenCount} preview={all.slice(meals.length)} width={CARD_WIDTH} /> : undefined}
+                ListFooterComponentStyle={hiddenCount > 0 ? { alignSelf: "stretch" } : undefined}
                 showsHorizontalScrollIndicator={false}
                 // Each swipe settles on a card's start.
                 snapToInterval={CARD_WIDTH + CARD_GAP}

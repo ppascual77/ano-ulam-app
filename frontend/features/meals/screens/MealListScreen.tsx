@@ -19,12 +19,13 @@ import { useFullMeal } from "@/frontend/core/meals/hooks/useFullMeal";
 import { useRealMeals } from "@/frontend/core/meals/hooks/useRealMeals";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { scaleMeal } from "@/frontend/core/meals/utils/scaleMeal";
+import { SeeAllMatchesCard } from "@/frontend/core/pro/components/SeeAllMatchesCard";
 
-const SCREEN_PADDING = 28 * 2; // matches Screen's px-7
+const SCREEN_PADDING = 20 * 2; // matches Screen's px-5
 const COLUMN_GAP = 12;
 
 export default function MealListScreen() {
-  const { title, ids, budget, servings: servingsParam, card } = useLocalSearchParams<{
+  const { title, ids, budget, servings: servingsParam, card, more, preview: previewIds } = useLocalSearchParams<{
     title: string;
     ids: string;
     budget?: string;
@@ -32,7 +33,13 @@ export default function MealListScreen() {
     servings?: string;
     /** "bestValue": the same card as Home's best value row. */
     card?: string;
+    /** Results past a free account's cap (FREE_RESULTS_CAP): the list ends
+     *  with the "See every match with Pro" card. */
+    more?: string;
+    /** The first locked meals' ids, shown blurred on that card. */
+    preview?: string;
   }>();
+  const hiddenCount = Number(more) || 0;
   // This week's best value meals: their own card (what got cheaper, the
   // saving), from the same data as the row.
   const { meals: bestValue } = useBestValueMeals();
@@ -62,6 +69,10 @@ export default function MealListScreen() {
         return [servings ? scaleMeal(meal, servings) : meal];
       });
   }, [ids, realMeals, servings]);
+  const preview = useMemo(() => {
+    const pool = new Map((realMeals ?? []).map((meal) => [meal.id, meal]));
+    return (previewIds ?? "").split(",").flatMap((id) => pool.get(id) ?? []);
+  }, [previewIds, realMeals]);
 
   const cardWidth = (screenWidth - SCREEN_PADDING - COLUMN_GAP) / 2;
 
@@ -69,7 +80,7 @@ export default function MealListScreen() {
   // outside it, full width, owning the bottom safe area (like the tab bar).
   return (
     <Screen edges={["top"]} padded={false} dismissKeyboardOnTap={false}>
-      <View className="flex-1 px-7 pt-2">
+      <View className="flex-1 px-5 pt-2">
         <View className="mt-2 flex-row items-center gap-2">
           <Pressable
             onPress={() => router.back()}
@@ -80,7 +91,8 @@ export default function MealListScreen() {
           <AppText variant="title">{title}</AppText>
         </View>
         <AppText variant="caption" className="ml-11">
-          {meals.length} {meals.length === 1 ? "meal" : "meals"} found
+          {/* Every match, the ones past a free account's cap included. */}
+          {meals.length + hiddenCount} {meals.length + hiddenCount === 1 ? "meal" : "meals"} found
         </AppText>
 
         {/* Everything below the title scrolls with the meals (nothing
@@ -112,6 +124,8 @@ export default function MealListScreen() {
               );
             })}
           </View>
+          {hiddenCount > 0 && <SeeAllMatchesCard hiddenCount={hiddenCount} preview={preview} variant="row" />}
+          <View className="h-6" />
         </ScrollView>
 
       </View>

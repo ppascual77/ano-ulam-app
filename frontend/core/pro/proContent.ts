@@ -12,8 +12,13 @@ export type CompareCell = boolean | string;
 // database function: change both together.
 export const GUEST_DAILY_SEARCHES = 3;
 export const FREE_DAILY_SEARCHES = 10;
+// How many results a free account sees per result row (Browse categories,
+// Suggest by Budget's groups) or per Pantry search; the rest sit behind a
+// "See every match with Pro" card. Searches themselves still count only
+// once each. STUDY: see docs/integration-status.md (results depth cap).
+export const FREE_RESULTS_CAP = 10;
 export const GUEST_DAILY_SUGGESTIONS = 3;
-export const FREE_DAILY_SUGGESTIONS = 5;
+export const FREE_DAILY_SUGGESTIONS = 3;
 
 /** A free user's daily limit for this tier, null for Pro. */
 export const dailyLimitFor = (tier: { isPro: boolean; isGuest: boolean }, guest: number, free: number) =>

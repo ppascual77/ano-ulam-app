@@ -145,6 +145,7 @@ export function MealSuggestion({ budget, servings, onClear }: MealSuggestionProp
               servings={servings}
               renderCard={renderCard}
               pageSize={5}
+              capForFree
             />
           )}
           {fastFood.length > 0 && (
@@ -155,6 +156,7 @@ export function MealSuggestion({ budget, servings, onClear }: MealSuggestionProp
               servings={servings}
               renderCard={renderCard}
               pageSize={5}
+              capForFree
             />
           )}
         </>

@@ -11,6 +11,9 @@ import { MealCardSkeleton } from "@/frontend/core/meals/components/card/MealCard
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useFullMeal } from "@/frontend/core/meals/hooks/useFullMeal";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
+import { SeeAllMatchesCard } from "@/frontend/core/pro/components/SeeAllMatchesCard";
+import { FREE_RESULTS_CAP } from "@/frontend/core/pro/proContent";
+import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 
 const SKELETON_COUNT = 3;
 // Skeleton -> cards: a fast crossfade, the skeletons out as the cards come in.
@@ -68,6 +71,10 @@ type MealCarouselSectionProps = {
   /** Show this many at first, then a Show More card that adds this many
    *  more each tap. Omitted: every meal at once. */
   pageSize?: number;
+  /** Search results (Suggest by Budget): a free account sees only the first
+   *  FREE_RESULTS_CAP, then a "See every match with Pro" card where Show
+   *  More would be; See All lists the same capped set. */
+  capForFree?: boolean;
 };
 
 // Shared by RecommendationsSection, CommunityFavoritesSection,
@@ -87,10 +94,16 @@ export function MealCarouselSection({
   cardWidth,
   loading = false,
   pageSize,
+  capForFree = false,
 }: MealCarouselSectionProps) {
+  const isPro = useIsPro();
+  const capped = capForFree && !isPro ? meals.slice(0, FREE_RESULTS_CAP) : meals;
+  const hiddenCount = meals.length - capped.length;
   const [visibleCount, setVisibleCount] = useState(pageSize ?? Infinity);
-  const visible = meals.slice(0, visibleCount);
-  const hasMore = visible.length < meals.length;
+  const visible = capped.slice(0, visibleCount);
+  const hasMore = visible.length < capped.length;
+  // Every free result shown and more past the cap: the Pro card instead.
+  const showProCard = !hasMore && hiddenCount > 0;
   // Where the last "Show More" started, so just the new batch fades in.
   const [batchStart, setBatchStart] = useState<number | null>(null);
   const showMore = () => {
@@ -108,7 +121,15 @@ export function MealCarouselSection({
       pathname: "/meal-list",
       params: {
         title,
-        ids: meals.map((meal) => meal.id ?? "").join(","),
+        ids: capped.map((meal) => meal.id ?? "").join(","),
+        // Past the free cap: See All ends with the same Pro card.
+        ...(hiddenCount > 0
+          ? {
+              more: String(hiddenCount),
+              // The first locked meals, for See All's blurred peek.
+              preview: meals.slice(capped.length, capped.length + 3).map((meal) => meal.id ?? "").join(","),
+            }
+          : {}),
         ...(budgetLabel ? { budget: budgetLabel } : {}),
         ...(servings ? { servings: String(servings) } : {}),
         ...(seeAllCard ? { card: seeAllCard } : {}),
@@ -169,6 +190,13 @@ export function MealCarouselSection({
                 ? [
                     <Animated.View key="show-more" entering={CARD_IN} className="flex-1">
                       <ShowMoreCard onPress={showMore} />
+                    </Animated.View>,
+                  ]
+                : []),
+              ...(showProCard
+                ? [
+                    <Animated.View key="see-all-pro" entering={CARD_IN} className="flex-1">
+                      <SeeAllMatchesCard hiddenCount={hiddenCount} preview={meals.slice(capped.length)} width={cardWidth ?? CARD_WIDTH} />
                     </Animated.View>,
                   ]
                 : []),

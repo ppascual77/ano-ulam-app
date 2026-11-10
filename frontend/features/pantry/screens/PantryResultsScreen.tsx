@@ -15,6 +15,9 @@ import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
 import { usePantryMatches, type MatchTier, type PantryMealMatch } from "@/frontend/core/pantry/hooks/usePantryMatches";
 import { formatMealPrice } from "@/frontend/core/prices/utils/prices";
+import { SeeAllMatchesCard } from "@/frontend/core/pro/components/SeeAllMatchesCard";
+import { FREE_RESULTS_CAP } from "@/frontend/core/pro/proContent";
+import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 
 // Motion: sections land in order (Cook now first), cards slide up one after
 // another within that order, then each card's ingredient bar fills to how
@@ -51,10 +54,13 @@ export default function PantryResultsScreen() {
 
   // Matches paired with their meal's card info, split into readiness
   // sections. `order` runs across sections, for the landing stagger.
-  const sections = useMemo(() => {
+  // A free account sees the first FREE_RESULTS_CAP matches (best sections
+  // first), then a "See every match with Pro" row under the list.
+  const isPro = useIsPro();
+  const { sections, hiddenCount, preview } = useMemo(() => {
     const byId = new Map((meals ?? []).map((m) => [m.id, m]));
     let order = 0;
-    return SECTIONS.map((s) => ({
+    const all = SECTIONS.map((s) => ({
       ...s,
       data: results.flatMap((match): Row[] => {
         if (match.tier !== s.tier) return [];
@@ -64,7 +70,14 @@ export default function PantryResultsScreen() {
     }))
       .filter((s) => s.data.length > 0)
       .map((s) => ({ ...s, data: s.data.map((row) => ({ ...row, order: order++ })) }));
-  }, [results, meals]);
+    if (isPro) return { sections: all, hiddenCount: 0, preview: [] };
+    const shown = all
+      .map((s) => ({ ...s, data: s.data.filter((row) => row.order < FREE_RESULTS_CAP) }))
+      .filter((s) => s.data.length > 0);
+    // The first locked matches, for the Pro row's blurred peek.
+    const preview = all.flatMap((s) => s.data).filter((row) => row.order >= FREE_RESULTS_CAP).slice(0, 3).map((row) => row.meal);
+    return { sections: shown, hiddenCount: Math.max(0, order - FREE_RESULTS_CAP), preview };
+  }, [results, meals, isPro]);
 
   return (
     <Screen padded={false}>
@@ -91,6 +104,7 @@ export default function PantryResultsScreen() {
           stickySectionHeadersEnabled={false}
           contentContainerClassName="px-5 pb-10 pt-4"
           ListHeaderComponent={<Summary found={matchedMeals} averageMatch={averageMatch} />}
+          ListFooterComponent={hiddenCount > 0 ? <SeeAllMatchesCard hiddenCount={hiddenCount} preview={preview} variant="row" /> : undefined}
           ListEmptyComponent={
             <Text className="py-10 text-center font-inter-regular text-body text-ink-subtle">
               No meals use these ingredients yet. Try adding a few more.
