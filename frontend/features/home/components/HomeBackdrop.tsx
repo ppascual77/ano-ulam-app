@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { View, useWindowDimensions } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import Svg, { G, Path, Rect } from "react-native-svg";
+import { HEADER_OVERSCROLL, HeaderTexture } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 
 type HomeBackdropProps = {
@@ -20,10 +21,15 @@ const DARK_EDGE_RIGHT = 28;
 const BENDS: [right: number, left: number] = [0.85, 0.45];
 const PULL: [right: number, left: number] = [0, 30];
 // Dark green above the content, shown when iOS bounces past the top.
-const OVERSCROLL = 1000;
+const OVERSCROLL = HEADER_OVERSCROLL;
 
-// Home's background, scrolling with the page: dark green behind the
-// greeting and the top of the plan card, then the white page.
+/** Where the dark green's edge is highest (its right end), in the scroll
+ *  content: the status bar strip stays clear above it. */
+export const homeDarkEdgeTop = (top: number, extra = 0) => top + DARK_EDGE_RIGHT + extra;
+
+// Home's background, scrolling with the page: dark green (with Browse's
+// light and doodles) behind the greeting and the top of the plan card, then
+// the white page.
 export const HomeBackdrop = memo(function HomeBackdrop({ top, extra = 0 }: HomeBackdropProps) {
   const { width: w } = useWindowDimensions();
   const left = top + DARK_EDGE_LEFT + extra;
@@ -33,9 +39,14 @@ export const HomeBackdrop = memo(function HomeBackdrop({ top, extra = 0 }: HomeB
 
   return (
     <View pointerEvents="none" style={{ position: "absolute", left: 0, top: -OVERSCROLL, width: w, height: h + OVERSCROLL }}>
-      <View className="bg-home-top" style={{ height: OVERSCROLL }} />
-      <Svg width={w} height={h}>
-        <Path d={dark} fill={colors.home.top} />
+      {/* One drawing from the overscroll down, with Browse's texture (soft
+          light, faint doodles) running up behind the status bar. */}
+      <Svg width={w} height={h + OVERSCROLL}>
+        <G transform={`translate(0 ${OVERSCROLL})`}>
+          <Rect x={0} y={-OVERSCROLL} width={w} height={OVERSCROLL + 1} fill={colors.home.top} />
+          <Path d={dark} fill={colors.home.top} />
+          <HeaderTexture id="homeHeader" width={w} height={h} dark={dark} depth={(left + right) / 2} />
+        </G>
       </Svg>
     </View>
   );

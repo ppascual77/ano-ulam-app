@@ -225,11 +225,11 @@ export default function MealPlannerScreen() {
 
       {store.stage === "setup" && !savedPlan.loading && (
         <Animated.View key="setup" entering={FadeInUp.duration(250)} className="flex-1">
-          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false} contentContainerClassName="gap-4 px-9 pb-10 pt-2">
-            {/* Same title style as "Price Watch." and "Browse." (28px from
-                the edge like theirs, so -ml-2 past the cards' wider padding);
-                its period is where the intro's dot lands. */}
-            <View className="-ml-2">
+          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false} contentContainerClassName="gap-4 px-5 pb-10 pt-2">
+            {/* Same title style as "Price Watch." and "Browse." (20px from
+                the edge like every screen); its period is where the intro's
+                dot lands. */}
+            <View>
               <LandingTitle dotRef={intro.targetRef} showDot={intro.landed}>
                 Let&apos;s plan your week
               </LandingTitle>

@@ -62,7 +62,8 @@ const NUDGE_X = 0.06;
 // The pale layer, see-through over the white page.
 const PALE_OPACITY = 0.3;
 // Dark green above the content, shown when iOS bounces past the top.
-const OVERSCROLL = 1000;
+export const HEADER_OVERSCROLL = 1000;
+const OVERSCROLL = HEADER_OVERSCROLL;
 
 const nudge = (amount: number) => (Math.random() * 2 - 1) * amount;
 
@@ -94,9 +95,6 @@ const lowest = (base: number, e: Edge) =>
 export const HeaderBackdrop = memo(function HeaderBackdrop({ bottom, curves: c, texture = false }: HeaderBackdropProps) {
   const { width: w } = useWindowDimensions();
   const [n, setN] = useState(randomNudges);
-  // Drawn once per mount: the doodles keep their hand-drawn wobble but don't
-  // change shape on every render.
-  const [doodles] = useState(() => DOODLE_SPOTS.map((spot) => ({ ...spot, version: drawDoodle(DOODLES[spot.doodle]) })));
   useFocusEffect(useCallback(() => setN(randomNudges()), []));
 
   const b = bottom ?? DEFAULT_BOTTOM;
@@ -107,46 +105,77 @@ export const HeaderBackdrop = memo(function HeaderBackdrop({ bottom, curves: c, 
 
   return (
     <View pointerEvents="none" style={{ position: "absolute", left: 0, top: -OVERSCROLL, width: w, height: h + OVERSCROLL }}>
-      <View className="bg-home-top" style={{ height: OVERSCROLL }} />
-      <Svg width={w} height={h}>
+      {/* One drawing from the overscroll down, so the light runs on above
+          the content's top edge (behind the status bar) instead of stopping
+          there in a hard line. */}
+      <Svg width={w} height={h + OVERSCROLL}>
+       <G transform={`translate(0 ${OVERSCROLL})`}>
+        <Rect x={0} y={-OVERSCROLL} width={w} height={OVERSCROLL + 1} fill={colors.home.top} />
         {pale && <Path d={pale} fill={colors.home.pale} fillOpacity={PALE_OPACITY} />}
         <Path d={dark} fill={colors.home.top} />
-        {texture && (
-          <>
-            <Defs>
-              <ClipPath id="headerDark">
-                <Path d={dark} />
-              </ClipPath>
-              <RadialGradient id="headerLight" cx={w * 0.85} cy={0} r={w * 0.9} gradientUnits="userSpaceOnUse">
-                <Stop offset="0" stopColor={colors.white} stopOpacity={LIGHT_OPACITY} />
-                <Stop offset="1" stopColor={colors.white} stopOpacity={0} />
-              </RadialGradient>
-            </Defs>
-            <G clipPath="url(#headerDark)">
-              <Rect x={0} y={0} width={w} height={h} fill="url(#headerLight)" />
-              {doodles.map(({ version, x, y, size, rotate }, i) => (
-                <G key={i} transform={`translate(${w * x} ${s * y}) rotate(${rotate}) scale(${size / 24}) translate(-12 -12)`}>
-                  {version.d ? (
-                    <Path
-                      d={version.d}
-                      stroke={colors.white}
-                      strokeOpacity={DOODLE_OPACITY}
-                      strokeWidth={2.4}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      fill={version.filled ? colors.white : "none"}
-                      fillOpacity={version.filled ? DOODLE_OPACITY : 0}
-                    />
-                  ) : null}
-                  {version.dots.map(([cx, cy, r], k) => (
-                    <Rect key={k} x={cx - r} y={cy - r} width={r * 2} height={r * 2} rx={r} fill={colors.white} fillOpacity={DOODLE_OPACITY} />
-                  ))}
-                </G>
-              ))}
-            </G>
-          </>
-        )}
+        {texture && <HeaderTexture id="tabHeader" width={w} height={h} dark={dark} depth={s} />}
+       </G>
       </Svg>
     </View>
   );
 });
+
+type HeaderTextureProps = {
+  /** Unique per screen (the gradient and clip ids). */
+  id: string;
+  width: number;
+  /** The drawing's height below the content's top. */
+  height: number;
+  /** The dark green's path: the texture stays inside it (and the overscroll
+   *  above it). */
+  dark: string;
+  /** About how deep the dark green reaches: the doodles spread over it. */
+  depth: number;
+};
+
+// The texture over a dark green header (Browse, Price Watch, Home): a soft
+// light from the top right and the brand's doodles, faint. Render inside the
+// header's Svg, in the group shifted down by OVERSCROLL, after the green.
+// The light runs up into the overscroll too, so nothing ends in a hard line
+// behind the status bar.
+export function HeaderTexture({ id, width: w, height: h, dark, depth }: HeaderTextureProps) {
+  // Drawn once per mount: the doodles keep their hand-drawn wobble but don't
+  // change shape on every render.
+  const [doodles] = useState(() => DOODLE_SPOTS.map((spot) => ({ ...spot, version: drawDoodle(DOODLES[spot.doodle]) })));
+  return (
+    <>
+      <Defs>
+        <ClipPath id={`${id}Dark`}>
+          <Rect x={0} y={-OVERSCROLL} width={w} height={OVERSCROLL + 1} />
+          <Path d={dark} />
+        </ClipPath>
+        <RadialGradient id={`${id}Light`} cx={w * 0.85} cy={0} r={w * 0.9} gradientUnits="userSpaceOnUse">
+          <Stop offset="0" stopColor={colors.white} stopOpacity={LIGHT_OPACITY} />
+          <Stop offset="1" stopColor={colors.white} stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <G clipPath={`url(#${id}Dark)`}>
+        <Rect x={0} y={-OVERSCROLL} width={w} height={h + OVERSCROLL} fill={`url(#${id}Light)`} />
+        {doodles.map(({ version, x, y, size, rotate }, i) => (
+          <G key={i} transform={`translate(${w * x} ${depth * y}) rotate(${rotate}) scale(${size / 24}) translate(-12 -12)`}>
+            {version.d ? (
+              <Path
+                d={version.d}
+                stroke={colors.white}
+                strokeOpacity={DOODLE_OPACITY}
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill={version.filled ? colors.white : "none"}
+                fillOpacity={version.filled ? DOODLE_OPACITY : 0}
+              />
+            ) : null}
+            {version.dots.map(([cx, cy, r], k) => (
+              <Rect key={k} x={cx - r} y={cy - r} width={r * 2} height={r * 2} rx={r} fill={colors.white} fillOpacity={DOODLE_OPACITY} />
+            ))}
+          </G>
+        ))}
+      </G>
+    </>
+  );
+}

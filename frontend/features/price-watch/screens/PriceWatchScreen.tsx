@@ -115,7 +115,14 @@ export default function PriceWatchScreen() {
       return () => setFocused(false);
     }, []),
   );
-  const statusBar = useStatusBarStrip({ color: colors.home.top, darkUntil: headerBottom ?? 190, forceDark: intro.showing });
+  // Clear while the textured header still fills it (no hard line where a
+  // solid strip would meet the header's light), like Browse.
+  const statusBar = useStatusBarStrip({
+    color: colors.home.top,
+    darkUntil: headerBottom ?? 190,
+    forceDark: intro.showing,
+    clearUntil: (headerBottom ?? 190) * TAB_HEADER_CURVES.splitAt - 24,
+  });
   // Focusing search parks its section (title, sort chip, search box) at the
   // top of the screen, below the status bar strip, and the min height below
   // keeps it there as you type.
@@ -128,7 +135,7 @@ export default function PriceWatchScreen() {
     // No top edge: the content scrolls under the status bar (behind
     // statusBar.strip), starting below it.
     <Screen edges={[]} padded={false} dismissKeyboardOnTap={false}>
-      {/* Edge to edge, with Screen's px-7 moved inside the content, so the
+      {/* Edge to edge, with Screen's px-5 moved inside the content, so the
           fresh picks arrows can sit half outside the cards without the
           ScrollView clipping them (and the green header runs edge to edge). */}
       <ScrollView
@@ -137,7 +144,7 @@ export default function PriceWatchScreen() {
         showsVerticalScrollIndicator={false}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingTop: statusBar.top + 8, paddingBottom: 40, paddingHorizontal: 28 }}
+        contentContainerStyle={{ paddingTop: statusBar.top + 8, paddingBottom: 40, paddingHorizontal: 20 }}
         onScroll={statusBar.onScroll}
         scrollEventThrottle={32}
         refreshControl={

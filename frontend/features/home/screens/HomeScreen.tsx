@@ -7,7 +7,8 @@ import { Header } from "@/frontend/features/home/components/Header";
 import { PriceDropLine, useBiggestPriceDrop } from "@/frontend/features/home/components/PriceDropLine";
 import { RandomMealPuller } from "@/frontend/features/home/components/RandomMealPuller";
 import { HomePlanCard } from "@/frontend/features/home/components/HomePlanCard";
-import { HomeBackdrop } from "@/frontend/features/home/components/HomeBackdrop";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { HomeBackdrop, homeDarkEdgeTop } from "@/frontend/features/home/components/HomeBackdrop";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 import { BudgetSection } from "@/frontend/core/budget/components/BudgetSection";
 import { PantrySection } from "@/frontend/core/pantry/components/PantrySection";
@@ -40,6 +41,7 @@ export default function HomeScreen() {
   const showSurpriseMe = useSurpriseMeStore((s) => s.show);
   // Home's live line: this week's biggest DA price drop, when there is one.
   const priceDrop = useBiggestPriceDrop();
+  const insets = useSafeAreaInsets();
 
   // The welcome intro plays once, right after onboarding (which lands here
   // with ?intro=1 and where its page indicator's dot was), not on every
@@ -63,6 +65,9 @@ export default function HomeScreen() {
     color: colors.home.top,
     darkUntil: (cardBottom ?? STATUS_BAR_FLIP_FALLBACK) - STATUS_BAR_FLIP_ABOVE_CARD,
     forceDark: intro.showing,
+    // Clear while the textured green still fills it (no hard line under the
+    // clock), fading in as the green's edge passes.
+    clearUntil: homeDarkEdgeTop(insets.top, priceDrop ? PRICE_LINE_SPACE : 0),
   });
 
   const finishIntro = () => {
@@ -82,7 +87,7 @@ export default function HomeScreen() {
     <Screen edges={[]} padded={false} dismissKeyboardOnTap={false}>
       <ScrollView
         className="flex-1 bg-white"
-        contentContainerClassName="px-7 pb-2"
+        contentContainerClassName="px-5 pb-2"
         contentContainerStyle={{ paddingTop: statusBar.top + 8 }}
         onScroll={statusBar.onScroll}
         scrollEventThrottle={32}

@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { Pressable, useWindowDimensions, View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import { ScrollView as GestureScrollView } from "react-native-gesture-handler";
 import Animated, {
   type SharedValue,
@@ -9,9 +9,7 @@ import Animated, {
   useDerivedValue,
   useSharedValue,
 } from "react-native-reanimated";
-import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { AppText, CarouselIndicator } from "@/frontend/components/ui";
-import { colors } from "@/frontend/constants/theme";
 import type { PriceItem } from "@/frontend/core/prices/utils/prices";
 import { FRESH_PICK_CARD_HEIGHT, FreshPickCard } from "./FreshPickCard";
 import { BOARD_ROWS, FreshPicksBoard } from "./FreshPicksBoard";
@@ -21,17 +19,14 @@ const PICK_CARDS = 4;
 // How many picks the section shows in all (pass to pickFreshPicks).
 export const FRESH_PICKS_COUNT = BOARD_ROWS + PICK_CARDS;
 
-// Screen's own px-7 horizontal padding (28px each side).
-const SCREEN_PADDING = 56;
+// The page's own horizontal padding (20px each side, Screen's px-5).
+const SCREEN_PADDING = 40;
 const CARD_HEIGHT = FRESH_PICK_CARD_HEIGHT;
 // Space between neighboring cards while they slide: wide enough that a
 // neighbor never peeks in past the screen edge.
 const CARD_GAP = 40;
 // Paging: cards slide over with a slight tilt, like the showreel.
 const PAGE_TILT_DEG = 8;
-// Arrow buttons (h-9 w-9), centered on the card's edges so they sit in the
-// screen padding instead of over the card's text.
-const ARROW_SIZE = 36;
 // Gesture handler's ScrollView, animated: the page scrolls in the same kind
 // (PriceWatchScreen), so the two are native scroll views nested the way iOS
 // expects.
@@ -110,18 +105,9 @@ function FreshPicksSectionInner({ picks, loading, onSelect, visible }: FreshPick
     scrollX.value = e.contentOffset.x;
   });
 
-  // No arrows on the board: they'd cover its trend chips. It's swipe-only,
-  // and the dots under it show there's more.
-  const onBoard = hasBoard && current === 0;
-  const canGoPrev = current > 0 && !onBoard;
-  const canGoNext = current < count - 1 && !onBoard;
 
-  const goTo = (next: number) => {
-    setIndex(next);
-    scrollRef.current?.scrollTo({ x: next * step, animated: true });
-  };
 
-  // The page settles: which card is shown (for the dots, arrows and the
+  // The page settles: which card is shown (for the dots and the
   // shown card's own animations).
   const settle = (x: number) => setIndex(Math.max(0, Math.min(count - 1, Math.round(x / step))));
 
@@ -181,24 +167,6 @@ function FreshPicksSectionInner({ picks, loading, onSelect, visible }: FreshPick
               ))}
             </AnimatedGestureScrollView>
 
-            {canGoPrev && (
-              <Pressable
-                onPress={() => goTo(current - 1)}
-                style={{ top: CARD_HEIGHT / 2 - ARROW_SIZE / 2, left: -ARROW_SIZE / 2 }}
-                className="absolute h-9 w-9 items-center justify-center rounded-full border border-ink-emphasis/10 bg-white shadow-sm"
-              >
-                <ChevronLeft color={colors.primary} size={20} />
-              </Pressable>
-            )}
-            {canGoNext && (
-              <Pressable
-                onPress={() => goTo(current + 1)}
-                style={{ top: CARD_HEIGHT / 2 - ARROW_SIZE / 2, right: -ARROW_SIZE / 2 }}
-                className="absolute h-9 w-9 items-center justify-center rounded-full border border-ink-emphasis/10 bg-white shadow-sm"
-              >
-                <ChevronRight color={colors.primary} size={20} />
-              </Pressable>
-            )}
           </View>
 
           {count > 1 && (

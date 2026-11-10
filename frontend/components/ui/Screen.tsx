@@ -23,7 +23,7 @@ export function Screen({
   className = "",
   dismissKeyboardOnTap = true,
 }: ScreenProps) {
-  const content = <View className={`flex-1 ${padded ? "px-7 py-2" : ""} ${className}`}>{children}</View>;
+  const content = <View className={`flex-1 ${padded ? "px-5 py-2" : ""} ${className}`}>{children}</View>;
   return (
     <SafeAreaView edges={edges} className="flex-1 bg-white">
       {dismissKeyboardOnTap ? (
