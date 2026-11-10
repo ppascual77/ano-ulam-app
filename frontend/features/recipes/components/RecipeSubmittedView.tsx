@@ -92,7 +92,8 @@ export function RecipeSubmittedView({ recipeName, onDone }: { recipeName: string
     setAsking(false);
   };
   const willNotify = push.permission === "granted" && pushEnabled;
-  const canAsk = push.permission === "undetermined";
+  // Undecided, or quiet (the sign-in default): ask for banners.
+  const canAsk = push.permission === "undetermined" || push.permission === "quiet";
   const fadeUp = (delay: number) => (reduceMotion ? FadeIn.duration(200) : FadeInDown.delay(delay).duration(320).easing(EASE));
 
   return (

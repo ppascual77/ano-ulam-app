@@ -20,8 +20,9 @@ export function usePushPermission() {
   return { permission, refresh };
 }
 
-/** Root layout: whenever someone is signed in and notifications are allowed,
- *  keep this phone's token saved to their account. */
+/** Root layout: whenever someone signs in, notifications are on by default:
+ *  quiet ones (no prompt) unless they've decided, and this phone's token
+ *  saved to their account. */
 export function usePushTokenSync() {
   const userId = useAuth().session?.user.id;
   useEffect(() => {

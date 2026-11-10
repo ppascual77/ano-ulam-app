@@ -32,7 +32,7 @@ import { MacroGoalSheet } from "@/frontend/core/nutrition/components/MacroGoalSh
 import { GOAL_OPTIONS, goalsFromTargets, targetsFromGoals } from "@/frontend/core/nutrition/macros";
 import { DEFAULT_NUTRITION_GOALS } from "@/api/auth";
 import { ProSettingRow } from "../components/settings/ProSettingRow";
-import { enablePush } from "@/frontend/core/notifications/push";
+import { canReceivePush, enablePush } from "@/frontend/core/notifications/push";
 import { usePushPermission } from "@/frontend/core/notifications/hooks/usePushPermission";
 
 const LOG_OUT_DELAY_MS = 2000;
@@ -115,11 +115,11 @@ export default function SettingsScreen() {
   const setShowSurpriseMe = useSurpriseMeStore((s) => s.setShow);
 
   const settings = useAccountSettings();
-  // Push notifications: on only while the account setting is on AND iOS
-  // allows AnoUlam's notifications. Turning it on asks iOS the first time, or
-  // opens iOS Settings once it's been refused there.
+  // Push notifications: on while the account setting is on AND pushes reach
+  // the phone (banners, or quiet: on by default from sign-in). Turning it on
+  // asks iOS for banners, or opens iOS Settings once it's been refused there.
   const push = usePushPermission();
-  const pushOn = (settings.data?.push_enabled ?? true) && push.permission === "granted";
+  const pushOn = (settings.data?.push_enabled ?? true) && canReceivePush(push.permission);
   const setPushOn = async (on: boolean) => {
     if (!on) return settingsActions.setPushEnabled(false);
     settingsActions.setPushEnabled(true);
@@ -127,6 +127,10 @@ export default function SettingsScreen() {
     const allowed = await enablePush().catch(() => false);
     push.refresh();
     if (!allowed) setToast({ id: Date.now(), message: "Notifications are off for AnoUlam. Turn them on in iOS Settings.", tone: "error" });
+  };
+  const showBanners = async () => {
+    await enablePush().catch(() => false);
+    push.refresh();
   };
   const settingsActions = useAccountSettingsActions();
   const [confirmUnsubscribe, setConfirmUnsubscribe] = useState(false);
@@ -371,11 +375,19 @@ export default function SettingsScreen() {
                 description={
                   push.permission === "denied"
                     ? "Notifications are off for AnoUlam in iOS Settings. Turn this on to open them."
-                    : "Updates on your phone, like when a recipe you shared is approved and live."
+                    : push.permission === "quiet" && pushOn
+                      ? "Arriving quietly in Notification Center, no banner or sound."
+                      : "Updates on your phone, like when a recipe you shared is approved and live."
                 }
                 value={pushOn}
                 onChange={(on) => void setPushOn(on)}
               />
+            )}
+            {/* Quiet (the default): one tap to banners and sound. */}
+            {push.permission === "quiet" && pushOn && (
+              <Pressable onPress={() => void showBanners()} hitSlop={6} className="-mt-2 self-start active:opacity-60">
+                <Text className="font-inter-semibold text-small text-primary">Show as banners with sound</Text>
+              </Pressable>
             )}
             <SettingsToggle
               label="Email newsletter"

@@ -53,8 +53,12 @@ RevenueCat's dashboard hides test data: switch on **Sandbox data** (top right) t
 Needs a new dev build (`expo-notifications` is native) with push set up: answer yes to "Setup Push
 Notifications" when `eas build --profile development --platform ios` asks.
 
+- [ ] **Quiet by default:** fresh install (or delete and reinstall), sign in: no prompt, and a
+      `push_tokens` row appears. Settings → Notifications shows Push notifications on, "Arriving
+      quietly in Notification Center", and "Show as banners with sound" (iOS's prompt). An approval
+      push lands in Notification Center without a banner, with iOS's Keep / Turn off choice.
 - [ ] **The ask:** submit a recipe as a non-admin account. The review screen shows "Notify me when
-      it's live"; tapping it shows iOS's prompt. Allow: the button turns into "We'll notify you when
+      it's live" (also while quiet); tapping it shows iOS's prompt. Allow: the button turns into "We'll notify you when
       it's live" and a row appears in `push_tokens` for that account.
 - [ ] **The push, with the reward:** approve that account's first recipe as admin (app in the
       background). "Your recipe is live! 🎉 … You've earned 7 days of Pro!" arrives; tapping it opens
