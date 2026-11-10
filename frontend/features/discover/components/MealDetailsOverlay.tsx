@@ -6,6 +6,7 @@ import { MacroBreakdown } from "@/frontend/core/meals/components/card/MacroBreak
 import { colors } from "@/frontend/constants/theme";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { PosterRow } from "./PosterRow";
+import { formatMealPrice } from "@/frontend/core/prices/utils/prices";
 
 // Bottom-left text block over the active reel meal. The screen remounts it
 // (keyed by meal) on every index change, so it fades in on top of the
@@ -29,8 +30,7 @@ export function MealDetailsOverlay({ meal, onPressPoster }: { meal: MealType; on
 
       <View className="flex-row items-baseline gap-2">
         <Text className="font-inter-semibold text-body text-white">
-          ₱{meal.price}
-          {meal.buffer_price ? ` – ₱${meal.buffer_price}` : ""}
+          {formatMealPrice(meal.price, meal.buffer_price)}
         </Text>
         <Text className="font-inter-regular text-sub text-white/50">Estimated Price</Text>
       </View>

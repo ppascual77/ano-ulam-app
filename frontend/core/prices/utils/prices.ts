@@ -118,3 +118,12 @@ export function pickFreshPicks(items: PriceItem[], limit: number): PriceItem[] {
   }
   return picks.slice(0, limit);
 }
+
+// Whole pesos for meal prices (not commodity prices: formatPeso keeps
+// centavos there) ("₱130", "₱1,240"), and a range when there's a
+// buffer ("₱130–150"). Centavos read like a receipt; meals are estimates.
+export function formatMealPrice(price: number | string | null | undefined, buffer?: number | string | null): string {
+  const whole = (v: number | string) => Math.round(Number(v)).toLocaleString("en-PH");
+  if (price == null || price === "") return "";
+  return `₱${whole(price)}${buffer ? `–${whole(buffer)}` : ""}`;
+}

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, View, type ScrollViewInstance } from "react-native";
+import { Pressable, RefreshControl, ScrollView, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
+import Animated, { Easing, FadeIn, FadeInDown, useSharedValue } from "react-native-reanimated";
 import { router } from "expo-router";
+import { Clock } from "lucide-react-native";
 import {
   AppText,
   HeaderBackdrop,
@@ -10,7 +13,7 @@ import {
   Toast,
   usePageIntro,
   useStatusBarStrip,
-  type HeaderCurves,
+  TAB_HEADER_CURVES,
   type ToastState,
 } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -18,6 +21,10 @@ import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { DailyLimitSheet } from "@/frontend/core/pro/components/DailyLimitSheet";
 import { leftHint } from "@/frontend/core/pro/dailyLimits";
 import { CravingTagline } from "@/frontend/features/browse/components/CravingTagline";
+import { CravingChips } from "@/frontend/features/browse/components/CravingChips";
+import { BrowseMiniHeader, miniHeaderStart } from "@/frontend/features/browse/components/BrowseMiniHeader";
+import { PotRefreshDoodle } from "@/frontend/features/browse/components/PotRefreshDoodle";
+import { realMealKeys } from "@/frontend/core/meals/hooks/useRealMeals";
 import { MoodSelection } from "@/frontend/features/browse/components/MoodSelection";
 import { TodaysPickCard } from "@/frontend/core/meals/components/card/TodaysPickCard";
 import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
@@ -31,7 +38,7 @@ import { LoginGateSheet, type LoginGateReason } from "@/frontend/features/auth/c
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { useBrowseSearch } from "../hooks/useBrowseSearch";
-import { useTodaysPick } from "../hooks/useTodaysPick";
+import { hoursUntilNextPick, useTodaysPick } from "../hooks/useTodaysPick";
 import { countFilters } from "../utils/filters";
 import { FilterButton } from "../components/FilterButton";
 import { FilterSheet } from "../components/FilterSheet";
@@ -45,12 +52,14 @@ import { BrowseIntro } from "../components/BrowseIntro";
 // the login gates and the 3-searches-a-day limit. Remove with the others.
 const DEV_FORCE_SIGNED_IN = __DEV__;
 
-// The green header's curve: dark green only (no pale layer), higher on the
-// right, dipping deep towards the left.
-const HEADER_CURVES: HeaderCurves = {
-  splitAt: 0.74,
-  dark: { left: 40, right: -18, bends: [0.8, 0.4], pull: [-6, 18] },
-};
+
+// How far (px) a pull has to go to refresh; the pot doodle fills in over it.
+const PULL_DISTANCE = 90;
+// A refresh shows the steaming pot at least this long, so it reads.
+const MIN_REFRESH_MS = 900;
+// The sections' entrance plays once per app session (tab screens stay
+// mounted, so this is the first time Browse's content appears).
+let entrancePlayed = false;
 
 // Plays the "what are you craving" intro on moving to Browse.
 // TODO: gate this behind a first-time-user flag (the auto tour), e.g. a
@@ -92,7 +101,40 @@ export default function BrowseScreen() {
   const [headerBottom, setHeaderBottom] = useState<number | null>(null);
   // Dark green behind the clock over the header, white once the header has
   // scrolled up past it. Dark clock over the intro.
-  const statusBar = useStatusBarStrip({ color: colors.home.top, darkUntil: headerBottom ?? 190, forceDark: intro.showing });
+  // Green all the way: past the big header, the slim green bar takes over
+  // under the clock (BrowseMiniHeader).
+  const statusBar = useStatusBarStrip({ color: colors.home.top, darkUntil: Number.MAX_SAFE_INTEGER, forceDark: intro.showing });
+  // Scroll position (the slim bar slides in from it) and the pull past the
+  // top (0 to 1 at the refresh point) for the pot doodle.
+  const scrollY = useSharedValue(0);
+  const pull = useSharedValue(0);
+  const [miniVisible, setMiniVisible] = useState(false);
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    statusBar.onScroll(e);
+    const y = e.nativeEvent.contentOffset.y;
+    scrollY.value = y;
+    pull.value = Math.max(0, -y) / PULL_DISTANCE;
+    const shown = headerBottom != null && y > miniHeaderStart(headerBottom, statusBar.top) + 18;
+    if (shown !== miniVisible) setMiniVisible(shown);
+  };
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: realMealKeys.list }),
+      new Promise((resolve) => setTimeout(resolve, MIN_REFRESH_MS)),
+    ]);
+    setRefreshing(false);
+  };
+  // Sections rise in one after another the first time (a plain fade with
+  // Reduce motion).
+  const [playEntrance] = useState(() => !entrancePlayed);
+  useEffect(() => {
+    entrancePlayed = true;
+  }, []);
+  const enter = (i: number) =>
+    !playEntrance ? undefined : reduceMotion ? FadeIn.duration(200) : FadeInDown.delay(i * 80).duration(420).easing(Easing.out(Easing.cubic));
   const [filtersOpen, setFiltersOpen] = useState(false);
   // Today's pick: one real meal a day.
   const { meal: todaysPick } = useTodaysPick();
@@ -193,13 +235,20 @@ export default function BrowseScreen() {
         className="flex-1 bg-white"
         contentContainerClassName="px-7 pb-2"
         contentContainerStyle={{ paddingTop: statusBar.top + 8 }}
-        onScroll={statusBar.onScroll}
-        scrollEventThrottle={32}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        refreshControl={
+          // The native spinner is hidden; the pot doodle shows instead.
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="transparent" colors={["transparent"]} progressBackgroundColor="transparent" />
+        }
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        <HeaderBackdrop bottom={headerBottom} curves={HEADER_CURVES} />
+        <HeaderBackdrop bottom={headerBottom} curves={TAB_HEADER_CURVES} texture />
+        {/* Just above the title: hidden under the status bar at rest, it comes
+            into view below the clock as the page is pulled down. */}
+        <PotRefreshDoodle pull={pull} refreshing={refreshing} top={statusBar.top - 46} />
         <View className="flex-row items-start justify-between">
           {/* "Browse." like the other pages; its period is where the intro's
               dot lands. The craving question moved under it. */}
@@ -223,9 +272,12 @@ export default function BrowseScreen() {
         </View>
 
         <View className="mt-3" onLayout={(e) => setHeaderBottom(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
-          <View className="flex-row items-center gap-3">
+          {/* One pill: search, then the filter button inside its right end.
+              The shadow sits on a wrapper (the pill itself clips nothing, but
+              keeps NativeWind's shadow class off the input's View). */}
+          <View className="rounded-full bg-white shadow-md">
             <SearchBar
-              className="flex-1 bg-white"
+              className="bg-white"
               placeholder="Search meals, restaurants..."
               value={search.query}
               onChangeText={search.setQuery}
@@ -233,8 +285,8 @@ export default function BrowseScreen() {
               returnKeyType="search"
               autoCorrect={false}
               autoCapitalize="none"
+              trailing={<FilterButton inline count={countFilters(search.applied)} onPress={() => setFiltersOpen(true)} />}
             />
-            <FilterButton count={countFilters(search.applied)} onPress={() => setFiltersOpen(true)} />
           </View>
           {searchesLeftHint && <Text className="ml-1 mt-2 font-inter-regular text-small text-ink-subtle">{searchesLeftHint}</Text>}
         </View>
@@ -254,17 +306,38 @@ export default function BrowseScreen() {
         ) : (
           <>
             {todaysPick && (
-              <View className="mb-6 mt-6">
-                <AppText variant="sectionTitle" dot className="mb-3">
-                  Today&apos;s pick
-                </AppText>
-                <TodaysPickCard meal={todaysPick} onPress={() => detail.open(todaysPick.id)} />
-              </View>
+              <Animated.View entering={enter(0)} className="mb-6 mt-6">
+                <View className="mb-3 flex-row items-end justify-between">
+                  <AppText variant="sectionTitle" dot>
+                    Today&apos;s pick
+                  </AppText>
+                  <View className="mb-1 flex-row items-center gap-1">
+                    <Clock color={colors.ink.subtle} size={12} strokeWidth={2.5} />
+                    <Text className="font-inter-medium text-small text-ink-subtle">New pick in {hoursUntilNextPick()}h</Text>
+                  </View>
+                </View>
+                <TodaysPickCard
+                  meal={todaysPick}
+                  onPress={() => detail.open(todaysPick.id)}
+                  onBookmarkPress={
+                    isGuest
+                      ? () => {
+                          pendingSave.current = todaysPick;
+                          setGate("save");
+                        }
+                      : undefined
+                  }
+                />
+              </Animated.View>
             )}
 
-            <View className="mb-6">
+            <Animated.View entering={enter(1)} className="mb-7">
+              <CravingChips onPick={search.setApplied} />
+            </Animated.View>
+
+            <Animated.View entering={enter(2)} className="mb-6">
               <MoodSelection onSelectMeal={(meal) => detail.open(meal.id)} />
-            </View>
+            </Animated.View>
           </>
         )}
       </ScrollView>
@@ -295,6 +368,15 @@ export default function BrowseScreen() {
         onOpenPro={() => router.push("/pro")}
       />
       {statusBar.strip}
+      {headerBottom != null && (
+        <BrowseMiniHeader
+          scrollY={scrollY}
+          headerBottom={headerBottom}
+          top={statusBar.top}
+          visible={miniVisible}
+          onSearchPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
+        />
+      )}
       {/* Below the status bar, where it sat before the page went under it. */}
       {intro.showing && (
         <View pointerEvents="box-none" style={{ position: "absolute", top: statusBar.top, left: 0, right: 0, bottom: 0 }}>

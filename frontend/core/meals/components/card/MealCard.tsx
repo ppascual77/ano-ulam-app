@@ -11,6 +11,7 @@ import { MacroBreakdown } from "./MacroBreakdown";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { MealSaveButton } from "./MealSaveButton";
+import { formatMealPrice } from "@/frontend/core/prices/utils/prices";
 
 const CARD_WIDTH = 250;
 const IMAGE_HEIGHT = 150;
@@ -172,8 +173,7 @@ export function MealCard({
           {/* Extra bold, same as the meal page's prices. Plain Text so the
               title variant's own semibold doesn't compete with it. */}
           <Text className="font-inter-extrabold text-subheading text-primary">
-            ₱{meal.price}
-            {meal.buffer_price ? ` – ₱${meal.buffer_price}` : ""}
+            {formatMealPrice(meal.price, meal.buffer_price)}
           </Text>
           <AppText
             variant="caption"
