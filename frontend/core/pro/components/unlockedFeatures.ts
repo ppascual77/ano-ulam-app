@@ -21,13 +21,13 @@ export const UNLOCKED_FEATURES: UnlockedFeature[] = [
     key: "alerts",
     Icon: BellRing,
     title: "Price drop alerts",
-    detail: "The day's biggest price drops, every day DA reports.",
+    detail: "A push the day an ingredient drops 5% or more at NCR markets.",
   },
   {
     key: "savings",
     Icon: PiggyBank,
     title: "Weekly savings, in pesos",
-    detail: "What price drops save you on your meals each week.",
+    detail: "Saturday's best buys: the week's 3 biggest drops, in pesos.",
   },
   {
     key: "avoid",

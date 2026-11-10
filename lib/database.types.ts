@@ -689,6 +689,41 @@ export type Database = {
           },
         ]
       }
+      price_alert_log: {
+        Row: {
+          da_commodity_id: string | null
+          id: number
+          kind: string
+          price_date: string
+          recipients: number
+          sent_at: string
+        }
+        Insert: {
+          da_commodity_id?: string | null
+          id?: number
+          kind: string
+          price_date: string
+          recipients?: number
+          sent_at?: string
+        }
+        Update: {
+          da_commodity_id?: string | null
+          id?: number
+          kind?: string
+          price_date?: string
+          recipients?: number
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_alert_log_da_commodity_id_fkey"
+            columns: ["da_commodity_id"]
+            isOneToOne: false
+            referencedRelation: "da_commodities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pro_rewards: {
         Row: {
           days: number
@@ -808,6 +843,8 @@ export type Database = {
           pro_reward_until: string | null
           pro_until: string | null
           push_enabled: boolean
+          push_price_alerts: boolean
+          push_weekly_digest: boolean
           seen_intros: string[]
           show_saved_public: boolean
           tier: string
@@ -825,6 +862,8 @@ export type Database = {
           pro_reward_until?: string | null
           pro_until?: string | null
           push_enabled?: boolean
+          push_price_alerts?: boolean
+          push_weekly_digest?: boolean
           seen_intros?: string[]
           show_saved_public?: boolean
           tier?: string
@@ -842,6 +881,8 @@ export type Database = {
           pro_reward_until?: string | null
           pro_until?: string | null
           push_enabled?: boolean
+          push_price_alerts?: boolean
+          push_weekly_digest?: boolean
           seen_intros?: string[]
           show_saved_public?: boolean
           tier?: string
@@ -858,6 +899,22 @@ export type Database = {
         Returns: {
           allowed: boolean
           uses_left: number
+        }[]
+      }
+      da_per_unit: { Args: { p_unit: string }; Returns: string }
+      da_short_name: {
+        Args: { p_commodity: string; p_section: string }
+        Returns: string
+      }
+      da_week_changes: {
+        Args: { p_on: string }
+        Returns: {
+          da_commodity_id: string
+          latest: number
+          name: string
+          pct: number
+          unit: string
+          week_ago: number
         }[]
       }
       daily_limit: { Args: { p_kind: string }; Returns: number }
@@ -945,6 +1002,7 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_pro: { Args: { p_user: string }; Returns: boolean }
+      price_alert_min_drop: { Args: never; Returns: number }
       register_push_token: {
         Args: { p_platform: string; p_token: string }
         Returns: undefined
@@ -954,6 +1012,9 @@ export type Database = {
         Args: { p_note?: string; p_post: string; p_reason: string }
         Returns: undefined
       }
+      send_daily_price_alert: { Args: never; Returns: string }
+      send_expo_push: { Args: { p_messages: Json }; Returns: undefined }
+      send_weekly_best_buys: { Args: never; Returns: string }
       unregister_push_token: { Args: { p_token: string }; Returns: undefined }
     }
     Enums: {

@@ -32,6 +32,7 @@ import { AuthActivityOverlay } from "@/frontend/features/auth/components/AuthAct
 import { GlobalLoginGate, PendingSaveReplay } from "@/frontend/features/auth/components/GlobalLoginGate";
 import { RewardCelebration } from "@/frontend/core/pro/components/RewardCelebration";
 import { usePushTokenSync } from "@/frontend/core/notifications/hooks/usePushPermission";
+import { PushTapRouter } from "@/frontend/core/notifications/components/PushTapRouter";
 import { SaveLimitSheet } from "@/frontend/core/saved/components/SaveLimitSheet";
 import { SaveFeedbackLayer } from "@/frontend/core/saved/components/SaveFeedbackLayer";
 import { noteTouch, useSaveFeedbackStore } from "@/frontend/core/saved/store/useSaveFeedbackStore";
@@ -173,6 +174,8 @@ export default function RootLayout() {
               <PendingSaveReplay />
               {/* A Pro reward landing (first photo post, first approved recipe). */}
               <RewardCelebration />
+              {/* A tapped price push opens Price Watch. */}
+              <PushTapRouter />
               <AuthActivityOverlay />
             </QueryClientProvider>
           </SafeAreaProvider>

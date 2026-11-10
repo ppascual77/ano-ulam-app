@@ -281,14 +281,7 @@ export default function SettingsScreen() {
                 <ChevronRight color={colors.ink.subtle} size={18} />
               </Pressable>
             )}
-            {/* Price alerts: just on or off. */}
-            <ProSettingRow
-              label="Price alerts"
-              description="The day's biggest price drops, at the top of Price Watch."
-              locked={!isPro}
-              toggle={{ value: prefs.price_alerts.enabled, onChange: (enabled) => setPrefs({ ...prefs, price_alerts: { enabled } }) }}
-              onPress={() => (isPro ? setPrefs({ ...prefs, price_alerts: { enabled: !prefs.price_alerts.enabled } }) : setUpgradeOpen(true))}
-            />
+            {/* Price drop alerts live under Notifications (a real push now). */}
             {/* Meal plan length: 5 or 7 days, for each new plan. */}
             <ProSettingRow
               index={1}
@@ -382,6 +375,36 @@ export default function SettingsScreen() {
                 value={pushOn}
                 onChange={(on) => void setPushOn(on)}
               />
+            )}
+            {/* What gets pushed, under the general switch (shown while it's on).
+                Price drop alerts are Pro: locked, they open the Pro page. */}
+            {pushOn && (
+              <>
+                <ProSettingRow
+                  label="Price drop alerts"
+                  description="A push the day an ingredient drops 5% or more at NCR markets."
+                  locked={!isPro}
+                  onPress={() =>
+                    isPro
+                      ? settingsActions.setPriceAlerts(!(settings.data?.push_price_alerts ?? true))
+                      : router.push({
+                          pathname: "/pro",
+                          params: { title: "Get price drop", highlight: "alerts", subtitle: "Pro tells you the day an ingredient gets cheaper." },
+                        })
+                  }
+                  toggle={{ value: settings.data?.push_price_alerts ?? true, onChange: settingsActions.setPriceAlerts }}
+                />
+                <SettingsToggle
+                  label="Weekly best buys"
+                  description={
+                    isPro
+                      ? "Saturday morning: the week's 3 biggest price drops, in pesos."
+                      : "Saturday morning: the week's biggest price drop."
+                  }
+                  value={settings.data?.push_weekly_digest ?? true}
+                  onChange={settingsActions.setWeeklyDigest}
+                />
+              </>
             )}
             {/* Quiet (the default): one tap to banners and sound. */}
             {push.permission === "quiet" && pushOn && (

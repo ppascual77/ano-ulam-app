@@ -126,3 +126,21 @@ export async function forgetPushToken() {
     // Logging out must never fail on this.
   }
 }
+
+/** A tapped push's data, from the moment of the tap or from the tap that
+ *  opened the app (cold start, handed over once). Returns the unsubscribe. */
+export function listenForPushTaps(onTap: (data: Record<string, unknown>) => void): () => void {
+  if (!Notifications) return () => {};
+  const N = Notifications;
+  const sub = N.addNotificationResponseReceivedListener((response) => {
+    if (response.actionIdentifier === N.DEFAULT_ACTION_IDENTIFIER) onTap(response.notification.request.content.data ?? {});
+  });
+  N.getLastNotificationResponseAsync()
+    .then((response) => {
+      if (!response || response.actionIdentifier !== N.DEFAULT_ACTION_IDENTIFIER) return;
+      onTap(response.notification.request.content.data ?? {});
+      return N.clearLastNotificationResponseAsync();
+    })
+    .catch(() => {});
+  return () => sub.remove();
+}

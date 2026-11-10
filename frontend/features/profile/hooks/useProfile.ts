@@ -152,6 +152,10 @@ export type AccountSettings = {
   newsletter_subscribed: boolean;
   /** Push notifications at all (Settings → Notifications; on by default). */
   push_enabled: boolean;
+  /** Pro: a push the day an ingredient drops (users.push_price_alerts). */
+  push_price_alerts: boolean;
+  /** Saturday's best buys (users.push_weekly_digest). */
+  push_weekly_digest: boolean;
 };
 
 // Privacy, newsletter and notifications, on the user's row
@@ -164,6 +168,8 @@ export function useAccountSettings(): { data: AccountSettings | undefined } {
           show_saved_public: row.show_saved_public,
           newsletter_subscribed: row.newsletter_subscribed,
           push_enabled: row.push_enabled,
+          push_price_alerts: row.push_price_alerts,
+          push_weekly_digest: row.push_weekly_digest,
         }
       : undefined,
   };
@@ -185,5 +191,7 @@ export function useAccountSettingsActions() {
     setShowSaved: (show: boolean) => save({ show_saved_public: show }),
     setNewsletter: (on: boolean) => save({ newsletter_subscribed: on }),
     setPushEnabled: (on: boolean) => save({ push_enabled: on }),
+    setPriceAlerts: (on: boolean) => save({ push_price_alerts: on }),
+    setWeeklyDigest: (on: boolean) => save({ push_weekly_digest: on }),
   };
 }
