@@ -1,8 +1,8 @@
-import { memo, useEffect, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { Image } from "expo-image";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { ArrowRight } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { useRealMeals } from "@/frontend/core/meals/hooks/useRealMeals";
@@ -19,19 +19,39 @@ const FAN = [
   { rotate: -2, x: 0, y: -4 },
 ];
 
-// One photo in the fan: starts stacked and straight, then settles into its
-// tilt and place, once (no bounce).
-function FanPhoto({ uri, index, reduceMotion }: { uri: string | null; index: number; reduceMotion: boolean }) {
-  const spread = useSharedValue(reduceMotion ? 1 : 0);
+// Every so often the front photo slides to the back and the next comes
+// forward, like dealing cards (paused off screen and with Reduce motion).
+const RESHUFFLE_MS = 4200;
+const DEAL = { duration: 650, easing: Easing.inOut(Easing.cubic) };
+
+// One photo in the fan, at its `slot` (0 back … 2 front): starts stacked and
+// straight, settles into its slot once, then glides to each new slot.
+function FanPhoto({ uri, index, slot, reduceMotion }: { uri: string | null; index: number; slot: number; reduceMotion: boolean }) {
+  const target = FAN[slot];
+  const x = useSharedValue(reduceMotion ? target.x : 0);
+  const y = useSharedValue(reduceMotion ? target.y : 0);
+  const r = useSharedValue(reduceMotion ? target.rotate : 0);
+  const settled = useSharedValue(reduceMotion);
   useEffect(() => {
-    if (!reduceMotion) spread.value = withDelay(120 + index * 60, withTiming(1, { duration: 520, easing: EASE }));
-  }, [reduceMotion, index, spread]);
-  const { rotate, x, y } = FAN[index];
+    if (reduceMotion) {
+      x.value = target.x;
+      y.value = target.y;
+      r.value = target.rotate;
+      return;
+    }
+    // The first time: the settle-in, one after another.
+    const timing = settled.value ? DEAL : { duration: 520, easing: EASE };
+    const delay = settled.value ? 0 : 120 + index * 60;
+    x.value = withDelay(delay, withTiming(target.x, timing));
+    y.value = withDelay(delay, withTiming(target.y, timing));
+    r.value = withDelay(delay, withTiming(target.rotate, timing));
+    settled.value = true;
+  }, [reduceMotion, index, target, x, y, r, settled]);
   const style = useAnimatedStyle(() => ({
-    transform: [{ translateX: x * spread.value }, { translateY: y * spread.value }, { rotate: `${rotate * spread.value}deg` }],
+    transform: [{ translateX: x.value }, { translateY: y.value }, { rotate: `${r.value}deg` }],
   }));
   return (
-    <Animated.View style={[{ position: "absolute", width: PHOTO_SIZE, height: PHOTO_SIZE }, style]}>
+    <Animated.View style={[{ position: "absolute", width: PHOTO_SIZE, height: PHOTO_SIZE, zIndex: slot }, style]}>
       <View className="flex-1 overflow-hidden rounded-2xl border-2 border-white bg-ink-emphasis/5 shadow-sm">
         {uri && <Image source={{ uri }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={200} />}
       </View>
@@ -51,7 +71,8 @@ type PlanWeekCardProps = {
 // Home's invitation to the Meal Planner when no plan is running (see
 // HomePlanCard): a soft green card with the headline, one line on what you
 // get and a button, and three home-cooked meal photos fanned on the right
-// (a different three each day) that settle into place once.
+// (a different three each day) that settle into place, then reshuffle every
+// few seconds while Home is showing.
 function PlanWeekCardInner({ title = "Plan your week", subtitle, cta = "Start planning" }: PlanWeekCardProps) {
   const { data: meals } = useRealMeals();
   const reduceMotion = useReduceMotion();
@@ -67,6 +88,16 @@ function PlanWeekCardInner({ title = "Plan your week", subtitle, cta = "Start pl
     return FAN.map((_, i) => withPhotos[(dayOffset + i) % withPhotos.length].image_url as string);
   }, [meals]);
   const line = subtitle ?? `${days} days of meals and one grocery list, all within your budget.`;
+
+  // Which slot each photo sits in, shifting by one per reshuffle.
+  const [shift, setShift] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      if (reduceMotion) return;
+      const timer = setInterval(() => setShift((n) => n + 1), RESHUFFLE_MS);
+      return () => clearInterval(timer);
+    }, [reduceMotion]),
+  );
 
   return (
     // The shadow sits on a wrapper: the card's own overflow-hidden (for its
@@ -94,7 +125,7 @@ function PlanWeekCardInner({ title = "Plan your week", subtitle, cta = "Start pl
           </View>
           <View className="h-28 w-32 items-center justify-center">
             {photos.map((uri, i) => (
-              <FanPhoto key={i} uri={uri} index={i} reduceMotion={reduceMotion} />
+              <FanPhoto key={i} uri={uri} index={i} slot={(i + shift) % FAN.length} reduceMotion={reduceMotion} />
             ))}
           </View>
         </View>

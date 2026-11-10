@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { Image } from "expo-image";
 import { AppText } from "@/frontend/components/ui";
@@ -7,11 +7,13 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 type HeaderProps = {
   /** Undefined/guest shows "Hello" only, no name. */
   name?: string;
+  /** Under the greeting (Home's live price line). */
+  children?: ReactNode;
 };
 
 // The avatar (and the admin menu) moved to the bottom nav's Profile tab.
 // White text: it sits on HomeBackdrop's dark green.
-function HeaderInner({ name }: HeaderProps) {
+function HeaderInner({ name, children }: HeaderProps) {
   // Reduce motion: the "today?" GIF holds still on its first frame.
   // `autoplay` only applies when the image loads, and Home stays mounted
   // while the setting changes, so the key reloads it either way.
@@ -38,6 +40,7 @@ function HeaderInner({ name }: HeaderProps) {
             autoplay={!reduceMotion}
           />
         </View>
+        {children}
       </View>
     </View>
   );

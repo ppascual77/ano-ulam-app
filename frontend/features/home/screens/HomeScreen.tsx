@@ -4,6 +4,7 @@ import { useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Screen, SegmentedSwitch, usePageIntro, useStatusBarStrip } from "@/frontend/components/ui";
 import { Header } from "@/frontend/features/home/components/Header";
+import { PriceDropLine, useBiggestPriceDrop } from "@/frontend/features/home/components/PriceDropLine";
 import { RandomMealPuller } from "@/frontend/features/home/components/RandomMealPuller";
 import { HomePlanCard } from "@/frontend/features/home/components/HomePlanCard";
 import { HomeBackdrop } from "@/frontend/features/home/components/HomeBackdrop";
@@ -16,6 +17,9 @@ import { useDisplayName } from "@/frontend/features/auth/hooks/useDisplayName";
 import { colors } from "@/frontend/constants/theme";
 
 type Mode = "budget" | "pantry";
+
+// How much further down the green reaches while the price line shows.
+const PRICE_LINE_SPACE = 84;
 
 // The status bar turns dark once the clock's line (half way down it) reaches
 // the plan card's white half, about this far above the card's bottom.
@@ -34,6 +38,8 @@ export default function HomeScreen() {
   const { firstName } = useDisplayName();
   // Turned off in Settings > Home: no Surprise me tag at all.
   const showSurpriseMe = useSurpriseMeStore((s) => s.show);
+  // Home's live line: this week's biggest DA price drop, when there is one.
+  const priceDrop = useBiggestPriceDrop();
 
   // The welcome intro plays once, right after onboarding (which lands here
   // with ?intro=1 and where its page indicator's dot was), not on every
@@ -84,8 +90,8 @@ export default function HomeScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        <HomeBackdrop top={statusBar.top} />
-        <Header name={firstName} />
+        <HomeBackdrop top={statusBar.top} extra={priceDrop ? PRICE_LINE_SPACE : 0} />
+        <Header name={firstName}>{priceDrop && <PriceDropLine item={priceDrop} />}</Header>
 
         <View className="mt-5" onLayout={(e) => setCardBottom(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
           <HomePlanCard />

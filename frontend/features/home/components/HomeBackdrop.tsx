@@ -7,6 +7,8 @@ type HomeBackdropProps = {
   /** The status bar's height: the page scrolls under it, so the dark
    *  green's edge is measured from below it. */
   top: number;
+  /** Extra px the green reaches down (room for a line under the greeting). */
+  extra?: number;
 };
 
 // The dark green's edge, like Browse and Price Watch: one sweep, higher on
@@ -22,10 +24,10 @@ const OVERSCROLL = 1000;
 
 // Home's background, scrolling with the page: dark green behind the
 // greeting and the top of the plan card, then the white page.
-export const HomeBackdrop = memo(function HomeBackdrop({ top }: HomeBackdropProps) {
+export const HomeBackdrop = memo(function HomeBackdrop({ top, extra = 0 }: HomeBackdropProps) {
   const { width: w } = useWindowDimensions();
-  const left = top + DARK_EDGE_LEFT;
-  const right = top + DARK_EDGE_RIGHT;
+  const left = top + DARK_EDGE_LEFT + extra;
+  const right = top + DARK_EDGE_RIGHT + extra;
   const h = left + PULL[1] + 4;
   const dark = `M0 0H${w}V${right}C${w * BENDS[0]} ${right + PULL[0]} ${w * BENDS[1]} ${left + PULL[1]} 0 ${left}Z`;
 
