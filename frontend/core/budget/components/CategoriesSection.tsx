@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import Animated, {
@@ -51,16 +51,6 @@ const CATEGORIES: { id: CategoryId; label: string; image: number; tint: string; 
 const TINTS = CATEGORIES.map((c) => c.tint);
 const STOPS = CATEGORIES.map((_, i) => i);
 
-// The meal time the phone's clock is in, marked NOW on its tile (no mark
-// between meals, late at night, or on Fastfood).
-function currentMealTime(date = new Date()): CategoryId | null {
-  const m = date.getHours() * 60 + date.getMinutes();
-  if (m >= 4 * 60 && m < 10 * 60 + 30) return "breakfast";
-  if (m >= 10 * 60 + 30 && m < 15 * 60) return "lunch";
-  if (m >= 17 * 60 && m < 22 * 60) return "dinner";
-  return null;
-}
-
 const GAP = 10;
 const RADIUS = 16;
 const ART = 56;
@@ -87,9 +77,6 @@ type CategoriesSectionProps = {
 export function CategoriesSection({ landing, plainTitle = false, onChange }: CategoriesSectionProps) {
   const reduce = useReduceMotion();
   const [selected, setSelected] = useState<CategoryId | null>(null);
-  // Read on each render: Home stays mounted for hours, and any re-render
-  // (a pick, a refocus) catches the clock up.
-  const now = currentMealTime();
   // One tile's width (the row is four equal tiles); the highlight's slot.
   const [tileW, setTileW] = useState(0);
 
@@ -170,7 +157,6 @@ export function CategoriesSection({ landing, plainTitle = false, onChange }: Cat
             iconColor={category.iconColor}
             beat={category.beat}
             selected={selected === category.id}
-            now={now === category.id}
             dimmed={selected != null && selected !== category.id}
             reduce={reduce}
             onPress={() => choose(category.id)}
@@ -189,14 +175,12 @@ type CategoryTileProps = {
   iconColor: string;
   beat: IconBeat;
   selected: boolean;
-  /** The current meal time: a small NOW tag on the tile's top edge. */
-  now: boolean;
   dimmed: boolean;
   reduce: boolean;
   onPress: () => void;
 };
 
-function CategoryTile({ index, label, image, icon, iconColor, beat, selected, now, dimmed, reduce, onPress }: CategoryTileProps) {
+function CategoryTile({ index, label, image, icon, iconColor, beat, selected, dimmed, reduce, onPress }: CategoryTileProps) {
   // Press squeeze.
   const press = useSharedValue(1);
   // The art's hop on select: lift and wiggle, then rest untransformed.
@@ -240,17 +224,12 @@ function CategoryTile({ index, label, image, icon, iconColor, beat, selected, no
         }}
         accessibilityRole="button"
         accessibilityState={{ selected }}
-        accessibilityLabel={now ? `${label}, now` : label}
+        accessibilityLabel={label}
         className="items-center rounded-2xl border border-ink-emphasis/10 pb-2.5 pt-3"
         // Only override the border color when selected: passing undefined
         // wipes the class's gray and leaves React Native's default black.
         style={selected ? { borderRadius: RADIUS, borderColor: "transparent" } : { borderRadius: RADIUS }}
       >
-        {now && (
-          <View pointerEvents="none" className="absolute -top-2 rounded-full bg-accent px-1.5 py-0.5">
-            <Text className="font-inter-bold text-sub tracking-widest text-white">NOW</Text>
-          </View>
-        )}
         <Animated.View style={artStyle}>
           {/* Decoded at its 56px size (a clean downscale), and never left
               scaled or tilted: a transform stretches the drawn pixels, so the
