@@ -71,6 +71,25 @@ Notifications" when `eas build --profile development --platform ios` asks.
       phone gets its own pushes, not the old account's.
 - [ ] **Refused:** tapping "Don't Allow" hides the button and never asks again.
 
+## Push notifications (Price Watch)
+
+Sent by the database on a schedule (11:30 and 16:30 PH daily, Saturday 08:00 PH). To trigger one by
+hand, ask Claude to run `send_daily_price_alert()` / `send_weekly_best_buys()` (each sends once per
+DA day / week; `price_alert_log` records it).
+
+- [ ] **Daily drop alert (Pro):** with Pro on, "🔻 <item> is N% cheaper · Now ₱X/kg, down from ₱Y a
+      week ago" arrives; tapping it opens Price Watch, including from a closed app. Free accounts
+      get no daily alert.
+- [ ] **Not every day:** a day with no drop of 5% or more sends nothing; the same item isn't alerted
+      twice within 3 days; the 16:30 run doesn't repeat the 11:30 one.
+- [ ] **Weekly best buys (Saturday):** Pro gets "Pork Rind/Skin ₱58/kg less · …" (3 items, pesos);
+      Free gets the top item plus "Get alerts the day prices drop with Pro". Tapping opens Price Watch.
+- [ ] **Names read well:** meat items say the animal ("Chicken Neck", "Pork Rind/Skin").
+- [ ] **Settings → Notifications:** Price drop alerts (PRO badge; locked for Free, opens the Pro
+      page titled "Get price drop alerts") and Weekly best buys show under Push notifications while
+      it's on; each switch stops its push; Push notifications off stops both.
+- [ ] **The Pro section** no longer has the old "Price alerts" row.
+
 ## Security lockdown
 
 - [ ] **Profile edits still work:** bio, Settings toggles (show saved, newsletter), preferences,
@@ -175,6 +194,6 @@ Notifications" when `eas build --profile development --platform ios` asks.
 - [ ] Each subscription has its review screenshot, and the first group goes to review with an app
       version.
 - [ ] Small Business Program approved (Apple's email).
-- [ ] Paywall promises match what's built (price drop alerts and weekly savings have no surface
-      yet: build them or remove them from the Pro page, `proContent.ts` and `unlockedFeatures.ts`).
+- [ ] Paywall promises match what's built (price drop alerts and weekly savings are pushes now:
+      check the Pro page and unlock screen wording against them).
 - [ ] BIR registration before Apple's first payout (`docs/compliance.md`).

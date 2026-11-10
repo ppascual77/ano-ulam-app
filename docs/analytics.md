@@ -38,6 +38,12 @@ matters), and, if built, whether a blurred preview of the locked meals lifts tap
 | `pro_page_opened` | The Pro page opens | `source` (results_wall, limit_sheet, saved_limit, settings, locked_day, macro_goal, micros, …) |
 | `trial_started` / `purchase_completed` | Apple's purchase goes through | `plan`, `source` (the `pro_page_opened` source it came from) |
 | `app_opened` | The app comes to the front | `is_pro`, `account_age_days` |
+| `push_permission` | Notification permission changes (quiet at sign-in, banners via "Notify me" or Settings, refused) | `state` (quiet, granted, denied), `source` (sign_in, recipe_submitted, settings) |
+| `push_opened` | A push is tapped | `type` (recipe_approved, price_drop, weekly_best_buys) |
+
+Push questions: do price pushes bring people back (`push_opened` → `app_opened` sessions), does
+the free weekly line lead to `pro_page_opened` (and Pro), and how many quiet users upgrade to
+banners. The server already logs every price push sent (`price_alert_log.recipients`).
 
 Each event carries the user id (or an anonymous id for guests), whether they're Pro, and the
 account's age in days, so the questions above are straight funnels and retention cohorts:

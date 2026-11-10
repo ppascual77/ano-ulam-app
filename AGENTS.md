@@ -89,6 +89,11 @@ Supabase project config don't get tangled with UI code.
   function that calls `invokeEdgeFunction` from `lib/supabase.ts`. Edge functions deploy
   separately from the app (`supabase functions deploy <name>`, or the dashboard's editor) and
   need a redeploy whenever their code changes. Migrations are a separate step (SQL).
+- **Scheduled work** runs outside the app: the daily DA price import is a GitHub Actions job
+  (`.github/workflows/da-daily-prices.yml`, it fetches DA's PDFs because DA throttles Supabase's
+  servers), and the Price Watch pushes are `pg_cron` jobs in the database (`cron.job`). Push
+  notifications are sent from the database too (`pg_net` to Expo's push service, tokens in
+  `push_tokens`); the app only asks permission and saves the token (`frontend/core/notifications`).
 
   | Web app (`ano-ulam-reference`)        | This repo                 | Runs where |
   | ------------------------------------- | ------------------------- | ---------- |
