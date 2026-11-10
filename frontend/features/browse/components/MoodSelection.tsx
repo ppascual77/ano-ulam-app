@@ -20,7 +20,7 @@ const timeLabel = (m: MealType) => (m.total_time != null ? `${m.total_time} min`
 type Mood = {
   id: MoodId;
   label: string;
-  /** The promise, shown under the title. */
+  /** The promise (documents the rule; not shown). */
   caption: string;
   /** The rule, on a real meal per serving (the caption's terms). */
   fits: (perServing: MealType) => boolean;
@@ -137,12 +137,9 @@ export function MoodSelection({ onSelectMeal }: MoodSelectionProps) {
 
   return (
     <View className="gap-3">
-      <View>
-        <AppText variant="sectionTitle" dot>
-          What&apos;s your ulam mood?
-        </AppText>
-        <AppText variant="caption">{mood.caption}</AppText>
-      </View>
+      <AppText variant="sectionTitle" dot>
+        What&apos;s your ulam mood?
+      </AppText>
 
       <SegmentedSwitch size="md" options={MOOD_OPTIONS} value={moodId} onChange={pick} />
 

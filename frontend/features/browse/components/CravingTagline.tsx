@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { AppText } from "@/frontend/components/ui";
@@ -39,58 +39,44 @@ function TaglineRow({ before, dish, after, light }: Tagline & { light: boolean }
   );
 }
 
-// Cycles through mock dish suggestions like a slot machine reel. The
-// current and next tagline render as one continuous strip that scrolls
-// upward, so the next tag immediately follows the one leaving instead of
-// animating in as a separate, disconnected element.
-//
-// Reset-and-advance runs from a plain setTimeout on the JS thread (not a
-// withTiming/runOnJS completion callback) — passing the index updater
-// closure through runOnJS's UI↔JS bridge as an argument isn't reliably
-// serializable, and would silently fail to reset translateY on some ticks,
-// letting it drift further negative each cycle until the text scrolled
-// permanently out of the clipped container.
+// Cycles through mock dish suggestions like a slot machine reel: every
+// tagline sits in one fixed strip (with the first repeated at the end) that
+// rolls up a line at a time. On reaching that repeat it snaps back to the
+// top, which can't be seen since the two rows match. Nothing re-renders as
+// it rolls: the old version swapped which two taglines showed and snapped
+// the strip back in the same frame, and when the JS and UI threads landed
+// those a frame apart (scrolling, loading results) it flickered.
 // `light`: white text, on Browse's dark green header.
 export function CravingTagline({ light = false }: { light?: boolean }) {
-  const [index, setIndex] = useState(0);
   const translateY = useSharedValue(0);
-
-  // Snapping translateY back to 0 has to land in the same commit as the
-  // re-render that updates which taglines the two rows show — otherwise the
-  // reset can visually land a frame before the new content does, reading as
-  // a flicker (position snaps back while the old pair is still showing).
-  // useLayoutEffect (not useEffect) ties the reset to that same commit.
-  useLayoutEffect(() => {
-    translateY.value = 0;
-  }, [index, translateY]);
+  const step = useRef(0);
 
   useEffect(() => {
-    let advanceTimeout: ReturnType<typeof setTimeout>;
-
+    const count = TAGLINES.length;
     const intervalId = setInterval(() => {
-      translateY.value = withTiming(-ITEM_HEIGHT, { duration: ROLL_DURATION_MS });
-      advanceTimeout = setTimeout(() => {
-        setIndex((i) => (i + 1) % TAGLINES.length);
-      }, ROLL_DURATION_MS);
+      step.current += 1;
+      const target = step.current;
+      const atRepeat = target === count;
+      if (atRepeat) step.current = 0;
+      translateY.value = withTiming(-target * ITEM_HEIGHT, { duration: ROLL_DURATION_MS }, (finished) => {
+        // On the repeat of the first line: back to the real first line,
+        // invisibly (same text), all on the UI thread.
+        if (finished && atRepeat) translateY.value = 0;
+      });
     }, ROTATE_INTERVAL_MS);
-
-    return () => {
-      clearInterval(intervalId);
-      clearTimeout(advanceTimeout);
-    };
+    return () => clearInterval(intervalId);
   }, [translateY]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
   }));
 
-  const nextIndex = (index + 1) % TAGLINES.length;
-
   return (
     <View style={{ height: ITEM_HEIGHT, overflow: "hidden" }}>
       <Animated.View style={animatedStyle}>
-        <TaglineRow {...TAGLINES[index]} light={light} />
-        <TaglineRow {...TAGLINES[nextIndex]} light={light} />
+        {[...TAGLINES, TAGLINES[0]].map((tagline, i) => (
+          <TaglineRow key={i} {...tagline} light={light} />
+        ))}
       </Animated.View>
     </View>
   );

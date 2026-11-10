@@ -64,7 +64,7 @@ export function BrowseMiniHeader({
         style,
       ]}
     >
-      <View className="flex-1 flex-row items-center justify-between bg-home-top px-6 shadow-md">
+      <View className="flex-1 flex-row items-center justify-between bg-home-top px-6">
         <View className="flex-row items-end">
           <Text className="font-inter-extrabold text-heading tracking-display text-white">
             Browse

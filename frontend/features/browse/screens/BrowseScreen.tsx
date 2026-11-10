@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
-import Animated, { Easing, FadeIn, FadeInDown, useSharedValue } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, FadeInDown, FadeOut, LinearTransition, useSharedValue } from "react-native-reanimated";
 import { router } from "expo-router";
 import { Clock } from "lucide-react-native";
 import {
@@ -19,7 +19,6 @@ import {
 import { colors } from "@/frontend/constants/theme";
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { DailyLimitSheet } from "@/frontend/core/pro/components/DailyLimitSheet";
-import { leftHint } from "@/frontend/core/pro/dailyLimits";
 import { CravingTagline } from "@/frontend/features/browse/components/CravingTagline";
 import { CravingChips } from "@/frontend/features/browse/components/CravingChips";
 import { BrowseMiniHeader, miniHeaderStart } from "@/frontend/features/browse/components/BrowseMiniHeader";
@@ -39,9 +38,7 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { useBrowseSearch } from "../hooks/useBrowseSearch";
 import { hoursUntilNextPick, useTodaysPick } from "../hooks/useTodaysPick";
-import { countFilters } from "../utils/filters";
-import { FilterButton } from "../components/FilterButton";
-import { FilterSheet } from "../components/FilterSheet";
+import { EMPTY_FILTERS, type MealFilters } from "../utils/filters";
 import { SearchResults } from "../components/SearchResults";
 import { EmptyMealView, GuestLimitGate } from "../components/EmptyStates";
 import { AvoidedMealCover } from "../components/AvoidedMealCover";
@@ -57,6 +54,8 @@ const DEV_FORCE_SIGNED_IN = __DEV__;
 const PULL_DISTANCE = 90;
 // A refresh shows the steaming pot at least this long, so it reads.
 const MIN_REFRESH_MS = 900;
+// About how long iOS's animated scroll to the top takes.
+const CRAVING_SCROLL_MS = 320;
 // The sections' entrance plays once per app session (tab screens stay
 // mounted, so this is the first time Browse's content appears).
 let entrancePlayed = false;
@@ -84,7 +83,6 @@ export default function BrowseScreen() {
   useEffect(() => {
     if (search.limitReached && !isGuest) setLimitSheetOpen(true);
   }, [search.limitReached, isGuest]);
-  const searchesLeftHint = !isGuest && !search.limitReached ? leftHint(search.left, "search", "searches") : null;
   // The intro, replayed on every visit to the tab (see usePageIntro): its
   // dot lands as the period of "Browse.". Leaving the tab puts the
   // header back at the top, ready for the next landing.
@@ -103,7 +101,14 @@ export default function BrowseScreen() {
   // scrolled up past it. Dark clock over the intro.
   // Green all the way: past the big header, the slim green bar takes over
   // under the clock (BrowseMiniHeader).
-  const statusBar = useStatusBarStrip({ color: colors.home.top, darkUntil: Number.MAX_SAFE_INTEGER, forceDark: intro.showing });
+  // Clear while the textured header still fills it (the header's dark edge
+  // starts about splitAt of the way down, its high right end ~24px above).
+  const statusBar = useStatusBarStrip({
+    color: colors.home.top,
+    darkUntil: Number.MAX_SAFE_INTEGER,
+    forceDark: intro.showing,
+    clearUntil: (headerBottom ?? 190) * TAB_HEADER_CURVES.splitAt - 24,
+  });
   // Scroll position (the slim bar slides in from it) and the pull past the
   // top (0 to 1 at the refresh point) for the pot doodle.
   const scrollY = useSharedValue(0);
@@ -135,7 +140,41 @@ export default function BrowseScreen() {
   }, []);
   const enter = (i: number) =>
     !playEntrance ? undefined : reduceMotion ? FadeIn.duration(200) : FadeInDown.delay(i * 80).duration(420).easing(Easing.out(Easing.cubic));
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  // The Craving chip picked ("Soup"), titling its results.
+  const [craving, setCraving] = useState<string | null>(null);
+  const cravingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (cravingTimer.current) clearTimeout(cravingTimer.current);
+  }, []);
+  // A chip tap first glides the page back up to the search row, then swaps
+  // the landing for the results (fading out / rising in), so it's clear
+  // what happened instead of the screen jumping.
+  const pickCraving = (label: string, filters: MealFilters) => {
+    const apply = () => {
+      setCraving(label);
+      search.setApplied(filters);
+    };
+    if (cravingTimer.current) clearTimeout(cravingTimer.current);
+    // The picked chip again: back to the landing.
+    if (label === craving) return clearCraving();
+    if (scrollY.value < 40) return apply();
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+    cravingTimer.current = setTimeout(apply, reduceMotion ? 0 : CRAVING_SCROLL_MS);
+  };
+  const clearCraving = () => {
+    setCraving(null);
+    search.setApplied(EMPTY_FILTERS);
+  };
+  // Typing drops a picked Craving, so the words search the whole catalog
+  // (the row then hides, as for any typed search).
+  const typeQuery = (text: string) => {
+    if (text.trim() !== "") {
+      // Also a chip tap still waiting on its scroll up.
+      if (cravingTimer.current) clearTimeout(cravingTimer.current);
+      if (craving) clearCraving();
+    }
+    search.setQuery(text);
+  };
   // Today's pick: one real meal a day.
   const { meal: todaysPick } = useTodaysPick();
   const detail = useMealDetail();
@@ -233,7 +272,7 @@ export default function BrowseScreen() {
       <ScrollView
         ref={scrollRef}
         className="flex-1 bg-white"
-        contentContainerClassName="px-7 pb-2"
+        contentContainerClassName="px-5 pb-2"
         contentContainerStyle={{ paddingTop: statusBar.top + 8 }}
         onScroll={onScroll}
         scrollEventThrottle={16}
@@ -272,73 +311,89 @@ export default function BrowseScreen() {
         </View>
 
         <View className="mt-3" onLayout={(e) => setHeaderBottom(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
-          {/* One pill: search, then the filter button inside its right end.
-              The shadow sits on a wrapper (the pill itself clips nothing, but
+          {/* The shadow sits on a wrapper (the pill itself clips nothing, but
               keeps NativeWind's shadow class off the input's View). */}
           <View className="rounded-full bg-white shadow-md">
             <SearchBar
               className="bg-white"
               placeholder="Search meals, restaurants..."
               value={search.query}
-              onChangeText={search.setQuery}
+              onChangeText={typeQuery}
               onClear={() => search.setQuery("")}
               returnKeyType="search"
               autoCorrect={false}
               autoCapitalize="none"
-              trailing={<FilterButton inline count={countFilters(search.applied)} onPress={() => setFiltersOpen(true)} />}
             />
           </View>
-          {searchesLeftHint && <Text className="ml-1 mt-2 font-inter-regular text-small text-ink-subtle">{searchesLeftHint}</Text>}
         </View>
 
+        {/* Landing → results: Today's pick and the moods fade out, the
+            Craving row (one element in both) slides up under the search bar
+            with the picked chip marked and a Clear, and the results rise in
+            under it. A typed search hides the row unless a chip is picked. */}
+        {!search.isSearchMode && todaysPick && (
+          <Animated.View key="pick" entering={enter(0)} exiting={FadeOut.duration(140)} className="mt-6">
+            <View className="mb-3 flex-row items-end justify-between">
+              <AppText variant="sectionTitle" dot>
+                Today&apos;s pick
+              </AppText>
+              <View className="mb-1 flex-row items-center gap-1">
+                <Clock color={colors.ink.subtle} size={12} strokeWidth={2.5} />
+                <Text className="font-inter-medium text-small text-ink-subtle">New pick in {hoursUntilNextPick()}h</Text>
+              </View>
+            </View>
+            <TodaysPickCard
+              meal={todaysPick}
+              onPress={() => detail.open(todaysPick.id)}
+              onBookmarkPress={
+                isGuest
+                  ? () => {
+                      pendingSave.current = todaysPick;
+                      setGate("save");
+                    }
+                  : undefined
+              }
+            />
+          </Animated.View>
+        )}
+
+        {(!search.isSearchMode || craving) && (
+          <Animated.View
+            key="cravings"
+            entering={enter(1)}
+            exiting={FadeOut.duration(140)}
+            layout={reduceMotion ? undefined : LinearTransition.duration(360).easing(Easing.out(Easing.cubic))}
+            className="mb-7 mt-6"
+          >
+            <CravingChips selected={craving} onPick={pickCraving} onClear={clearCraving} />
+          </Animated.View>
+        )}
+
         {search.isSearchMode ? (
-          <View className="mb-6 mt-6">
-            <Text className="mb-1 font-inter-bold text-subheading text-web-ink">Search Results</Text>
+          <Animated.View
+            key="results"
+            entering={reduceMotion ? FadeIn.duration(180) : FadeInDown.delay(160).duration(320).easing(Easing.out(Easing.cubic))}
+            exiting={FadeOut.duration(120)}
+            className={craving ? "mb-6" : "mb-6 mt-6"}
+          >
+            {!craving && (
+              <AppText variant="sectionTitle" dot className="mb-1">
+                Search results
+              </AppText>
+            )}
             {!search.loading && search.results.length === 0 ? (
               <EmptyMealView />
             ) : (
               // Rows run edge to edge (past the screen's side padding).
-              <View className="-mx-7 mt-2">
+              <View className="-mx-5 mt-2">
                 <SearchResults results={search.results} loading={search.loading} renderCard={renderCard} />
               </View>
             )}
-          </View>
+          </Animated.View>
         ) : (
-          <>
-            {todaysPick && (
-              <Animated.View entering={enter(0)} className="mb-6 mt-6">
-                <View className="mb-3 flex-row items-end justify-between">
-                  <AppText variant="sectionTitle" dot>
-                    Today&apos;s pick
-                  </AppText>
-                  <View className="mb-1 flex-row items-center gap-1">
-                    <Clock color={colors.ink.subtle} size={12} strokeWidth={2.5} />
-                    <Text className="font-inter-medium text-small text-ink-subtle">New pick in {hoursUntilNextPick()}h</Text>
-                  </View>
-                </View>
-                <TodaysPickCard
-                  meal={todaysPick}
-                  onPress={() => detail.open(todaysPick.id)}
-                  onBookmarkPress={
-                    isGuest
-                      ? () => {
-                          pendingSave.current = todaysPick;
-                          setGate("save");
-                        }
-                      : undefined
-                  }
-                />
-              </Animated.View>
-            )}
-
-            <Animated.View entering={enter(1)} className="mb-7">
-              <CravingChips onPick={search.setApplied} />
-            </Animated.View>
-
-            <Animated.View entering={enter(2)} className="mb-6">
-              <MoodSelection onSelectMeal={(meal) => detail.open(meal.id)} />
-            </Animated.View>
-          </>
+          <Animated.View key="moods" entering={enter(2)} exiting={FadeOut.duration(140)} className="mb-6">
+            <MoodSelection onSelectMeal={(meal) => detail.open(meal.id)} />
+          </Animated.View>
         )}
       </ScrollView>
 
@@ -351,13 +406,6 @@ export default function BrowseScreen() {
         overlay={detailOpen ? renderGate("inline") : undefined}
       />
       {!detailOpen && renderGate("modal")}
-
-      <FilterSheet
-        visible={filtersOpen}
-        onClose={() => setFiltersOpen(false)}
-        applied={search.applied}
-        onApply={search.setApplied}
-      />
 
       <Toast toast={toast} onHide={() => setToast(null)} />
       <DailyLimitSheet
