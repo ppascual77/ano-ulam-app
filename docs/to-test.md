@@ -48,6 +48,25 @@ RevenueCat's dashboard hides test data: switch on **Sandbox data** (top right) t
       it; after a first photo post the Food Post tag is gone right away and Pro turns on; after a
       first approved recipe the recipe tag is gone (next time the sheet opens).
 
+## Push notifications (recipe approved)
+
+Needs a new dev build (`expo-notifications` is native) with push set up: answer yes to "Setup Push
+Notifications" when `eas build --profile development --platform ios` asks.
+
+- [ ] **The ask:** submit a recipe as a non-admin account. The review screen shows "Notify me when
+      it's live"; tapping it shows iOS's prompt. Allow: the button turns into "We'll notify you when
+      it's live" and a row appears in `push_tokens` for that account.
+- [ ] **The push, with the reward:** approve that account's first recipe as admin (app in the
+      background). "Your recipe is live! 🎉 … You've earned 7 days of Pro!" arrives; tapping it opens
+      the app and the reward celebration plays.
+- [ ] **Later approvals:** a second approved recipe says "… is now on AnoUlam for everyone to cook."
+- [ ] **App open:** approving while the app is open still shows the banner.
+- [ ] **Settings → Recipe updates:** off, approve another: no push. On again: pushes resume. With
+      notifications refused in iOS Settings, the toggle shows off and turning it on opens iOS Settings.
+- [ ] **Log out:** the phone's `push_tokens` row is gone; another account signing in on the same
+      phone gets its own pushes, not the old account's.
+- [ ] **Refused:** tapping "Don't Allow" hides the button and never asks again.
+
 ## Security lockdown
 
 - [ ] **Profile edits still work:** bio, Settings toggles (show saved, newsletter), preferences,
@@ -97,6 +116,18 @@ RevenueCat's dashboard hides test data: switch on **Sandbox data** (top right) t
       Nov 12" on another day); the week list shows the whole plan (Pro).
 - [ ] **Locked micronutrients** in meal details open the Pro page inside the meal sheet and return
       to the meal when closed.
+
+## Results depth cap (free accounts)
+
+- [ ] **Suggest by Budget:** a group with more than 10 results shows 5, Show More to 10, then the
+      "See every match with Pro" card (+N more); See All lists the same 10. Pro sees everything.
+- [ ] **Browse:** a category row with more than 10 ends in the Pro card; fewer than 10, no card.
+- [ ] **Pantry results:** the first 10 matches (Cook now first), then the Pro row under the list;
+      the summary still says how many were found.
+- [ ] **The card opens the Pro page** titled "See every match"; searches still count once each.
+- [ ] **Blurred peek:** the card shows the next locked meal's photo blurred (carousels: filling the
+      card; Pantry and See All: one thumbnail with a lock), readable text on top, nothing about the
+      meal legible.
 
 ## Home, Profile and Discover polish
 
