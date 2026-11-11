@@ -164,6 +164,20 @@ DA day / week; `price_alert_log` records it).
 - [ ] **Discover tabs**: glass capsule over the reel, white glass on Community, thumb slides, the +
       lines up with it and opens Create in one tap; Community posts scroll under the tabs.
 
+## Pro feature reels (Settings, free account)
+
+- [ ] **Each locked Pro feature opens its reel sheet:** Price drop alerts (a phone lock screen,
+      today's real drops arriving as notifications with a soft tap), Meal plan length (the week
+      filling with real meal photos, "5-day plan" then "7-day plan"), Ingredients to avoid (the
+      chip tapped, meals with it shrinking away, "N meals … hidden"), Nutrition goals (protein and
+      calorie bars filling to the goal line, "Fits your goals" popping on). Each loops smoothly.
+- [ ] **The button** says "Try Pro free for 3 days" (or "Get Pro" after any Pro) and opens the Pro
+      page titled for that feature; "Not now" closes. The content stays while the sheet slides away.
+- [ ] **Reduce motion:** each reel shows its finished frame, no loop, no haptic.
+- [ ] **Settings is otherwise unchanged:** Meal preferences rows (Dietary focus / Food allergies with
+      what's set) open the preferences sheet; the account card shows PRO / Free / Guest only; the
+      Earned Pro card has the days-left bar and the 2×2 "what's included" checklist.
+
 ## Onboarding and preferences
 
 - [ ] **Onboarding:** no goals preselected, no "None" chips, Clear appears once something is

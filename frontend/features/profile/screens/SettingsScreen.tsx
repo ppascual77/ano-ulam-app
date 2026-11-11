@@ -32,13 +32,13 @@ import { useProStore } from "@/frontend/core/pro/store/useProStore";
 import { EarnedProCard, ProPlanCard } from "../components/settings/ProPlanCard";
 import { ManagePlanSheet } from "../components/settings/ManagePlanSheet";
 import { AvoidSummary } from "../components/settings/AvoidSummary";
-import { ProUpgradeSheet } from "@/frontend/core/pro/components/ProUpgradeSheet";
 import { AvoidIngredientsSheet } from "../components/settings/AvoidIngredientsSheet";
 import { MacroGoalSheet } from "@/frontend/core/nutrition/components/MacroGoalSheet";
 import { GOAL_OPTIONS, goalsFromTargets, targetsFromGoals } from "@/frontend/core/nutrition/macros";
 import { DEFAULT_NUTRITION_GOALS } from "@/api/auth";
 import { ProSettingRow } from "../components/settings/ProSettingRow";
 import { PreferencesSheet } from "@/frontend/core/budget/components/PreferencesSheet";
+import { ProFeatureSheet, type ProFeatureKey } from "@/frontend/core/pro/components/ProFeatureSheet";
 import { canReceivePush, enablePush } from "@/frontend/core/notifications/push";
 import { usePushPermission } from "@/frontend/core/notifications/hooks/usePushPermission";
 
@@ -162,8 +162,9 @@ export default function SettingsScreen() {
   // Pro that ended in the last 30 days: shown as Expired, tapping to renew.
   const lapsed = useProStore((s) => s.lapsed);
   const earnedUntil = useProStore((s) => s.earnedUntil);
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [prefsOpen, setPrefsOpen] = useState(false);
+  // A locked Pro feature, tapped: its reel and the way in.
+  const [featureSheet, setFeatureSheet] = useState<ProFeatureKey | null>(null);
   const [proSheet, setProSheet] = useState<ProSettingKey | null>(null);
   const closeProSheet = () => setProSheet(null);
   const [manageOpen, setManageOpen] = useState(false);
@@ -189,7 +190,7 @@ export default function SettingsScreen() {
     if (!openPlan && !(key && PRO_SETTINGS.some((s) => s.key === key))) return;
     const timer = setTimeout(() => {
       if (openPlan) setManageOpen(true);
-      else if (key) (isPro ? setProSheet(key) : setUpgradeOpen(true));
+      else if (key) (isPro ? setProSheet(key) : setFeatureSheet(key));
     }, SCROLL_TO_SECTION_DELAY_MS);
     return () => clearTimeout(timer);
     // Only for a new link.
@@ -326,7 +327,7 @@ export default function SettingsScreen() {
                     onChange={(value) => setPrefs({ ...prefs, planner_defaults: { days: value === "7" ? 7 : 5 } })}
                   />
                 }
-                onPress={() => (isPro ? undefined : setUpgradeOpen(true))}
+                onPress={() => (isPro ? undefined : setFeatureSheet("planLength"))}
               />
               {PRO_SETTINGS.map((setting, index) => (
                 <ProSettingRow
@@ -346,7 +347,7 @@ export default function SettingsScreen() {
                     ) : undefined
                   }
                   locked={!isPro}
-                  onPress={() => (isPro ? setProSheet(setting.key) : setUpgradeOpen(true))}
+                  onPress={() => (isPro ? setProSheet(setting.key) : setFeatureSheet(setting.key))}
                 />
               ))}
               <ProSettingRow
@@ -357,10 +358,7 @@ export default function SettingsScreen() {
                 onPress={() =>
                   isPro
                     ? settingsActions.setPriceAlerts(!(settings.data?.push_price_alerts ?? true))
-                    : router.push({
-                        pathname: "/pro",
-                        params: { title: "Get price drop", highlight: "alerts", subtitle: "Pro tells you the day an ingredient gets cheaper." },
-                      })
+                    : setFeatureSheet("alerts")
                 }
                 toggle={pushOn ? { value: settings.data?.push_price_alerts ?? true, onChange: settingsActions.setPriceAlerts } : undefined}
               />
@@ -532,13 +530,7 @@ export default function SettingsScreen() {
         }
       />
       <ManagePlanSheet visible={manageOpen} onClose={() => setManageOpen(false)} />
-      <ProUpgradeSheet
-        visible={upgradeOpen}
-        title="Make every meal yours"
-        body="Pro tells you when prices drop, hides what you don't eat, plans your week and tracks your goals."
-        onClose={() => setUpgradeOpen(false)}
-        onOpenPro={() => router.push("/pro")}
-      />
+      <ProFeatureSheet feature={featureSheet} onClose={() => setFeatureSheet(null)} />
       <PreferencesSheet
         visible={prefsOpen}
         onClose={() => setPrefsOpen(false)}
