@@ -42,10 +42,10 @@ export function PriceRow({ item, onPress, title, delay, last = false }: PriceRow
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${title ?? item.name}, ${formatPeso(item.latestPrice)} ${unitSuffix(item)}, ${changeLabel(item.pctChange)}`}
-      className={`flex-row items-center gap-3 py-2.5 active:opacity-70 ${last ? "" : "border-b border-ink-emphasis/5"}`}
+      className={`flex-row items-center gap-4 py-4 active:opacity-70 ${last ? "" : "border-b border-ink-emphasis/5"}`}
     >
       <PriceSparkline item={item} delay={delay} />
-      <View className="min-w-0 flex-1">
+      <View className="min-w-0 flex-1 gap-0.5">
         <Text numberOfLines={1} className="font-inter-semibold text-body text-ink-emphasis">
           {title ?? item.name}
         </Text>
@@ -55,7 +55,7 @@ export function PriceRow({ item, onPress, title, delay, last = false }: PriceRow
           </Text>
         )}
       </View>
-      <View className="items-end gap-1">
+      <View className="items-end gap-1.5">
         <Text className="font-inter-extrabold text-body text-ink-emphasis">
           {formatPeso(item.latestPrice)}
           <Text className="font-inter-medium text-sub text-ink-subtle">{unitSuffix(item)}</Text>

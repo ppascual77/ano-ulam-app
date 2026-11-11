@@ -148,7 +148,8 @@ function CategorySectionInner({ items, loading, category, onCategory, onSelect, 
             }}
           />
 
-          <View key={`${current}-${shownTab}`}>
+          {/* Inset from the cards and tabs above, so the rows breathe. */}
+          <View key={`${current}-${shownTab}`} className="mx-2 my-1">
             {rows.map((item, i) => (
               <Animated.View key={item.id} entering={enter(i)}>
                 <PriceRow item={item} onPress={() => onSelect(item)} delay={reduce ? 0 : 120 + i * 55} last={i === rows.length - 1} />
