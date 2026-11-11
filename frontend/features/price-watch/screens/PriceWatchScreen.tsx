@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { useWindowDimensions, View, type ScrollViewInstance } from "react-native";
+import { View, type ScrollViewInstance } from "react-native";
 // Gesture handler's ScrollView (and RefreshControl), not React Native's: the
 // fresh picks carousel pages with a gesture-handler pan, and inside RN's
 // ScrollView the scroll view's native pan took the touch on the phone, so
@@ -25,29 +25,26 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { pickFreshPicks, type PriceCategory, type PriceItem } from "@/frontend/core/prices/utils/prices";
 import { FRESH_PICKS_COUNT, FreshPicksSection } from "../components/FreshPicksSection";
-import { CategoryGrid } from "../components/CategoryGrid";
-import { PriceListSection } from "../components/PriceListSection";
+import { CategorySection } from "../components/CategorySection";
+import { PriceListSheet } from "../components/PriceListSheet";
 import { PriceWatchIntro } from "../components/PriceWatchIntro";
 import { PriceDetailSheet } from "../components/PriceDetailSheet";
 import { PriceDisclaimer } from "../components/PriceDisclaimer";
 import { MarketsSheet } from "../components/MarketsSheet";
-import { priceWatchCategories } from "../constants/categories";
 
 // DA's daily prices (Admin → DA Daily Prices), compared week over week:
-// fresh picks, best value meals, and every commodity by category.
+// fresh picks, best value meals, and each category's week (the full list,
+// and search, in a sheet).
 // Plays the "Straight from the Department of Agriculture" intro on moving to Price Watch.
 // TODO: gate this behind a first-time-user flag (the auto tour), e.g. a
 // stored "seen" flag, instead of always.
 const SHOW_INTRO = true;
 
-// Breathing room above the list section when search scrolls it to the top.
-const SEARCH_TOP_GAP = 12;
 
 
 export default function PriceWatchScreen() {
   const items = usePriceItems();
-  const [category, setCategory] = useState<PriceCategory | null>("meat");
-  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<PriceCategory>("meat");
   // The intro, replayed on every visit to the tab (see usePageIntro). The
   // header's dot stays hidden until the intro's dot lands on it. Leaving the
   // tab puts the header back at the top, ready for the next landing.
@@ -59,21 +56,19 @@ export default function PriceWatchScreen() {
     onArm: () => scrollRef.current?.scrollTo({ y: 0, animated: false }),
     onFinish: introOnce.markSeen,
   });
-  const [searchFocused, setSearchFocused] = useState(false);
-  const searching = searchFocused || search.trim() !== "";
   const scrollRef = useRef<ScrollViewInstance>(null);
-  const { height: windowHeight } = useWindowDimensions();
-  // Where the "All" list section starts in the scroll content.
-  const [listY, setListY] = useState(0);
 
   // Stable callbacks, so the memoized sections below don't re-render for
   // them (each section is memo()'d: re-rendering them all made switching to
   // this tab cost ~150-200ms).
   const openMarkets = useCallback(() => setMarketsOpen(true), []);
-  const toggleSort = useCallback(() => setSortByDrop((v) => !v), []);
-  const blurSearch = useCallback(() => setSearchFocused(false), []);
-  const [sortByDrop, setSortByDrop] = useState(true);
   const [selected, setSelected] = useState<PriceItem | null>(null);
+  // The full list (a category's, or every category's to search). A row
+  // picked there opens its detail only once the list has closed (two
+  // sheets can't stack), like the meal hand-off below.
+  const [listScope, setListScope] = useState<PriceCategory | "all" | null>(null);
+  const [pendingItem, setPendingItem] = useState<PriceItem | null>(null);
+  const openList = useCallback((scope: PriceCategory | "all") => setListScope(scope), []);
   const [marketsOpen, setMarketsOpen] = useState(false);
   // Meal Details is its own Modal: opened only after the detail sheet has
   // fully closed (see BottomSheet's onClosed), never on top of it.
@@ -84,23 +79,6 @@ export default function PriceWatchScreen() {
   const picks = useMemo(() => pickFreshPicks(all, FRESH_PICKS_COUNT), [all]);
   // Latest DA publish date across all commodities, for the source chip.
   const asOf = useMemo(() => all.reduce<string | undefined>((max, i) => (!max || i.latestDate > max ? i.latestDate : max), undefined), [all]);
-
-  const q = search.trim().toLowerCase();
-  const listed = useMemo(() => {
-    const filtered = all.filter((i) =>
-      q ? `${i.name} ${i.specification}`.toLowerCase().includes(q) : !category || i.category === category,
-    );
-    // Biggest drop first; no change data counts as 0. Off: A–Z (query order).
-    return sortByDrop ? [...filtered].sort((a, b) => (a.pctChange ?? 0) - (b.pctChange ?? 0)) : filtered;
-  }, [all, q, category, sortByDrop]);
-
-  // Searching covers every category.
-  const handleSearch = useCallback((text: string) => {
-    setSearch(text);
-    if (text.trim()) setCategory(null);
-  }, []);
-
-  const title = q || !category ? "All" : priceWatchCategories.find((c) => c.id === category)!.label;
 
   // Where the source chip ends: the green header covers up to it.
   const [headerBottom, setHeaderBottom] = useState<number | null>(null);
@@ -123,14 +101,6 @@ export default function PriceWatchScreen() {
     forceDark: intro.showing,
     clearUntil: (headerBottom ?? 190) * TAB_HEADER_CURVES.splitAt - 24,
   });
-  // Focusing search parks its section (title, sort chip, search box) at the
-  // top of the screen, below the status bar strip, and the min height below
-  // keeps it there as you type.
-  const handleSearchFocus = useCallback(() => {
-    setSearchFocused(true);
-    scrollRef.current?.scrollTo({ y: Math.max(0, listY - SEARCH_TOP_GAP - statusBar.top), animated: true });
-  }, [listY, statusBar.top]);
-
   return (
     // No top edge: the content scrolls under the status bar (behind
     // statusBar.strip), starting below it.
@@ -184,28 +154,13 @@ export default function PriceWatchScreen() {
         </View>
 
         <View className="mt-6">
-          <CategoryGrid selected={category} onSelect={setCategory} />
-        </View>
-
-        {/* While searching, at least a screen tall: filtering shrinks the
-            list, and a page shorter than the scroll position would make
-            the ScrollView jump back up. */}
-        <View
-          className="mt-6"
-          onLayout={(e) => setListY(e.nativeEvent.layout.y)}
-          style={searching ? { minHeight: windowHeight } : undefined}
-        >
-          <PriceListSection
-            title={title}
-            items={listed}
+          <CategorySection
+            items={all}
             loading={items.isLoading}
-            search={search}
-            onSearch={handleSearch}
-            sortByDrop={sortByDrop}
-            onToggleSort={toggleSort}
+            category={category}
+            onCategory={setCategory}
             onSelect={setSelected}
-            onSearchFocus={handleSearchFocus}
-            onSearchBlur={blurSearch}
+            onSeeAll={openList}
           />
         </View>
       </ScrollView>
@@ -221,6 +176,21 @@ export default function PriceWatchScreen() {
           if (pendingMeal) {
             setMeal(pendingMeal);
             setPendingMeal(null);
+          }
+        }}
+      />
+      <PriceListSheet
+        scope={listScope}
+        items={all}
+        onClose={() => setListScope(null)}
+        onSelect={(item) => {
+          setPendingItem(item);
+          setListScope(null);
+        }}
+        onClosed={() => {
+          if (pendingItem) {
+            setSelected(pendingItem);
+            setPendingItem(null);
           }
         }}
       />
