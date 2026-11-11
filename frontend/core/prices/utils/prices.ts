@@ -31,13 +31,17 @@ export type PriceItem = {
   pctChange: number | null;
 };
 
-// DA section header → category. Eggs sit under POULTRY PRODUCTS in the PDF.
+// DA section header → category. Eggs sat under POULTRY PRODUCTS in the PDF
+// (their own EGG section since Nov 2026), so they go by name first.
 export function categoryFor(section: string | null, commodity: string): PriceCategory {
   if (/\begg\b/i.test(commodity)) return "eggs";
   const s = (section ?? "").toUpperCase();
   if (/RICE|CORN/.test(s)) return "grains";
   if (/FISH/.test(s)) return "fish";
-  if (/MEAT|POULTRY|LIVESTOCK/.test(s)) return "meat";
+  // DA's sections until Oct 2026 ("PORK MEAT PRODUCTS", "POULTRY …"), and
+  // since Nov 2026 the plain animal ("CHICKEN", "PORK", "BEEF", "BUFFALO",
+  // "DUCK", and their "… OFFALS").
+  if (/MEAT|POULTRY|LIVESTOCK|CHICKEN|PORK|BEEF|BUFFALO|CARABEEF|DUCK|OFFAL/.test(s)) return "meat";
   if (/VEGETABLE|LEGUME/.test(s)) return "vegetables";
   if (/FRUIT/.test(s)) return "fruits";
   if (/SPICE/.test(s)) return "spices";
