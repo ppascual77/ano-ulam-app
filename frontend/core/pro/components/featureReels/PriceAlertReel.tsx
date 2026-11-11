@@ -6,7 +6,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming } from "react-native-reanimated";
 import { colors } from "@/frontend/constants/theme";
 import { usePriceItems } from "@/frontend/core/prices/hooks/usePriceItems";
-import { commodityShortName } from "@/frontend/core/prices/hooks/useBiggestPriceDrop";
 import { REEL_HEIGHT, useReelTick } from "./useReelTick";
 
 // One notification's turn: drop in, rest, lift away.
@@ -17,25 +16,56 @@ const OFF = -120;
 
 type Drop = { title: string; body: string };
 
-// Today's real drops, so the reel is the actual product; a sample before
-// prices load (or on a day with none).
+// Everyday palengke staples only, under the names people use (DA's own are
+// "Roundscad (Galunggong)", "Feet (Paa/Adidas)"…): the reel should read as
+// "that's what I buy", never an odd cut.
+const STAPLES: [RegExp, string][] = [
+  [/^tilapia/i, "Tilapia"],
+  [/^milkfish|bangus/i, "Bangus"],
+  [/galunggong/i, "Galunggong"],
+  [/^red onion/i, "Red onion"],
+  [/^white onion/i, "White onion"],
+  [/^garlic/i, "Garlic"],
+  [/^tomato/i, "Tomato"],
+  [/^cabbage/i, "Cabbage"],
+  [/^carrot/i, "Carrots"],
+  [/^white potato/i, "Potato"],
+  [/^eggplant/i, "Eggplant"],
+  [/ampalaya/i, "Ampalaya"],
+  [/^whole chicken/i, "Whole chicken"],
+  [/^chicken egg/i, "Eggs"],
+];
+const stapleName = (name: string) => STAPLES.find(([re]) => re.test(name))?.[1] ?? null;
+
+// Today's real drops among the staples (one per staple), so the reel is the
+// actual product; a sample before prices load or on a day with none.
 const SAMPLE: Drop[] = [
   { title: "🔻 Tilapia is 12% cheaper", body: "Now ₱140/kg, down from ₱159 a week ago." },
-  { title: "🔻 Red Onion is 18% cheaper", body: "Now ₱104/kg, down from ₱127 a week ago." },
+  { title: "🔻 Red onion is 18% cheaper", body: "Now ₱104/kg, down from ₱127 a week ago." },
+  { title: "🔻 Galunggong is 9% cheaper", body: "Now ₱280/kg, down from ₱307 a week ago." },
 ];
 
 function useDrops(): Drop[] {
   const { data } = usePriceItems();
   return useMemo(() => {
+    const seen = new Set<string>();
     const drops = (data ?? [])
-      .filter((i) => i.pctChange != null && i.pctChange <= -5 && i.weekAgoPrice != null)
+      .filter((i) => i.pctChange != null && i.pctChange <= -3 && i.weekAgoPrice != null && stapleName(i.name))
       .sort((a, b) => (a.pctChange ?? 0) - (b.pctChange ?? 0))
+      .filter((i) => {
+        const name = stapleName(i.name)!;
+        if (seen.has(name)) return false;
+        seen.add(name);
+        return true;
+      })
       .slice(0, 3)
       .map((i) => ({
-        title: `🔻 ${commodityShortName(i)} is ${Math.round(Math.abs(i.pctChange ?? 0))}% cheaper`,
+        title: `🔻 ${stapleName(i.name)} is ${Math.round(Math.abs(i.pctChange ?? 0))}% cheaper`,
         body: `Now ₱${Math.round(i.latestPrice)}/${i.unit === "piece" ? "pc" : i.unit}, down from ₱${Math.round(i.weekAgoPrice ?? 0)} a week ago.`,
       }));
-    return drops.length > 0 ? drops : SAMPLE;
+    // A real drop or two, topped up with samples so the reel always has a
+    // few to cycle through.
+    return [...drops, ...SAMPLE.filter((d) => !drops.some((x) => x.title.split(" is ")[0] === d.title.split(" is ")[0]))].slice(0, 3);
   }, [data]);
 }
 
