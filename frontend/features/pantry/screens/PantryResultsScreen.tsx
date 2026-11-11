@@ -1,10 +1,11 @@
-import { useEffect, useMemo } from "react";
-import { Pressable, SectionList, StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Image } from "expo-image";
-import Animated, { Easing, FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
-import { ArrowLeft, Bookmark, ChevronRight, Clock, Flame, ShoppingBag, ShoppingCart, UtensilsCrossed } from "lucide-react-native";
-import { AppText, LoadingState, Screen } from "@/frontend/components/ui";
+import * as Haptics from "expo-haptics";
+import Animated, { Easing, FadeIn, FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
+import { ArrowLeft, Bookmark, Check, Plus } from "lucide-react-native";
+import { AppText, LoadingState, Screen, SegmentedSwitch } from "@/frontend/components/ui";
 import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
 import { colors } from "@/frontend/constants/theme";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
@@ -12,76 +13,103 @@ import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
 import { useRealMeals } from "@/frontend/core/meals/hooks/useRealMeals";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
-import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
-import { usePantryMatches, type MatchTier, type PantryMealMatch } from "@/frontend/core/pantry/hooks/usePantryMatches";
+import { usePantry, usePantryActions } from "@/frontend/core/pantry/hooks/usePantry";
+import {
+  usePantryMatches,
+  type MatchTier,
+  type MissingIngredient,
+  type PantryMealMatch,
+} from "@/frontend/core/pantry/hooks/usePantryMatches";
+import { TIER_COLOR } from "@/frontend/core/pantry/components/PantryMatchCard";
+import { pantryName, pantryNameLower } from "@/frontend/core/pantry/pantryName";
+import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { formatMealPrice } from "@/frontend/core/prices/utils/prices";
 import { SeeAllMatchesCard } from "@/frontend/core/pro/components/SeeAllMatchesCard";
 import { FREE_RESULTS_CAP } from "@/frontend/core/pro/proContent";
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 
-// Motion: sections land in order (Cook now first), cards slide up one after
-// another within that order, then each card's ingredient bar fills to how
-// much of the meal you have. No bounce here: springs are kept for
-// selection moments (tabs, toggles).
-const CARD_STAGGER_MS = 60;
-const CARD_STAGGER_CAP = 10; // cards past this land together, not seconds later
-const BAR_START_MS = 220; // after the card lands
-const BAR_FILL_MS = 600;
+const ROW_STAGGER_MS = 50;
+const ROW_STAGGER_CAP = 8;
 const MISSING_SHOWN = 3;
-const PHOTO_WIDTH = 116;
-const PHOTO_MIN_HEIGHT = 130;
+// Past this many ingredients the dots get too small to count: "7 of 12" alone.
+const MAX_DOTS = 12;
+const PHOTO = 84;
+// How long a tapped "+ kangkong" shows its check before the meal moves.
+const HAVE_IT_MS = 650;
+const EASE = Easing.out(Easing.cubic);
 
-const SECTIONS: { tier: MatchTier; title: string; blurb: string }[] = [
-  { tier: "cookNow", title: "Cook now", blurb: "You have everything, or just a basic or two" },
-  { tier: "almost", title: "Almost there", blurb: "Missing one or two ingredients" },
-  { tier: "trip", title: "Worth a palengke trip", blurb: "You'll need a few more things" },
+const TABS: { tier: MatchTier; label: string; blurb: string }[] = [
+  { tier: "cookNow", label: "Cook now", blurb: "You have everything, or just a basic or two." },
+  { tier: "almost", label: "Almost", blurb: "Missing one or two things. Have one? Tap it." },
+  { tier: "trip", label: "Need a trip", blurb: "Worth a palengke trip. Tap anything you already have." },
 ];
 
 type Row = { match: PantryMealMatch; meal: MealType; order: number };
 
-// "See meals": every catalog meal that uses something in the pantry, grouped
-// by how ready it is to cook, each naming what's missing. Reads the shared
-// pantry directly, so it's current whether opened from Home or Profile.
+// "See what to cook": every catalog meal that uses something in the pantry,
+// in tabs by how ready it is (Cook now / Almost / Need a trip), each row
+// showing how much you have and what's missing. Tapping a missing chip adds
+// it to the pantry ("I have it"), and the meal moves to the tab it now fits.
+// Reads the shared pantry directly, so it's current from Home or Profile.
 export default function PantryResultsScreen() {
   const { data: pantry = [] } = usePantry();
-  const { matchedMeals, averageMatch, results, isLoading: matching } = usePantryMatches(pantry);
+  const pantryActions = usePantryActions();
+  const { results, tierCounts, isLoading: matching } = usePantryMatches(pantry);
   const { data: meals, isLoading: loadingMeals } = useRealMeals();
   const detail = useMealDetail();
-  // The bookmark saves the meal; its feedback (flight to Profile, toasts)
-  // comes from the saved actions.
   const savedMeals = useSavedMealActions();
-  const toggleSave = (meal: MealType) => void savedMeals.toggle(meal);
+  const reduce = useReduceMotion();
 
-  // Matches paired with their meal's card info, split into readiness
-  // sections. `order` runs across sections, for the landing stagger.
-  // A free account sees the first FREE_RESULTS_CAP matches (best sections
-  // first), then a "See every match with Pro" row under the list.
+  // A free account sees the first FREE_RESULTS_CAP matches (readiest
+  // first, across tabs); the rest sit behind the Pro row at a tab's end.
   const isPro = useIsPro();
-  const { sections, hiddenCount, preview } = useMemo(() => {
+  const { byTier, hiddenByTier, preview } = useMemo(() => {
     const byId = new Map((meals ?? []).map((m) => [m.id, m]));
-    let order = 0;
-    const all = SECTIONS.map((s) => ({
-      ...s,
-      data: results.flatMap((match): Row[] => {
-        if (match.tier !== s.tier) return [];
-        const meal = byId.get(match.mealId);
-        return meal ? [{ match, meal, order: 0 }] : [];
-      }),
-    }))
-      .filter((s) => s.data.length > 0)
-      .map((s) => ({ ...s, data: s.data.map((row) => ({ ...row, order: order++ })) }));
-    if (isPro) return { sections: all, hiddenCount: 0, preview: [] };
-    const shown = all
-      .map((s) => ({ ...s, data: s.data.filter((row) => row.order < FREE_RESULTS_CAP) }))
-      .filter((s) => s.data.length > 0);
-    // The first locked matches, for the Pro row's blurred peek.
-    const preview = all.flatMap((s) => s.data).filter((row) => row.order >= FREE_RESULTS_CAP).slice(0, 3).map((row) => row.meal);
-    return { sections: shown, hiddenCount: Math.max(0, order - FREE_RESULTS_CAP), preview };
+    const ordered: Row[] = [];
+    for (const t of TABS) {
+      for (const match of results) {
+        const meal = match.tier === t.tier ? byId.get(match.mealId) : undefined;
+        if (meal) ordered.push({ match, meal, order: ordered.length });
+      }
+    }
+    const visible = isPro ? ordered : ordered.filter((r) => r.order < FREE_RESULTS_CAP);
+    const hidden = isPro ? [] : ordered.filter((r) => r.order >= FREE_RESULTS_CAP);
+    const group = (rows: Row[]) =>
+      Object.fromEntries(TABS.map((t) => [t.tier, rows.filter((r) => r.match.tier === t.tier)])) as Record<MatchTier, Row[]>;
+    return { byTier: group(visible), hiddenByTier: group(hidden), preview: hidden.slice(0, 3).map((r) => r.meal) };
   }, [results, meals, isPro]);
+
+  // Opens on the readiest tab with anything in it.
+  const firstTab = TABS.find((t) => tierCounts[t.tier] > 0)?.tier ?? "cookNow";
+  const [tab, setTab] = useState<MatchTier | null>(null);
+  const current = tab ?? firstTab;
+  const tabInfo = TABS.find((t) => t.tier === current)!;
+  const rows = byTier[current];
+  const hiddenHere = hiddenByTier[current].length;
+
+  // "I have it": the chip shows its check, then the ingredient joins the
+  // pantry and the meal re-sorts into the tab it now fits.
+  const [justAdded, setJustAdded] = useState<Set<string>>(new Set());
+  const haveIt = (ing: MissingIngredient) => {
+    void Haptics.selectionAsync();
+    setJustAdded((prev) => new Set(prev).add(ing.id));
+    setTimeout(
+      () => {
+        pantryActions.add({ id: ing.id, name: ing.name });
+        void pantryActions.persist();
+        setJustAdded((prev) => {
+          const next = new Set(prev);
+          next.delete(ing.id);
+          return next;
+        });
+      },
+      reduce ? 0 : HAVE_IT_MS,
+    );
+  };
 
   return (
     <Screen padded={false}>
-      <View className="flex-row items-start gap-3 border-b border-ink-emphasis/10 px-5 pb-3 pt-2">
+      <View className="flex-row items-start gap-3 px-5 pb-3 pt-2">
         <Pressable onPress={() => router.back()} hitSlop={10} className="h-8 justify-center" accessibilityLabel="Back">
           <ArrowLeft color={colors.ink.emphasis} size={20} />
         </Pressable>
@@ -90,54 +118,68 @@ export default function PantryResultsScreen() {
             Meals you can cook
           </AppText>
           <Text className="mt-0.5 font-inter-regular text-body text-ink-subtle">
-            Based on {pantry.length} ingredient{pantry.length === 1 ? "" : "s"} in your pantry
+            From {pantry.length} ingredient{pantry.length === 1 ? "" : "s"} in your pantry
           </Text>
         </View>
       </View>
 
       {matching || loadingMeals ? (
         <LoadingState label="Finding meals…" />
+      ) : results.length === 0 ? (
+        <Text className="px-5 py-10 text-center font-inter-regular text-body text-ink-subtle">
+          No meals use these ingredients yet. Try adding a few more.
+        </Text>
       ) : (
-        <SectionList
-          sections={sections}
-          keyExtractor={(row) => row.match.mealId}
-          stickySectionHeadersEnabled={false}
-          contentContainerClassName="px-5 pb-10 pt-4"
-          ListHeaderComponent={<Summary found={matchedMeals} averageMatch={averageMatch} />}
-          ListFooterComponent={hiddenCount > 0 ? <SeeAllMatchesCard hiddenCount={hiddenCount} preview={preview} variant="row" /> : undefined}
-          ListEmptyComponent={
-            <Text className="py-10 text-center font-inter-regular text-body text-ink-subtle">
-              No meals use these ingredients yet. Try adding a few more.
-            </Text>
-          }
-          renderSectionHeader={({ section }) => (
-            <Animated.View entering={FadeInDown.delay(stagger(section.data[0].order)).duration(300)}>
-              <View className="mb-2 mt-5">
-                <View className="flex-row items-center gap-2">
-                  <AppText variant="sectionSubtitle" dot>
-                    {section.title}
-                  </AppText>
-                  <View className="rounded-full bg-primary/10 px-2 py-0.5">
-                    <Text className="font-inter-semibold text-small text-primary">{section.data.length}</Text>
-                  </View>
+        <>
+          <View className="px-5">
+            <SegmentedSwitch
+              size="md"
+              options={TABS.map((t) => ({ value: t.tier, label: `${t.label} ${tierCounts[t.tier]}` }))}
+              value={current}
+              onChange={(t) => {
+                void Haptics.selectionAsync();
+                setTab(t);
+              }}
+            />
+            <Text className="mt-3 font-inter-regular text-small text-ink-subtle">{tabInfo.blurb}</Text>
+          </View>
+          <FlatList
+            key={current}
+            data={rows}
+            keyExtractor={(row) => row.match.mealId}
+            contentContainerClassName="px-5 pb-10 pt-1"
+            ListEmptyComponent={
+              <Text className="py-10 text-center font-inter-regular text-body text-ink-subtle">
+                {hiddenHere > 0 ? "" : "Nothing here yet."}
+              </Text>
+            }
+            ListFooterComponent={
+              hiddenHere > 0 ? (
+                <View className="mt-3">
+                  <SeeAllMatchesCard hiddenCount={hiddenHere} preview={preview} variant="row" />
                 </View>
-                <Text className="mt-0.5 font-inter-regular text-body text-ink-subtle">{section.blurb}</Text>
-              </View>
-            </Animated.View>
-          )}
-          renderItem={({ item }) => (
-            <View className="mb-3">
-              <MatchCard
-                meal={item.meal}
-                match={item.match}
-                delay={stagger(item.order)}
-                saved={!!savedMeals.savedFor(item.meal)}
-                onToggleSave={() => toggleSave(item.meal)}
-                onPress={() => detail.open(item.meal.id)}
-              />
-            </View>
-          )}
-        />
+              ) : undefined
+            }
+            renderItem={({ item, index }) => (
+              <Animated.View
+                entering={reduce ? FadeIn.duration(150) : FadeInDown.delay(Math.min(index, ROW_STAGGER_CAP) * ROW_STAGGER_MS).duration(300).easing(EASE)}
+                exiting={reduce ? undefined : FadeOut.duration(220)}
+                layout={reduce ? undefined : LinearTransition.duration(240)}
+              >
+                <MatchRow
+                  meal={item.meal}
+                  match={item.match}
+                  last={index === rows.length - 1 && hiddenHere === 0}
+                  saved={!!savedMeals.savedFor(item.meal)}
+                  justAdded={justAdded}
+                  onToggleSave={() => void savedMeals.toggle(item.meal)}
+                  onHaveIt={haveIt}
+                  onPress={() => detail.open(item.meal.id)}
+                />
+              </Animated.View>
+            )}
+          />
+        </>
       )}
 
       <MealDetailSheet meal={detail.meal} onClose={detail.close} />
@@ -145,161 +187,114 @@ export default function PantryResultsScreen() {
   );
 }
 
-const stagger = (order: number) => Math.min(order, CARD_STAGGER_CAP) * CARD_STAGGER_MS;
-
-function Summary({ found, averageMatch }: { found: number; averageMatch: number }) {
-  return (
-    <View className="flex-row items-center gap-3 rounded-2xl border border-ink-emphasis/10 bg-white p-4">
-      <View className="h-11 w-11 items-center justify-center rounded-xl bg-mood-bg">
-        <UtensilsCrossed color={colors.primary} size={20} />
-      </View>
-      <View className="flex-1">
-        <Text className="font-inter-bold text-subheading text-ink-emphasis">
-          {found} meal{found === 1 ? "" : "s"} found
-        </Text>
-        <Text className="mt-0.5 font-inter-regular text-body text-ink-subtle">Great! You can make these with what you have.</Text>
-      </View>
-      <View className="items-end">
-        <Text className="font-inter-extrabold text-heading text-primary">{averageMatch}%</Text>
-        <Text className="font-inter-regular text-small text-ink-subtle">Average match</Text>
-      </View>
-    </View>
-  );
-}
-
-// How much of the meal you have: a bar that fills (after the card lands) to
-// have / total.
-function IngredientBar({ have, need, delay }: { have: number; need: number; delay: number }) {
+// How much of the meal you have, one dot per ingredient: filled for what's
+// in your pantry, hollow for what's missing.
+function Dots({ have, need }: { have: number; need: number }) {
   const total = have + need;
-  const fill = useSharedValue(0);
-  useEffect(() => {
-    fill.value = withDelay(delay + BAR_START_MS, withTiming(have / total, { duration: BAR_FILL_MS, easing: Easing.out(Easing.cubic) }));
-  }, [have, total]);
-  const fillStyle = useAnimatedStyle(() => ({ width: `${fill.value * 100}%` }));
   return (
-    <View className="h-2 flex-1 overflow-hidden rounded-full bg-primary/15">
-      {/* Plain style on the animated fill (NativeWind can knock out
-          Reanimated's animated values). */}
-      <Animated.View style={[{ height: "100%", borderRadius: 999, backgroundColor: colors.primary }, fillStyle]} />
-    </View>
-  );
-}
-
-// "Onion, red, raw" -> "onion": the part before the first comma, lowercased.
-const shortName = (name: string) => name.split(",")[0].trim().toLowerCase();
-
-// "Need: pineapple, potatoes, carrots" then "+5 more ›" (opens the meal).
-function MissingLine({ missing, onMore }: { missing: PantryMealMatch["missing"]; onMore: () => void }) {
-  if (missing.length === 0) {
-    return <Text className="font-inter-semibold text-small text-primary">You have everything</Text>;
-  }
-  const names = missing.slice(0, MISSING_SHOWN).map((m) => shortName(m.name));
-  const more = missing.length - names.length;
-  return (
-    <View>
-      <Text numberOfLines={2} className="font-inter-regular text-small text-ink-subtle">
-        <Text className="font-inter-semibold text-ink-emphasis">Need: </Text>
-        {names.join(", ")}
+    <View className="flex-row items-center gap-1">
+      {total <= MAX_DOTS &&
+        Array.from({ length: total }).map((_, i) => (
+          <View
+            key={i}
+            style={{
+              width: 9,
+              height: 9,
+              borderRadius: 5,
+              backgroundColor: i < have ? colors.primary : colors.white,
+              borderWidth: i < have ? 0 : 1.5,
+              borderColor: colors.accent,
+            }}
+          />
+        ))}
+      <Text className={`font-inter-semibold text-sub text-ink-subtle ${total <= MAX_DOTS ? "ml-1.5" : ""}`}>
+        {have} of {total}
       </Text>
-      {more > 0 && (
-        <Pressable onPress={onMore} hitSlop={6} className="mt-0.5 flex-row items-center gap-0.5 self-start">
-          <Text className="font-inter-medium text-small text-ink-subtle">+{more} more</Text>
-          <ChevronRight color={colors.ink.subtle} size={13} />
-        </Pressable>
-      )}
     </View>
   );
 }
 
-// Small tinted count chip: "5 in pantry" / "3 to buy".
-function CountChip({ icon, label, tone }: { icon: React.ReactNode; label: string; tone: "have" | "buy" }) {
-  return (
-    <View className={`flex-row items-center gap-1.5 rounded-lg px-2.5 py-1.5 ${tone === "have" ? "bg-tinted-bg" : "bg-category-breakfast"}`}>
-      {icon}
-      <Text className={`font-inter-semibold text-small ${tone === "have" ? "text-primary" : "text-accent"}`}>{label}</Text>
-    </View>
-  );
-}
-
-function MatchCard({
+function MatchRow({
   meal,
   match,
-  delay,
+  last,
   saved,
+  justAdded,
   onToggleSave,
+  onHaveIt,
   onPress,
 }: {
   meal: MealType;
   match: PantryMealMatch;
-  delay: number;
+  last: boolean;
   saved: boolean;
+  justAdded: Set<string>;
   onToggleSave: () => void;
+  onHaveIt: (ing: MissingIngredient) => void;
   onPress: () => void;
 }) {
-  const total = match.have + match.need;
+  const shown = match.missing.slice(0, MISSING_SHOWN);
+  const more = match.missing.length - shown.length;
   return (
-    <Animated.View entering={FadeInDown.delay(delay).duration(300)}>
-      <Pressable
-        onPress={onPress}
-        accessibilityLabel={`${meal.name}, ${match.percent}% match${match.missing.length ? `, need ${match.missing.map((m) => shortName(m.name)).join(", ")}` : ""}`}
-        className="flex-row gap-3 rounded-3xl border border-ink-emphasis/10 bg-white p-2.5 active:opacity-90"
-      >
-        {/* Photo fills the card's height, with the price on it. Absolutely
-            positioned so the text column sets the height, not the image's
-            own (huge) intrinsic size. */}
-        <View style={{ width: PHOTO_WIDTH, minHeight: PHOTO_MIN_HEIGHT }} className="overflow-hidden rounded-2xl bg-ink-emphasis/5">
-          <Image source={resolveMealImage(meal)} style={StyleSheet.absoluteFill} contentFit="cover" />
-          <View className="absolute bottom-2 left-2 rounded-full bg-ink-emphasis/75 px-2 py-1">
-            <Text className="font-inter-extrabold text-small text-white">
-              {formatMealPrice(meal.price, meal.buffer_price)}
-            </Text>
-          </View>
+    <Pressable
+      onPress={onPress}
+      accessibilityLabel={`${meal.name}, ${match.have} of ${match.have + match.need} ingredients${
+        match.missing.length ? `, need ${match.missing.map((m) => pantryNameLower(m.name)).join(", ")}` : ""
+      }`}
+      className={`flex-row gap-3 py-3 active:opacity-80 ${last ? "" : "border-b border-ink-emphasis/5"}`}
+    >
+      <View style={{ width: PHOTO, height: PHOTO }} className="overflow-hidden rounded-2xl bg-ink-emphasis/5">
+        <Image source={resolveMealImage(meal)} style={StyleSheet.absoluteFill} contentFit="cover" />
+        <View className="absolute bottom-1.5 left-1.5 rounded-full bg-ink-emphasis/75 px-2 py-0.5">
+          <Text className="font-inter-extrabold text-sub text-white">{formatMealPrice(meal.price, meal.buffer_price)}</Text>
         </View>
+      </View>
 
-        <View className="flex-1 gap-2 py-1 pr-1">
-          <View className="flex-row items-start gap-2">
-            <Text numberOfLines={2} className="flex-1 font-inter-bold text-body-lg text-ink-emphasis">
-              {meal.name}
+      <View className="min-w-0 flex-1 gap-2">
+        <View className="flex-row items-start gap-2">
+          <Text numberOfLines={2} className="flex-1 font-inter-bold text-body-lg text-ink-emphasis">
+            {meal.name}
+          </Text>
+          <Pressable onPress={onToggleSave} hitSlop={10} accessibilityLabel={saved ? `Unsave ${meal.name}` : `Save ${meal.name}`}>
+            <Bookmark color={colors.primary} fill={saved ? colors.primary : "none"} size={20} />
+          </Pressable>
+        </View>
+        <Dots have={match.have} need={match.need} />
+        {match.missing.length === 0 ? (
+          <View className="flex-row items-center gap-1">
+            <Check color={TIER_COLOR.cookNow} size={14} strokeWidth={3} />
+            <Text className="font-inter-bold text-small" style={{ color: TIER_COLOR.cookNow }}>
+              You have everything
             </Text>
-            <Pressable onPress={onToggleSave} hitSlop={10} accessibilityLabel={saved ? `Unsave ${meal.name}` : `Save ${meal.name}`}>
-              <Bookmark color={colors.primary} fill={saved ? colors.primary : "none"} size={20} />
-            </Pressable>
           </View>
-
-          <View className="flex-row items-center gap-2">
-            <IngredientBar have={match.have} need={match.need} delay={delay} />
-            <View className="items-end">
-              <Text className="font-inter-extrabold text-subheading text-primary">{match.percent}%</Text>
-              <Text className="font-inter-regular text-small text-ink-subtle">
-                {match.have} of {total}
-              </Text>
-            </View>
-          </View>
-
-          <MissingLine missing={match.missing} onMore={onPress} />
-
-          <View className="flex-row flex-wrap gap-2">
-            <CountChip icon={<ShoppingCart color={colors.primary} size={13} />} label={`${match.have} in pantry`} tone="have" />
-            {match.need > 0 && <CountChip icon={<ShoppingBag color={colors.accent} size={13} />} label={`${match.need} to buy`} tone="buy" />}
-          </View>
-
-          <View className="flex-row items-center gap-3">
-            <View className="flex-row items-center gap-1">
-              <Flame color={colors.like} fill={colors.like} size={14} />
-              <Text className="font-inter-semibold text-small text-like">{Math.round(meal.calories)} cal</Text>
-            </View>
-            {meal.prep_time != null && (
-              <>
-                <View className="h-4 w-px bg-ink-emphasis/15" />
-                <View className="flex-row items-center gap-1">
-                  <Clock color={colors.ink.subtle} size={14} />
-                  <Text className="font-inter-semibold text-small text-ink-subtle">{meal.prep_time} min</Text>
-                </View>
-              </>
+        ) : (
+          <View className="flex-row flex-wrap gap-1.5">
+            {shown.map((ing) => {
+              const added = justAdded.has(ing.id);
+              return (
+                <Pressable
+                  key={ing.id}
+                  onPress={() => !added && onHaveIt(ing)}
+                  hitSlop={4}
+                  accessibilityRole="button"
+                  accessibilityLabel={`I have ${pantryNameLower(ing.name)}`}
+                  className={`flex-row items-center gap-1 rounded-full border px-2.5 py-1 ${
+                    added ? "border-primary/30 bg-tinted-bg" : "border-accent/30 bg-accent/5 active:bg-accent/15"
+                  }`}
+                >
+                  {added ? <Check color={colors.primary} size={12} strokeWidth={3} /> : <Plus color={colors.accent} size={12} strokeWidth={3} />}
+                  <Text className={`font-inter-semibold text-sub ${added ? "text-primary" : "text-accent"}`}>{pantryName(ing.name)}</Text>
+                </Pressable>
+              );
+            })}
+            {more > 0 && (
+              <Pressable onPress={onPress} hitSlop={4} className="rounded-full border border-ink-emphasis/10 px-2.5 py-1">
+                <Text className="font-inter-semibold text-sub text-ink-subtle">+{more}</Text>
+              </Pressable>
             )}
           </View>
-        </View>
-      </Pressable>
-    </Animated.View>
+        )}
+      </View>
+    </Pressable>
   );
 }

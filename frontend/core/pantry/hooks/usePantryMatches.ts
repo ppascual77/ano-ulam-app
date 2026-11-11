@@ -15,14 +15,19 @@ export type MatchTier = "cookNow" | "almost" | "trip";
 export type PantryMealMatch = {
   mealId: string;
   tier: MatchTier;
-  /** What you'd still need, as catalog names, main ingredients first. */
-  missing: { name: string; main: boolean }[];
+  /** What you'd still need (catalog id and name), main ingredients first. */
+  missing: MissingIngredient[];
   /** Ingredients of this meal you have / still need (water excluded). */
   have: number;
   need: number;
   /** have / (have + need), 0-100. */
   percent: number;
 };
+
+export type MissingIngredient = { id: string; name: string; main: boolean };
+
+/** The one ingredient that would move the most "almost" meals to cook-now. */
+export type UnlockTip = { ingredient: MissingIngredient; mealIds: string[] };
 
 export type PantryMatchSummary = {
   /** Meals that use at least one pantry ingredient. */
@@ -31,6 +36,10 @@ export type PantryMatchSummary = {
   averageMatch: number;
   /** Every matched meal, best match first (then most ingredients you have). */
   results: PantryMealMatch[];
+  /** How many matches are in each tier. */
+  tierCounts: Record<MatchTier, number>;
+  /** The single buy that unlocks the most meals, or null. */
+  unlock: UnlockTip | null;
 };
 
 // Readiness: "Cook now" when nothing main is missing and at most a couple of
@@ -62,15 +71,15 @@ export function usePantryMatches(pantry: PantryIngredient[]) {
     for (const meal of index ?? []) {
       if (isAvoided({ id: meal.id })) continue;
       // One entry per distinct ingredient (a recipe can list one twice).
-      const ingredients = new Map<string, { name: string; main: boolean }>();
+      const ingredients = new Map<string, MissingIngredient>();
       for (const mi of meal.meal_ingredients) {
         const name = mi.ingredient?.canonical_name ?? "";
         if (WATER.test(name) || ingredients.has(mi.ingredient_id)) continue;
-        ingredients.set(mi.ingredient_id, { name, main: mi.ingredient?.role === "main" });
+        ingredients.set(mi.ingredient_id, { id: mi.ingredient_id, name, main: mi.ingredient?.role === "main" });
       }
       if (ingredients.size === 0) continue;
       let matched = 0;
-      const missing: { name: string; main: boolean }[] = [];
+      const missing: MissingIngredient[] = [];
       for (const [id, info] of ingredients) {
         if (have.has(id)) matched++;
         else missing.push(info);
@@ -88,7 +97,21 @@ export function usePantryMatches(pantry: PantryIngredient[]) {
       }
     }
     results.sort((a, b) => b.percent - a.percent || b.have - a.have);
+    const tierCounts: Record<MatchTier, number> = { cookNow: 0, almost: 0, trip: 0 };
+    for (const r of results) tierCounts[r.tier]++;
+    // Meals one ingredient short of cooking, grouped by that ingredient.
+    const unlocks = new Map<string, UnlockTip>();
+    for (const r of results) {
+      if (r.tier === "cookNow" || r.missing.length !== 1) continue;
+      const ing = r.missing[0];
+      const tip = unlocks.get(ing.id) ?? { ingredient: ing, mealIds: [] };
+      tip.mealIds.push(r.mealId);
+      unlocks.set(ing.id, tip);
+    }
+    const unlock = [...unlocks.values()].sort((a, b) => b.mealIds.length - a.mealIds.length)[0] ?? null;
     return {
+      tierCounts,
+      unlock,
       matchedMeals: results.length,
       averageMatch: results.length ? Math.round(results.reduce((sum, r) => sum + r.have / (r.have + r.need), 0) / results.length * 100) : 0,
       results,
