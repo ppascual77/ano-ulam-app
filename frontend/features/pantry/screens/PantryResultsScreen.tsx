@@ -53,6 +53,7 @@ type Row = { match: PantryMealMatch; meal: MealType; order: number };
 // Reads the shared pantry directly, so it's current from Home or Profile.
 export default function PantryResultsScreen() {
   const { data: pantry = [] } = usePantry();
+  const pantryIds = useMemo(() => new Set(pantry.map((p) => p.id)), [pantry]);
   const pantryActions = usePantryActions();
   const { results, tierCounts, isLoading: matching } = usePantryMatches(pantry);
   const { data: meals, isLoading: loadingMeals } = useRealMeals();
@@ -182,7 +183,8 @@ export default function PantryResultsScreen() {
         </>
       )}
 
-      <MealDetailSheet meal={detail.meal} onClose={detail.close} />
+      {/* The pantry as ids, so the meal shows what you have vs need. */}
+      <MealDetailSheet meal={detail.meal} onClose={detail.close} pantryIds={pantryIds} />
     </Screen>
   );
 }

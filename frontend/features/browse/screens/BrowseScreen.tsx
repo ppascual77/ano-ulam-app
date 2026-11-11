@@ -3,7 +3,6 @@ import { Pressable, RefreshControl, ScrollView, Text, View, type NativeScrollEve
 import { useQueryClient } from "@tanstack/react-query";
 import Animated, { Easing, FadeIn, FadeInDown, FadeOut, LinearTransition, useSharedValue } from "react-native-reanimated";
 import { router } from "expo-router";
-import { Clock } from "lucide-react-native";
 import {
   AppText,
   HeaderBackdrop,
@@ -37,7 +36,7 @@ import { LoginGateSheet, type LoginGateReason } from "@/frontend/features/auth/c
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { useBrowseSearch } from "../hooks/useBrowseSearch";
-import { hoursUntilNextPick, useTodaysPick } from "../hooks/useTodaysPick";
+import { useTodaysPick } from "../hooks/useTodaysPick";
 import { EMPTY_FILTERS, type MealFilters } from "../utils/filters";
 import { SearchResults } from "../components/SearchResults";
 import { EmptyMealView, GuestLimitGate } from "../components/EmptyStates";
@@ -333,15 +332,9 @@ export default function BrowseScreen() {
             under it. A typed search hides the row unless a chip is picked. */}
         {!search.isSearchMode && todaysPick && (
           <Animated.View key="pick" entering={enter(0)} exiting={FadeOut.duration(140)} className="mt-6">
-            <View className="mb-3 flex-row items-end justify-between">
-              <AppText variant="sectionTitle" dot>
-                Today&apos;s pick
-              </AppText>
-              <View className="mb-1 flex-row items-center gap-1">
-                <Clock color={colors.ink.subtle} size={12} strokeWidth={2.5} />
-                <Text className="font-inter-medium text-small text-ink-subtle">New pick in {hoursUntilNextPick()}h</Text>
-              </View>
-            </View>
+            <AppText variant="sectionTitle" dot className="mb-3">
+              Today&apos;s pick
+            </AppText>
             <TodaysPickCard
               meal={todaysPick}
               onPress={() => detail.open(todaysPick.id)}

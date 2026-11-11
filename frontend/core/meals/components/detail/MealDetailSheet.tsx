@@ -48,6 +48,9 @@ type MealDetailSheetProps = {
    *  "{name} updated" after a servings update. Callers without a Toast can
    *  leave it out. */
   onNotify?: (message: string, tone: "success" | "error") => void;
+  /** From Pantry results: the pantry's ingredient ids, for "You have it" /
+   *  "To buy" on `meal`'s ingredients (not on related meals opened from it). */
+  pantryIds?: Set<string>;
 };
 
 export function MealDetailSheet({
@@ -61,6 +64,7 @@ export function MealDetailSheet({
   review,
   recipeOwner,
   onNotify,
+  pantryIds,
 }: MealDetailSheetProps) {
   // Keep the last meal rendered while the sheet animates closed, so the
   // content doesn't flash empty before it's off-screen.
@@ -237,6 +241,7 @@ export function MealDetailSheet({
             onUpdate: setPendingServings,
           }}
           recipeOwner={meal && renderedMeal.id === meal.id ? recipeOwner : undefined}
+          pantryIds={meal && renderedMeal.id === meal.id ? pantryIds : undefined}
           onSelectMeal={handleSelectMeal}
           onBack={handleBackOrClose}
           direction={direction}

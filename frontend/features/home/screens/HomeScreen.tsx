@@ -112,7 +112,11 @@ export default function HomeScreen() {
         {mode === "budget" ? (
           <BudgetSection categoriesLanding={categoriesLanding} />
         ) : (
-          <PantrySection />
+          // Room above the bottom nav so the last ingredients aren't tucked
+          // against it (Home only; Profile's Pantry tab has its own).
+          <View className="pb-12">
+            <PantrySection />
+          </View>
         )}
       </ScrollView>
       {statusBar.strip}

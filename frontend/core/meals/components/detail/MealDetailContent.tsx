@@ -35,6 +35,7 @@ import {
   ArrowLeft,
   Trash2,
   TrendingDown,
+  Check,
 } from "lucide-react-native";
 import {
   AppText,
@@ -130,6 +131,9 @@ type IngredientRowProps = {
   onPress?: () => void;
   /** % its DA price dropped vs last week (negative); omitted otherwise. */
   dropPct?: number;
+  /** From Pantry results only: whether it's in your pantry. Omitted
+   *  everywhere else (no chip). */
+  have?: boolean;
 };
 
 // An ingredient's DA price change vs last week: the mean of its linked DA
@@ -147,7 +151,7 @@ function ingredientWeekChange(ingredient: IngredientType, changes: Map<string, D
 // up, so its row shows no price/N/A and isn't tappable. Not "coconut water".
 const PLAIN_WATER = /^((hot|cold|warm|boiling|tap|mainit na|malamig na)\s+)?(water|tubig)$/i;
 
-function IngredientRow({ ingredient, onPress: onPressProp, dropPct }: IngredientRowProps) {
+function IngredientRow({ ingredient, onPress: onPressProp, dropPct, have }: IngredientRowProps) {
   const isMain = ingredient.type === "main";
   const isWater = PLAIN_WATER.test(ingredient.name.trim());
   const onPress = isWater ? undefined : onPressProp;
@@ -165,11 +169,20 @@ function IngredientRow({ ingredient, onPress: onPressProp, dropPct }: Ingredient
             {capitalize(ingredient.name)}
             <Text className="font-inter-light text-small text-ink-subtle">{`  (${ingredient.qty})`}</Text>
           </Text>
-          {/* Main / Staple chip under the name, sized to its label. */}
-          <View className={`self-start rounded-full px-2 py-1 ${isMain ? "bg-primary/10" : "bg-ink-emphasis/5"}`}>
-            <Text className={`font-inter-semibold text-sub ${isMain ? "text-primary" : "text-ink-subtle"}`}>
-              {isMain ? "Main" : "Staple"}
-            </Text>
+          {/* Main / Staple chip under the name, sized to its label; from
+              Pantry results, whether you have it beside it. */}
+          <View className="flex-row flex-wrap gap-1.5">
+            <View className={`self-start rounded-full px-2 py-1 ${isMain ? "bg-primary/10" : "bg-ink-emphasis/5"}`}>
+              <Text className={`font-inter-semibold text-sub ${isMain ? "text-primary" : "text-ink-subtle"}`}>
+                {isMain ? "Main" : "Staple"}
+              </Text>
+            </View>
+            {have != null && !isWater && (
+              <View className={`flex-row items-center gap-1 self-start rounded-full px-2 py-1 ${have ? "bg-primary" : "bg-accent/10"}`}>
+                {have ? <Check color={colors.white} size={11} strokeWidth={3} /> : null}
+                <Text className={`font-inter-bold text-sub ${have ? "text-white" : "text-accent"}`}>{have ? "You have it" : "To buy"}</Text>
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -270,6 +283,10 @@ type MealDetailContentProps = {
    *  (it sits inside the form's), no Save footer, no related meals. The
    *  rest (servings, tappable ingredients) works as normal. */
   preview?: boolean;
+  /** Opened from Pantry results: the pantry's ingredient ids, so each
+   *  ingredient shows "You have it" / "To buy" and a count heads the list.
+   *  Omitted everywhere else. */
+  pantryIds?: Set<string>;
   /** Admin review of a user-submitted recipe (Review Recipes): the footer
    *  shows Reject / Approve instead of Save, and consumer-only parts are
    *  hidden, same as the other admin actions. */
@@ -384,6 +401,7 @@ export function MealDetailContent({
   onLockedPro,
   preview = false,
   review,
+  pantryIds,
 }: MealDetailContentProps) {
   // Any admin context (manage or review): no consumer-only Save / related
   // meals / Published chip.
@@ -795,6 +813,15 @@ export function MealDetailContent({
         <View className="mt-5">
           <View className="flex-row items-center justify-between">
             <SectionTitle>Ingredients</SectionTitle>
+            {pantryIds && (() => {
+              const counted = meal.ingredients.filter((it) => it.ingredientId && !PLAIN_WATER.test(it.name.trim()));
+              const owned = counted.filter((it) => pantryIds.has(it.ingredientId!)).length;
+              return (
+                <Text className="font-inter-semibold text-small text-ink-subtle">
+                  You have <Text className="font-inter-bold text-primary">{owned}</Text> of {counted.length}
+                </Text>
+              );
+            })()}
           </View>
 
           <View className="my-3">
@@ -818,6 +845,7 @@ export function MealDetailContent({
                       key={i}
                       ingredient={scaled}
                       dropPct={change != null && change < 0 ? change : undefined}
+                      have={pantryIds && ingredient.ingredientId ? pantryIds.has(ingredient.ingredientId) : undefined}
                       // Every ingredient has a sheet to show (at minimum its
                       // price source), so every card is tappable.
                       onPress={onSelectIngredient ? () => onSelectIngredient(scaled) : undefined}

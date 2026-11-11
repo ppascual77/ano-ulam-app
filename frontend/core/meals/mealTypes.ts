@@ -42,6 +42,10 @@ export type DaPriceSourceType = {
 export type IngredientType = {
   qty: string;
   name: string;
+  // The catalog ingredient's id (meal_ingredients.ingredient_id): matches
+  // the pantry's ids, for "you have it" in meal detail from Pantry results.
+  // Undefined for mock meals.
+  ingredientId?: string;
   // The ingredients table's display_name: a friendlier name where the
   // catalog name reads like data ("Bell pepper, green, raw"). Used by the
   // grocery list.

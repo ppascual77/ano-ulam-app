@@ -11,13 +11,6 @@ function dayNumber() {
   return Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 86_400_000);
 }
 
-// Whole hours until the next pick (local midnight), at least 1.
-export function hoursUntilNextPick(): number {
-  const now = new Date();
-  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  return Math.max(1, Math.ceil((midnight.getTime() - now.getTime()) / 3_600_000));
-}
-
 export function useTodaysPick(): { meal: MealType | null; isLoading: boolean } {
   const { meals, isLoading } = usePreferredMeals();
   const meal = useMemo(() => {

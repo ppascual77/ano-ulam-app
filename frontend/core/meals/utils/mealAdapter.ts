@@ -192,6 +192,7 @@ function mealIngredientToIngredientType(mi: MealIngredientRow): IngredientType &
     sortOrder: mi.sort_order,
     ...describeQuantity(mi),
     name: mi.ingredient.canonical_name,
+    ingredientId: mi.ingredient_id,
     displayName: mi.ingredient.display_name,
     type: (mi.ingredient.role as "main" | "pantry") ?? "pantry",
     calories: totals?.calories != null ? roundCalories(totals.calories) : undefined,
