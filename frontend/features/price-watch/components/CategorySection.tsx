@@ -172,9 +172,10 @@ function CategorySectionInner({ items, loading, category, onCategory, onSelect, 
   );
 }
 
-// "Meat this week": how many got cheaper, a bar of cheaper / steady /
-// pricier that grows from the left (keyed per category, so it replays), and
-// the biggest drop.
+// "Meat this week": how many got cheaper and a bar of cheaper / steady /
+// pricier that grows from the left (keyed per category, so it replays). No
+// legend or biggest-drop line: the Cheaper / Steady / Pricier tabs below
+// carry the counts and the list's first row is the biggest drop.
 function WeekSummary({ label, groups }: { label: string; groups: Record<Trend, PriceItem[]> }) {
   const reduce = useReduceMotion();
   const total = groups.down.length + groups.flat.length + groups.up.length;
@@ -191,7 +192,6 @@ function WeekSummary({ label, groups }: { label: string; groups: Record<Trend, P
   const down = useAnimatedStyle(() => ({ width: dW * grow.value }));
   const flat = useAnimatedStyle(() => ({ width: fW * grow.value }));
   const up = useAnimatedStyle(() => ({ width: uW * grow.value }));
-  const best = groups.down[0];
 
   return (
     <View className="rounded-3xl bg-mood-bg p-4">
@@ -210,28 +210,6 @@ function WeekSummary({ label, groups }: { label: string; groups: Record<Trend, P
         <Animated.View style={[{ height: "100%", borderRadius: 999, backgroundColor: colors.trend.flat }, flat]} />
         <Animated.View style={[{ height: "100%", borderRadius: 999, backgroundColor: colors.trend.up }, up]} />
       </View>
-      <View className="mt-2 flex-row justify-between">
-        <Legend color={colors.trend.down} text={`${groups.down.length} cheaper`} />
-        <Legend color={colors.trend.flat} text={`${groups.flat.length} steady`} />
-        <Legend color={colors.trend.up} text={`${groups.up.length} pricier`} />
-      </View>
-      {best && (
-        // The percentage first, so only a long name gets cut off.
-        <Text numberOfLines={1} className="mt-2 font-inter-regular text-small text-ink">
-          Biggest drop: <Text className="font-inter-bold text-trend-down">↓{Math.abs(best.pctChange ?? 0)}%</Text>
-          {" · "}
-          <Text className="font-inter-semibold text-ink-emphasis">{best.name.split(",")[0]}</Text>
-        </Text>
-      )}
-    </View>
-  );
-}
-
-function Legend({ color, text }: { color: string; text: string }) {
-  return (
-    <View className="flex-row items-center gap-1.5">
-      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
-      <Text className="font-inter-semibold text-sub text-ink-subtle">{text}</Text>
     </View>
   );
 }
