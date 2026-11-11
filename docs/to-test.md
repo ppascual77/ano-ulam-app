@@ -126,8 +126,9 @@ DA day / week; `price_alert_log` records it).
       screen. Second sign-in: name kept.
 - [ ] **Google sign-in** in the dev build (redirect back to the app, not localhost).
 - [ ] **Log out** shows the full-screen overlay and lands on Home.
-- [ ] **Delete account** (once `delete-account` is deployed): removes the user, their recipes and
-      photos.
+- [ ] **Delete account** (deployed 2026-11-12): with a throwaway account, Settings → Delete account
+      removes the user, their recipes and photos, their posts, and signs out to a guest. Try it on an
+      account that has a recipe, a food post with a photo and saved meals.
 
 ## Meal Planner and Pro locks
 

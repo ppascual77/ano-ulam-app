@@ -65,7 +65,7 @@ Last updated: **2026-11-10** (push notifications: recipe approved, Pro price dro
 
 **Doable now (no developer accounts needed)**
 
-1. **Deploy steps, no code**: deploy `delete-account` (still not deployed, 2026-11-06). (`ingest-da-daily-prices` was redeployed 2026-11-10.)
+1. ~~**Deploy steps, no code**~~ **Done**: `delete-account` deployed 2026-11-12 (refuses without a signed-in user, checked), `ingest-da-daily-prices` redeployed 2026-11-10.
 2. **OpenAI model migration**: `gpt-4o-mini` and `gpt-4o` shut down on **2027-01-14**. Still used by `import-meal-from-url`, `verify-meal-ingredients`, `estimate-ingredient-ai`, `estimate-pack-sizes` and `generate-meal-image` (its style description). Each needs a redeploy after.
 3. **Security before release**: RLS lockdown **written 2026-11-09, not applied yet** (`chore/rls-lockdown`, migration `20261109000000_rls_lockdown`: the 11 `TEMP: anyone can …` policies replaced with admin-only writes, users keep writes to their own pending recipe only; 38 checks passed on a local replay of every migration). Users setting their own `tier` was already closed by `20261108010000`. Still to do: admin checks (`requireAdmin`) on the admin-only edge functions, the Klipy key behind a proxy (`EXPO_PUBLIC_KLIPY_API_KEY` is still in `api/klipy.ts`).
 4. ~~**Community moderation**~~ **Built 2026-11-08** (`feat/community-moderation`, migration `20261108030000_community_moderation`, applied): Report in every other person's post menu (reason + optional note; the post leaves the reporter's feed; 3 open reports hide it for everyone pending review), admins get Remove post in the menu and Admin → Reported Posts (Remove / Dismiss or Restore). Removal hides, never deletes; the poster sees their own removed post labelled. `is_admin()` added (app_metadata role). Posters can only edit content columns, so they can't un-hide a removed post. Not tested on a device yet.
@@ -140,9 +140,7 @@ Nothing in the app is mock-only any more. Not built yet: Android push, Google Pl
 
 ## Built but not deployed
 
-| Item | What's needed |
-| --- | --- |
-| `delete-account` edge function | Deploy it (`supabase functions deploy delete-account`); not in the deployed list on 2026-11-06. It also removes the user's post photos. |
+Nothing right now (every edge function is deployed as of 2026-11-12).
 
 ## Before release
 
