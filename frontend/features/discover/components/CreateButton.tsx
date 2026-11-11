@@ -58,7 +58,6 @@ export function CreateButton({ onPress, variant, landingRef, highlightId = 0 }: 
   useEffect(() => {
     if (highlightId === 0) return;
     // TEMP: confirming the highlight fires after the intro. Remove once seen.
-    if (__DEV__) console.log("[CreateButton] highlight", highlightId);
     pulse.value = withSequence(
       withTiming(1.15, { duration: PULSE_UP_MS, easing: Easing.out(Easing.quad) }),
       withSpring(1, { damping: 7, stiffness: 260, mass: 0.5 }),

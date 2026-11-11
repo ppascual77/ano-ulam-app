@@ -83,8 +83,7 @@ export default function DiscoverScreen() {
 
   // Dev-only: force the guest experience while signed in, to test the login
   // gates and end-card without signing out.
-  const [forceGuest, setForceGuest] = useState(false);
-  const isGuest = !isSignedIn || forceGuest;
+  const isGuest = !isSignedIn;
 
   const [tab, setTab] = useState<DiscoverTab>("recipes");
   const feed = useDiscoverFeed({ isGuest });
@@ -229,12 +228,6 @@ export default function DiscoverScreen() {
   }, [isGuest]);
 
   const continueWith = async (provider: SignInProvider) => {
-    // Forced-guest dev mode is already signed in: "logging in" just turns
-    // the override off (which replays the pending action above).
-    if (forceGuest && isSignedIn) {
-      setForceGuest(false);
-      return;
-    }
     try {
       await signIn.mutateAsync(provider);
     } catch {
@@ -497,16 +490,6 @@ export default function DiscoverScreen() {
         />
       </View>
 
-      {__DEV__ && isSignedIn && (
-        <Pressable
-          onPress={() => setForceGuest((prev) => !prev)}
-          className={`absolute left-3 rounded-full px-2 py-1 ${tab === "recipes" ? "bg-white/20" : "bg-web-ink/80"}`}
-          // Below the tabs row, clear of the (left-shifted) tab pills.
-          style={{ top: insets.top + TABS_TOP_OFFSET + TABS_ROW_HEIGHT + 4 }}
-        >
-          <Text className="font-inter-semibold text-sub text-white">DEV {forceGuest ? "guest" : "signed in"}</Text>
-        </Pressable>
-      )}
 
       <MealDetailSheet
         meal={detailOpen ? detailMeal : null}

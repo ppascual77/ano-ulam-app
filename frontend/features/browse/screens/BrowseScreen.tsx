@@ -43,10 +43,6 @@ import { EmptyMealView, GuestLimitGate } from "../components/EmptyStates";
 import { AvoidedMealCover } from "../components/AvoidedMealCover";
 import { BrowseIntro } from "../components/BrowseIntro";
 
-// TEMP (dev only): act signed in without a session (Google sign-in can't
-// complete in Expo Go on a device). The DEV pill flips to guest, to test
-// the login gates and the 3-searches-a-day limit. Remove with the others.
-const DEV_FORCE_SIGNED_IN = __DEV__;
 
 
 // How far (px) a pull has to go to refresh; the pot doodle fills in over it.
@@ -72,8 +68,7 @@ const SHOW_INTRO = true;
 export default function BrowseScreen() {
   const { isSignedIn } = useAuth();
   const signIn = useSignIn();
-  const [devGuest, setDevGuest] = useState(false);
-  const isGuest = devGuest || (!isSignedIn && !DEV_FORCE_SIGNED_IN);
+  const isGuest = !isSignedIn;
 
   const isPro = useIsPro();
   const search = useBrowseSearch({ isGuest, isPro });
@@ -199,8 +194,6 @@ export default function BrowseScreen() {
   }, [isGuest]);
 
   const continueWith = async (provider: SignInProvider) => {
-    // Forced-guest dev mode: "logging in" turns the override off.
-    if (devGuest) return setDevGuest(false);
     try {
       await signIn.mutateAsync(provider);
     } catch {
@@ -298,11 +291,6 @@ export default function BrowseScreen() {
               What are you craving today?
             </AppText>
           </View>
-          {__DEV__ && (
-            <Pressable onPress={() => setDevGuest((prev) => !prev)} className="mt-3 rounded-full bg-web-ink/80 px-2 py-1">
-              <Text className="font-inter-semibold text-sub text-white">DEV {devGuest ? "guest" : "signed in"}</Text>
-            </Pressable>
-          )}
         </View>
 
         <View className="ml-3">

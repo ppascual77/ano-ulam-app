@@ -13,10 +13,6 @@ import { VisitorSavedTab } from "../components/visitor/VisitorSavedTab";
 import { VisitorCreatedTab } from "../components/visitor/VisitorCreatedTab";
 import { MealGridSkeleton } from "../components/MealGridSkeleton";
 
-// TEMP (dev only): treat the viewer as signed in without a session (Google
-// sign-in can't complete in Expo Go on a device). Remove with ProfileScreen's.
-const DEV_FORCE_SIGNED_IN = __DEV__;
-
 // Header placeholder while the profile loads.
 function HeaderSkeleton() {
   return (
@@ -37,7 +33,7 @@ export default function UserProfileScreen() {
   const { isSignedIn } = useAuth();
   const signIn = useSignIn();
   const me = useMe();
-  const isGuest = !isSignedIn && !DEV_FORCE_SIGNED_IN;
+  const isGuest = !isSignedIn;
   const isMe = userId === me.id;
 
   const profile = useUserProfile(userId, isGuest);

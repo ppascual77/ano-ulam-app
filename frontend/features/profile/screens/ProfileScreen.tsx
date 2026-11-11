@@ -25,7 +25,6 @@ import {
 import { ProfileHeader } from "../components/ProfileHeader";
 import { OWN_TABS, type ProfileTab } from "../components/ProfileTabBar";
 import { ProfileScaffold } from "../components/ProfileScaffold";
-import { OfficialProfileView } from "../components/official/OfficialProfileView";
 import { GuestProfileView } from "../components/GuestProfileView";
 import { SavedTab } from "../components/saved/SavedTab";
 import { CreatedTab } from "../components/created/CreatedTab";
@@ -37,14 +36,9 @@ import { useProStore } from "@/frontend/core/pro/store/useProStore";
 import { MealPlanBanner } from "../components/MealPlanBanner";
 
 // Signed out: the guest view (sign in / create account), like the web's.
-// Dev only: the DEV chip in the top bar cycles signed in -> official
-// account -> guest, to preview the other views while signed in.
-type DevAccount = "user" | "official" | "guest";
 
 // How long the Dropdown menu's fade-out takes before the photo picker opens.
 const MENU_FADE_MS = 350;
-const NEXT_DEV_ACCOUNT: Record<DevAccount, DevAccount> = { user: "official", official: "guest", guest: "user" };
-const DEV_ACCOUNT_LABEL: Record<DevAccount, string> = { user: "signed in", official: "official", guest: "guest" };
 
 
 const TAB_PARAMS: ProfileTab[] = ["saved", "recipes", "grocery", "pantry"];
@@ -92,9 +86,7 @@ export default function ProfileScreen() {
   const signIn = useSignIn();
   const me = useMe();
 
-  const [devAccount, setDevAccount] = useState<DevAccount>("user");
-  const isGuest = !isSignedIn || devAccount === "guest";
-  const isOfficial = !isGuest && devAccount === "official";
+  const isGuest = !isSignedIn;
 
   const [tab, setTab] = useState<ProfileTab>(
     TAB_PARAMS.includes(params.tab as ProfileTab) ? (params.tab as ProfileTab) : "saved",
@@ -235,11 +227,6 @@ export default function ProfileScreen() {
         {/* A bottom nav tab now, so a title instead of a back arrow. */}
         <LandingTitle>Profile</LandingTitle>
         <View className="flex-row items-center gap-3">
-          {__DEV__ && (
-            <Pressable onPress={() => setDevAccount((prev) => NEXT_DEV_ACCOUNT[prev])} className="rounded-full bg-web-ink/80 px-2 py-1">
-              <Text className="font-inter-semibold text-sub text-white">DEV {DEV_ACCOUNT_LABEL[devAccount]}</Text>
-            </Pressable>
-          )}
           {!isGuest && (
             <Pressable
               onPress={() => router.push("/profile/settings")}
@@ -262,8 +249,6 @@ export default function ProfileScreen() {
             signingIn={signIn.isPending}
           />
         </ScrollView>
-      ) : isOfficial ? (
-        <OfficialProfileView onToast={showToast} />
       ) : (
         <ProfileScaffold
           header={
@@ -339,7 +324,7 @@ export default function ProfileScreen() {
       <Toast toast={toast} onHide={() => setToast(null)} />
       {/* Create (post or recipe), floating at the lower right: the same
           Create sheet as Discover's +. Signed-in members only. */}
-      {!isGuest && !isOfficial && <CreateFab onPress={() => openCreate(false)} />}
+      {!isGuest && <CreateFab onPress={() => openCreate(false)} />}
     </Screen>
   );
 }

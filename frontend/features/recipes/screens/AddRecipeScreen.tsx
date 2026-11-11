@@ -66,10 +66,6 @@ function toSubmission(draft: RecipeDraft, coverPhotoUri: string | null): RecipeS
 export default function AddRecipeScreen() {
   const { session } = useAuth();
   const posterId = session?.user.id ?? null;
-  // Google sign-in can't complete in Expo Go on a physical device (Supabase
-  // redirect bug), so dev builds may submit without an account to test the
-  // flow end to end. Production requires a session.
-  const canSubmitWithoutAccount = __DEV__;
 
   const [draft, setDraft] = useState<RecipeDraft>(EMPTY_DRAFT);
   const [step, setStep] = useState(0);
@@ -134,7 +130,7 @@ export default function AddRecipeScreen() {
 
   // ---- blocked states ----------------------------------------------------
 
-  if (!posterId && !canSubmitWithoutAccount) {
+  if (!posterId) {
     return (
       <Screen padded={false}>
         {header}
