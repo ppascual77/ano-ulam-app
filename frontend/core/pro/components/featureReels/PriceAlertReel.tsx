@@ -3,7 +3,7 @@ import { Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from "react-native-reanimated";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming } from "react-native-reanimated";
 import { colors } from "@/frontend/constants/theme";
 import { usePriceItems } from "@/frontend/core/prices/hooks/usePriceItems";
 import { commodityShortName } from "@/frontend/core/prices/hooks/useBiggestPriceDrop";
@@ -60,8 +60,8 @@ function Notification({ drop }: { drop: Drop }) {
 }
 
 // Price drop alerts: the top of a phone's lock screen, and today's real
-// price drops arriving one after another as AnoUlam notifications (a soft
-// tap each time one lands), the one before resting behind it.
+// price drops arriving one after another as AnoUlam notifications (an eased
+// slide, a soft tap as each lands), the one before resting behind it.
 export function PriceAlertReel({ active, reduceMotion }: { active: boolean; reduceMotion: boolean }) {
   const drops = useDrops();
   const tick = useReelTick(active && !reduceMotion, PERIOD_MS);
@@ -76,7 +76,7 @@ export function PriceAlertReel({ active, reduceMotion }: { active: boolean; redu
     }
     y.value = withSequence(
       withTiming(OFF, { duration: 0 }),
-      withSpring(0, { damping: 13, stiffness: 170, mass: 0.8 }),
+      withTiming(0, { duration: 460, easing: Easing.out(Easing.cubic) }),
       withDelay(HOLD_MS, withTiming(OFF, { duration: 320, easing: Easing.in(Easing.cubic) })),
     );
     // The stack behind appears after the first one lands.
@@ -86,8 +86,8 @@ export function PriceAlertReel({ active, reduceMotion }: { active: boolean; redu
   }, [tick, active, reduceMotion]);
 
   const cardStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: y.value }, { scale: 0.96 + 0.04 * (1 - Math.min(1, Math.abs(y.value) / -OFF)) }],
-    opacity: 1 - Math.min(1, Math.abs(y.value) / -OFF) * 0.6,
+    transform: [{ translateY: y.value }],
+    opacity: 1 - Math.min(1, Math.abs(y.value) / -OFF),
   }));
   const ghostStyle = useAnimatedStyle(() => ({ opacity: 0.5 * ghost.value }));
   const now = new Date();

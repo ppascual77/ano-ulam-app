@@ -1,8 +1,8 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Ban } from "lucide-react-native";
-import Animated, { FadeIn, LinearTransition, ZoomIn, ZoomOut, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import { colors } from "@/frontend/constants/theme";
 import { usePreferredMeals } from "@/frontend/core/meals/hooks/usePreferredMeals";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
@@ -29,8 +29,8 @@ function pickScene(meals: MealType[]) {
   return null;
 }
 
-// Ingredients to avoid: a grid of real meals; the "Avoid ampalaya" chip is
-// tapped, the meals using it shrink away, the rest close the gap, and a
+// Ingredients to avoid: a grid of real meals; the "Avoid ampalaya" chip
+// turns on, the meals using it fade away, the rest close the gap, and a
 // count says how many were hidden. Reduce motion: the after state.
 export function AvoidReel({ active, reduceMotion }: { active: boolean; reduceMotion: boolean }) {
   const { meals } = usePreferredMeals();
@@ -39,33 +39,28 @@ export function AvoidReel({ active, reduceMotion }: { active: boolean; reduceMot
   const step = reduceMotion ? 3 : tick % STEPS;
   const on = step >= 1 && step < STEPS - 1;
   const hiding = step >= 2 && step < STEPS - 1;
-  const press = useSharedValue(1);
-  useEffect(() => {
-    if (step === 1 && !reduceMotion) press.value = withSequence(withTiming(0.88, { duration: 110 }), withSpring(1, { damping: 9, stiffness: 260 }));
-  }, [step]);
-  const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: press.value }] }));
 
   if (!scene) return <View style={{ height: REEL_HEIGHT }} className="rounded-3xl bg-mood-bg" />;
   const tiles = hiding ? scene.tiles.filter((m) => !scene.hiddenIds.has(m.id)) : scene.tiles;
 
   return (
     <View style={{ height: REEL_HEIGHT }} className="items-center justify-center gap-4 overflow-hidden rounded-3xl bg-mood-bg px-4">
-      <Animated.View style={pressStyle}>
+      <View>
         <View className={`flex-row items-center gap-1.5 rounded-full border px-3.5 py-2 ${on ? "border-like bg-like-soft" : "border-ink-emphasis/10 bg-white"}`}>
           <Ban color={on ? colors.like : colors.ink.subtle} size={14} strokeWidth={2.5} />
           <Text className={`font-inter-bold text-small ${on ? "text-like" : "text-ink-emphasis"}`}>
             {on ? `Avoiding ${scene.term.toLowerCase()}` : `Avoid ${scene.term.toLowerCase()}`}
           </Text>
         </View>
-      </Animated.View>
+      </View>
 
       <View className="flex-row flex-wrap justify-center" style={{ width: TILE * 3 + 16, gap: 8, minHeight: TILE * 2 + 8 }}>
         {tiles.map((m) => (
           <Animated.View
             key={m.id}
-            layout={reduceMotion ? undefined : LinearTransition.springify().damping(15)}
-            entering={reduceMotion ? undefined : ZoomIn.duration(220)}
-            exiting={reduceMotion ? undefined : ZoomOut.duration(260)}
+            layout={reduceMotion ? undefined : LinearTransition.duration(320).easing(Easing.out(Easing.cubic))}
+            entering={reduceMotion ? undefined : FadeIn.duration(240)}
+            exiting={reduceMotion ? undefined : FadeOut.duration(220)}
           >
             <Image source={resolveMealImage(m)} style={{ width: TILE, height: TILE, borderRadius: 14 }} contentFit="cover" />
           </Animated.View>

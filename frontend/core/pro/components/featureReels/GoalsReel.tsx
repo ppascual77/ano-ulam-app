@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Check } from "lucide-react-native";
-import Animated, { Easing, ZoomIn, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { colors } from "@/frontend/constants/theme";
 import { usePreferredMeals } from "@/frontend/core/meals/hooks/usePreferredMeals";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
@@ -62,7 +62,7 @@ function Bar({ label, value, unit, target, active, reduceMotion, tick }: { label
 
 // Nutrition goals: a real meal, its calories and protein filling toward a
 // meal's share of your targets (the orange goal line), then a "Fits your
-// goals" tag popping on. Reduce motion: filled, tag on.
+// goals" tag fading in. Reduce motion: filled, tag on.
 export function GoalsReel({ active, reduceMotion }: { active: boolean; reduceMotion: boolean }) {
   const { meals } = usePreferredMeals();
   // A meal that fits: high in protein, not over on calories.
@@ -104,7 +104,7 @@ export function GoalsReel({ active, reduceMotion }: { active: boolean; reduceMot
       </View>
       <View className="mt-3 h-7 items-center">
         {tagOn && (
-          <Animated.View key={tick} entering={reduceMotion ? undefined : ZoomIn.springify().damping(10)}>
+          <Animated.View key={tick} entering={reduceMotion ? undefined : FadeIn.duration(260)}>
             <View className="flex-row items-center gap-1.5 rounded-full bg-primary px-3 py-1.5">
               <Check color={colors.white} size={13} strokeWidth={3} />
               <Text className="font-inter-bold text-small text-white">Fits your goals</Text>

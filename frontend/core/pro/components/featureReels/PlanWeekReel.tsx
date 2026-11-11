@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Text, View } from "react-native";
 import { Image } from "expo-image";
-import Animated, { FadeIn, FadeInDown, FadeOut, ZoomIn } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
 import { usePreferredMeals } from "@/frontend/core/meals/hooks/usePreferredMeals";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import { REEL_HEIGHT, useReelTick } from "./useReelTick";
@@ -35,7 +35,7 @@ export function PlanWeekReel({ active, reduceMotion }: { active: boolean; reduce
                 className={`items-center justify-center overflow-hidden rounded-xl ${on ? "" : "border border-dashed border-ink-emphasis/15"}`}
               >
                 {on && (
-                  <Animated.View entering={reduceMotion ? undefined : ZoomIn.springify().damping(12)} exiting={FadeOut.duration(150)}>
+                  <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(260).easing(Easing.out(Easing.cubic))} exiting={FadeOut.duration(150)}>
                     {photos[i] ? (
                       <Image source={photos[i]} style={{ width: SLOT, height: SLOT }} contentFit="cover" />
                     ) : (
@@ -56,7 +56,7 @@ export function PlanWeekReel({ active, reduceMotion }: { active: boolean; reduce
       </View>
       <View className="mt-4 h-8 items-center justify-center">
         {label && (
-          <Animated.View key={label} entering={reduceMotion ? FadeIn.duration(150) : FadeInDown.springify().damping(14)}>
+          <Animated.View key={label} entering={FadeIn.duration(reduceMotion ? 150 : 260)}>
             <View className={`flex-row items-center gap-1.5 rounded-full px-3 py-1.5 ${filled >= 7 ? "bg-accent" : "bg-primary/10"}`}>
               <Text className={`font-inter-extrabold text-small ${filled >= 7 ? "text-white" : "text-primary"}`}>{label}</Text>
               <Text className={`font-inter-semibold text-sub ${filled >= 7 ? "text-white/80" : "text-primary/70"}`}>
