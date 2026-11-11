@@ -8,7 +8,7 @@
     "scheme": "anoulam",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.anoulam.app",
       "usesAppleSignIn": true,
       "infoPlist": {

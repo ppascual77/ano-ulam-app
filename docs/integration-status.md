@@ -156,7 +156,4 @@ Nothing in the app is mock-only any more. Not built yet: Android push, Google Pl
 - **Supabase Site URL**: still `http://localhost:3000`, which is where a rejected redirect lands. Set it to a real page before release.
 - **Paywall promises**: all built now (price drop alerts and weekly savings as pushes, 2026-11-10); they need real Pro (subscriptions) to reach paying users.
 - **OpenAI models**: `gpt-4o-mini` and `gpt-4o` shut down on **2027-01-14**. Nearly every edge function uses `gpt-4o-mini`.
-- **Dev-only shortcuts to remove**:
-  - the "act signed in" switches in Browse and other users' profiles;
-  - "End Pro now (test)" in Manage your plan, and the TEST labels on the checkout (go with real subscriptions);
-  - the iPad letterbox in `app/_layout.tsx`.
+- ~~**Dev-only shortcuts**~~ **Removed 2026-11-12**: the "act signed in" / DEV guest switches (Browse, Discover, Profile's DEV account cycler, other users' profiles), Add a Recipe's submit-without-account in dev, and a debug log; "End Pro now (test)" and the checkout TEST labels went earlier with real subscriptions. **iPhone only** now (`supportsTablet: false`, the iPad letterbox removed): iPad runs the iPhone app scaled; takes effect in the next dev build. A real tablet layout would be its own project.

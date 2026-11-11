@@ -125,18 +125,12 @@ export default function RootLayout() {
   }
 
   return (
-    // TEMP: no iPad-specific layout designed yet — letterbox to a phone-sized
-    // box (like Instagram on iPad) instead of stretching, bars on all sides.
-    // Remove once a real tablet layout exists. 430x932 matches the largest
-    // current iPhone (Pro Max); not themeable values, so not in
-    // constants/theme.ts.
-    <View style={{ flex: 1, backgroundColor: "black", alignItems: "center", justifyContent: "center" }}>
+    // iPhone only (app.json supportsTablet: false): iPad runs it as an
+    // iPhone app, scaled by iOS, so no letterbox here.
+    <View style={{ flex: 1 }}>
       {/* onTouchStart sees every tap on its way down (it doesn't take the
           touch): a save flies from the tap that triggered it. */}
-      <View
-        style={{ width: "100%", maxWidth: 430, height: "100%", maxHeight: 932 }}
-        onTouchStart={(e) => noteTouch(e.nativeEvent.pageX, e.nativeEvent.pageY)}
-      >
+      <View style={{ flex: 1 }} onTouchStart={(e) => noteTouch(e.nativeEvent.pageX, e.nativeEvent.pageY)}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           {/* Reanimated never blanket-skips animations, even with the
               phone's reduce motion on: that froze everything (fades, skeleton
