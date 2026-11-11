@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Linking, Platform, Pressable, ScrollView, Text, View, useWindowDimensions, type ScrollViewInstance } from "react-native";
 import Constants from "expo-constants";
+import Animated, { Easing, FadeInDown } from "react-native-reanimated";
+import { Gift } from "lucide-react-native";
+import { allRewardsEarned, useProRewardProgress } from "@/frontend/core/pro/hooks/useProRewardProgress";
+import { POST_REWARD_DAYS, RECIPE_REWARD_DAYS } from "@/frontend/core/pro/proContent";
+import { AccountCard } from "../components/settings/AccountCard";
+import { FreeLimitsCard } from "../components/settings/FreeLimitsCard";
+import { ProPitchCard } from "../components/settings/ProPitchCard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChevronRight, LogOut, Trash2 } from "lucide-react-native";
@@ -51,14 +58,16 @@ function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
 // Deep link /profile/settings?section=newsletter scrolls here after this.
 const SCROLL_TO_SECTION_DELAY_MS = 300;
 
-// /profile/settings, from the gear on your profile: privacy, newsletter,
-// dietary preferences, Home's Surprise me tag, reduce motion, Delete account, About (legal links, feedback,
-// version), and Log out at the very end.
+// /profile/settings, from the gear on your profile: your account and plan,
+// Pro (the pitch and your free limits, or your plan), meal preferences, Pro
+// features, notifications, app, privacy, About (legal links, feedback,
+// version), and Log out with Delete account at the very end.
 type ProSettingKey = "avoid" | "goals";
 
 const listNames = (names: string[]) =>
   `${names.slice(0, 3).join(", ")}${names.length > 3 ? ` and ${names.length - 3} more` : ""}`;
 const foodName = (name: string) => name.split(",")[0];
+const allergenLabel = (value: string) => ALLERGEN_OPTIONS.find((o) => o.id === value)?.label ?? value;
 
 // Meal plan length, an inline choice on its Settings row.
 const PLAN_LENGTH_OPTIONS = [
@@ -79,13 +88,13 @@ const PRO_SETTINGS: {
   {
     key: "avoid",
     label: "Ingredients to avoid",
-    description: "Hide meals with ingredients you don't eat, everywhere in the app.",
+    description: "Hide meals with any ingredient, everywhere.",
     summary: ({ avoid_ingredients: list }) => (list.length === 0 ? null : `Avoiding ${listNames(list.map((a) => foodName(a.name)))}.`),
   },
   {
     key: "goals",
     label: "Nutrition goals",
-    description: "Your daily targets. Meal plans aim at them, and meals show how they fit.",
+    description: "Daily targets your meal plans aim at.",
     summary: ({ nutrition_goals: g }) =>
       g.calories
         ? [GOAL_OPTIONS.find((o) => o.value === g.goal)?.label, `${g.calories.toLocaleString()} kcal`, g.protein && `${g.protein} g protein`]
@@ -152,6 +161,18 @@ export default function SettingsScreen() {
   const [proSheet, setProSheet] = useState<ProSettingKey | null>(null);
   const closeProSheet = () => setProSheet(null);
   const [manageOpen, setManageOpen] = useState(false);
+  // How a free account can still earn Pro (the first reward not yet earned).
+  const rewards = useProRewardProgress().data;
+  const earnTip =
+    !isSignedIn || !rewards || allRewardsEarned(rewards)
+      ? null
+      : rewards.approvedRecipes === 0
+        ? { days: RECIPE_REWARD_DAYS, how: "share your first recipe", href: "/add-recipe" as const }
+        : { days: POST_REWARD_DAYS, how: "post your first food photo", href: "/discover" as const };
+
+  // Sections rise in one after another as Settings opens (none with
+  // Reduce motion).
+  const enter = (i: number) => (reduceMotion ? undefined : FadeInDown.delay(i * 60).duration(360).easing(Easing.out(Easing.cubic)));
   // A trial that ended or a cancelled plan that ran out, while away.
   useFocusEffect(useCallback(() => useProStore.getState().refresh(), []));
   // Deep links, once Settings has settled in (a sheet opening mid-push
@@ -229,204 +250,249 @@ export default function SettingsScreen() {
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
         {/* Bottom padding clears the home indicator (top-only safe area). */}
         <View className="mt-4 gap-8 px-5" style={{ paddingBottom: insets.bottom + 40 }}>
-          {/* Most-used first: these change which meals you see. */}
-          <SettingsSection title="Meal preferences">
-            <View className="gap-3">
-              <SettingsLabel>Dietary focus</SettingsLabel>
-              {/* Nothing selected: no focus (stored as "none"). */}
-              <ChipSelect
-                mode="single"
-                clearable
-                options={DIETARY_FOCUS_OPTIONS}
-                value={prefs.dietary_focus !== "none" ? [prefs.dietary_focus] : []}
-                onChange={(value) => setPrefs({ ...prefs, dietary_focus: value[0] ?? "none" })}
-              />
-            </View>
-            <View className="gap-3">
-              <SettingsLabel>Food allergies</SettingsLabel>
-              <ChipSelect
-                mode="multi"
-                clearable
-                options={ALLERGEN_OPTIONS}
-                value={prefs.allergens}
-                onChange={(value) => setPrefs({ ...prefs, allergens: value })}
-              />
-            </View>
-          </SettingsSection>
+          {/* Who you are and your plan, then Pro: the pitch for a free
+              account, or the plan for a subscriber. */}
+          <Animated.View entering={enter(0)}>
+            <AccountCard />
+          </Animated.View>
 
-          <SettingsSection title="Pro">
+          <Animated.View entering={enter(1)} className="-mt-3 gap-3">
             {subscription && <ProPlanCard subscription={subscription} onPress={() => setManageOpen(true)} />}
             {/* Earned Pro (no subscription) comes before an expired plan. */}
             {!subscription && earnedUntil && new Date(earnedUntil).getTime() > Date.now() && (
               <EarnedProCard until={earnedUntil} onPress={() => router.push("/pro")} />
             )}
             {!subscription && !isPro && lapsed && <ProPlanCard subscription={lapsed} onPress={() => router.push("/pro")} />}
-            {/* The same full Pro page as buying (for a subscriber its footer
-                shows the plan and Manage your plan instead of a price). */}
             {isPro && (
-              <Pressable onPress={() => router.push("/pro")} accessibilityRole="button" className="flex-row items-center gap-3 active:opacity-60">
-                <View className="flex-1">
-                  <SettingsRowLabel>See all Pro features</SettingsRowLabel>
-                  <SettingsRowDescription>Everything included in your plan.</SettingsRowDescription>
+              <View className="flex-row flex-wrap gap-2">
+                {["Unlimited saves", "Unlimited searches", "Unlimited suggestions", "Every pantry match"].map((label) => (
+                  <View key={label} className="rounded-full bg-tinted-bg px-3 py-1.5">
+                    <Text className="font-inter-bold text-sub text-primary">{label}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            {!isPro && !lapsed && <ProPitchCard />}
+            {!isPro && earnTip && (
+              <Pressable
+                onPress={() => router.push(earnTip.href)}
+                accessibilityRole="button"
+                className="flex-row items-center gap-3 rounded-2xl border border-dashed border-accent/40 bg-accent/5 px-4 py-3 active:opacity-80"
+              >
+                <View className="h-8 w-8 items-center justify-center rounded-full bg-accent/15">
+                  <Gift color={colors.accent} size={16} />
                 </View>
-                <ChevronRight color={colors.ink.subtle} size={18} />
+                <Text className="flex-1 font-inter-regular text-small text-ink-emphasis">
+                  Or <Text className="font-inter-bold">earn {earnTip.days} days of Pro free</Text>: {earnTip.how}
+                </Text>
+                <ChevronRight color={colors.accent} size={16} />
               </Pressable>
             )}
-            {!isPro && (
-              <Pressable onPress={() => router.push("/pro")} accessibilityRole="button" className="flex-row items-center gap-3 active:opacity-60">
-                <View className="flex-1">
-                  <SettingsRowLabel>See everything in Pro</SettingsRowLabel>
-                  <SettingsRowDescription>Compare Free and Pro, and pick a plan.</SettingsRowDescription>
-                </View>
-                <ChevronRight color={colors.ink.subtle} size={18} />
-              </Pressable>
-            )}
-            {/* Price drop alerts live under Notifications (a real push now). */}
-            {/* Meal plan length: 5 or 7 days, for each new plan. */}
-            <ProSettingRow
-              index={1}
-              label="Meal plan length"
-              description="How many days each new meal plan covers."
-              locked={!isPro}
-              control={
-                <SegmentedSwitch
-                  options={PLAN_LENGTH_OPTIONS}
-                  value={String(prefs.planner_defaults.days) as "5" | "7"}
-                  onChange={(value) => setPrefs({ ...prefs, planner_defaults: { days: value === "7" ? 7 : 5 } })}
+          </Animated.View>
+
+          {!isPro && (
+            <Animated.View entering={enter(2)} className="gap-3">
+              <View className="flex-row items-baseline gap-2">
+                <AppText variant="sectionSubtitle" dot>
+                  Your free limits
+                </AppText>
+                <Text className="font-inter-semibold text-small text-ink-placeholder">Unlimited with Pro</Text>
+              </View>
+              <FreeLimitsCard />
+            </Animated.View>
+          )}
+
+          {/* These change which meals you see. */}
+          <Animated.View entering={enter(3)}>
+            <SettingsSection title="Meal preferences">
+              <View className="gap-3">
+                <SettingsLabel>Dietary focus</SettingsLabel>
+                {/* Nothing selected: no focus (stored as "none"). */}
+                <ChipSelect
+                  mode="single"
+                  clearable
+                  options={DIETARY_FOCUS_OPTIONS}
+                  value={prefs.dietary_focus !== "none" ? [prefs.dietary_focus] : []}
+                  onChange={(value) => setPrefs({ ...prefs, dietary_focus: value[0] ?? "none" })}
                 />
-              }
-              onPress={() => (isPro ? undefined : setUpgradeOpen(true))}
-            />
-            {PRO_SETTINGS.map((setting, index) => (
+              </View>
+              <View className="gap-3">
+                <SettingsLabel>Food allergies</SettingsLabel>
+                <ChipSelect
+                  mode="multi"
+                  clearable
+                  options={ALLERGEN_OPTIONS}
+                  value={prefs.allergens}
+                  onChange={(value) => setPrefs({ ...prefs, allergens: value })}
+                />
+              </View>
+            </SettingsSection>
+          </Animated.View>
+
+          {/* Every Pro setting in one place, price drop alerts included.
+              Locked, each says what it would do for you and opens the
+              upsell. */}
+          <Animated.View entering={enter(4)}>
+            <SettingsSection title="Pro features">
+              {isPro && (
+                <Pressable onPress={() => router.push("/pro")} accessibilityRole="button" className="flex-row items-center gap-3 active:opacity-60">
+                  <View className="flex-1">
+                    <SettingsRowLabel>See all Pro features</SettingsRowLabel>
+                    <SettingsRowDescription>Everything in your plan.</SettingsRowDescription>
+                  </View>
+                  <ChevronRight color={colors.ink.subtle} size={18} />
+                </Pressable>
+              )}
               <ProSettingRow
-                key={setting.key}
-                index={index + 2}
-                label={setting.label}
-                description={(isPro && setting.summary(prefs)) || setting.description}
-                detail={
-                  setting.key === "avoid" && isPro && prefs.avoid_ingredients.length > 0 ? (
-                    <AvoidSummary avoided={prefs.avoid_ingredients} />
-                  ) : undefined
-                }
+                index={1}
+                label="Meal plan length"
+                description={isPro ? "Days in each new plan." : "Plan 5 or 7 days at once."}
                 locked={!isPro}
-                onPress={() => (isPro ? setProSheet(setting.key) : setUpgradeOpen(true))}
-              />
-            ))}
-          </SettingsSection>
-
-          <SettingsSection title="App">
-            <SettingsToggle
-              label="Surprise me on Home"
-              description="The pull-down tag on Home that picks a random meal when you can't decide. Turn it off to hide it."
-              value={showSurpriseMe}
-              onChange={setShowSurpriseMe}
-            />
-            <SettingsToggle
-              label="Reduce motion"
-              description="Skips page intros, swaps sliding transitions for fades, and stops numbers rolling. Also turns on with your phone's own reduce motion setting."
-              value={reduceMotion}
-              onChange={setReduceMotion}
-            />
-            {/* Reduce motion skips intros, so replaying them would do
-                nothing: disabled and dimmed, saying why. */}
-            <Pressable
-              onPress={() => {
-                resetIntros();
-                setToast({ id: Date.now(), message: "Page intros will play again on your next visit.", tone: "success" });
-              }}
-              disabled={reduceMotion}
-              accessibilityState={{ disabled: reduceMotion }}
-              className={reduceMotion ? "opacity-40" : "active:opacity-60"}
-            >
-              <SettingsRowLabel>Replay page intros</SettingsRowLabel>
-              <SettingsRowDescription>
-                {reduceMotion
-                  ? "Page intros are off while Reduce motion is on."
-                  : "Each page's quick intro plays once. This shows them again the next time you open each page."}
-              </SettingsRowDescription>
-            </Pressable>
-          </SettingsSection>
-
-          <SettingsSection title="Privacy">
-            <SettingsToggle
-              label="Show saved meals on your profile"
-              description="When enabled, visitors to your profile can see the meals you've saved."
-              value={settings.data?.show_saved_public ?? false}
-              onChange={settingsActions.setShowSaved}
-            />
-          </SettingsSection>
-
-          {/* The newsletter deep link (?section=newsletter) centers this one. */}
-          <SettingsSection
-            title="Notifications"
-            onLayout={(e) => setNewsletterLayout({ y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height })}
-          >
-            {/* Hidden on a build without the notifications module. */}
-            {push.permission != null && push.permission !== "unavailable" && (
-              <SettingsToggle
-                label="Push notifications"
-                description={
-                  push.permission === "denied"
-                    ? "Notifications are off for AnoUlam in iOS Settings. Turn this on to open them."
-                    : push.permission === "quiet" && pushOn
-                      ? "Arriving quietly in Notification Center, no banner or sound."
-                      : "Updates on your phone, like when a recipe you shared is approved and live."
+                control={
+                  <SegmentedSwitch
+                    options={PLAN_LENGTH_OPTIONS}
+                    value={String(prefs.planner_defaults.days) as "5" | "7"}
+                    onChange={(value) => setPrefs({ ...prefs, planner_defaults: { days: value === "7" ? 7 : 5 } })}
+                  />
                 }
-                value={pushOn}
-                onChange={(on) => void setPushOn(on)}
+                onPress={() => (isPro ? undefined : setUpgradeOpen(true))}
               />
-            )}
-            {/* What gets pushed, under the general switch (shown while it's on).
-                Price drop alerts are Pro: locked, they open the Pro page. */}
-            {pushOn && (
-              <>
+              {PRO_SETTINGS.map((setting, index) => (
                 <ProSettingRow
-                  label="Price drop alerts"
-                  description="A push the day an ingredient drops 5% or more at NCR markets."
-                  locked={!isPro}
-                  onPress={() =>
-                    isPro
-                      ? settingsActions.setPriceAlerts(!(settings.data?.push_price_alerts ?? true))
-                      : router.push({
-                          pathname: "/pro",
-                          params: { title: "Get price drop", highlight: "alerts", subtitle: "Pro tells you the day an ingredient gets cheaper." },
-                        })
-                  }
-                  toggle={{ value: settings.data?.push_price_alerts ?? true, onChange: settingsActions.setPriceAlerts }}
-                />
-                <SettingsToggle
-                  label="Weekly best buys"
+                  key={setting.key}
+                  index={index + 2}
+                  label={setting.label}
                   description={
                     isPro
-                      ? "Saturday morning: the week's 3 biggest price drops, in pesos."
-                      : "Saturday morning: the week's biggest price drop."
+                      ? setting.summary(prefs) || setting.description
+                      : setting.key === "avoid" && prefs.allergens.length > 0
+                        ? `You avoid ${listNames(prefs.allergens.map(allergenLabel)).toLowerCase()}. Pro can hide any ingredient, like ampalaya.`
+                        : setting.description
                   }
+                  detail={
+                    setting.key === "avoid" && isPro && prefs.avoid_ingredients.length > 0 ? (
+                      <AvoidSummary avoided={prefs.avoid_ingredients} />
+                    ) : undefined
+                  }
+                  locked={!isPro}
+                  onPress={() => (isPro ? setProSheet(setting.key) : setUpgradeOpen(true))}
+                />
+              ))}
+              <ProSettingRow
+                index={4}
+                label="Price drop alerts"
+                description={pushOn || !isPro ? "A push when an ingredient drops 5%+." : "Turn on push notifications below to get these."}
+                locked={!isPro}
+                onPress={() =>
+                  isPro
+                    ? settingsActions.setPriceAlerts(!(settings.data?.push_price_alerts ?? true))
+                    : router.push({
+                        pathname: "/pro",
+                        params: { title: "Get price drop", highlight: "alerts", subtitle: "Pro tells you the day an ingredient gets cheaper." },
+                      })
+                }
+                toggle={pushOn ? { value: settings.data?.push_price_alerts ?? true, onChange: settingsActions.setPriceAlerts } : undefined}
+              />
+            </SettingsSection>
+          </Animated.View>
+
+          {/* The newsletter deep link (?section=newsletter) centers this one. */}
+          <Animated.View entering={enter(5)}>
+            <SettingsSection
+              title="Notifications"
+              onLayout={(e) => setNewsletterLayout({ y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height })}
+            >
+              {/* Hidden on a build without the notifications module. */}
+              {push.permission != null && push.permission !== "unavailable" && (
+                <SettingsToggle
+                  label="Push notifications"
+                  description={
+                    push.permission === "denied"
+                      ? "Off in iOS Settings. Turn on to open them."
+                      : push.permission === "quiet" && pushOn
+                        ? "Arriving quietly, no banner or sound."
+                        : "Recipe approvals and price news."
+                  }
+                  value={pushOn}
+                  onChange={(on) => void setPushOn(on)}
+                />
+              )}
+              {pushOn && (
+                <SettingsToggle
+                  label="Weekly best buys"
+                  description={isPro ? "Saturdays: the week's 3 biggest drops." : "Saturdays: the week's biggest drop."}
                   value={settings.data?.push_weekly_digest ?? true}
                   onChange={settingsActions.setWeeklyDigest}
                 />
-              </>
-            )}
-            {/* Quiet (the default): one tap to banners and sound. */}
-            {push.permission === "quiet" && pushOn && (
-              <Pressable onPress={() => void showBanners()} hitSlop={6} className="-mt-2 self-start active:opacity-60">
-                <Text className="font-inter-semibold text-small text-primary">Show as banners with sound</Text>
-              </Pressable>
-            )}
-            <SettingsToggle
-              label="Email newsletter"
-              description="Receive occasional emails about new meals, features, and food tips from AnoUlam."
-              value={settings.data?.newsletter_subscribed ?? false}
-              // Turning it off asks first; turning it on just saves.
-              onChange={(on) => (on ? settingsActions.setNewsletter(true) : setConfirmUnsubscribe(true))}
-            />
-          </SettingsSection>
+              )}
+              {/* Quiet (the default): one tap to banners and sound. */}
+              {push.permission === "quiet" && pushOn && (
+                <Pressable onPress={() => void showBanners()} hitSlop={6} className="-mt-2 self-start active:opacity-60">
+                  <Text className="font-inter-semibold text-small text-primary">Show as banners with sound</Text>
+                </Pressable>
+              )}
+              <SettingsToggle
+                label="Email newsletter"
+                description="New meals and food tips, now and then."
+                value={settings.data?.newsletter_subscribed ?? false}
+                // Turning it off asks first; turning it on just saves.
+                onChange={(on) => (on ? settingsActions.setNewsletter(true) : setConfirmUnsubscribe(true))}
+              />
+            </SettingsSection>
+          </Animated.View>
 
+          <Animated.View entering={enter(6)}>
+            <SettingsSection title="App">
+              <SettingsToggle
+                label="Surprise me on Home"
+                description="The pull-down random meal."
+                value={showSurpriseMe}
+                onChange={setShowSurpriseMe}
+              />
+              <SettingsToggle
+                label="Reduce motion"
+                description="Fewer animations. Follows your phone's setting too."
+                value={reduceMotion}
+                onChange={setReduceMotion}
+              />
+              {/* Reduce motion skips intros, so replaying them would do
+                  nothing: disabled and dimmed, saying why. */}
+              <Pressable
+                onPress={() => {
+                  resetIntros();
+                  setToast({ id: Date.now(), message: "Page intros will play again on your next visit.", tone: "success" });
+                }}
+                disabled={reduceMotion}
+                accessibilityState={{ disabled: reduceMotion }}
+                className={reduceMotion ? "opacity-40" : "active:opacity-60"}
+              >
+                <SettingsRowLabel>Replay page intros</SettingsRowLabel>
+                <SettingsRowDescription>
+                  {reduceMotion ? "Off while Reduce motion is on." : "Show each page's intro once more."}
+                </SettingsRowDescription>
+              </Pressable>
+            </SettingsSection>
+          </Animated.View>
+
+          <Animated.View entering={enter(7)}>
+            <SettingsSection title="Privacy">
+              <SettingsToggle
+                label="Show saved meals on profile"
+                description="Visitors can see what you save."
+                value={settings.data?.show_saved_public ?? false}
+                onChange={settingsActions.setShowSaved}
+              />
+            </SettingsSection>
+          </Animated.View>
+
+          <Animated.View entering={enter(8)}>
           <SettingsSection title="About">
             <LinkRow label="Send feedback" onPress={sendFeedback} />
             <LinkRow label="Privacy Policy" onPress={() => router.push("/privacy")} />
             <LinkRow label="Terms of Service" onPress={() => router.push("/terms")} />
             <Text className="font-inter-regular text-body text-ink-subtle">Version {APP_VERSION}</Text>
           </SettingsSection>
+          </Animated.View>
 
           <View className="gap-5">
             <Pressable
