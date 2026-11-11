@@ -11,7 +11,7 @@ import { ProPitchCard } from "../components/settings/ProPitchCard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChevronRight, LogOut, Trash2 } from "lucide-react-native";
-import { AppText, ChipSelect, ConfirmSheet, Screen, SegmentedSwitch, Toast, type ToastState } from "@/frontend/components/ui";
+import { AppText, ConfirmSheet, Screen, SegmentedSwitch, Toast, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useAuth, useDeleteAccount, useSignOut } from "@/frontend/features/auth/hooks/useAuth";
 import { useAuthActivityStore } from "@/frontend/features/auth/store/useAuthActivityStore";
@@ -20,7 +20,6 @@ import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences
 import { ALLERGEN_OPTIONS, DIETARY_FOCUS_OPTIONS } from "@/frontend/core/preferences/options";
 import { useAccountSettings, useAccountSettingsActions } from "../hooks/useProfile";
 import {
-  SettingsLabel,
   SettingsRowDescription,
   SettingsRowLabel,
   SettingsSection,
@@ -39,6 +38,7 @@ import { MacroGoalSheet } from "@/frontend/core/nutrition/components/MacroGoalSh
 import { GOAL_OPTIONS, goalsFromTargets, targetsFromGoals } from "@/frontend/core/nutrition/macros";
 import { DEFAULT_NUTRITION_GOALS } from "@/api/auth";
 import { ProSettingRow } from "../components/settings/ProSettingRow";
+import { PreferencesSheet } from "@/frontend/core/budget/components/PreferencesSheet";
 import { canReceivePush, enablePush } from "@/frontend/core/notifications/push";
 import { usePushPermission } from "@/frontend/core/notifications/hooks/usePushPermission";
 
@@ -47,10 +47,15 @@ const SUPPORT_EMAIL = "anoulam.app@gmail.com";
 const APP_VERSION = Constants.expoConfig?.version ?? "dev";
 
 // A tappable row inside a settings card (About links).
-function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
+// With `value`, what's currently set shows under the label (Meal
+// preferences); tapping opens where it's edited.
+function LinkRow({ label, value, onPress }: { label: string; value?: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} className="flex-row items-center justify-between active:opacity-60">
-      <SettingsRowLabel>{label}</SettingsRowLabel>
+    <Pressable onPress={onPress} accessibilityRole="button" className="flex-row items-center justify-between gap-3 active:opacity-60">
+      <View className="flex-1">
+        <SettingsRowLabel>{label}</SettingsRowLabel>
+        {value != null && <SettingsRowDescription>{value}</SettingsRowDescription>}
+      </View>
       <ChevronRight color={colors.ink.subtle} size={20} />
     </Pressable>
   );
@@ -158,6 +163,7 @@ export default function SettingsScreen() {
   const lapsed = useProStore((s) => s.lapsed);
   const earnedUntil = useProStore((s) => s.earnedUntil);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [prefsOpen, setPrefsOpen] = useState(false);
   const [proSheet, setProSheet] = useState<ProSettingKey | null>(null);
   const closeProSheet = () => setProSheet(null);
   const [manageOpen, setManageOpen] = useState(false);
@@ -263,15 +269,7 @@ export default function SettingsScreen() {
               <EarnedProCard until={earnedUntil} onPress={() => router.push("/pro")} />
             )}
             {!subscription && !isPro && lapsed && <ProPlanCard subscription={lapsed} onPress={() => router.push("/pro")} />}
-            {isPro && (
-              <View className="flex-row flex-wrap gap-2">
-                {["Unlimited saves", "Unlimited searches", "Unlimited suggestions", "Every pantry match"].map((label) => (
-                  <View key={label} className="rounded-full bg-tinted-bg px-3 py-1.5">
-                    <Text className="font-inter-bold text-sub text-primary">{label}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
+            {/* What Pro includes is a checklist inside the plan card. */}
             {!isPro && !lapsed && <ProPitchCard />}
             {!isPro && earnTip && (
               <Pressable
@@ -302,37 +300,10 @@ export default function SettingsScreen() {
             </Animated.View>
           )}
 
-          {/* These change which meals you see. */}
-          <Animated.View entering={enter(3)}>
-            <SettingsSection title="Meal preferences">
-              <View className="gap-3">
-                <SettingsLabel>Dietary focus</SettingsLabel>
-                {/* Nothing selected: no focus (stored as "none"). */}
-                <ChipSelect
-                  mode="single"
-                  clearable
-                  options={DIETARY_FOCUS_OPTIONS}
-                  value={prefs.dietary_focus !== "none" ? [prefs.dietary_focus] : []}
-                  onChange={(value) => setPrefs({ ...prefs, dietary_focus: value[0] ?? "none" })}
-                />
-              </View>
-              <View className="gap-3">
-                <SettingsLabel>Food allergies</SettingsLabel>
-                <ChipSelect
-                  mode="multi"
-                  clearable
-                  options={ALLERGEN_OPTIONS}
-                  value={prefs.allergens}
-                  onChange={(value) => setPrefs({ ...prefs, allergens: value })}
-                />
-              </View>
-            </SettingsSection>
-          </Animated.View>
-
           {/* Every Pro setting in one place, price drop alerts included.
               Locked, each says what it would do for you and opens the
               upsell. */}
-          <Animated.View entering={enter(4)}>
+          <Animated.View entering={enter(3)}>
             <SettingsSection title="Pro features">
               {isPro && (
                 <Pressable onPress={() => router.push("/pro")} accessibilityRole="button" className="flex-row items-center gap-3 active:opacity-60">
@@ -392,6 +363,23 @@ export default function SettingsScreen() {
                       })
                 }
                 toggle={pushOn ? { value: settings.data?.push_price_alerts ?? true, onChange: settingsActions.setPriceAlerts } : undefined}
+              />
+            </SettingsSection>
+          </Animated.View>
+
+          {/* These change which meals you see: what's set, tap to edit in
+              the same sheet as Home's preferences banner. */}
+          <Animated.View entering={enter(4)}>
+            <SettingsSection title="Meal preferences">
+              <LinkRow
+                label="Dietary focus"
+                value={DIETARY_FOCUS_OPTIONS.find((o) => o.id === prefs.dietary_focus)?.label ?? "None"}
+                onPress={() => setPrefsOpen(true)}
+              />
+              <LinkRow
+                label="Food allergies"
+                value={prefs.allergens.length > 0 ? listNames(prefs.allergens.map(allergenLabel)) : "None"}
+                onPress={() => setPrefsOpen(true)}
               />
             </SettingsSection>
           </Animated.View>
@@ -550,6 +538,14 @@ export default function SettingsScreen() {
         body="Pro tells you when prices drop, hides what you don't eat, plans your week and tracks your goals."
         onClose={() => setUpgradeOpen(false)}
         onOpenPro={() => router.push("/pro")}
+      />
+      <PreferencesSheet
+        visible={prefsOpen}
+        onClose={() => setPrefsOpen(false)}
+        dietaryFocus={prefs.dietary_focus !== "none" ? [prefs.dietary_focus] : []}
+        onDietaryFocusChange={(value) => setPrefs({ ...prefs, dietary_focus: value[0] ?? "none" })}
+        allergens={prefs.allergens}
+        onAllergensChange={(value) => setPrefs({ ...prefs, allergens: value })}
       />
       <ConfirmSheet
         visible={confirmUnsubscribe}
