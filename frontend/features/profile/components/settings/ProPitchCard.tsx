@@ -5,7 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { CalendarDays, EyeOff, Infinity as InfinityIcon, TrendingDown } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { ProNameBadge } from "@/frontend/core/pro/components/ProProfileFlair";
-import { PLANS, TRIAL_DAYS, YEARLY_SAVE_PCT } from "@/frontend/core/pro/proContent";
+import { COMPARE_ROWS, PLANS, TRIAL_DAYS, YEARLY_SAVE_PCT } from "@/frontend/core/pro/proContent";
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
 import { commodityShortName, useBiggestPriceDrop } from "@/frontend/core/prices/hooks/useBiggestPriceDrop";
 import { useSavedMeals } from "@/frontend/core/saved/hooks/useSavedMeals";
@@ -14,6 +14,8 @@ import { SAVED_MEALS_LIMIT } from "@/frontend/core/saved/types";
 // The card's green: the header green deepening to the bottom right.
 const CARD_GREEN = [colors.primary, colors.home.top, colors.brandGreen.dark] as const;
 const ICON = 15;
+// How many benefits the card lists (the rest are counted in "+ N more").
+const SHOWN_BENEFITS = 4;
 
 // One benefit: an icon in a soft circle, the benefit, and a line about you
 // under it. Icons and text sit on one grid (28px icon column, 12px gap).
@@ -43,6 +45,8 @@ export function ProPitchCard() {
   const monthly = prices.monthly ?? `₱${PLANS.monthly.price}`;
   const yearly = prices.yearly ?? `₱${PLANS.yearly.price}`;
   const used = Math.min(saved.length, SAVED_MEALS_LIMIT);
+  // The Pro page's rows Pro improves, past the four shown here.
+  const moreCount = COMPARE_ROWS.filter((r) => r.free !== r.pro && r.free !== true).length - SHOWN_BENEFITS;
 
   return (
     <View className="overflow-hidden rounded-3xl shadow-lg">
@@ -54,8 +58,12 @@ export function ProPitchCard() {
         <Text className="mt-2 font-inter-extrabold text-heading tracking-display text-white">
           Cook smarter,{"\n"}spend less<Text className="text-accent">.</Text>
         </Text>
+        {/* So the list reads as what Pro adds, not as all there is. */}
+        <Text className="mt-2 font-inter-regular text-small text-home-name">
+          Everything in Free stays free. Pro adds:
+        </Text>
 
-        <View className="mt-5 gap-4">
+        <View className="mt-4 gap-4">
           <Benefit
             icon={<InfinityIcon color={colors.white} size={ICON} strokeWidth={2.5} />}
             title="Unlimited saved meals"
@@ -81,6 +89,9 @@ export function ProPitchCard() {
             detail="Everywhere in the app, not just allergens"
           />
         </View>
+        {moreCount > 0 && (
+          <Text className="ml-10 mt-3 font-inter-semibold text-small text-home-name">+ {moreCount} more, like meal swaps and full nutrients</Text>
+        )}
 
         <Pressable
           onPress={() => router.push("/pro")}
@@ -95,6 +106,9 @@ export function ProPitchCard() {
           {hasTrial ? "Then " : ""}
           {monthly}/month or {yearly}/year (save {YEARLY_SAVE_PCT}%).{"\n"}Cancel anytime.
         </Text>
+        <Pressable onPress={() => router.push("/pro")} hitSlop={8} accessibilityRole="link" className="mt-3 self-center active:opacity-70">
+          <Text className="font-inter-bold text-small text-white underline">Compare Free and Pro</Text>
+        </Pressable>
       </LinearGradient>
     </View>
   );
