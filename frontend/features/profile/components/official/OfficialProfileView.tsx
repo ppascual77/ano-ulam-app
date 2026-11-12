@@ -58,10 +58,10 @@ function OfficialRecipesTab({ onToast }: { onToast: Toast }) {
     <View className="gap-8 pb-6">
       <View className="gap-4">
         <View>
-          <Text className="font-inter-bold text-subheading text-web-ink">Official Recipes</Text>
+          <Text className="font-inter-bold text-subheading text-ink-emphasis">Official Recipes</Text>
           {!!catalog && (
-            <Text className="mt-0.5 font-inter-regular text-small text-web-ink-muted">
-              Showing {picks.length} of <Text className="font-inter-semibold text-brand-green">{catalog.length}</Text>{" "}
+            <Text className="mt-0.5 font-inter-regular text-small text-ink-subtle">
+              Showing {picks.length} of <Text className="font-inter-semibold text-primary">{catalog.length}</Text>{" "}
               community-approved meals
             </Text>
           )}
@@ -86,15 +86,15 @@ function OfficialRecipesTab({ onToast }: { onToast: Toast }) {
       </View>
 
       <View className="gap-3">
-        <Text className="font-inter-semibold text-body text-web-ink-body">About AnoUlam</Text>
+        <Text className="font-inter-semibold text-body text-ink">About AnoUlam</Text>
         {TIPS.map(({ Icon, title, body }) => (
-          <View key={title} className="flex-row gap-3 rounded-2xl bg-web-divider/50 p-4">
-            <View className="h-8 w-8 items-center justify-center rounded-xl border border-web-divider bg-white shadow-sm">
-              <Icon color={colors.brandGreen.DEFAULT} size={18} />
+          <View key={title} className="flex-row gap-3 rounded-2xl bg-ink-emphasis/5 p-4">
+            <View className="h-8 w-8 items-center justify-center rounded-xl border border-ink-emphasis/10 bg-white shadow-sm">
+              <Icon color={colors.primary} size={18} />
             </View>
             <View className="flex-1">
-              <Text className="font-inter-semibold text-body text-web-ink">{title}</Text>
-              <Text className="mt-0.5 font-inter-regular text-small text-web-ink-muted">{body}</Text>
+              <Text className="font-inter-semibold text-body text-ink-emphasis">{title}</Text>
+              <Text className="mt-0.5 font-inter-regular text-small text-ink-subtle">{body}</Text>
             </View>
           </View>
         ))}
@@ -103,12 +103,12 @@ function OfficialRecipesTab({ onToast }: { onToast: Toast }) {
       <View className="gap-2">
         <Pressable
           onPress={() => router.navigate("/browse")}
-          className="flex-row items-center justify-center gap-2 rounded-2xl bg-brand-green py-3.5 active:scale-[0.98]"
+          className="flex-row items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 active:scale-[0.98]"
         >
           <Utensils color={colors.white} size={16} />
           <Text className="font-inter-semibold text-body text-white">Explore All Meals</Text>
         </Pressable>
-        <Text className="text-center font-inter-regular text-small text-web-ink-muted">
+        <Text className="text-center font-inter-regular text-small text-ink-subtle">
           Browse the full catalog: {catalog?.length ?? "200+"} meals across all budgets
         </Text>
       </View>
@@ -156,21 +156,25 @@ export function OfficialProfileView({ onToast }: { onToast: Toast }) {
           avatar={
             <Image
               source={require("@/assets/icon.png")}
-              className="rounded-full border border-web-divider shadow-sm"
+              className="rounded-full border border-ink-emphasis/10 shadow-sm"
               style={{ width: 64, height: 64 }}
             />
           }
           badge={<BadgeCheck color={colors.white} fill={colors.verified} size={20} />}
         >
           <Pressable onPress={() => Linking.openURL(`mailto:${OFFICIAL_EMAIL}`)} className="mt-1.5 flex-row items-center gap-1 self-start">
-            <Mail color={colors.brandGreen.DEFAULT} size={11} />
-            <Text className="font-inter-regular text-small text-brand-green">{OFFICIAL_EMAIL}</Text>
+            <Mail color={colors.primary} size={11} />
+            <Text className="font-inter-regular text-small text-primary">{OFFICIAL_EMAIL}</Text>
           </Pressable>
         </ProfileHeader>
       }
       tabs={OFFICIAL_TABS}
       activeTab={tab}
       onTabChange={setTab}
+      miniName="AnoUlam"
+      miniAvatar={(size) => (
+        <Image source={require("@/assets/icon.png")} className="rounded-full" style={{ width: size, height: size }} />
+      )}
     >
       {tab === "recipes" ? <OfficialRecipesTab onToast={onToast} /> : <OfficialPostsTab onToast={onToast} />}
     </ProfileScaffold>

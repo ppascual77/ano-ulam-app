@@ -162,6 +162,37 @@ DA day / week; `price_alert_log` records it).
       the planner on today; the floating + opens Create (glass, no pulse); Created shows
       RECIPES · n and FOOD POSTS · n with post cards; the Profile tab's selected state doesn't touch
       its label.
+- [ ] **Profile redesign** (2026-11-13): green textured header behind the clock with a light
+      "Profile." and a white Settings circle; its curve crosses the middle of the 92px avatar
+      (free and Pro, whose accent ring shows on the green); the clock turns dark and the strip
+      white once the white page is under it. Saved · Recipes · Posts count up once and switch tab
+      on tap (Posts goes to Created; a new or deleted post updates it). Empty bio shows the dashed
+      "Add a bio" chip; editing shows the counter only in the last 10 characters, red when over,
+      and a light tap on save. Tab bar: with four tabs only the active one has its label, it widens
+      as the pill slides (no bounce); a selection tick on change; content slides 12px from the side
+      of the tab picked (fade only with Reduce motion). Scrolled down: the avatar shrinks a little,
+      the tabs pin just *below* the status bar with the small avatar + name above them, the + shrinks
+      while scrolling down and comes back on scrolling up. Someone else's profile and the official
+      one: tabs and mini header match, nothing else broke.
+- [ ] **Add Ingredients sheet** (2026-11-13, Home and Profile's Pantry tab): pill search field;
+      before typing, Quick add chips (garlic, red onion, egg, white rice, chicken thigh, tomato,
+      only the ones not added) and, after removing something, Recently removed. Results show the
+      everyday name (no icons), the alias under it when that's what matched ("bawang"
+      finds Garlic), no Main/Staple tag; a nonsense search says "No 'x' yet" with the bawang hint.
+      Tapping a result or chip: the chip arcs up into the tray's first slot (~0.35s) with a light
+      tap, the tray count rolls, the keyboard stays up and the chip is visible above it. With 5+
+      items the tray shows the newest 4 and "+N more"; that opens all of them wrapped in a short
+      box that scrolls down, with "Show less" (add 20+ to check the search results still fit). Reduce
+      motion: no flight, the chip fades in. Footer: "Add N more to see meals" (outline) under 3
+      items, then "Show N meals", which closes the sheet and opens the results (counts toward the
+      daily limit; the limit sheet shows when out). Removing a chip slides the rest over.
+- [ ] **Staples checklist**: grouped under Sauces & oil / Seasonings / Aromatics with Select
+      all / none; "Untick what you don't have."; the button reads "Add N staples" and
+      changes as you untick (Done when nothing new); ticking eases the box in and draws the check.
+- [ ] **Home pantry chips**: no Edit/Done toggle, every chip always has its x and it's easy to
+      hit; removing slides the others into place; "+N more" / "Show less" still fold a long tab. Empty pantry: only the
+      one "Add ingredients" button (no arrow, no header button); the header button shows once
+      something is added, same label.
 - [ ] **Discover tabs**: glass capsule over the reel, white glass on Community, thumb slides, the +
       lines up with it and opens Create in one tap; Community posts scroll under the tabs.
 

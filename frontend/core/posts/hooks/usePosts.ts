@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
-import { useInfiniteQuery, useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
 import {
+  countUserPosts,
   createPost,
   deletePost,
   listCommunityPosts,
@@ -102,6 +103,7 @@ export function usePostList({ userId, enabled = true, pageSize, refreshKey = 0 }
     patchAllLists(queryClient, viewerId, (list) => list.filter((p) => p.id !== post.id));
     try {
       await deletePost(post);
+      void queryClient.invalidateQueries({ queryKey: postKeys.count(post.user_id) });
       return true;
     } catch {
       void queryClient.invalidateQueries({ queryKey: postKeys.all(viewerId) });
@@ -162,6 +164,7 @@ export function useSavePost() {
     if (editing) await updatePost(editing, input);
     else await createPost(input);
     await queryClient.resetQueries({ queryKey: postKeys.all(viewerId) });
+    if (!editing && viewerId) void queryClient.invalidateQueries({ queryKey: postKeys.count(viewerId) });
     // A first photo post earns Pro days (granted by the database): pick up
     // the claimed reward and the new Pro straight away.
     if (!editing && input.image_uri) {
@@ -169,4 +172,14 @@ export function useSavePost() {
       useProStore.getState().refresh();
     }
   };
+}
+
+// How many posts a user has made (a profile's stats row). Refreshed after
+// creating or deleting a post.
+export function usePostCount(userId: string | null) {
+  return useQuery({
+    queryKey: postKeys.count(userId ?? ""),
+    queryFn: () => countUserPosts(userId!),
+    enabled: !!userId,
+  });
 }

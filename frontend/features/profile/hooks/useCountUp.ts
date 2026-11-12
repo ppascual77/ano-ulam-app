@@ -13,7 +13,8 @@ export function useCountUp(target: number, duration = 700) {
     const start = Date.now();
     let frame: number;
     const tick = () => {
-      const t = Math.min(1, (Date.now() - start) / duration);
+      // duration 0 (Reduce motion): straight to the target.
+      const t = duration > 0 ? Math.min(1, (Date.now() - start) / duration) : 1;
       current.current = from + (target - from) * easeOutCubic(t);
       setValue(current.current);
       if (t < 1) frame = requestAnimationFrame(tick);

@@ -28,11 +28,13 @@ const EASE = Easing.out(Easing.cubic);
 // The timeline, in ms from the profile appearing.
 const T = { ring: 80, glow: 380, badge: 320, glint: 620 };
 const RING = { gap: 3, stroke: 2 };
+/** ProAvatarRing's full size around an avatar of `size`. */
+export const proRingSize = (size: number) => size + (RING.gap + RING.stroke) * 2;
 
 /** Wraps the avatar (`size`, its diameter) in Pro's accent ring. */
 export function ProAvatarRing({ size, children }: { size: number; children: ReactNode }) {
   const reduceMotion = useReduceMotion();
-  const outer = size + (RING.gap + RING.stroke) * 2;
+  const outer = proRingSize(size);
   const ring = useSharedValue(reduceMotion ? 1 : 0);
   const glow = useSharedValue(0);
   const glint = useSharedValue(0);

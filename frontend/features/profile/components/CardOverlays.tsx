@@ -56,7 +56,7 @@ export function RecipeStatusBadge({ status, reason }: { status?: string; reason?
   }
   if (status === "draft") {
     return (
-      <View className="flex-row items-center gap-1 rounded-full bg-web-ink-body px-2 py-0.5">
+      <View className="flex-row items-center gap-1 rounded-full bg-ink px-2 py-0.5">
         <FileText color={colors.white} size={9} />
         <Text className="font-inter-semibold text-sub text-white">Draft</Text>
       </View>

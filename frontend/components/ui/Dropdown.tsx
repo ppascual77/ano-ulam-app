@@ -28,6 +28,8 @@ type DropdownProps = {
   /** "below" (default) opens under the trigger; "above" opens over it, for
    *  a trigger near the bottom of the screen (e.g. the bottom nav). */
   placement?: "below" | "above";
+  /** Fires as the menu opens (e.g. a light haptic). */
+  onOpen?: () => void;
 };
 
 // Menus without matchTriggerWidth are at least this wide (min-w-[200px]).
@@ -37,7 +39,7 @@ const SCREEN_MARGIN = 16;
 
 // Generic anchored menu — measures the trigger's on-screen position so the
 // menu opens right below/aligned to it, rather than a full-screen sheet.
-export function Dropdown({ trigger, items, headerLabel, headerIcon, matchTriggerWidth, align = "right", placement = "below" }: DropdownProps) {
+export function Dropdown({ trigger, items, headerLabel, headerIcon, matchTriggerWidth, align = "right", placement = "below", onOpen }: DropdownProps) {
   const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState({ top: 0, bottom: 0, right: 0, left: 0, width: 0, maxHeight: 400 });
   const triggerRef = useRef<ViewInstance>(null);
@@ -53,6 +55,7 @@ export function Dropdown({ trigger, items, headerLabel, headerIcon, matchTrigger
       const maxHeight = Math.max(120, placement === "above" ? y - 8 - SCREEN_MARGIN : screenHeight - top - SCREEN_MARGIN);
       setPosition({ top, bottom, right: screenWidth - (x + width), left: x, width, maxHeight });
       setVisible(true);
+      onOpen?.();
     });
   };
 

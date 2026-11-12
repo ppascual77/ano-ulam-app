@@ -47,8 +47,8 @@ export function UpdatedMealPrompt({ name, syncing, onClose, onClosed, onSync, on
         </View>
         <View className="items-center">
           <AppText variant="sectionTitle" dot>This meal was updated</AppText>
-          <Text className="mt-1 max-w-[260px] text-center font-inter-regular text-body text-web-ink-muted">
-            The creator of <Text className="font-inter-medium text-web-ink-soft">{shownName}</Text> has made changes to this
+          <Text className="mt-1 max-w-[260px] text-center font-inter-regular text-body text-ink-subtle">
+            The creator of <Text className="font-inter-medium text-ink">{shownName}</Text> has made changes to this
             recipe. You can sync to get the latest version, or unsave it from your list.
           </Text>
         </View>
@@ -56,7 +56,7 @@ export function UpdatedMealPrompt({ name, syncing, onClose, onClosed, onSync, on
           <Pressable
             onPress={onSync}
             disabled={syncing}
-            className={`flex-row items-center justify-center gap-2 rounded-xl bg-brand-green py-2.5 ${syncing ? "opacity-60" : ""}`}
+            className={`flex-row items-center justify-center gap-2 rounded-xl bg-primary py-2.5 ${syncing ? "opacity-60" : ""}`}
           >
             <SpinningRefresh spinning={syncing} />
             <Text className="font-inter-semibold text-body text-white">{syncing ? "Syncing…" : "Sync latest version"}</Text>
@@ -64,13 +64,13 @@ export function UpdatedMealPrompt({ name, syncing, onClose, onClosed, onSync, on
           <Pressable
             onPress={onUnsave}
             disabled={syncing}
-            className="flex-row items-center justify-center gap-2 rounded-xl border border-web-divider py-2.5"
+            className="flex-row items-center justify-center gap-2 rounded-xl border border-ink-emphasis/10 py-2.5"
           >
-            <BookmarkX color={colors.webInk.body} size={15} />
-            <Text className="font-inter-medium text-body text-web-ink-body">Unsave</Text>
+            <BookmarkX color={colors.ink.normal} size={15} />
+            <Text className="font-inter-medium text-body text-ink">Unsave</Text>
           </Pressable>
           <Pressable onPress={onViewSaved} disabled={syncing} className="items-center py-1.5">
-            <Text className="font-inter-regular text-body text-web-ink-muted">View saved version</Text>
+            <Text className="font-inter-regular text-body text-ink-subtle">View saved version</Text>
           </Pressable>
         </View>
       </View>

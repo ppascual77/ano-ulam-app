@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { addToPantry, listPantry, savePantry } from "@/api/pantry";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import type { PantryIngredient } from "../types";
+import { useRecentlyRemovedStore } from "../store/useRecentlyRemovedStore";
 
 // Where the pantry lives: a signed-in user's in public.pantry_items (see
 // api/pantry), a guest's on the phone. A guest who signs in keeps theirs:
@@ -69,9 +70,13 @@ export function usePantryActions() {
       const current = read();
       if (!current.some((i) => i.id === item.id)) write([...current, item]);
     },
-    // A chip's x is a single, final tap: saved right away.
+    // A chip's x is a single, final tap: saved right away, and offered back
+    // under the sheet's "Recently removed".
     remove: (id: string) => {
-      write(read().filter((i) => i.id !== id));
+      const current = read();
+      const removed = current.find((i) => i.id === id);
+      if (removed) useRecentlyRemovedStore.getState().record(removed);
+      write(current.filter((i) => i.id !== id));
       void persist();
     },
     persist,

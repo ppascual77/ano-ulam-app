@@ -8,12 +8,12 @@ export function RecipeLimitSheet({ visible, onClose }: { visible: boolean; onClo
     <BottomSheet visible={visible} onClose={onClose} heightPercent={0.5} fitContent>
       <View className="gap-4 p-10">
         <AppText variant="sectionTitle" dot>
-          You&apos;ve hit the <Text className="text-brand-orange">recipe limit</Text>
+          You&apos;ve hit the <Text className="text-accent">recipe limit</Text>
         </AppText>
-        <Text className="font-inter-regular text-body text-web-ink-muted">
+        <Text className="font-inter-regular text-body text-ink-subtle">
           You can publish up to {RECIPE_LIMIT} recipes. Remove an existing recipe to make room for a new one.
         </Text>
-        <Pressable onPress={onClose} className="items-center rounded-2xl bg-brand-green py-3">
+        <Pressable onPress={onClose} className="items-center rounded-2xl bg-primary py-3">
           <Text className="font-inter-semibold text-body text-white">Got it</Text>
         </Pressable>
       </View>
