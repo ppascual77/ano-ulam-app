@@ -165,6 +165,65 @@ DA day / week; `price_alert_log` records it).
 - [ ] **Discover tabs**: glass capsule over the reel, white glass on Community, thumb slides, the +
       lines up with it and opens Create in one tap; Community posts scroll under the tabs.
 
+## Add a Recipe flow (2026-11-13)
+
+- [ ] **Draft survives:** type a name and two ingredients, then (a) swipe back, (b) background the
+      app and kill it within a second of typing. Reopening Add a Recipe asks "Continue your
+      <name>?" with "You last worked on it …"; Continue restores everything (same step, photo,
+      quantities, steps); Start over gives a blank form; tapping outside the sheet continues. Prices
+      on restored lines are today's. A second account on the same phone doesn't see the draft.
+- [ ] **✕ with something typed** asks "Save as a draft?": Save draft closes and the draft is there
+      next time; Discard closes and it's gone; tapping outside stays on the form. ✕ on an untouched
+      form just closes. No stuck overlay after either.
+- [ ] **Blocked states:** signed out shows the sign-in prompt (art, Apple/Google buttons) and signing
+      in lands on the form; at 5 recipes the limit sheet opens over a blank screen, "See my recipes"
+      opens Profile on Created, dismissing it closes the screen.
+- [ ] **Four steps:** Details, Ingredients, Steps, Review. Step 1 shows one full-width Next. The bar
+      fills as you advance, finished steps show a check and are tappable (also forward when earlier
+      steps are complete), the header shows the recipe name once typed. Each step slides 16px in
+      from the side you're heading (fade only with Reduce motion), no slide on first open.
+- [ ] **Every step opens the same way:** a dotted title and one line ("The basics", "What goes
+      in it", "How to cook it", "Ready to share"), the same spacing between blocks on all four.
+- [ ] **Details:** cover tile is the meal card's shape (5:3) and the crop matches it; Take photo asks
+      for the camera (the custom permission text needs the next dev build), Library opens photos;
+      Retake / Change photo once set. Prep time is one row: 15 30 45 60 90 and Custom; Custom turns
+      into the minutes box itself (focused, number pad), a preset turns it back; reopening a draft
+      with e.g. 25 min shows it in Custom; empty prep on Next turns the row red and shakes it.
+      Difficulty (switch) and Servings (stepper, 1 to 10, starts at 4) sit side by side with labels
+      above, fitting the smallest iPhone. The name counter appears only from 40 characters, red at
+      50. Missing name/description still shake.
+- [ ] **Ingredients:** Quick add chips (garlic, onion, soy sauce, vinegar, oil, salt, pepper,
+      ginger, tomato, minus what's added) under the empty search. A new line slides in at the
+      bottom with a light tap, its Qty box focused and scrolled above the keyboard. The
+      Requirements box: a three-part bar filling as each rule is met, "n of 3", and one line naming
+      the next thing to do (amber after a failed Next), then "Ready. Price and nutrition are
+      counted." The summary above the keyboard: Total cost · Per serving (n) · Calories in three
+      equal columns with dividers, labels above, numbers rolling without shifting the columns.
+- [ ] **Steps:** soft cards, number in a green circle, 16px text. Return moves to the next step
+      (adds one from the last non-empty step, up to 12). Long-press a card to lift it (light tick),
+      or drag the grip; long-press inside a step being edited still moves the cursor, not the card.
+      Mention "garlic" or "bawang" with garlic in the list: a Garlic tag appears under the step.
+- [ ] **Review:** card rises in with a small scale-up (no bounce); View Details opens the full
+      preview sheet, ingredients in it open their sheet on top. Submit shows a spinner; on success
+      it shrinks into an orange dot and the Submitted screen's medallion pops. Turn off Wi-Fi first:
+      an error toast at the top, the button reads "Try again", the draft is still saved.
+
+## Meal details: cook mode and share (2026-11-13, needs a new dev build)
+
+New native packages: `react-native-view-shot`, `expo-sharing`, `expo-keep-awake`. Run
+`eas build --profile development --platform ios` before testing share and cook mode.
+
+- [ ] **Rolling numbers:** changing servings rolls the price under the name and the Calories card.
+- [ ] **Cook mode:** "Start cooking" beside Steps. Slides up over the meal page (fade with Reduce
+      motion), dark status bar, "n / N" and a segment bar, one step per page in large text; swipe or
+      Next/Back, a light tick per change; Done on the last closes back to the meal where it was.
+      Leave it open 2+ minutes: the screen doesn't dim or lock. Not shown in the Add a Recipe preview.
+- [ ] **Share:** share icon on the photo (not on admin screens, unpublished own recipes or the
+      recipe preview); spinner while it builds the image, then the share sheet with a 4:5 card: photo,
+      name with the orange dot, "₱47 per serving", kcal per serving, prep time, serves N, AnoUlam mark.
+      Share to Messages/IG; cancel the share sheet: nothing else happens. Airplane mode with an
+      uncached photo: the card still shares after ~2.5s.
+
 ## Pro feature reels (Settings, free account)
 
 - [ ] **Each locked Pro feature opens its reel sheet:** Price drop alerts (a phone lock screen,

@@ -2,10 +2,18 @@ import { Pressable, Text, View } from "react-native";
 import { AppText, BottomSheet } from "@/frontend/components/ui";
 import { RECIPE_LIMIT } from "@/api/recipes";
 
+type RecipeLimitSheetProps = {
+  visible: boolean;
+  onClose: () => void;
+  onClosed?: () => void;
+  /** Replaces "Got it" (e.g. "See my recipes" when opened from Add a Recipe). */
+  action?: { label: string; onPress: () => void };
+};
+
 // "Add a Recipe" at the limit.
-export function RecipeLimitSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+export function RecipeLimitSheet({ visible, onClose, onClosed, action }: RecipeLimitSheetProps) {
   return (
-    <BottomSheet visible={visible} onClose={onClose} heightPercent={0.5} fitContent>
+    <BottomSheet visible={visible} onClose={onClose} onClosed={onClosed} heightPercent={0.5} fitContent>
       <View className="gap-4 p-10">
         <AppText variant="sectionTitle" dot>
           You&apos;ve hit the <Text className="text-brand-orange">recipe limit</Text>
@@ -13,8 +21,8 @@ export function RecipeLimitSheet({ visible, onClose }: { visible: boolean; onClo
         <Text className="font-inter-regular text-body text-web-ink-muted">
           You can publish up to {RECIPE_LIMIT} recipes. Remove an existing recipe to make room for a new one.
         </Text>
-        <Pressable onPress={onClose} className="items-center rounded-2xl bg-brand-green py-3">
-          <Text className="font-inter-semibold text-body text-white">Got it</Text>
+        <Pressable onPress={action?.onPress ?? onClose} className="items-center rounded-2xl bg-brand-green py-3">
+          <Text className="font-inter-semibold text-body text-white">{action?.label ?? "Got it"}</Text>
         </Pressable>
       </View>
     </BottomSheet>

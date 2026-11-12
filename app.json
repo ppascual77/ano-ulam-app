@@ -56,13 +56,15 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "AnoUlam uses your photos for your profile picture, food posts and recipes."
+          "photosPermission": "AnoUlam uses your photos for your profile picture, food posts and recipes.",
+          "cameraPermission": "AnoUlam uses your camera to take a cover photo for a recipe you share."
         }
       ],
       "expo-audio",
       "expo-apple-authentication",
       "expo-image",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true

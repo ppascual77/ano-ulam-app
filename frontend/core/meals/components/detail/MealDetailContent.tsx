@@ -36,6 +36,7 @@ import {
   Trash2,
   TrendingDown,
   Check,
+  Share as ShareIcon,
 } from "lucide-react-native";
 import {
   AppText,
@@ -47,8 +48,13 @@ import {
   PulsePressable,
   RollingText,
   SegmentedSwitch,
+  Spinner,
+  showGlobalToast,
   useBurstOnActivate,
 } from "@/frontend/components/ui";
+import { CookMode } from "./CookMode";
+import { MealShareCapture } from "./MealShareCard";
+import { canShareImages } from "../../nativeFeatures";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { MealInfoPill } from "../MealInfoPill";
@@ -225,13 +231,20 @@ type StatCardProps = {
   icon: ReactNode;
   value: string;
   label: string;
+  /** Rolls the value when it changes (up when this goes up), e.g. the
+   *  calories as servings change. */
+  rank?: number;
 };
 
-function StatCard({ icon, value, label }: StatCardProps) {
+function StatCard({ icon, value, label, rank }: StatCardProps) {
   return (
     <View className="flex-1 items-center gap-1 rounded-2xl border border-ink-emphasis/10 py-3">
       {icon}
-      <AppText variant="bodyBold">{value}</AppText>
+      {rank != null ? (
+        <RollingText value={value} rank={rank} className="font-inter-bold text-body text-ink" />
+      ) : (
+        <AppText variant="bodyBold">{value}</AppText>
+      )}
       <AppText variant="caption" className="text-sub">
         {label}
       </AppText>
@@ -447,6 +460,10 @@ export function MealDetailContent({
     transform: [{ translateY: -Math.min(scrollY.value, photoStop) }],
   }));
   const [servings, setServings] = useState(initialServings ?? meal.serving_size ?? 1);
+  // Cook mode over the page, and the share card being captured.
+  const [cooking, setCooking] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const canShare = canShareImages && !preview && !isAdmin && meal.status !== "pending" && meal.status !== "rejected" && meal.status !== "draft";
   // The photo's bookmark: the same save as the footer button, wherever it
   // shows Save (not admin, not an unpublished own recipe).
   const canSave = !!saved && !isAdmin && (!recipeOwner || meal.status === "approved");
@@ -603,6 +620,19 @@ export function MealDetailContent({
           </Pressable>
         )}
 
+        {canShare && (
+          <Pressable
+            onPress={() => setSharing(true)}
+            disabled={sharing}
+            hitSlop={ICON_HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel={`Share ${meal.name}`}
+            className="h-11 w-11 items-center justify-center rounded-full bg-ink-emphasis/40"
+          >
+            {sharing ? <Spinner variant="spiral" size={18} color={colors.white} /> : <ShareIcon color={colors.white} size={18} />}
+          </Pressable>
+        )}
+
         {/* Bookmark (same save as the footer button) with how many people
             saved it, once anyone has. Read-only where there's no Save. */}
         {(canSave || saveCount > 0) && (
@@ -694,11 +724,13 @@ export function MealDetailContent({
         </View>
 
         <View className="items-end">
-          {/* Extra bold, like the ingredient prices. Plain Text so the
-              title variant's own semibold doesn't compete with it. */}
-          <Text className="font-inter-extrabold text-subheading text-primary">
-            {formatMealPrice(displayPrice, displayBufferPrice)}
-          </Text>
+          {/* Extra bold, like the ingredient prices. Rolls with the servings
+              (up as they go up), so the scaling reads as alive. */}
+          <RollingText
+            value={formatMealPrice(displayPrice, displayBufferPrice)}
+            rank={servings}
+            className="font-inter-extrabold text-subheading text-primary"
+          />
           <AppText
             variant="caption"
             className="font-inter-light"
@@ -724,6 +756,7 @@ export function MealDetailContent({
         <StatCard
           icon={<Flame color={colors.like} size={18} />}
           value={`${displayCalories}`}
+          rank={servings}
           label="Calories"
         />
         {meal.difficulty && (
@@ -860,7 +893,19 @@ export function MealDetailContent({
 
       {meal.procedure && meal.procedure.length > 0 && (
         <View className="mt-5">
-          <SectionTitle>Steps</SectionTitle>
+          <View className="flex-row items-center justify-between">
+            <SectionTitle>Steps</SectionTitle>
+            {!preview && (
+              <Pressable
+                onPress={() => setCooking(true)}
+                accessibilityRole="button"
+                className="flex-row items-center gap-1.5 rounded-full bg-primary px-3.5 py-2 active:opacity-80"
+              >
+                <ChefHat color={colors.white} size={14} />
+                <Text className="font-inter-semibold text-small text-white">Start cooking</Text>
+              </Pressable>
+            )}
+          </View>
           {/* A numbered green circle per step, joined to the next one by a
               line running down the left, like a timeline. */}
           <View className="mt-3 rounded-2xl border border-ink-emphasis/10 px-4 pt-4 pb-1">
@@ -1000,6 +1045,19 @@ export function MealDetailContent({
               instead. */}
           {!isAdmin && <ConsumerFooter meal={meal} servings={servings} saved={saved} recipeOwner={recipeOwner} />}
         </View>
+      )}
+
+      {!preview && cooking && meal.procedure && meal.procedure.length > 0 && (
+        <CookMode mealName={meal.name} steps={meal.procedure} onClose={() => setCooking(false)} />
+      )}
+      {sharing && (
+        <MealShareCapture
+          meal={meal}
+          onDone={(shared) => {
+            setSharing(false);
+            if (!shared) showGlobalToast({ tone: "error", message: "Couldn't share this meal. Try again." });
+          }}
+        />
       )}
     </Animated.View>
   );
