@@ -80,6 +80,8 @@ export type StepErrors = Record<string, string>;
 
 export function validateDetails(draft: RecipeDraft): StepErrors {
   const errors: StepErrors = {};
+  // Every meal card and page leads with its photo, so a recipe needs one.
+  if (!draft.coverPhotoUri) errors.coverPhoto = "A cover photo is required";
   if (!draft.name.trim()) errors.name = "Recipe name is required";
   else if (draft.name.length > NAME_MAX) errors.name = `Max ${NAME_MAX} characters`;
   if (!draft.description.trim()) errors.description = "Description is required";

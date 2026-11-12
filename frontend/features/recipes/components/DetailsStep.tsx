@@ -4,7 +4,14 @@ import Animated, { interpolateColor, useAnimatedStyle } from "react-native-reani
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { Camera, ImagePlus } from "lucide-react-native";
-import { AppText, OutsideLabel, SegmentedSwitch, Stepper, TextField, useFieldErrorAnimation } from "@/frontend/components/ui";
+import {
+  AppText,
+  OutsideLabel,
+  SegmentedSwitch,
+  Stepper,
+  TextField,
+  useFieldErrorAnimation,
+} from "@/frontend/components/ui";
 import { StepHeader } from "./StepHeader";
 import { colors } from "@/frontend/constants/theme";
 import {
@@ -44,7 +51,19 @@ function PhotoButton({ label, Icon, onPress }: { label: string; Icon: typeof Cam
   );
 }
 
-function CoverPhoto({ uri, onChange }: { uri: string | null; onChange: (uri: string | null) => void }) {
+function CoverPhoto({
+  uri,
+  onChange,
+  error,
+  shakeKey,
+}: {
+  uri: string | null;
+  onChange: (uri: string | null) => void;
+  /** Missing on Next: red border and a shake, like the other fields. */
+  error: boolean;
+  shakeKey: number;
+}) {
+  const { shakeStyle } = useFieldErrorAnimation(error, shakeKey);
   const fromLibrary = async () => {
     const result = await ImagePicker.launchImageLibraryAsync(PICKER_OPTIONS);
     if (!result.canceled && result.assets[0]) onChange(result.assets[0].uri);
@@ -52,7 +71,10 @@ function CoverPhoto({ uri, onChange }: { uri: string | null; onChange: (uri: str
   const fromCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Camera is off for AnoUlam", "Turn on camera access in Settings, or choose a photo from your library.");
+      Alert.alert(
+        "Camera is off for AnoUlam",
+        "Turn on camera access in Settings, or choose a photo from your library.",
+      );
       return;
     }
     const result = await ImagePicker.launchCameraAsync(PICKER_OPTIONS);
@@ -70,7 +92,12 @@ function CoverPhoto({ uri, onChange }: { uri: string | null; onChange: (uri: str
         >
           {/* A restored draft's photo can be gone (the picker's cache was
               cleared): drop it rather than show an empty frame. */}
-          <Image source={{ uri }} style={{ width: "100%", height: "100%" }} contentFit="cover" onError={() => onChange(null)} />
+          <Image
+            source={{ uri }}
+            style={{ width: "100%", height: "100%" }}
+            contentFit="cover"
+            onError={() => onChange(null)}
+          />
         </Pressable>
         <View className="mt-2 flex-row justify-end gap-4">
           <Pressable onPress={fromCamera} hitSlop={6}>
@@ -88,25 +115,31 @@ function CoverPhoto({ uri, onChange }: { uri: string | null; onChange: (uri: str
     );
   }
 
-  // Empty: an inviting tile at the card's shape, with the reason to add one
-  // and both ways to get a photo.
+  // Empty: a tile at the card's shape, saying why it's needed, with both
+  // ways to get a photo.
   return (
-    <View
-      className="w-full items-center justify-center gap-4 rounded-2xl border border-dashed border-ink-emphasis/20 bg-ink-emphasis/5 px-5"
-      style={{ aspectRatio: COVER_ASPECT[0] / COVER_ASPECT[1] }}
-    >
-      <View className="items-center gap-1">
-        <View className="mb-1 h-11 w-11 items-center justify-center rounded-full bg-primary/10">
-          <ImagePlus color={colors.primary} size={20} />
+    <Animated.View style={shakeStyle}>
+      <View
+        className={`w-full items-center justify-center gap-4 rounded-2xl border border-dashed bg-ink-emphasis/5 px-5 ${
+          error ? "border-like" : "border-ink-emphasis/20"
+        }`}
+        style={{ aspectRatio: COVER_ASPECT[0] / COVER_ASPECT[1] }}
+      >
+        <View className="items-center gap-1">
+          <View className="mb-1 h-11 w-11 items-center justify-center rounded-full bg-primary/10">
+            <ImagePlus color={colors.primary} size={20} />
+          </View>
+          <AppText variant="title">Add a cover photo</AppText>
+          <Text className={`text-center font-inter-regular text-small ${error ? "text-like" : "text-ink-subtle"}`}>
+            Required: it&apos;s the first thing people see
+          </Text>
         </View>
-        <AppText variant="title">Add a cover photo</AppText>
-        <Text className="text-center font-inter-regular text-small text-ink-subtle">Recipes with photos get saved more</Text>
+        <View className="w-full flex-row gap-2">
+          <PhotoButton label="Take photo" Icon={Camera} onPress={() => void fromCamera()} />
+          <PhotoButton label="Library" Icon={ImagePlus} onPress={() => void fromLibrary()} />
+        </View>
       </View>
-      <View className="w-full flex-row gap-2">
-        <PhotoButton label="Take photo" Icon={Camera} onPress={() => void fromCamera()} />
-        <PhotoButton label="Library" Icon={ImagePlus} onPress={() => void fromLibrary()} />
-      </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -157,7 +190,9 @@ function PrepTimePicker({
                 style={selected ? undefined : borderStyle}
                 className={`${CELL} ${selected ? "border-primary bg-primary" : "bg-white"}`}
               >
-                <Text className={`font-inter-semibold text-body ${selected ? "text-white" : "text-ink-emphasis"}`}>{minutes}</Text>
+                <Text className={`font-inter-semibold text-body ${selected ? "text-white" : "text-ink-emphasis"}`}>
+                  {minutes}
+                </Text>
               </Animated.View>
             </Pressable>
           );
@@ -210,15 +245,20 @@ type DetailsStepProps = {
 // Step 1: what the recipe is. One level of labels (the field's own), and
 // taps over typing wherever the answer is one of a few: difficulty is a
 // switch, servings a stepper, prep time a row of presets plus Custom.
-// Cover photo is optional (as on the web); name, description and prep time
-// are required. Tags aren't asked for: they're computed from the recipe
+// Everything is required, the cover photo included (every meal card and page
+// leads with it). Tags aren't asked for: they're computed from the recipe
 // (see utils/recipeTags.ts). A missing field gets a red border and a shake.
 export function DetailsStep({ draft, onChange, errors, shakeKey }: DetailsStepProps) {
   return (
     <View className="gap-6">
       <StepHeader title="The basics" subtitle="What it is, how long it takes and how many it feeds." />
 
-      <CoverPhoto uri={draft.coverPhotoUri} onChange={(coverPhotoUri) => onChange({ coverPhotoUri })} />
+      <CoverPhoto
+        uri={draft.coverPhotoUri}
+        onChange={(coverPhotoUri) => onChange({ coverPhotoUri })}
+        error={!!errors.coverPhoto}
+        shakeKey={shakeKey}
+      />
 
       <View>
         <TextField
