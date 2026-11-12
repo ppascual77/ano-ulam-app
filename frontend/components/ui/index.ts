@@ -30,7 +30,7 @@ export { Medallion } from "./Medallion";
 export { Spinner } from "./Spinner";
 export { SoftShade } from "./SoftShade";
 export { SelectField } from "./SelectField";
-export { useFieldErrorAnimation } from "./TextField";
+export { OutsideLabel, useFieldErrorAnimation } from "./TextField";
 export { BoilingDoodle, DOODLE_COLORS, DOODLE_LIST, TREND_DOODLES, drawBoilPair, type Doodle, type DoodleVersion } from "./doodles";
 export { PulsePressable } from "./PulsePressable";
 export { RollingText } from "./RollingText";

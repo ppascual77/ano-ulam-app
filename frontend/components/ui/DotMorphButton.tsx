@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, View, type ViewInstance } from "react-native";
 import Animated, {
   Easing,
@@ -11,6 +11,7 @@ import Animated, {
 import { scheduleOnRN } from "react-native-worklets";
 import { colors } from "@/frontend/constants/theme";
 import { AppText } from "./AppText";
+import { Spinner } from "./Spinner";
 
 // The dot it becomes (what a flying dot picks up from).
 const DOT = 14;
@@ -33,13 +34,20 @@ type DotMorphButtonProps = {
    *  reduce motion (no morph, no dot). */
   onDone: (spot: DotSpot | null) => void;
   reduceMotion: boolean;
+  /** Controlled start, for a morph that should only play once something
+   *  succeeds (Add a Recipe's Submit: the upload can still fail). When set,
+   *  a press only calls onPress; the morph runs when this turns true. */
+  trigger?: boolean;
+  /** A spinner in place of the label, presses blocked (while that something
+   *  runs). */
+  loading?: boolean;
 };
 
 // Looks like a primary Button. Pressed, its label fades, it turns orange and
 // shrinks to a dot, then hands that dot's spot to onDone ("Got it" in the
 // numbers explainer, "Get Started" on the intro). Fires once: remount it
 // (key) to use it again.
-export function DotMorphButton({ label, shape = "default", onPress, onDone, reduceMotion }: DotMorphButtonProps) {
+export function DotMorphButton({ label, shape = "default", onPress, onDone, reduceMotion, trigger, loading = false }: DotMorphButtonProps) {
   const ref = useRef<ViewInstance>(null);
   const [width, setWidth] = useState(0);
   const [pressed, setPressed] = useState(false);
@@ -58,10 +66,8 @@ export function DotMorphButton({ label, shape = "default", onPress, onDone, redu
     node.measureInWindow((x, y, w, h) => onDone(w ? { x: x + w / 2, y: y + h / 2, size: w } : null));
   };
 
-  const press = () => {
-    if (pressed) return;
+  const morph = () => {
     setPressed(true);
-    onPress?.();
     if (reduceMotion) return onDone(null);
     labelOpacity.value = withTiming(0, { duration: 120 });
     orange.value = withTiming(1, { duration: 200 });
@@ -69,6 +75,17 @@ export function DotMorphButton({ label, shape = "default", onPress, onDone, redu
       if (finished) scheduleOnRN(handOff);
     }));
   };
+
+  const press = () => {
+    if (pressed || loading) return;
+    onPress?.();
+    if (trigger === undefined) morph();
+  };
+
+  useEffect(() => {
+    if (trigger && !pressed) morph();
+    // Only when the trigger flips on.
+  }, [trigger]);
 
   const shapeStyle = useAnimatedStyle(() => {
     const s = shrink.value;
@@ -94,7 +111,7 @@ export function DotMorphButton({ label, shape = "default", onPress, onDone, redu
         onPress={press}
         accessibilityRole="button"
         accessibilityLabel={label}
-        disabled={pressed}
+        disabled={pressed || loading}
         style={!width && shape === "default" ? { alignSelf: "stretch" } : undefined}
       >
         <Animated.View
@@ -104,9 +121,13 @@ export function DotMorphButton({ label, shape = "default", onPress, onDone, redu
           style={width ? shapeStyle : { height: BUTTON_H, borderRadius: radius, backgroundColor: colors.primary }}
         >
           <Animated.View style={labelStyle}>
-            <AppText variant="title" className="text-white" numberOfLines={1}>
-              {label}
-            </AppText>
+            {loading ? (
+              <Spinner variant="spiral" size={20} color={colors.white} />
+            ) : (
+              <AppText variant="title" className="text-white" numberOfLines={1}>
+                {label}
+              </AppText>
+            )}
           </Animated.View>
         </Animated.View>
       </Pressable>

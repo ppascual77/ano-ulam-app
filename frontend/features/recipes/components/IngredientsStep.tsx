@@ -1,21 +1,30 @@
-import { useEffect, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Pressable, Text, TextInput, View } from "react-native";
+import * as Haptics from "expo-haptics";
+import { useQuery } from "@tanstack/react-query";
 import Animated, {
   FadeIn,
+  FadeInDown,
   FadeOut,
+  LayoutAnimationConfig,
+  LinearTransition,
   interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import { ChevronDown, Info, X } from "lucide-react-native";
-import { AppText, Card, Dropdown, NoticeBanner, useFieldErrorAnimation } from "@/frontend/components/ui";
+import { Check, ChevronDown, Plus, X } from "lucide-react-native";
+import { AppText, Card, Dropdown, useFieldErrorAnimation } from "@/frontend/components/ui";
+import { getIngredientsForMatching } from "@/api/meals";
+import type { IngredientRow } from "@/api/ingredients";
 import { colors } from "@/frontend/constants/theme";
 import { IngredientRoleTag, IngredientSearch } from "@/frontend/core/meals/components/IngredientSearch";
 import {
   defaultUnit,
+  ingredientChecks,
   MIN_INGREDIENTS,
+  newIngredientKey,
   UNITS,
   type DraftIngredient,
   type DraftUnit,
@@ -23,9 +32,8 @@ import {
   type StepErrors,
 } from "../types";
 import { lineTotals, type LineTotals } from "../utils/recipeTotals";
-
-let nextKey = 1;
-const newKey = () => `ing-${nextKey++}`;
+import { resolveQuickAdds } from "../quickAdds";
+import { StepHeader } from "./StepHeader";
 
 // How long "Calculating…" shimmers after the amount or unit changes. Restarts
 // on every keystroke, so typing "250" shimmers once, not per digit.
@@ -91,8 +99,11 @@ function IngredientLineCard({
   onRemove,
   qtyError,
   shakeKey,
+  autoFocus,
 }: {
   line: DraftIngredient;
+  /** Just added: focus its quantity box. */
+  autoFocus: boolean;
   onChange: (patch: Partial<DraftIngredient>) => void;
   onRemove: () => void;
   /** Quantity is required (unless "to taste"): red border + shake, the same
@@ -127,6 +138,7 @@ function IngredientLineCard({
               placeholder="Qty"
               placeholderTextColor={colors.ink.placeholder}
               keyboardType="decimal-pad"
+              autoFocus={autoFocus}
               className="px-3 py-2 font-inter-regular text-body text-ink"
             />
           </Animated.View>
@@ -137,12 +149,14 @@ function IngredientLineCard({
           align="left"
           trigger={
             <View className="flex-row items-center gap-1 rounded-xl border border-ink-emphasis/10 px-3 py-2">
-              <AppText variant="body">{line.unit === "piece" ? line.ingredient?.piece_label ?? "piece" : line.unit}</AppText>
+              <AppText variant="body">
+                {line.unit === "piece" ? (line.ingredient?.piece_label ?? "piece") : line.unit}
+              </AppText>
               <ChevronDown color={colors.ink.subtle} size={14} />
             </View>
           }
           items={UNITS.map((unit) => ({
-            label: unit === "piece" ? line.ingredient?.piece_label ?? "piece" : unit,
+            label: unit === "piece" ? (line.ingredient?.piece_label ?? "piece") : unit,
             onPress: () => onChange({ unit: unit as DraftUnit }),
           }))}
         />
@@ -154,21 +168,90 @@ function IngredientLineCard({
   );
 }
 
-// One friendly "what's left" sentence for the amber banner, built from
-// whichever ingredient checks are still unmet (see validateIngredients).
-function almostThereMessage(draft: RecipeDraft, errors: StepErrors): string | null {
-  const todo: string[] = [];
-  if (errors.ingredients) {
-    const missing = MIN_INGREDIENTS - draft.ingredients.length;
-    todo.push(`add ${missing} more ingredient${missing === 1 ? "" : "s"}`);
-  }
-  if (errors.main || (errors.ingredients && !draft.ingredients.some((i) => i.ingredient?.role === "main"))) {
-    todo.push("include at least one main (like chicken, pork, fish, or vegetables)");
-  }
-  // Missing quantities aren't listed here: those boxes turn red and shake.
-  if (todo.length === 0) return null;
-  const sentence = todo.length === 1 ? todo[0] : `${todo.slice(0, -1).join(", ")} and ${todo[todo.length - 1]}`;
-  return `Almost there! Just ${sentence}.`;
+function RequirementSegment({ done }: { done: boolean }) {
+  const fill = useSharedValue(done ? 1 : 0);
+  useEffect(() => {
+    fill.value = withTiming(done ? 1 : 0, { duration: 280 });
+  }, [done]);
+  const style = useAnimatedStyle(() => ({ width: `${fill.value * 100}%` }));
+  return (
+    <View className="h-1 flex-1 overflow-hidden rounded-full bg-ink-emphasis/10">
+      <Animated.View style={[{ height: "100%", borderRadius: 999, backgroundColor: colors.primary }, style]} />
+    </View>
+  );
+}
+
+// The step's three rules as progress, not checkboxes: a three-part bar that
+// fills as each is met, "2 of 3" beside it, and one line naming the next
+// thing to do. After a failed Next that line turns amber (still to do, not
+// broken). All met: a quiet "ready" line.
+function IngredientRequirements({ draft, flagged }: { draft: RecipeDraft; flagged: boolean }) {
+  const checks = ingredientChecks(draft);
+  const met = [checks.enough, checks.main, checks.quantities].filter(Boolean).length;
+  const missing = MIN_INGREDIENTS - draft.ingredients.length;
+  const next = !checks.enough
+    ? `Add ${missing} more ingredient${missing === 1 ? "" : "s"}${checks.main ? "" : ", including a main"}.`
+    : !checks.main
+      ? "Add a main ingredient: a meat, fish or vegetable."
+      : !checks.quantities
+        ? "Fill in a quantity for every ingredient."
+        : null;
+
+  return (
+    <View className="gap-2.5 rounded-2xl bg-ink-emphasis/5 px-4 py-3" accessibilityLabel={`${met} of 3 requirements met. ${next ?? "Ready."}`}>
+      <View className="flex-row items-center justify-between">
+        <Text className="font-inter-semibold text-small text-ink-emphasis">Requirements</Text>
+        <Text className="font-inter-semibold text-small text-ink-subtle">{met} of 3</Text>
+      </View>
+      <View className="flex-row gap-1.5">
+        <RequirementSegment done={checks.enough} />
+        <RequirementSegment done={checks.main} />
+        <RequirementSegment done={checks.quantities} />
+      </View>
+      {next ? (
+        <Text className={`font-inter-regular text-small ${flagged ? "text-notice-text" : "text-ink-subtle"}`}>{next}</Text>
+      ) : (
+        <View className="flex-row items-center gap-1.5">
+          <Check color={colors.primary} size={14} strokeWidth={2.5} />
+          <Text className="font-inter-medium text-small text-primary">Ready. Price and nutrition are counted.</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// One-tap adds while the search box is empty, minus what's already in.
+function QuickAddChips({ added, onPick }: { added: Set<string>; onPick: (ingredient: IngredientRow) => void }) {
+  const { data: all } = useQuery({
+    queryKey: ["ingredients", "matching"],
+    queryFn: getIngredientsForMatching,
+    staleTime: 10 * 60 * 1000,
+  });
+  const chips = useMemo(
+    () => (all ? resolveQuickAdds(all) : []).filter((q) => !added.has(q.ingredient.id)),
+    [all, added],
+  );
+  if (chips.length === 0) return null;
+  return (
+    <View className="mt-3 gap-2">
+      <Text className="font-inter-semibold text-small text-ink-subtle">Quick add</Text>
+      <View className="flex-row flex-wrap gap-2">
+        {chips.map(({ label, ingredient }) => (
+          <Animated.View key={ingredient.id} exiting={FadeOut.duration(150)} layout={LinearTransition.duration(200)}>
+            <Pressable
+              onPress={() => onPick(ingredient)}
+              accessibilityRole="button"
+              accessibilityLabel={`Add ${label}`}
+              className="flex-row items-center gap-1 rounded-full border border-ink-emphasis/15 bg-white px-3 py-1.5 active:bg-ink-emphasis/5"
+            >
+              <Plus color={colors.primary} size={13} strokeWidth={2.5} />
+              <Text className="font-inter-medium text-small text-ink-emphasis">{label}</Text>
+            </Pressable>
+          </Animated.View>
+        ))}
+      </View>
+    </View>
+  );
 }
 
 type IngredientsStepProps = {
@@ -177,53 +260,68 @@ type IngredientsStepProps = {
   errors: StepErrors;
   /** Next-attempt count: empty quantity boxes shake again on each failed Next. */
   shakeKey: number;
+  /** A line was just added (at the bottom): the screen scrolls to it. */
+  onLineAdded?: () => void;
 };
 
 // Step 2: pick ingredients from the canonical ingredient list only, so
-// price and macros always come from real ingredient data.
-export function IngredientsStep({ draft, onChange, errors, shakeKey }: IngredientsStepProps) {
+// price and macros always come from real ingredient data. The rules show
+// up front as a checklist; a new line lands with a light tap and its
+// quantity box focused (the screen scrolls it into view).
+export function IngredientsStep({ draft, onChange, errors, shakeKey, onLineAdded }: IngredientsStepProps) {
   const setLines = (ingredients: DraftIngredient[]) => onChange({ ingredients });
+  const [lastAdded, setLastAdded] = useState<string | null>(null);
+  const addedIds = useMemo(
+    () => new Set(draft.ingredients.flatMap((l) => (l.ingredient ? [l.ingredient.id] : []))),
+    [draft.ingredients],
+  );
+
+  const add = (ingredient: IngredientRow) => {
+    const key = newIngredientKey();
+    setLines([
+      ...draft.ingredients,
+      {
+        key,
+        ingredient,
+        name: ingredient.canonical_name,
+        amount: "",
+        unit: defaultUnit(ingredient),
+      },
+    ]);
+    setLastAdded(key);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onLineAdded?.();
+  };
 
   return (
-    <View className="gap-4">
-      <IngredientSearch
-        onPick={(ingredient) =>
-          setLines([
-            ...draft.ingredients,
-            { key: newKey(), ingredient, name: ingredient.canonical_name, amount: "", unit: defaultUnit(ingredient) },
-          ])
-        }
-      />
+    <View className="gap-6">
+      <StepHeader title="What goes in it" subtitle="Pick from our list, so the price and nutrition are real." />
+      <IngredientSearch onPick={add} idleContent={<QuickAddChips added={addedIds} onPick={add} />} />
 
-      {draft.ingredients.length === 0 ? (
-        <AppText variant="caption" className="text-center">
-          Add at least 3 ingredients, including one main ingredient.
-        </AppText>
-      ) : (
-        <View className="gap-2">
-          {draft.ingredients.map((line) => (
-            <IngredientLineCard
-              key={line.key}
-              line={line}
-              onChange={(patch) =>
-                setLines(draft.ingredients.map((l) => (l.key === line.key ? { ...l, ...patch } : l)))
-              }
-              onRemove={() => setLines(draft.ingredients.filter((l) => l.key !== line.key))}
-              // `errors` is only populated after a Next attempt.
-              qtyError={!!errors.qty && line.unit !== "to taste" && !(Number(line.amount) > 0)}
-              shakeKey={shakeKey}
-            />
-          ))}
-        </View>
-      )}
+      <IngredientRequirements draft={draft} flagged={Object.keys(errors).length > 0} />
 
-      {/* Amber, not red: these are steps still to do, not something broken. */}
-      {almostThereMessage(draft, errors) && (
-        <NoticeBanner icon={<Info color={colors.notice.icon} size={15} />}>
-          <AppText variant="caption" className="text-notice-text">
-            {almostThereMessage(draft, errors)}
-          </AppText>
-        </NoticeBanner>
+      {/* Lines already there when the step opens just appear; new ones
+          slide in. */}
+      {draft.ingredients.length > 0 && (
+        <LayoutAnimationConfig skipEntering>
+          <View className="gap-2">
+            {draft.ingredients.map((line) => (
+              <Animated.View key={line.key} entering={FadeInDown.duration(220)} layout={LinearTransition.duration(200)}>
+                <IngredientLineCard
+                  line={line}
+                  autoFocus={line.key === lastAdded}
+                  onChange={(patch) =>
+                    setLines(draft.ingredients.map((l) => (l.key === line.key ? { ...l, ...patch } : l)))
+                  }
+                  onRemove={() => setLines(draft.ingredients.filter((l) => l.key !== line.key))}
+                  // `errors` is only populated after a Next attempt.
+                  qtyError={!!errors.qty && line.unit !== "to taste" && !(Number(line.amount) > 0)}
+                  shakeKey={shakeKey}
+                />
+              </Animated.View>
+            ))}
+          </View>
+        </LayoutAnimationConfig>
       )}
     </View>
   );

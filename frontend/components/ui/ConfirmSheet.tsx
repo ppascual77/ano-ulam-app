@@ -20,6 +20,10 @@ type ConfirmSheetProps = {
   busy?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  /** A backdrop tap or drag down. Defaults to onCancel; pass it when the
+   *  cancel button is itself a choice (e.g. "Start over") that a stray tap
+   *  outside shouldn't make. */
+  onDismiss?: () => void;
   onClosed?: () => void;
   /** "inline" when shown inside another sheet's `overlay` (Modals don't stack). */
   presentation?: "modal" | "inline";
@@ -38,13 +42,14 @@ export function ConfirmSheet({
   busy = false,
   onCancel,
   onConfirm,
+  onDismiss,
   onClosed,
   presentation,
 }: ConfirmSheetProps) {
   return (
     <BottomSheet
       visible={visible}
-      onClose={busy ? () => {} : onCancel}
+      onClose={busy ? () => {} : (onDismiss ?? onCancel)}
       onClosed={onClosed}
       heightPercent={0.5}
       fitContent

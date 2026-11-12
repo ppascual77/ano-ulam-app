@@ -1,14 +1,19 @@
 import type { IngredientRow } from "@/api/ingredients";
 import type { QuantityUnit } from "@/api/meals";
 
-// The Add a Recipe draft while the user fills it in (screen state only;
-// nothing is saved until Publish). Limits and validation copy match the
-// web app's CreateRecipeFlow steps.
+// The Add a Recipe draft while the user fills it in. Autosaved on the
+// device (hooks/useRecipeDraft.ts) until it's submitted or discarded;
+// nothing reaches the database before Submit. Limits and validation copy
+// match the web app's CreateRecipeFlow steps.
 
 export const NAME_MAX = 50;
 export const SERVINGS_MAX = 10;
 export const STEPS_MAX = 12;
 export const MIN_INGREDIENTS = 3;
+// The servings a new draft starts at (the Stepper's starting value).
+export const DEFAULT_SERVINGS = 4;
+// Prep time quick picks, in minutes (typing any other value still works).
+export const PREP_TIME_CHIPS = [15, 30, 45, 60, 90];
 
 export const DIFFICULTIES = [
   { id: "easy", label: "Easy" },
@@ -46,11 +51,30 @@ export const EMPTY_DRAFT: RecipeDraft = {
   description: "",
   coverPhotoUri: null,
   prepTime: "",
-  servings: "",
+  servings: String(DEFAULT_SERVINGS),
   difficulty: "easy",
   ingredients: [],
   steps: [""],
 };
+
+// Unique across sessions, so lines restored from a saved draft never clash
+// with ones added after it.
+export function newIngredientKey(): string {
+  return `ing-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// Anything the user typed or picked (the defaults for servings and
+// difficulty don't count): decides whether there's a draft worth keeping.
+export function hasContent(draft: RecipeDraft): boolean {
+  return (
+    !!draft.name.trim() ||
+    !!draft.description.trim() ||
+    !!draft.coverPhotoUri ||
+    !!draft.prepTime ||
+    draft.ingredients.length > 0 ||
+    draft.steps.some((s) => s.trim())
+  );
+}
 
 export type StepErrors = Record<string, string>;
 
@@ -70,6 +94,17 @@ export function validateDetails(draft: RecipeDraft): StepErrors {
 // never divide by zero while the field is empty mid-edit).
 export function servingsCount(draft: Pick<RecipeDraft, "servings">): number {
   return Math.max(1, Number(draft.servings) || 1);
+}
+
+// The Ingredients step's three rules, as the checklist that ticks itself
+// while the user adds lines (validateIngredients reads the same checks).
+export function ingredientChecks(draft: RecipeDraft) {
+  return {
+    enough: draft.ingredients.length >= MIN_INGREDIENTS,
+    main: draft.ingredients.some((i) => i.ingredient?.role === "main"),
+    quantities:
+      draft.ingredients.length > 0 && draft.ingredients.every((i) => i.unit === "to taste" || Number(i.amount) > 0),
+  };
 }
 
 export function validateIngredients(draft: RecipeDraft): StepErrors {

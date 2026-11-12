@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { Flag, Plus, Search } from "lucide-react-native";
@@ -72,6 +72,8 @@ type IngredientSearchProps = {
   /** Ingredients already picked (e.g. in the pantry): listed but not
    *  pickable, tagged "Added". */
   disabledIds?: Set<string>;
+  /** Shown under the box while nothing is typed (e.g. quick-add chips). */
+  idleContent?: ReactNode;
 };
 
 // Search box over the canonical ingredients table, matching as you type
@@ -83,6 +85,7 @@ export function IngredientSearch({
   placeholder = "Search ingredients (e.g. chicken, garlic)",
   initialQuery = "",
   disabledIds,
+  idleContent,
 }: IngredientSearchProps) {
   const [query, setQuery] = useState(initialQuery);
   const { data: allIngredients, isLoading } = useQuery({
@@ -116,6 +119,7 @@ export function IngredientSearch({
         {isLoading && <Spinner variant="spiral" size={18} color={colors.primary} />}
       </View>
 
+      {query.trim().length === 0 && idleContent}
       {query.trim().length > 0 && (
         <View className="mt-2 overflow-hidden rounded-xl border border-ink-emphasis/10">
           {results.map((ingredient) => {
