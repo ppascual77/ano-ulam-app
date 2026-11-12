@@ -79,7 +79,7 @@ export function SavedTab({ onToast }: SavedTabProps) {
       ) : saved.length === 0 ? (
         <EmptyState
           Icon={Bookmark}
-          iconColor={colors.brandOrange}
+          iconColor={colors.accent}
           title="Nothing saved yet"
           body="Discover Filipino meals you love and bookmark them for later."
           action={{ label: "Explore Meals", Icon: Utensils, onPress: () => router.navigate("/browse") }}
@@ -115,8 +115,8 @@ export function SavedTab({ onToast }: SavedTabProps) {
         visible={!!confirmRemove}
         title="Remove this meal?"
         body={
-          <Text className="mt-1 text-center font-inter-regular text-body text-web-ink-muted">
-            <Text className="font-inter-medium text-web-ink-soft">{removeName}</Text> will be removed from your
+          <Text className="mt-1 text-center font-inter-regular text-body text-ink-subtle">
+            <Text className="font-inter-medium text-ink">{removeName}</Text> will be removed from your
             saved list.
           </Text>
         }

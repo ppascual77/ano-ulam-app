@@ -28,13 +28,12 @@ function TabButton({ label, count, selected, onPress }: { label: string; count: 
 }
 
 // The pantry as tabs (All + a tab per group that has something, each with a
-// count) over colored chips, tinted by group, with a remove button. Chips
-// just fade in/out (no movement), so only the tab pill bounces.
+// count) over colored chips, tinted by group, each always removable with its
+// x. Chips fade in/out and the rest slide into place (see PantryChip).
 export function PantryIngredientTabs({ pantry, onRemove }: { pantry: PantryIngredient[]; onRemove: (id: string) => void }) {
   const groupOf = usePantryGroups(pantry);
   const [tab, setTab] = useState<Tab>("all");
-  // Chips stay calm (no x) until Edit; a long pantry folds after FOLD_AT.
-  const [editing, setEditing] = useState(false);
+  // A long pantry folds after FOLD_AT.
   const [expanded, setExpanded] = useState(false);
 
   const counts = useMemo(() => {
@@ -53,23 +52,18 @@ export function PantryIngredientTabs({ pantry, onRemove }: { pantry: PantryIngre
   // A tab that just emptied (its last item removed) falls back to All.
   const activeTab: Tab = tabs.some((t) => t.key === tab) ? tab : "all";
   const inTab = activeTab === "all" ? pantry : pantry.filter((p) => (groupOf.get(p.id) ?? "staples") === activeTab);
-  const folded = !expanded && !editing && inTab.length > FOLD_AT;
+  const folded = !expanded && inTab.length > FOLD_AT;
   const shown = folded ? inTab.slice(0, FOLD_AT) : inTab;
 
   return (
     <View className="gap-3">
       {/* pl-1.5 / pr-2: room for the pill's spring overshoot, which would
           otherwise get clipped at the row's edges (the first tab's left side). */}
-      <View className="flex-row items-center">
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-1" contentContainerClassName="gap-1 pl-1.5 pr-2">
-          {tabs.map((t) => (
-            <TabButton key={t.key} label={t.label} count={t.count} selected={t.key === activeTab} onPress={() => setTab(t.key)} />
-          ))}
-        </ScrollView>
-        <Pressable onPress={() => setEditing((e) => !e)} hitSlop={8} accessibilityRole="button" className="pl-3 active:opacity-60">
-          <Text className="font-inter-semibold text-body text-primary">{editing ? "Done" : "Edit"}</Text>
-        </Pressable>
-      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-1 pl-1.5 pr-2">
+        {tabs.map((t) => (
+          <TabButton key={t.key} label={t.label} count={t.count} selected={t.key === activeTab} onPress={() => setTab(t.key)} />
+        ))}
+      </ScrollView>
 
       {/* Soft rule between the tab controls and the chips, so the two rows of
           rounded shapes don't read as one list of data. */}
@@ -77,7 +71,7 @@ export function PantryIngredientTabs({ pantry, onRemove }: { pantry: PantryIngre
 
       <View className="flex-row flex-wrap gap-2">
         {shown.map((item) => (
-          <PantryChip key={item.id} item={item} group={groupOf.get(item.id)} onRemove={editing ? () => onRemove(item.id) : undefined} />
+          <PantryChip key={item.id} item={item} group={groupOf.get(item.id)} onRemove={() => onRemove(item.id)} />
         ))}
         {folded && (
           <Pressable
@@ -88,7 +82,7 @@ export function PantryIngredientTabs({ pantry, onRemove }: { pantry: PantryIngre
             <Text className="font-inter-semibold text-body text-primary">+{inTab.length - FOLD_AT} more</Text>
           </Pressable>
         )}
-        {expanded && !editing && inTab.length > FOLD_AT && (
+        {expanded && inTab.length > FOLD_AT && (
           <Pressable onPress={() => setExpanded(false)} accessibilityRole="button" className="justify-center px-2 py-2 active:opacity-60">
             <Text className="font-inter-semibold text-body text-ink-subtle">Show less</Text>
           </Pressable>

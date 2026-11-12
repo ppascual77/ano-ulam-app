@@ -94,6 +94,17 @@ export function listUserPosts(userId: string, offset: number, limit = 10): Promi
   return listPosts(userId, offset, limit);
 }
 
+/** How many posts a user has made (their profile's stats row). Counted
+ *  without fetching rows. */
+export async function countUserPosts(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("food_posts")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 // ---- photos ----------------------------------------------------------------
 
 const isLocalUri = (uri: string) => !/^https?:\/\//i.test(uri);

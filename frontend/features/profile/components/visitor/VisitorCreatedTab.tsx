@@ -56,7 +56,7 @@ export function VisitorCreatedTab({ userId, loadMoreSignal, onToast }: VisitorCr
       {isEmpty && (
         <EmptyState
           Icon={ChefHat}
-          iconColor={colors.webInk.muted}
+          iconColor={colors.ink.subtle}
           title="No recipes yet"
           body="This user hasn't published any recipes yet."
         />
@@ -64,7 +64,7 @@ export function VisitorCreatedTab({ userId, loadMoreSignal, onToast }: VisitorCr
 
       {(recipesQuery.isLoading || recipes.length > 0) && (
         <View className="gap-5">
-          <Text className="font-inter-semibold text-subheading text-web-ink-body">Recipes</Text>
+          <Text className="font-inter-semibold text-subheading text-ink">Recipes</Text>
           {recipesQuery.isLoading ? (
             <MealGridSkeleton />
           ) : (
@@ -86,7 +86,7 @@ export function VisitorCreatedTab({ userId, loadMoreSignal, onToast }: VisitorCr
 
       {(posts.loading || posts.posts.length > 0) && !isEmpty && (
         <View className="gap-4">
-          <Text className="font-inter-semibold text-subheading text-web-ink-soft">Food Posts</Text>
+          <Text className="font-inter-semibold text-subheading text-ink">Food Posts</Text>
           {posts.loading ? (
             <View>
               <PostSkeleton />

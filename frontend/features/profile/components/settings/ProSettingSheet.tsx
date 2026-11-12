@@ -24,7 +24,7 @@ export function ProSettingSheet({ visible, title, subtitle, actionLabel, onActio
             <AppText variant="sectionTitle" dot>
               {title}
             </AppText>
-            <Text className="mt-0.5 font-inter-regular text-small text-web-ink-muted">{subtitle}</Text>
+            <Text className="mt-0.5 font-inter-regular text-small text-ink-subtle">{subtitle}</Text>
           </View>
           {children}
         </ScrollView>

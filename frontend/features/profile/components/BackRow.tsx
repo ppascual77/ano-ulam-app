@@ -7,8 +7,8 @@ import { colors } from "@/frontend/constants/theme";
 export function BackRow() {
   return (
     <Pressable onPress={() => router.back()} hitSlop={8} className="flex-row items-center gap-1.5 self-start px-5 pb-1 pt-3">
-      <ArrowLeft color={colors.webInk.muted} size={16} />
-      <Text className="font-inter-regular text-body text-web-ink-muted">Back</Text>
+      <ArrowLeft color={colors.ink.subtle} size={16} />
+      <Text className="font-inter-regular text-body text-ink-subtle">Back</Text>
     </Pressable>
   );
 }

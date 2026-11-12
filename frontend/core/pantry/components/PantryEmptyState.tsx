@@ -6,6 +6,9 @@ type PantryEmptyStateProps = {
   onAddIngredients?: () => void;
 };
 
+// Home's empty pantry. Its button is the only Add ingredients on screen
+// (PantrySection hides the header's until something is added), so it needs
+// no arrow pointing at it.
 export function PantryEmptyState({ onAddIngredients }: PantryEmptyStateProps) {
   return (
     <View className="items-center py-4">
@@ -22,13 +25,7 @@ export function PantryEmptyState({ onAddIngredients }: PantryEmptyStateProps) {
         Add ingredients you already have and we&apos;ll suggest meals you can cook!
       </AppText>
 
-      <Image
-        source={require("@/assets/empty-pantry-arrow.png")}
-        style={{ width: 36, height: 80 }}
-        contentFit="contain"
-      />
-
-      <View className="w-full">
+      <View className="mt-6 w-full">
         <Button label="Add ingredients" onPress={onAddIngredients} />
       </View>
     </View>

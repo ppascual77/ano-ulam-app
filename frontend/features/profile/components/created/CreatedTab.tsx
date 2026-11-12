@@ -49,7 +49,7 @@ function OwnerMenu({ status, onEdit, onDelete }: { status?: string; onEdit: () =
         // A rejected recipe can only be deleted.
         ...(status === "rejected"
           ? []
-          : [{ label: "Edit", icon: <Pencil color={colors.webInk.muted} size={12} />, onPress: onEdit }]),
+          : [{ label: "Edit", icon: <Pencil color={colors.ink.subtle} size={12} />, onPress: onEdit }]),
         { label: "Delete", icon: <Trash2 color={colors.like} size={12} />, onPress: onDelete, destructive: true },
       ]}
     />
@@ -125,7 +125,7 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
       {isEmpty && (
         <EmptyState
           Icon={ChefHat}
-          iconColor={colors.brandGreen.DEFAULT}
+          iconColor={colors.primary}
           title="Nothing here yet"
           body="Post a photo of what you ate, or share a recipe with the community."
           action={{ label: "Create", Icon: Plus, onPress: onCreate }}
@@ -229,8 +229,8 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
         visible={!!confirmLive}
         title="This recipe is live"
         body={
-          <Text className="mt-1 text-center font-inter-regular text-body text-web-ink-muted">
-            <Text className="font-inter-medium text-web-ink-soft">{liveName}</Text> is currently visible to all users.
+          <Text className="mt-1 text-center font-inter-regular text-body text-ink-subtle">
+            <Text className="font-inter-medium text-ink">{liveName}</Text> is currently visible to all users.
             Editing it will move it back to review and it won't be shown publicly until approved again.
           </Text>
         }
@@ -259,8 +259,8 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
         }
         title="Delete this recipe?"
         body={
-          <Text className="mt-1 text-center font-inter-regular text-body text-web-ink-muted">
-            <Text className="font-inter-medium text-web-ink-soft">{deleteTarget?.meal.name}</Text> will be permanently
+          <Text className="mt-1 text-center font-inter-regular text-body text-ink-subtle">
+            <Text className="font-inter-medium text-ink">{deleteTarget?.meal.name}</Text> will be permanently
             removed. This cannot be undone.
           </Text>
         }
