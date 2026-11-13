@@ -144,7 +144,7 @@ export const TERMS: LegalDocument = {
 
 export const PRIVACY: LegalDocument = {
   title: "Privacy Policy",
-  updated: "October 2026",
+  updated: "November 2026",
   sections: [
     {
       title: "About Ano Ulam",
@@ -162,6 +162,7 @@ export const PRIVACY: LegalDocument = {
           bullets: [
             "**Account information:** Your email address and display name, provided during sign-up or via Google Sign-In.",
             "**Meal preferences:** Dietary preferences and saved meals you choose to store.",
+            "**Body stats (optional):** If you set a nutrition goal, the weight, height, age, sex, body fat percentage and activity level you enter, used only to recommend your daily targets. They're private to your account, never shown to other users, and deleted with your account.",
             "**User-submitted content:** Food posts, photos, captions, recipes, and any other food-related content you choose to upload and publish in the Community tab.",
             "**Usage data:** Anonymous analytics on how features of our website are used, to improve the service. No personally identifiable information is included.",
           ],
@@ -176,6 +177,7 @@ export const PRIVACY: LegalDocument = {
             "To create and manage your account.",
             "To save and display your meal preferences and history.",
             "To generate personalized meal suggestions.",
+            "To recommend daily calorie and macro targets from the body stats you enter.",
             "To display your published food posts and recipes to other users in the Community tab and on shareable public post pages.",
             "To improve the app based on aggregated usage patterns.",
           ],
