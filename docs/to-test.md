@@ -92,6 +92,14 @@ DA day / week; `price_alert_log` records it).
 
 ## Security lockdown
 
+The RLS lockdown (`20261109000000`) is live since 2026-11-13 (SQL checks passed). On a phone:
+
+- [ ] **Add a Recipe as a regular account:** submit one with a cover photo and 3+ ingredients; it
+      shows under Created as in review with its photo; edit it while pending; delete it (photo gone).
+- [ ] **Admin screens as the admin account:** Review Recipes approve/reject, Manage Meals edit and
+      archive, Manage Ingredients edit, Seed Meal save with a photo, DA Daily Prices manual import.
+      Any "permission denied" / "row-level security" error means a missing policy.
+
 - [ ] **Profile edits still work:** bio, Settings toggles (show saved, newsletter), preferences,
       onboarding preferences save, Apple sign-in saving the name.
 - [ ] **Can't make yourself Pro:** updating `tier`, `pro_until` or `pro_reward_until` as a signed-in
