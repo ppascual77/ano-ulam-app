@@ -19,13 +19,15 @@
       "package": "com.anoulam.app",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./assets/android-icon-foreground.png"
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
+      "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ]
     },
@@ -41,7 +43,13 @@
         }
       ],
       "expo-font",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#09773E"
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -57,10 +65,18 @@
         "expo-image-picker",
         {
           "photosPermission": "AnoUlam uses your photos for your profile picture, food posts and recipes.",
-          "cameraPermission": "AnoUlam uses your camera to take a cover photo for a recipe you share."
+          "cameraPermission": "AnoUlam uses your camera to take a cover photo for a recipe you share.",
+          "microphonePermission": false
         }
       ],
-      "expo-audio",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
       "expo-apple-authentication",
       "expo-image",
       "expo-status-bar",
