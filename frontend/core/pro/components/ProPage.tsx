@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Linking, Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
+import * as WebBrowser from "expo-web-browser";
 import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { ArrowRight, X } from "lucide-react-native";
 import { AppText, Button, showGlobalToast } from "@/frontend/components/ui";
@@ -22,6 +23,19 @@ import {
   YEARLY_SAVE_PCT,
   type PlanKey,
 } from "../proContent";
+
+// Required next to a subscription's buy button (App Review 3.1.2). Opened in
+// an in-app browser, so they work when this page sits inside a sheet too.
+const TERMS_URL = "https://anoulam.app/terms";
+const PRIVACY_URL = "https://anoulam.app/privacy";
+
+function FooterLink({ label, onPress, disabled, role = "link" }: { label: string; onPress: () => void; disabled?: boolean; role?: "link" | "button" }) {
+  return (
+    <Pressable onPress={onPress} disabled={disabled} accessibilityRole={role} hitSlop={8} className="py-1 active:opacity-60">
+      <Text className="font-inter-medium text-small text-ink-subtle">{label}</Text>
+    </Pressable>
+  );
+}
 
 type ProPageProps = {
   onClose: () => void;
@@ -162,15 +176,15 @@ export function ProPage({ onClose, onStarted, allowLinks = true, onManage, title
               celebrate={false}
               onPress={start}
             />
-            <Pressable
-              onPress={() => void restorePurchases()}
-              disabled={restoring}
-              accessibilityRole="button"
-              hitSlop={8}
-              className="items-center py-1 active:opacity-60"
-            >
-              <Text className="font-inter-medium text-small text-ink-subtle">{restoring ? "Restoring..." : "Restore purchases"}</Text>
-            </Pressable>
+            {/* Restore, then the Terms of Use and Privacy Policy that must sit
+                next to a subscription's buy button. */}
+            <View className="flex-row flex-wrap items-center justify-center gap-x-2">
+              <FooterLink label={restoring ? "Restoring..." : "Restore purchases"} onPress={() => void restorePurchases()} disabled={restoring} role="button" />
+              <Text className="font-inter-regular text-small text-ink-subtle">·</Text>
+              <FooterLink label="Terms of Use" onPress={() => void WebBrowser.openBrowserAsync(TERMS_URL)} />
+              <Text className="font-inter-regular text-small text-ink-subtle">·</Text>
+              <FooterLink label="Privacy Policy" onPress={() => void WebBrowser.openBrowserAsync(PRIVACY_URL)} />
+            </View>
           </>
         )}
       </View>
