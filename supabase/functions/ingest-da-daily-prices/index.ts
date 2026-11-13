@@ -24,6 +24,7 @@
 import { getDocumentProxy } from "npm:unpdf@0.12.1";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { DA_UPLOADS_PREFIX, listDailyPdfs, parseDailyPriceIndex, type DaParseResult, type ListedPdf, type TextItem } from "./parse.ts";
+import { requireAdmin } from "../_shared/requireAdmin.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -129,6 +130,16 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body = await req.json();
+    // "list" and "parse": the admin's DA Daily Prices screen, or the scheduled
+    // job (which sends the cron secret on every call). "ingest" checks the
+    // secret itself below.
+    if (body?.action === "list" || body?.action === "parse") {
+      const fromCron = !!DA_CRON_SECRET && req.headers.get("x-cron-secret") === DA_CRON_SECRET;
+      if (!fromCron) {
+        const denied = await requireAdmin(req);
+        if (denied) return denied;
+      }
+    }
     if (body?.action === "list") {
       if (typeof body.html === "string" && body.html.length > 0) {
         return json({ pdfs: listDailyPdfs(body.html, LIST_LIMIT) });

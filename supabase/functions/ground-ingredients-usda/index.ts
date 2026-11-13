@@ -17,6 +17,7 @@
 //
 // The API key stays server-side (set via `supabase secrets set`), never in
 // the app bundle.
+import { requireAdmin } from "../_shared/requireAdmin.ts";
 
 const USDA_API_KEY = Deno.env.get("USDA_API_KEY");
 const USDA_SEARCH_URL = "https://api.nal.usda.gov/fdc/v1/foods/search";
@@ -343,6 +344,9 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "POST only" }), { status: 405 });
   }
+  // Admin screens and the /seed-meal skill only (see _shared/requireAdmin.ts).
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
   if (!USDA_API_KEY) {
     return new Response(JSON.stringify({ error: "USDA_API_KEY not configured" }), { status: 500 });
   }

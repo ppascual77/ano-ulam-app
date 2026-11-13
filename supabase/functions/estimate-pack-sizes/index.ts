@@ -9,6 +9,7 @@
 //
 // No web search: a typical pack size is general knowledge, so one cheap
 // call covers a whole batch.
+import { requireAdmin } from "../_shared/requireAdmin.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -106,6 +107,9 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "POST only" }), { status: 405 });
   }
+  // Admin screens and the /seed-meal skill only (see _shared/requireAdmin.ts).
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
   if (!OPENAI_API_KEY) {
     return new Response(JSON.stringify({ error: "OPENAI_API_KEY not configured" }), { status: 500 });
   }

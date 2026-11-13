@@ -19,6 +19,7 @@
 // content tokens at gpt-5-mini's rate ($0.25 / 1M input). Roughly 2-4¢
 // per ingredient; check the usage dashboard after the first run. The client runs small chunks (see PriceGroundingPanel), never
 // the whole table at once, so spend stays admin-controlled.
+import { requireAdmin } from "../_shared/requireAdmin.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const OPENAI_URL = "https://api.openai.com/v1/responses";
@@ -489,6 +490,9 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "POST only" }), { status: 405 });
   }
+  // Admin screens and the /seed-meal skill only (see _shared/requireAdmin.ts).
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
   if (!OPENAI_API_KEY) {
     return new Response(JSON.stringify({ error: "OPENAI_API_KEY not configured" }), { status: 500 });
   }

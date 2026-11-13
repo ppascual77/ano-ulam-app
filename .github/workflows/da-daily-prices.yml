@@ -41,6 +41,7 @@ jobs:
           call() {
             curl -sS --fail-with-body --max-time 120 -X POST "$FN_URL" \
               -H "Authorization: Bearer $ANON_KEY" -H "apikey: $ANON_KEY" \
+              -H "x-cron-secret: $CRON_SECRET" \
               -H "Content-Type: application/json" "$@"
           }
 
@@ -72,7 +73,7 @@ jobs:
             echo "Downloaded $(wc -c < price.pdf) bytes"
             base64 -w0 price.pdf > price.b64
             jq -n --rawfile b price.b64 --arg url "$url" '{action:"ingest", pdfBase64:$b, url:$url}' > body.json
-            if call -H "x-cron-secret: $CRON_SECRET" --data @body.json > result.json; then
+            if call --data @body.json > result.json; then
               echo "Saved: $(cat result.json)"
             else
               echo "::warning::Saving $date failed: $(cat result.json)"
