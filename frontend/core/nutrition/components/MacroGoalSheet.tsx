@@ -2,7 +2,6 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions, type TextInputInstance } from "react-native";
 import Animated, { SlideInLeft, SlideInRight, SlideOutLeft, SlideOutRight, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ArrowLeft,
   ArrowRight,
@@ -39,10 +38,7 @@ import {
   type MacroTargets,
   type Sex,
 } from "../macros";
-
-// The app doesn't store body stats anywhere yet, so the planner remembers
-// what was entered here, on this device, to prefill next time.
-const STATS_KEY = "planner_body_stats";
+import { useBodyStats, type SavedBodyStats } from "../hooks/useBodyStats";
 
 type Step = "intro" | "stats" | "goal" | "targets";
 const SHEET_HEIGHT = 0.88;
@@ -61,6 +57,19 @@ const ACTIVITY_ICONS: Record<Activity, LucideIcon> = { sedentary: Sofa, light: F
 
 const num = (text: string) => Number(text.replace(/[^0-9.]/g, ""));
 const inRange = (value: number, min: number, max: number) => value >= min && value <= max;
+
+// Saved stats back into the form (numbers as typed text).
+function toDraft(saved: SavedBodyStats): Draft {
+  return {
+    weight: String(saved.weightKg),
+    height: String(saved.heightCm),
+    age: String(saved.age),
+    sex: saved.sex,
+    bodyFat: saved.bodyFatPct != null ? String(saved.bodyFatPct) : "",
+    goal: saved.goal,
+    activity: saved.activity,
+  };
+}
 
 function toStats(draft: Draft): BodyStats | null {
   const weightKg = num(draft.weight);
@@ -304,8 +313,10 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [targets, setTargets] = useState<MacroTargets | null>(initialTargets);
   const [adjusting, setAdjusting] = useState(false);
+  // Saved to the account (prefills on any phone).
+  const bodyStats = useBodyStats();
 
-  // On open: prefill remembered stats; editing an enabled goal starts on
+  // On open: prefill the saved stats; editing an enabled goal starts on
   // its targets.
   useEffect(() => {
     if (!visible) return;
@@ -313,9 +324,10 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
     setTargets(initialTargets);
     setDirection("none");
     setStep(initialTargets ? "targets" : "intro");
-    AsyncStorage.getItem(STATS_KEY)
-      .then((raw) => raw && setDraft((prev) => ({ ...prev, ...JSON.parse(raw), ...(initialGoal ? { goal: initialGoal } : {}) })))
-      .catch(() => {});
+    if (bodyStats.stats) {
+      const saved = toDraft(bodyStats.stats);
+      setDraft({ ...saved, ...(initialGoal ? { goal: initialGoal } : {}) });
+    }
   }, [visible]);
 
   const stats = toStats(draft);
@@ -323,7 +335,7 @@ export function MacroGoalSheet({ visible, initialTargets, initialGoal, onClose, 
 
   const calculate = () => {
     if (!stats) return;
-    AsyncStorage.setItem(STATS_KEY, JSON.stringify(draft)).catch(() => {});
+    bodyStats.save({ ...stats, goal: draft.goal, activity: draft.activity });
     setTargets(recommendTargets(stats, draft.goal, draft.activity));
     setAdjusting(false);
     go("targets", "forward");

@@ -833,6 +833,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           bio: string | null
+          body_stats: Json | null
           created_at: string
           display_name: string | null
           earn_pro_prompt: Json
@@ -852,6 +853,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           bio?: string | null
+          body_stats?: Json | null
           created_at?: string
           display_name?: string | null
           earn_pro_prompt?: Json
@@ -871,6 +873,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           bio?: string | null
+          body_stats?: Json | null
           created_at?: string
           display_name?: string | null
           earn_pro_prompt?: Json

@@ -263,6 +263,15 @@ New native packages: `react-native-view-shot`, `expo-sharing`, `expo-keep-awake`
       Share to Messages/IG; cancel the share sheet: nothing else happens. Airplane mode with an
       uncached photo: the card still shares after ~2.5s.
 
+## Body stats on the account (2026-11-13)
+
+- [ ] **Old phone copy moves in:** on a phone that had set a nutrition goal before, open Settings
+      (or the planner) and the goal setup: the stats are still filled in. Delete and reinstall the
+      app, sign in: the setup still prefills (it's on the account now).
+- [ ] **Saving:** change weight in the setup and tap Calculate; reopen: the new weight is there.
+      On a second phone with the same account: same stats.
+- [ ] **Privacy page** (Settings → Privacy) lists Body stats (optional) and dated November 2026.
+
 ## Pro feature reels (Settings, free account)
 
 - [ ] **Each locked Pro feature opens its reel sheet:** Price drop alerts (a phone lock screen,
