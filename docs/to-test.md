@@ -265,10 +265,11 @@ New native packages: `react-native-view-shot`, `expo-sharing`, `expo-keep-awake`
 
 ## Photo uploads and the RLS audit (2026-11-13)
 
-- [ ] **Photos upload as images:** post a Community photo, change your avatar, and submit a recipe
-      with a cover photo. Each shows up as before. Then tell Claude to check Storage: the new files
-      should be `image/jpeg` (or png/heic), not `text/plain`; after that the buckets get an
-      image-only rule.
+- [x] **Post photos upload as images** (2026-11-13: 294 KB, image/jpeg; buckets are image-only now).
+- [ ] **Avatar and recipe cover still upload** under the image-only rule: change your avatar, submit
+      a recipe with a cover photo.
+- [ ] **Posting state:** a photo post shows "Preparing your photo…" then "Posting…", the form is
+      locked and the sheet can't be closed until it's done; a failed post shows the error toast.
 - [ ] **Deleting still cleans up:** delete your own pending recipe (its photo folder goes) and a post
       with a photo.
 - [ ] **Moderated posts:** a removed post stays visible (labelled) on its author's own profile,
