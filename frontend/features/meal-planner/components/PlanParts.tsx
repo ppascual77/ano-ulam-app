@@ -1,16 +1,18 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { FlatList, Pressable, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
-import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
-import { ArrowLeftRight, ChevronRight, ShoppingCart, CloudSun, Moon, Sun, Droplets, Dumbbell, Flame, Lock, Pencil, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
+import { ArrowLeftRight, ChevronRight, ShoppingCart, CloudSun, Moon, Sun, Droplets, Dumbbell, Flame, Lock, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
+import { SegmentedSwitch } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
+import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 import type { MacroTargets } from "@/frontend/core/nutrition/macros";
 import { PLAN_DAYS, SLOTS, SLOT_LABELS, dayLabel, dayTotals, formatPeso, monthDay, perServing, type MealPlan, type PlanDay, type PlannedMeal } from "../utils/generatePlan";
 import { MealImage } from "./ImagePlaceholder";
 import type { MealSlot } from "../utils/generatePlan";
 
-// ---- Date selector -----------------------------------------------------------
+// ---- Week strip ------------------------------------------------------------
 
 type DateSelectorProps = {
   plan: MealPlan;
@@ -21,8 +23,10 @@ type DateSelectorProps = {
   onLocked: () => void;
 };
 
-// Equal day pills, one per day (5, or 7 for a Pro plan; a tighter gap for
-// 7 so "Today" still fits). Free users see every day after the first locked.
+// One pill per day (5, or 7 for a Pro plan): the weekday, the date big, and
+// a dot per planned meal. The selected day is solid green; Free users see
+// every day after the first outlined with a lock. The pills drop in one
+// after another when the plan appears.
 export function DateSelector({ plan, selected, isPremium, onSelect, onLocked }: DateSelectorProps) {
   return (
     <View className={`flex-row px-5 ${plan.days.length > 5 ? "gap-1" : "gap-1.5"}`}>
@@ -30,19 +34,32 @@ export function DateSelector({ plan, selected, isPremium, onSelect, onLocked }: 
         const locked = !isPremium && i > 0;
         const active = i === selected;
         return (
-          <Pressable
-            key={day.date.toISOString()}
-            onPress={() => (locked ? onLocked() : onSelect(i))}
-            accessibilityState={{ selected: active }}
-            accessibilityLabel={locked ? `${dayLabel(day.date, i)}, locked` : dayLabel(day.date, i)}
-            className={`flex-1 items-center rounded-xl border py-2 ${active ? "border-brand-green bg-brand-green/10" : "border-web-divider bg-white"}`}
-          >
-            <View className="flex-row items-center gap-1">
-              <Text className={`font-inter-semibold text-small ${locked ? "text-web-ink-muted" : "text-web-ink"}`}>{dayLabel(day.date, i)}</Text>
-              {locked && <Lock color={colors.brandOrange} size={10} />}
-            </View>
-            <Text className="mt-0.5 font-inter-regular text-sub text-web-ink-muted">{monthDay(day.date)}</Text>
-          </Pressable>
+          <Animated.View key={day.date.toISOString()} entering={FadeInDown.delay(80 + i * 35).duration(300)} style={{ flex: 1 }}>
+            <Pressable
+              onPress={() => (locked ? onLocked() : onSelect(i))}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`${dayLabel(day.date, i)}, ${monthDay(day.date)}${locked ? ", locked" : ""}`}
+              className={`items-center rounded-2xl py-2 ${active ? "bg-primary" : locked ? "border border-ink-emphasis/10 bg-white" : "bg-mood-bg active:bg-tinted-bg"}`}
+            >
+              <Text
+                numberOfLines={1}
+                className={`font-inter-semibold text-sub uppercase tracking-wide ${active ? "text-white/75" : "text-ink-subtle"}`}
+              >
+                {dayLabel(day.date, i)}
+              </Text>
+              <Text className={`mt-1 font-inter-extrabold text-subheading ${active ? "text-white" : locked ? "text-web-ink-faint" : "text-ink-emphasis"}`}>
+                {day.date.getDate()}
+              </Text>
+              <View className="mt-1 h-2 flex-row items-center gap-0.5">
+                {locked ? (
+                  <Lock color={colors.accent} size={9} strokeWidth={2.5} />
+                ) : (
+                  day.meals.map((m) => <View key={m.slot} className={`h-1 w-1 rounded-full ${active ? "bg-white" : "bg-primary/40"}`} />)
+                )}
+              </View>
+            </Pressable>
+          </Animated.View>
         );
       })}
     </View>
@@ -200,212 +217,154 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
 
 const SLOT_ICONS: Record<MealSlot, LucideIcon> = { breakfast: CloudSun, lunch: Sun, dinner: Moon };
 
-// Time of day on the hero's top-right corner, a plain white outline icon:
-// cloud-sun for breakfast, sun for lunch, moon for dinner.
-function SlotBadge({ slot }: { slot: MealSlot }) {
-  const Icon = SLOT_ICONS[slot];
-  return (
-    <View pointerEvents="none" className="absolute right-4 top-4">
-      <Icon color={colors.white} size={22} />
-    </View>
-  );
-}
-
 // ---- Hero carousel ---------------------------------------------------------------
 
-// Dark fade from the left/bottom so the white text reads on any photo.
-const HERO_SCRIM = ["rgba(0,0,0,0.75)", "rgba(0,0,0,0.35)", "rgba(0,0,0,0.05)"] as const;
+// Dark fade up from the bottom so the white text reads on any photo.
+const HERO_SCRIM = ["rgba(0,0,0,0)", "rgba(0,0,0,0.25)", "rgba(0,0,0,0.82)"] as const;
 const HERO_HEIGHT = 240;
-
-// A stat on the photo, in the stats-field format: icon on the left, small
-// label above a bold value. Frosted so it reads on any photo.
-function GlassStat({ value, label, color, flame }: { value: string; label: string; color?: string; flame?: boolean }) {
-  return (
-    <View className="flex-1 flex-row items-center gap-1.5 rounded-xl border border-white/20 bg-black/35 px-2 py-1.5">
-      {flame ? (
-        <Flame color={colors.brandOrange} size={14} />
-      ) : (
-        <View className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-      )}
-      <View className="shrink">
-        <Text numberOfLines={1} className="font-inter-regular text-sub text-white/75">
-          {label}
-        </Text>
-        <Text numberOfLines={1} className="font-inter-bold text-small text-white">
-          {value}
-        </Text>
-      </View>
-    </View>
-  );
-}
+// Each card is this share of the column, so the next one peeks in from the
+// right edge (it reads as swipeable).
+const CARD_SHARE = 0.88;
+const CARD_GAP = 10;
+// The screen's side padding: the carousel bleeds into it so the peek
+// reaches the screen edge.
+const BLEED = 20;
 
 type HeroCarouselProps = {
   day: PlanDay;
-  /** Above 1: a "Per serving" caption over the macro tiles. */
+  /** Above 1: the cost reads "for N", the macros "per serving". */
   servings: number;
-  dayIndex: number;
   width: number;
   /** Which meal (0-2) is showing. */
   selected: number;
   onChange: (index: number) => void;
   onOpen: (item: PlannedMeal) => void;
+  /** Swap the meal on this card (Pro). */
+  onSwap: (item: PlannedMeal) => void;
+  /** Free: the Swap button shows a lock (onSwap opens Pro). */
+  swapLocked: boolean;
 };
 
-// The day's meals as big swipeable photo cards: date, name, description and
-// macro pills over a dark fade, a › to open the recipe, and paging dots.
-// Kept in sync with the list below (tapping a row scrolls here).
-export function HeroCarousel({ day, servings, dayIndex, width, selected, onChange, onOpen }: HeroCarouselProps) {
+// The day's meals: Breakfast / Lunch / Dinner tabs over big swipeable photo
+// cards, kept in sync both ways (tap a tab, or swipe). Each card: its slot,
+// a Swap button for that meal, the name, kcal and protein, and the cost.
+export function HeroCarousel({ day, servings, width, selected, onChange, onOpen, onSwap, swapLocked }: HeroCarouselProps) {
   const list = useRef<FlatList<PlannedMeal>>(null);
+  const cardWidth = Math.round(width * CARD_SHARE);
+  const step = cardWidth + CARD_GAP;
 
   useEffect(() => {
-    list.current?.scrollToOffset({ offset: selected * width, animated: true });
-  }, [selected, width]);
+    list.current?.scrollToOffset({ offset: selected * step, animated: true });
+  }, [selected, step]);
 
   const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const index = Math.round(e.nativeEvent.contentOffset.x / width);
+    const index = Math.min(day.meals.length - 1, Math.max(0, Math.round(e.nativeEvent.contentOffset.x / step)));
     if (index !== selected) onChange(index);
   };
 
   return (
-    <View className="gap-2.5">
+    <View className="gap-3">
+      <SegmentedSwitch
+        fill
+        size="md"
+        options={day.meals.map((m) => ({ value: m.slot, label: SLOT_LABELS[m.slot] }))}
+        value={day.meals[selected]?.slot ?? day.meals[0].slot}
+        onChange={(slot) => onChange(Math.max(0, day.meals.findIndex((m) => m.slot === slot)))}
+      />
       <FlatList
         ref={list}
         horizontal
-        pagingEnabled
         data={day.meals}
         keyExtractor={(item) => item.slot}
         showsHorizontalScrollIndicator={false}
+        snapToInterval={step}
+        snapToAlignment="start"
+        decelerationRate="fast"
         onMomentumScrollEnd={onScrollEnd}
-        getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
-        renderItem={({ item }) => (
-          <Pressable onPress={() => onOpen(item)} style={{ width, height: HERO_HEIGHT }} className="overflow-hidden rounded-3xl">
-            <MealImage meal={item.meal} height={HERO_HEIGHT} width={width} rounded="rounded-3xl" />
-            <LinearGradient
-              colors={HERO_SCRIM}
-              start={{ x: 0, y: 1 }}
-              end={{ x: 1, y: 0 }}
-              pointerEvents="none"
-              style={{ position: "absolute", inset: 0 }}
-            />
-            <View pointerEvents="box-none" className="absolute inset-0 justify-between p-4">
-              <Text className="font-inter-medium text-small text-white/90">
-                {dayLabel(day.date, dayIndex)} · {monthDay(day.date)} · {SLOT_LABELS[item.slot]}
-              </Text>
-              <View className="gap-1.5">
-                <Text numberOfLines={2} className="pr-4 font-inter-bold text-heading leading-7 text-white">
-                  {item.meal.name}
-                </Text>
-                {!!item.meal.description && (
-                  <Text numberOfLines={1} className="font-inter-regular text-small text-white/80">
-                    {item.meal.description}
-                  </Text>
-                )}
-                {servings > 1 && <Text className="mt-1 font-inter-medium text-sub text-white/75">Per serving</Text>}
-                {/* Four equal tiles across the card. */}
-                <View className="mt-1.5 flex-row gap-1.5">
-                  <GlassStat flame value={`${Math.round(item.meal.calories)}`} label="Calories" />
-                  {MACROS.map(({ key, label, color }) => (
-                    <GlassStat key={key} color={color} value={`${Math.round(item.meal[key])}g`} label={label} />
-                  ))}
+        style={{ marginHorizontal: -BLEED }}
+        contentContainerStyle={{ paddingHorizontal: BLEED, gap: CARD_GAP }}
+        getItemLayout={(_, index) => ({ length: step, offset: step * index, index })}
+        renderItem={({ item }) => {
+          const Icon = SLOT_ICONS[item.slot];
+          return (
+            <Pressable
+              onPress={() => onOpen(item)}
+              accessibilityRole="button"
+              accessibilityLabel={`${SLOT_LABELS[item.slot]}: ${item.meal.name}. Open recipe`}
+              style={{ width: cardWidth, height: HERO_HEIGHT }}
+              className="overflow-hidden rounded-3xl active:opacity-95"
+            >
+              <MealImage meal={item.meal} height={HERO_HEIGHT} width={cardWidth} rounded="rounded-3xl" />
+              <LinearGradient colors={HERO_SCRIM} pointerEvents="none" style={{ position: "absolute", inset: 0 }} />
+              <View pointerEvents="box-none" className="absolute inset-0 justify-between p-4">
+                <View pointerEvents="box-none" className="flex-row items-center justify-between">
+                  <View className="flex-row items-center gap-1.5 rounded-full bg-black/30 px-2.5 py-1">
+                    <Icon color={colors.white} size={14} />
+                    <Text className="font-inter-semibold text-small text-white">{SLOT_LABELS[item.slot]}</Text>
+                  </View>
+                  <Pressable
+                    onPress={() => onSwap(item)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={swapLocked ? `Swap ${SLOT_LABELS[item.slot]}, a Pro feature` : `Swap ${SLOT_LABELS[item.slot]}`}
+                    className="flex-row items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 active:bg-white"
+                  >
+                    {swapLocked ? (
+                      <Lock color={colors.accent} size={12} strokeWidth={2.5} />
+                    ) : (
+                      <ArrowLeftRight color={colors.ink.emphasis} size={13} />
+                    )}
+                    <Text className="font-inter-semibold text-small text-ink-emphasis">Swap</Text>
+                  </Pressable>
+                </View>
+
+                <View className="flex-row items-end gap-3">
+                  <View className="flex-1">
+                    <Text numberOfLines={2} className="font-inter-extrabold text-heading tracking-tight text-white">
+                      {item.meal.name}
+                    </Text>
+                    <View className="mt-1.5 flex-row items-center gap-2">
+                      <Flame color={colors.brandOrange} size={13} />
+                      <Text className="font-inter-regular text-small text-white/85">
+                        <Text className="font-inter-bold text-white">{Math.round(item.meal.calories)}</Text> kcal
+                        {"  ·  "}
+                        <Text className="font-inter-bold text-white">{Math.round(item.meal.protein)}g</Text> protein
+                        {servings > 1 ? "  ·  per serving" : ""}
+                      </Text>
+                    </View>
+                  </View>
+                  <View className="items-end">
+                    <Text className="font-inter-extrabold text-subheading text-white">{formatPeso(perServing(item.meal) * servings)}</Text>
+                    <Text className="font-inter-semibold text-sub uppercase tracking-wide text-white/75">
+                      {servings > 1 ? `for ${servings}` : "per person"}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
-            <SlotBadge slot={item.slot} />
-          </Pressable>
-        )}
+            </Pressable>
+          );
+        }}
       />
-      <View className="flex-row justify-center gap-1.5">
-        {day.meals.map((item, i) => (
-          <View key={item.slot} className={`h-1.5 rounded-full ${i === selected ? "w-5 bg-web-ink" : "w-1.5 bg-web-ink-faint"}`} />
-        ))}
-      </View>
     </View>
-  );
-}
-
-// ---- Meal list ---------------------------------------------------------------------
-
-type MealListRowProps = {
-  item: PlannedMeal;
-  /** The meal showing in the hero: highlighted. */
-  active: boolean;
-  servings: number;
-  onPress: () => void;
-};
-
-// Highlight colors: brand green at 10% (background) and 20% (border) over
-// white, pre-blended to solid colors. Fading between white and a
-// translucent green passes through a half-opaque darker green midway (a
-// visible flash); solid end colors fade cleanly.
-const ROW_ACTIVE_BG = "rgb(230,240,237)";
-const ROW_ACTIVE_BORDER = "rgb(204,226,219)";
-const HIGHLIGHT_MS = 250;
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-// A light index under the hero (which carries the nutrition detail):
-// thumbnail, name, the meal's cost for everyone eating, ›. Tap to bring the
-// meal into the hero.
-export function MealListRow({ item, active, servings, onPress }: MealListRowProps) {
-  const { meal } = item;
-  const perPerson = Number(meal.price) / (meal.serving_size ?? 1);
-  // The highlight fades between rows when the hero changes (swipe or tap).
-  const highlight = useSharedValue(active ? 1 : 0);
-  useEffect(() => {
-    highlight.value = withTiming(active ? 1 : 0, { duration: HIGHLIGHT_MS });
-  }, [active, highlight]);
-  const highlightStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(highlight.value, [0, 1], [colors.white, ROW_ACTIVE_BG]),
-    borderColor: interpolateColor(highlight.value, [0, 1], [colors.webDivider, ROW_ACTIVE_BORDER]),
-  }));
-  return (
-    <AnimatedPressable
-      onPress={onPress}
-      accessibilityState={{ selected: active }}
-      style={highlightStyle}
-      className="flex-row items-center gap-3 rounded-2xl border p-2"
-    >
-      <MealImage meal={meal} height={56} width={56} rounded="rounded-xl" />
-      <View className="flex-1 gap-0.5">
-        <Text numberOfLines={1} className="font-inter-semibold text-subheading text-web-ink">
-          {meal.name}
-        </Text>
-        {/* Price in the brand green · who it feeds. */}
-        <Text className="mt-0.5 font-inter-bold text-body text-primary">
-          ~{formatPeso(perPerson * servings)}
-          <Text className="font-inter-regular text-web-ink-muted"> · Serves {servings}</Text>
-        </Text>
-      </View>
-      <ChevronRight color={colors.webInk.muted} size={18} />
-    </AnimatedPressable>
   );
 }
 
 // ---- Day actions -------------------------------------------------------------------
 
-type DayActionsProps = {
-  /** Free: actions show a lock and open the unlock sheet. */
-  locked: boolean;
-  onRegenerate: () => void;
-  onSwap: () => void;
-  onEdit: () => void;
-};
-
-function ActionButton({ Icon, label, locked, onPress }: { Icon: LucideIcon; label: string; locked: boolean; onPress: () => void }) {
+// Under the meals: new meals for the day being viewed (Pro; Free shows a
+// lock and opens the Pro page).
+export function RegenerateDayButton({ dayName, locked, onPress }: { dayName: string; locked: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} className="flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border border-web-divider bg-white py-3 active:bg-web-divider/50">
-      {locked ? <Lock color={colors.brandOrange} size={13} /> : <Icon color={colors.webInk.soft} size={14} />}
-      <Text className={`font-inter-semibold text-small ${locked ? "text-web-ink-muted" : "text-web-ink-soft"}`}>{label}</Text>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={locked ? `New meals for ${dayName}, a Pro feature` : `New meals for ${dayName}`}
+      className="flex-row items-center justify-center gap-2 rounded-2xl border border-primary/15 bg-white py-3.5 active:bg-primary/5"
+    >
+      {locked ? <Lock color={colors.accent} size={14} strokeWidth={2.5} /> : <RefreshCw color={colors.primary} size={16} />}
+      <Text className="font-inter-semibold text-body text-primary">New meals for {dayName}</Text>
+      {locked && <ProBadge />}
     </Pressable>
-  );
-}
-
-export function DayActions({ locked, onRegenerate, onSwap, onEdit }: DayActionsProps) {
-  return (
-    <View className="flex-row gap-2">
-      <ActionButton Icon={RefreshCw} label="Regenerate day" locked={locked} onPress={onRegenerate} />
-      <ActionButton Icon={ArrowLeftRight} label="Swap meal" locked={locked} onPress={onSwap} />
-      <ActionButton Icon={Pencil} label="Edit day" locked={locked} onPress={onEdit} />
-    </View>
   );
 }
 
@@ -415,34 +374,48 @@ export function useMeasuredWidth() {
   return { width, onLayout: (e: { nativeEvent: { layout: { width: number } } }) => setWidth(e.nativeEvent.layout.width) };
 }
 
-type GroceryListButtonsProps = {
+// ---- Grocery -----------------------------------------------------------------------
+
+type GroceryCardProps = {
   /** The day being viewed: "today", or e.g. "Wed, Nov 12". */
   dayName: string;
-  /** Free: the week's list shows a lock and opens the unlock sheet. */
+  /** The day's list, for the "11 items · about ₱276" line. */
+  dayItems: number;
+  dayTotal: number;
+  /** The whole plan's list (Pro only; 0 while it's not fetched). */
+  weekItems: number;
+  /** Free: the week's row shows a lock and opens the Pro page. */
   weekLocked: boolean;
   onDay: () => void;
   onWeek: () => void;
 };
 
-// Under the day: the dark button opens the grocery list for the day being
-// viewed, the dashed one the whole plan's (both the same sheet as Profile's
-// Grocery tab).
-export function GroceryListButtons({ dayName, weekLocked, onDay, onWeek }: GroceryListButtonsProps) {
+// Both grocery lists as one card: the day being viewed (dark green, the main
+// action) over the whole plan's (both the same sheet as Profile's Grocery
+// tab).
+export function GroceryCard({ dayName, dayItems, dayTotal, weekItems, weekLocked, onDay, onWeek }: GroceryCardProps) {
   return (
-    <View className="gap-2">
-      <Pressable onPress={onDay} className="flex-row items-center justify-center gap-2 rounded-2xl bg-brand-green-dark py-4 active:opacity-90">
+    <View className="overflow-hidden rounded-2xl border border-primary/10">
+      <Pressable onPress={onDay} accessibilityRole="button" className="flex-row items-center gap-3 bg-brand-green-dark px-4 py-3.5 active:opacity-90">
         <ShoppingCart color={colors.white} size={18} />
-        <Text className="font-inter-semibold text-body text-white">{dayName === "today" ? "Today's grocery list" : `Grocery list for ${dayName}`}</Text>
-        <View className="absolute right-4">
-          <ChevronRight color={colors.white} size={18} />
+        <View className="flex-1">
+          <Text className="font-inter-semibold text-body text-white">{dayName === "today" ? "Today's grocery list" : `Grocery list for ${dayName}`}</Text>
+          {dayItems > 0 && (
+            <Text className="mt-0.5 font-inter-regular text-small text-white/70">
+              {dayItems} {dayItems === 1 ? "item" : "items"} · about {formatPeso(dayTotal)}
+            </Text>
+          )}
         </View>
+        <ChevronRight color={colors.white} size={18} />
       </Pressable>
-      <Pressable
-        onPress={onWeek}
-        className="flex-row items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-green-dark/30 py-3.5 active:bg-brand-green-dark/5"
-      >
-        {weekLocked ? <Lock color={colors.brandOrange} size={15} /> : <ShoppingCart color={colors.brandGreen.dark} size={17} />}
-        <Text className="font-inter-semibold text-body text-brand-green-dark">Shop the whole week in one trip</Text>
+      <Pressable onPress={onWeek} accessibilityRole="button" className="flex-row items-center gap-3 bg-white px-4 py-3 active:bg-primary/5">
+        {weekLocked ? <Lock color={colors.accent} size={16} strokeWidth={2.5} /> : <ShoppingCart color={colors.brandGreen.dark} size={17} />}
+        <View className="flex-1 flex-row flex-wrap items-center gap-x-1.5">
+          <Text className="font-inter-semibold text-body text-ink-emphasis">Shop the whole week in one trip</Text>
+          {weekLocked && <ProBadge />}
+        </View>
+        {!weekLocked && weekItems > 0 && <Text className="font-inter-regular text-small text-ink-subtle">{weekItems} items</Text>}
+        <ChevronRight color={colors.ink.subtle} size={18} />
       </Pressable>
     </View>
   );

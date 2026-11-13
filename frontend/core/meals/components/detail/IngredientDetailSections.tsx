@@ -1,24 +1,57 @@
 import { ReactNode } from "react";
 import { Linking, Pressable, Text, View } from "react-native";
-import { ChartColumn, Database, ExternalLink, Minus, ShoppingCart, Store, TrendingDown, TrendingUp } from "lucide-react-native";
-import { Card, Chips } from "@/frontend/components/ui";
+import Animated from "react-native-reanimated";
+import { ArrowUpRight, Database, Info, Minus, ShoppingCart, Sparkles, Store, TrendingDown, TrendingUp } from "lucide-react-native";
+import { AppText, Card, Chips } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { getUsdaSourceUrl } from "@/api/ingredients";
 import { useDaWeekChanges, type DaWeekChange } from "@/frontend/core/prices/hooks/useDaWeekChanges";
 import type { DaPriceSourceType, IngredientType, PackEstimateType, PriceSourceType } from "../../mealTypes";
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { LockedMicronutrients, MicronutrientList, hasMicronutrients } from "./MicronutrientList";
+import { GrowFill } from "./GrowFill";
+import { MACRO_GROW_DELAY, MICRO_GROW_DELAY, riseIn, useCountUp } from "./sheetMotion";
 
-// The three sections of IngredientDetailSheet: what this amount contains,
-// where that nutrition data comes from, and where the price comes from.
+// The sections of IngredientDetailSheet: what this amount contains, its
+// micronutrients, and where the nutrition and price numbers come from.
+// Every section is one outlined card made of full-width rows split by
+// hairlines, so the sheet reads as one surface.
 
-function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+/** A titled block that fades up as the sheet opens (`index` sets its place
+ *  in the stagger). `aside`: a short note right of the title. `footnote`:
+ *  small print under the card. */
+function SheetSection({
+  title,
+  aside,
+  footnote,
+  index,
+  children,
+}: {
+  title: string;
+  aside?: string;
+  footnote?: string;
+  index: number;
+  children: ReactNode;
+}) {
   return (
-    <View className="mt-7">
-      <Text className="font-inter-bold text-subheading text-ink-emphasis">{title}</Text>
-      {description && <Text className="mt-1 font-inter-regular text-body text-ink-subtle">{description}</Text>}
-      <View className="mt-3">{children}</View>
-    </View>
+    <Animated.View entering={riseIn(index)}>
+      <View className="mt-7">
+        <View className="flex-row items-baseline justify-between gap-3">
+          <AppText variant="sheetSection" dot>
+            {title}
+          </AppText>
+          {aside && (
+            <Text className="flex-shrink text-right font-inter-regular text-small text-ink-subtle" numberOfLines={1}>
+              {aside}
+            </Text>
+          )}
+        </View>
+        <Card variant="outlined" padded={false} className="mt-3">
+          {children}
+        </Card>
+        {footnote && <Text className="mt-2.5 font-inter-regular text-small text-ink-subtle">{footnote}</Text>}
+      </View>
+    </Animated.View>
   );
 }
 
@@ -26,52 +59,101 @@ function Section({ title, description, children }: { title: string; description?
 // Nutrition in this amount
 // ---------------------------------------------------------------------------
 
-// One tile: a colored dot, the value big, the label small under it.
-function MacroTile({ color, value, label }: { color: string; value: string; label: string }) {
-  return (
-    <View className="flex-1 rounded-2xl border border-web-divider bg-web-divider/40 px-3 py-3">
-      <View className="h-3 w-3 rounded-full" style={{ backgroundColor: color }} />
-      <Text className="mt-3 font-inter-extrabold text-subheading text-ink-emphasis" numberOfLines={1} adjustsFontSizeToFit>
-        {value}
-      </Text>
-      <Text className="font-inter-regular text-small text-ink-subtle">{label}</Text>
-    </View>
-  );
+type NutritionItem = Pick<IngredientType, "qty" | "calories" | "protein" | "fats" | "carbs" | "calculationError" | "note">;
+
+export function hasNutrition(item: Omit<NutritionItem, "qty">) {
+  return item.calories != null || !!item.calculationError || !!item.note;
 }
 
-type NutritionItem = Pick<IngredientType, "calories" | "protein" | "fats" | "carbs" | "calculationError" | "note">;
+// Same per-macro colors as the meal's donut (MacroSection).
+const MACROS = [
+  { key: "protein", label: "Protein", color: colors.macro.protein, kcalPerGram: 4 },
+  { key: "fats", label: "Fat", color: colors.macro.fats, kcalPerGram: 9 },
+  { key: "carbs", label: "Carbs", color: colors.macro.carbs, kcalPerGram: 4 },
+] as const;
 
-export function hasNutrition(item: NutritionItem) {
-  return item.calories != null || !!item.calculationError || !!item.note;
+function Kcal({ calories }: { calories: number }) {
+  const shown = useCountUp(calories, MACRO_GROW_DELAY, 560);
+  return (
+    <View className="flex-row items-baseline gap-1.5">
+      <Text className="font-inter-extrabold text-heading tracking-display text-ink-emphasis">{shown}</Text>
+      <Text className="font-inter-regular text-body text-ink-subtle">kcal</Text>
+    </View>
+  );
 }
 
 export function NutritionSection({ item }: { item: NutritionItem }) {
   if (!hasNutrition(item)) return null;
 
+  const grams = { protein: item.protein ?? 0, fats: item.fats ?? 0, carbs: item.carbs ?? 0 };
+  const macroKcal = MACROS.map((m) => grams[m.key] * m.kcalPerGram);
+  const totalKcal = macroKcal.reduce((sum, k) => sum + k, 0);
+  const shares = macroKcal.map((k) => (totalKcal > 0 ? k / totalKcal : 0));
+
   return (
-    <Section
-      title="Nutrition in this amount"
-      description="What this ingredient adds to your meal at the quantity used."
-    >
+    <SheetSection title="Nutrition" aside={`for ${item.qty}`} index={1}>
       {item.calories != null ? (
-        <View className="flex-row gap-2">
-          {/* Same per-macro colors as the rest of the app (MacroBreakdown),
-              with accent orange for calories. */}
-          <MacroTile color={colors.accent} value={`${Math.round(item.calories)}`} label="kcal" />
-          <MacroTile color={colors.macro.protein} value={`${(item.protein ?? 0).toFixed(1)}g`} label="Protein" />
-          <MacroTile color={colors.macro.fats} value={`${(item.fats ?? 0).toFixed(1)}g`} label="Fat" />
-          <MacroTile color={colors.macro.carbs} value={`${(item.carbs ?? 0).toFixed(1)}g`} label="Carbs" />
+        <View className="p-4">
+          <Kcal calories={item.calories} />
+
+          {/* Where those calories come from: one segment per macro, sized
+              by its share, each growing in 80ms after the last. */}
+          {totalKcal > 0 && (
+            <View
+              className="mt-3 h-2 flex-row gap-0.5"
+              accessibilityLabel={`Calories by macro: ${MACROS.map((m, i) => `${m.label} ${Math.round(shares[i] * 100)}%`).join(", ")}`}
+            >
+              {MACROS.map((m, i) =>
+                shares[i] > 0 ? (
+                  <View key={m.key} className="h-full overflow-hidden rounded-full" style={{ flex: shares[i] }}>
+                    <GrowFill
+                      percent={100}
+                      delay={MACRO_GROW_DELAY + i * 80}
+                      duration={560}
+                      style={{ height: "100%", backgroundColor: m.color }}
+                    />
+                  </View>
+                ) : null,
+              )}
+            </View>
+          )}
+
+          <View className="mt-4 flex-row">
+            {MACROS.map((m, i) => (
+              <View key={m.key} className={`flex-1 ${i > 0 ? "border-l border-ink-emphasis/10 pl-3" : ""} pr-3`}>
+                <View className="flex-row items-center gap-1.5">
+                  <View className="h-2 w-2 rounded-full" style={{ backgroundColor: m.color }} />
+                  <Text className="font-inter-regular text-small text-ink-subtle">{m.label}</Text>
+                </View>
+                <Text className="mt-1 font-inter-extrabold text-subheading text-ink-emphasis" numberOfLines={1} adjustsFontSizeToFit>
+                  {grams[m.key].toFixed(1)}
+                  <Text className="font-inter-semibold text-body text-ink-subtle">g</Text>
+                </Text>
+                {totalKcal > 0 && (
+                  <Text className="mt-1 font-inter-semibold text-sub text-ink-subtle">{Math.round(shares[i] * 100)}% of kcal</Text>
+                )}
+              </View>
+            ))}
+          </View>
         </View>
       ) : (
         item.calculationError && (
-          <Text className="font-inter-medium text-body text-like">Can't calculate: {item.calculationError}</Text>
+          <Text className="p-4 font-inter-medium text-body text-like">Can't calculate: {item.calculationError}</Text>
         )
       )}
-      {/* For every viewer, not an admin-only diagnostic — explains why the
-          counted amount differs from the quantity shown above it (e.g.
-          "1 cup" used for frying, but only a fraction gets absorbed). */}
-      {item.note && <Text className="mt-3 font-inter-regular text-small text-ink-subtle">{item.note}</Text>}
-    </Section>
+
+      {/* For every viewer, not an admin-only diagnostic: explains why the
+          counted amount differs from the quantity shown (e.g. "1 cup" used
+          for frying, but only a fraction gets absorbed). */}
+      {item.note && (
+        <View className="flex-row gap-2 border-t border-ink-emphasis/5 bg-web-divider/40 px-4 py-3">
+          <View className="pt-0.5">
+            <Info color={colors.ink.subtle} size={16} />
+          </View>
+          <Text className="flex-1 font-inter-regular text-small text-ink-subtle">{item.note}</Text>
+        </View>
+      )}
+    </SheetSection>
   );
 }
 
@@ -84,66 +166,23 @@ export function MicronutrientSection({ item, onLockedPro }: { item: Pick<Ingredi
   const isPro = useIsPro();
   if (!hasMicronutrients(item)) return null;
   return (
-    <Section title="Micronutrients" description="Share of a day's recommended amount, based on a 2,000-calorie diet.">
-      <View className="rounded-2xl border border-web-divider bg-web-divider/40 p-4">
-        {isPro ? <MicronutrientList values={item} /> : <LockedMicronutrients values={item} onUnlock={onLockedPro} />}
-      </View>
-    </Section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Nutrition source
-// ---------------------------------------------------------------------------
-
-// Amber box for anything still estimated (nutrition or price), so "not yet
-// verified" reads the same in both source sections.
-// `quiet`: a short muted note under the title instead of a full sentence.
-function EstimateBox({ title, description, quiet }: { title: string; description: string; quiet?: boolean }) {
-  return (
-    <View className="rounded-2xl border border-notice-border bg-notice-bg px-4 py-3">
-      <View className="flex-row items-center gap-2">
-        <View className="rounded bg-accent/10 px-1.5 py-0.5">
-          <Text className="font-inter-semibold text-small text-accent">ESTIMATE</Text>
-        </View>
-        <Text className="flex-shrink font-inter-bold text-body text-ink-emphasis">{title}</Text>
-      </View>
-      <Text className={`font-inter-regular text-ink-subtle ${quiet ? "mt-1 text-small" : "mt-2 text-body"}`}>
-        {description}
-      </Text>
-    </View>
-  );
-}
-
-export function NutritionSourceSection({
-  item,
-}: {
-  item: Pick<IngredientType, "source" | "sourceRefId" | "sourceDescription">;
-}) {
-  return (
-    <Section title="Nutrition source">
-      {item.source === "USDA" ? (
-        <SourceCard
-          icon={<Database color={colors.ink.emphasis} size={20} />}
-          title="USDA FoodData Central"
-          lines={[item.sourceDescription ?? "—", ...(item.sourceRefId ? [`FDC ID ${item.sourceRefId}`] : [])]}
-          url={item.sourceRefId ? getUsdaSourceUrl(item.sourceRefId) : undefined}
-        />
-      ) : item.source === "FNRI" ? (
-        <SourceCard
-          icon={<Database color={colors.ink.emphasis} size={20} />}
-          title="FNRI Philippine Food Composition Tables"
-          lines={item.sourceDescription ? [item.sourceDescription] : []}
-        />
+    <SheetSection
+      title="Micronutrients"
+      aside="% of daily value"
+      footnote={`Based on a 2,000-calorie diet.${item.sugar != null ? " Sugar is measured against the 50g daily limit." : ""}`}
+      index={2}
+    >
+      {isPro ? (
+        <MicronutrientList values={item} compact growDelay={MICRO_GROW_DELAY} />
       ) : (
-        <EstimateBox title="Estimated values" description="Not yet matched to a USDA or FNRI food record." />
+        <LockedMicronutrients values={item} onUnlock={onLockedPro} compact />
       )}
-    </Section>
+    </SheetSection>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Price source
+// Sources
 // ---------------------------------------------------------------------------
 
 function formatPack(source: PriceSourceType) {
@@ -155,202 +194,249 @@ function formatPerUnit(price: number, unit: string) {
   return `₱${Math.round(price)}/${unit}`;
 }
 
-function IconCircle({ children }: { children: ReactNode }) {
-  return <View className="h-11 w-11 items-center justify-center rounded-full bg-ink-emphasis/5">{children}</View>;
-}
-
-// Shared by both source sections, so "where did this number come from"
-// reads the same for nutrition and price: icon, source name, details,
-// and (when there's a link) an external-link icon with the whole card
-// tappable. `trailing` is the price column for price sources.
-function SourceCard({
-  icon,
-  title,
-  lines,
-  url,
-  trailing,
-  extra,
-  highlighted = false,
-}: {
-  icon: ReactNode;
-  title: string;
-  lines: string[];
-  url?: string;
-  trailing?: ReactNode;
-  /** Under the lines (e.g. a DA price's change vs last week). */
-  extra?: ReactNode;
-  highlighted?: boolean;
-}) {
-  const card = (
-    <Card variant={highlighted ? "highlighted" : "outlined"}>
-      <View className="flex-row items-center gap-3">
-        <IconCircle>{icon}</IconCircle>
-
-        <View className="flex-1 gap-1">
-          <Text className="font-inter-semibold text-body text-ink-emphasis" numberOfLines={1}>
-            {title}
-          </Text>
-          {lines.map((line, i) => (
-            <Text key={i} className="font-inter-regular text-body text-ink-subtle" numberOfLines={2}>
-              {line}
-            </Text>
-          ))}
-          {extra}
-        </View>
-
-        {trailing}
-        {url && <ExternalLink color={colors.ink.emphasis} size={18} />}
-      </View>
-    </Card>
-  );
-
-  return url ? <Pressable onPress={() => Linking.openURL(url)}>{card}</Pressable> : card;
-}
-
-const DA_PRICE_PAGE = "https://www.da.gov.ph/price-monitoring/";
-
-function PriceTrailing({ price, unit, isBest }: { price: number; unit: string; isBest: boolean }) {
+/** A small uppercase label over a group of rows ("Nutrition", "Price per kg"). */
+function GroupLabel({ children, first }: { children: string; first?: boolean }) {
   return (
-    <View className="items-end gap-2">
-      {isBest && <Chips variant="soft" label="Best price" />}
-      <Text className="font-inter-bold text-subheading text-primary">{formatPerUnit(price, unit)}</Text>
+    <Text className={`px-4 ${first ? "pt-3" : "border-t border-ink-emphasis/5 pt-4"} font-inter-semibold text-sub uppercase tracking-widest text-ink-subtle`}>
+      {children}
+    </Text>
+  );
+}
+
+function EstimateTag() {
+  return (
+    <View className="rounded bg-accent/10 px-1.5 py-0.5">
+      <Text className="font-inter-bold text-sub tracking-wide text-accent">ESTIMATE</Text>
     </View>
   );
 }
 
-// One store listing. The cheapest source is highlighted with a "Best price"
-// chip when there's more than one.
-function PriceSourceCard({ source, isBest }: { source: PriceSourceType; isBest: boolean }) {
-  return (
-    <SourceCard
-      icon={<ShoppingCart color={colors.ink.emphasis} size={20} />}
-      title={source.store}
-      lines={[source.productTitle, formatPack(source)]}
-      url={source.url}
-      highlighted={isBest}
-      trailing={<PriceTrailing price={source.pricePerUnit} unit={source.unit} isBest={isBest} />}
-    />
+const ICON_SIZE = 18;
+const estimateIcon = <Sparkles color={colors.notice.icon} size={ICON_SIZE} />;
+
+// One source: icon tile, name, details, an optional price, and (when it
+// links out) an arrow. The whole row is the tap target. `divided`: a
+// hairline above, for every row after a group's first. `estimate`: an
+// amber tile and an ESTIMATE tag, for anything not yet verified.
+function SourceRow({
+  icon,
+  title,
+  subtitle,
+  extra,
+  trailing,
+  url,
+  estimate = false,
+  divided = false,
+}: {
+  icon: ReactNode;
+  title: string;
+  subtitle?: string;
+  extra?: ReactNode;
+  trailing?: ReactNode;
+  url?: string;
+  estimate?: boolean;
+  divided?: boolean;
+}) {
+  const content = (
+    <>
+      <View
+        className={`h-9 w-9 items-center justify-center rounded-xl ${estimate ? "border border-notice-border bg-notice-bg" : "bg-ink-emphasis/5"}`}
+      >
+        {icon}
+      </View>
+      <View className="flex-1 gap-0.5">
+        <View className="flex-row items-center gap-1.5">
+          <Text className="flex-shrink font-inter-semibold text-body text-ink-emphasis" numberOfLines={estimate ? 2 : 1}>
+            {title}
+          </Text>
+          {estimate && <EstimateTag />}
+        </View>
+        {subtitle && (
+          <Text className="font-inter-regular text-small text-ink-subtle" numberOfLines={2}>
+            {subtitle}
+          </Text>
+        )}
+        {extra}
+      </View>
+      {trailing}
+      {/* On every row that links out (prices too), so it's clear the row
+          opens the source. */}
+      {url && <ArrowUpRight color={colors.ink.subtle} size={16} />}
+    </>
+  );
+
+  const rowClass = `flex-row items-center gap-3 px-4 py-3 ${divided ? "border-t border-ink-emphasis/5" : ""}`;
+  return url ? (
+    <Pressable accessibilityRole="link" onPress={() => Linking.openURL(url)} className={`${rowClass} active:bg-primary/5`}>
+      {content}
+    </Pressable>
+  ) : (
+    <View className={rowClass}>{content}</View>
   );
 }
 
+// ---- Nutrition rows --------------------------------------------------------
+
+function NutritionSourceRow({ item }: { item: Pick<IngredientType, "source" | "sourceRefId" | "sourceDescription"> }) {
+  const icon = <Database color={colors.ink.emphasis} size={ICON_SIZE} />;
+  if (item.source === "USDA") {
+    const details = [item.sourceDescription, item.sourceRefId ? `FDC ${item.sourceRefId}` : null].filter(Boolean).join(" · ");
+    return (
+      <SourceRow
+        icon={icon}
+        title="USDA FoodData Central"
+        subtitle={details || undefined}
+        url={item.sourceRefId ? getUsdaSourceUrl(item.sourceRefId) : undefined}
+      />
+    );
+  }
+  if (item.source === "FNRI") {
+    return <SourceRow icon={icon} title="FNRI Philippine Food Composition Tables" subtitle={item.sourceDescription ?? undefined} />;
+  }
+  return <SourceRow icon={estimateIcon} title="Estimated values" subtitle="Not yet matched to a USDA or FNRI food record" estimate />;
+}
+
+// ---- Price rows ------------------------------------------------------------
+
+/** The ₱ per kg/L figure, green with a "Best" chip for the cheapest. The
+ *  unit is in the group label, so only the peso amount shows here. */
+function PriceTrailing({ price, isBest, highlight }: { price: number; isBest: boolean; highlight: boolean }) {
+  return (
+    <View className="items-end gap-1">
+      {isBest && <Chips label="Best" />}
+      <Text className={`font-inter-extrabold text-subheading ${highlight ? "text-primary" : "text-ink-emphasis"}`}>₱{Math.round(price)}</Text>
+    </View>
+  );
+}
+
+const DA_PRICE_PAGE = "https://www.da.gov.ph/price-monitoring/";
+
 const TREND_TEXT_CLASS = { down: "text-trend-down", up: "text-trend-up", flat: "text-trend-flat" } as const;
 
-// "Last week ₱286/kg ↘ −1.0%": last week's DA price in the card's own unit
-// (scaled by the same ratio as the raw DA prices) and the % change.
-function DaWeekChangeLine({ change, pricePerUnit, unit }: { change: DaWeekChange; pricePerUnit: number; unit: string }) {
+// "↘ 7% vs ₱86 last week": the change and last week's DA price in the row's
+// own unit (scaled by the same ratio as the raw DA prices).
+function DaWeekChangeLine({ change, pricePerUnit }: { change: DaWeekChange; pricePerUnit: number }) {
   const pct = change.pctChange;
   const trend = pct < 0 ? "down" : pct > 0 ? "up" : "flat";
   const Icon = trend === "down" ? TrendingDown : trend === "up" ? TrendingUp : Minus;
   const lastWeek = (pricePerUnit * change.weekAgoPrice) / change.latestPrice;
   return (
-    <View className="flex-row flex-wrap items-center gap-x-2">
-      <Text className="font-inter-regular text-small text-ink-subtle">Last week {formatPerUnit(lastWeek, unit)}</Text>
-      <View className="flex-row items-center gap-0.5">
-        <Icon color={colors.trend[trend]} size={12} strokeWidth={2.5} />
-        <Text className={`font-inter-bold text-small ${TREND_TEXT_CLASS[trend]}`}>
-          {pct > 0 ? "+" : ""}
-          {pct}%
-        </Text>
-      </View>
+    <View className="mt-0.5 flex-row flex-wrap items-center gap-1">
+      <Icon color={colors.trend[trend]} size={12} strokeWidth={2.5} />
+      {trend !== "flat" && <Text className={`font-inter-bold text-small ${TREND_TEXT_CLASS[trend]}`}>{Math.abs(pct)}%</Text>}
+      <Text className="font-inter-regular text-small text-ink-subtle">
+        {trend === "flat" ? `Same as last week, ₱${Math.round(lastWeek)}` : `vs ₱${Math.round(lastWeek)} last week`}
+      </Text>
     </View>
   );
 }
 
-// One DA Daily Price Index price: the average across NCR wet markets, with
-// its change vs last week when DA has a price that old.
-function DaPriceSourceCard({ source, isBest, change }: { source: DaPriceSourceType; isBest: boolean; change?: DaWeekChange }) {
-  const date = new Date(`${source.date}T00:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
-  return (
-    <SourceCard
-      icon={<Store color={colors.ink.emphasis} size={20} />}
-      title="Dept. of Agriculture"
-      lines={[
-        source.specification ? `${source.commodity} · ${source.specification}` : source.commodity,
-        `Bantay Presyo, Metro Manila wet markets · ${date}`,
-      ]}
-      url={DA_PRICE_PAGE}
-      highlighted={isBest}
-      extra={change && <DaWeekChangeLine change={change} pricePerUnit={source.pricePerUnit} unit={source.unit} />}
-      trailing={<PriceTrailing price={source.pricePerUnit} unit={source.unit} isBest={isBest} />}
-    />
-  );
+function daDate(date: string) {
+  return new Date(`${date}T00:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
 }
 
-// A packaged item with no store listing: its AI-estimated typical pack,
-// "Typically ~₱38 per 385 ml bottle".
-function PackEstimateBox({ estimate }: { estimate: PackEstimateType }) {
+function PackEstimateRow({ estimate, divided }: { estimate: PackEstimateType; divided?: boolean }) {
   return (
-    <EstimateBox
+    <SourceRow
+      icon={estimateIcon}
       title={`Typically ~₱${Math.round(estimate.price)} per ${estimate.size} ${estimate.container}`}
-      description="Typical retail pack"
-      quiet
+      subtitle="Typical retail pack"
+      estimate
+      divided={divided}
     />
   );
 }
 
-export function PriceSourceSection({
-  item,
-}: {
-  item: Pick<IngredientType, "priceSources" | "daPriceSources" | "packEstimate">;
-}) {
+type SourcesItem = Pick<
+  IngredientType,
+  "source" | "sourceRefId" | "sourceDescription" | "priceSources" | "daPriceSources" | "packEstimate" | "calories" | "calculationError" | "note"
+>;
+
+/** Where the numbers come from: the nutrition record (when there's
+ *  nutrition to source) and every price source, as labelled groups in one
+ *  card, with the average as its footer row. */
+export function SourcesSection({ item }: { item: SourcesItem }) {
   const sources = item.priceSources ?? [];
   const da = item.daPriceSources ?? [];
   const weekChanges = useDaWeekChanges(da.flatMap((d) => (d.commodityId ? [d.commodityId] : [])));
   const prices = [...da.map((d) => d.pricePerUnit), ...sources.map((s) => s.pricePerUnit)];
   // Real store listings always win over the estimate.
   const packEstimate = sources.length === 0 ? item.packEstimate : undefined;
-
-  if (prices.length === 0) {
-    return (
-      <Section title="Price source">
-        {packEstimate ? (
-          <PackEstimateBox estimate={packEstimate} />
-        ) : (
-          <EstimateBox title="Estimated price" description="Not yet checked against a market or supermarket price." />
-        )}
-      </Section>
-    );
-  }
+  const showNutrition = hasNutrition(item);
 
   // The cheapest source is the ingredient's stored price (cheapestPriceOption
   // in api/ingredients.ts). Every source is normalized to ₱/kg or ₱/L.
-  const cheapest = Math.min(...prices);
-  const average = prices.reduce((sum, p) => sum + p, 0) / prices.length;
-  const unit = da[0]?.unit ?? sources[0].unit;
-  const showBest = prices.length > 1;
+  const cheapest = prices.length > 0 ? Math.min(...prices) : 0;
+  const average = prices.reduce((sum, p) => sum + p, 0) / (prices.length || 1);
+  const unit = da[0]?.unit ?? sources[0]?.unit;
+  const compare = prices.length > 1;
+  const hasLink = (showNutrition && item.source === "USDA" && !!item.sourceRefId) || da.length > 0 || sources.some((s) => !!s.url);
+  let priceRow = 0;
 
   return (
-    <Section title="Price source" description="Prices are per standard market unit. Your actual cost may vary.">
-      <View className="gap-3">
-        {da.map((d) => (
-          <DaPriceSourceCard
-            key={`${d.commodity}|${d.specification}`}
-            source={d}
-            isBest={showBest && d.pricePerUnit === cheapest}
-            change={d.commodityId ? weekChanges.data?.get(d.commodityId) : undefined}
-          />
-        ))}
-        {sources.map((source) => (
-          <PriceSourceCard key={`${source.store}|${source.productTitle}|${source.url}`} source={source} isBest={showBest && source.pricePerUnit === cheapest} />
-        ))}
-        {packEstimate && <PackEstimateBox estimate={packEstimate} />}
-      </View>
-
-      {prices.length > 1 && (
+    <SheetSection
+      title="Sources"
+      aside={hasLink ? "Tap to view" : undefined}
+      footnote={prices.length > 0 ? "Prices are per standard market unit. Your actual cost may vary." : undefined}
+      index={3}
+    >
+      {showNutrition && (
         <>
-          <View className="my-4 h-px bg-ink-emphasis/10" />
-          <View className="flex-row items-center gap-3 rounded-2xl bg-primary/5 px-4 py-4">
-            <IconCircle>
-              <ChartColumn color={colors.primary} size={20} />
-            </IconCircle>
-            <View className="flex-1">
-              <Text className="font-inter-semibold text-body text-ink-emphasis">Average price</Text>
-              <Text className="font-inter-regular text-small text-ink-subtle">Based on available sources</Text>
-            </View>
-            <Text className="font-inter-bold text-subheading text-primary">{formatPerUnit(average, unit)}</Text>
-          </View>
+          <GroupLabel first>Nutrition</GroupLabel>
+          <NutritionSourceRow item={item} />
         </>
       )}
-    </Section>
+
+      <GroupLabel first={!showNutrition}>{unit ? `Price per ${unit}` : "Price"}</GroupLabel>
+      {prices.length === 0 ? (
+        packEstimate ? (
+          <PackEstimateRow estimate={packEstimate} />
+        ) : (
+          <SourceRow icon={estimateIcon} title="Estimated price" subtitle="Not yet checked against a market or supermarket price" estimate />
+        )
+      ) : (
+        <>
+          {da.map((d) => {
+            const isBest = compare && d.pricePerUnit === cheapest;
+            const change = d.commodityId ? weekChanges.data?.get(d.commodityId) : undefined;
+            const commodity = d.specification ? `${d.commodity}, ${d.specification}` : d.commodity;
+            return (
+              <SourceRow
+                key={`${d.commodity}|${d.specification}`}
+                divided={priceRow++ > 0}
+                icon={<Store color={colors.ink.emphasis} size={ICON_SIZE} />}
+                title="Dept. of Agriculture"
+                subtitle={`${commodity} · Metro Manila wet markets, ${daDate(d.date)}`}
+                extra={change && <DaWeekChangeLine change={change} pricePerUnit={d.pricePerUnit} />}
+                url={DA_PRICE_PAGE}
+                trailing={<PriceTrailing price={d.pricePerUnit} isBest={isBest} highlight={isBest || !compare} />}
+              />
+            );
+          })}
+          {sources.map((s) => {
+            const isBest = compare && s.pricePerUnit === cheapest;
+            return (
+              <SourceRow
+                key={`${s.store}|${s.productTitle}|${s.url}`}
+                divided={priceRow++ > 0}
+                icon={<ShoppingCart color={colors.ink.emphasis} size={ICON_SIZE} />}
+                title={s.store}
+                subtitle={`${s.productTitle} · ${formatPack(s)}`}
+                url={s.url}
+                trailing={<PriceTrailing price={s.pricePerUnit} isBest={isBest} highlight={isBest || !compare} />}
+              />
+            );
+          })}
+          {packEstimate && <PackEstimateRow estimate={packEstimate} divided />}
+        </>
+      )}
+
+      {compare && unit && (
+        <View className="flex-row items-center justify-between gap-3 border-t border-primary/10 bg-primary/5 px-4 py-3">
+          <Text className="font-inter-regular text-small text-ink-subtle">Average of {prices.length} sources</Text>
+          <Text className="font-inter-bold text-body text-ink-emphasis">{formatPerUnit(average, unit)}</Text>
+        </View>
+      )}
+    </SheetSection>
   );
 }

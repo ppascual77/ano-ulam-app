@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
+import Animated from "react-native-reanimated";
 import { AppText, BottomSheet } from "@/frontend/components/ui";
 import { capitalize } from "../../utils/dietary";
-import { MicronutrientSection, NutritionSection, NutritionSourceSection, PriceSourceSection, hasNutrition } from "./IngredientDetailSections";
+import { MicronutrientSection, NutritionSection, SourcesSection } from "./IngredientDetailSections";
+import { riseIn, useCountUp } from "./sheetMotion";
 import type { IngredientType } from "../../mealTypes";
 
 type IngredientDetailSheetProps = {
@@ -19,6 +21,22 @@ type IngredientDetailSheetProps = {
   onLockedPro?: () => void;
 };
 
+/** "₱20" counting up from ₱0 as the sheet opens, with the centavos smaller
+ *  and fixed beside it. */
+function EstimatedCost({ price }: { price: number }) {
+  const [whole, cents] = price.toFixed(2).split(".");
+  const shown = useCountUp(Number(whole), 160, 420);
+  return (
+    <View className="items-end">
+      <Text className="font-inter-extrabold text-heading tracking-display text-primary">
+        ₱{shown}
+        <Text className="text-subheading tracking-normal">.{cents}</Text>
+      </Text>
+      <Text className="mt-1.5 font-inter-semibold text-sub uppercase tracking-wide text-ink-subtle">Est. cost</Text>
+    </View>
+  );
+}
+
 // Opened by tapping an ingredient card in MealDetailContent. Always rendered
 // "inline" inside MealDetailSheet's own overlay slot: it sits on top of an
 // already-open sheet, and two native Modals don't stack reliably (see
@@ -26,9 +44,15 @@ type IngredientDetailSheetProps = {
 export function IngredientDetailSheet({ ingredient, onClose, maxHeightPercent, onLockedPro }: IngredientDetailSheetProps) {
   // Keep the last ingredient rendered while the sheet animates closed, so
   // it doesn't go blank before it's off-screen (same as MealDetailSheet).
+  // `opens` keys the content, so every open remounts it and replays the
+  // open choreography (see sheetMotion.ts).
   const [rendered, setRendered] = useState(ingredient);
+  const [opens, setOpens] = useState(0);
   useEffect(() => {
-    if (ingredient) setRendered(ingredient);
+    if (ingredient) {
+      setRendered(ingredient);
+      setOpens((n) => n + 1);
+    }
   }, [ingredient]);
 
   const isMain = rendered?.type === "main";
@@ -36,7 +60,7 @@ export function IngredientDetailSheet({ ingredient, onClose, maxHeightPercent, o
 
   return (
     // fitContent: only as tall as this ingredient's sections need (a pantry
-    // item with no price section is much shorter), capped at maxHeightPercent.
+    // item with no price is much shorter), capped at maxHeightPercent.
     <BottomSheet
       visible={!!ingredient}
       onClose={onClose}
@@ -45,42 +69,39 @@ export function IngredientDetailSheet({ ingredient, onClose, maxHeightPercent, o
       fitContent
     >
       {rendered && (
-        <View className="px-5 pt-8 pb-8">
-          {/* Name with price (same heading size, top-aligned so a wrapped
-              name keeps the price on its first line), then quantity + pill
-              with "Estimated cost". */}
-          <View className="flex-row items-center gap-3">
-            <View className="flex-1 gap-2">
-              <View className="flex-row items-start justify-between gap-3">
-                <AppText variant="sectionTitle" dot className="flex-1">
-                  {capitalize(rendered.name)}
-                </AppText>
-                {hasPrice && <Text className="font-inter-bold text-heading text-primary">~₱{rendered.price!.toFixed(2)}</Text>}
-              </View>
-              <View className="flex-row items-center justify-between gap-3">
-                {/* Amount used (then the conversion behind it, e.g. "150g per
-                    piece", after a centered dot), with the Main / Pantry pill
-                    beside it. */}
-                <View className="flex-1 flex-row flex-wrap items-center gap-2">
-                  <Text className="font-inter-regular text-body text-ink">
-                    {rendered.qty}
-                    {rendered.bridgeLabel && <Text className="text-ink-subtle">{`  ·  ${rendered.bridgeLabel}`}</Text>}
-                  </Text>
-                  <View className={`rounded-full px-2.5 py-1 ${isMain ? "bg-primary/10" : "bg-ink-emphasis/5"}`}>
-                    <Text className={`font-inter-semibold text-small ${isMain ? "text-primary" : "text-ink-subtle"}`}>
-                      {isMain ? "Main" : "Staple"}
-                    </Text>
-                  </View>
-                </View>
-                {hasPrice && <Text className="font-inter-regular text-small text-ink-subtle">Estimated cost</Text>}
+        <View key={opens} className="px-5 pt-6 pb-8">
+          {/* Role pill, then the name with the amount under it on the left
+              and the estimated cost as the one big figure on the right
+              (top-aligned, so a wrapped name keeps it on its first line). */}
+          <Animated.View entering={riseIn(0)}>
+            <View className="flex-row">
+              <View className={`flex-row items-center gap-1.5 rounded-full px-2.5 py-1 ${isMain ? "bg-primary/10" : "bg-ink-emphasis/5"}`}>
+                <View className={`h-1.5 w-1.5 rounded-full ${isMain ? "bg-primary" : "bg-ink-subtle"}`} />
+                <Text className={`font-inter-semibold text-small ${isMain ? "text-primary" : "text-ink-subtle"}`}>
+                  {isMain ? "Main ingredient" : "Pantry staple"}
+                </Text>
               </View>
             </View>
-          </View>
+
+            <View className="mt-3 flex-row items-start gap-4">
+              <View className="flex-1">
+                <AppText variant="sectionTitle" dot>
+                  {capitalize(rendered.name)}
+                </AppText>
+                {/* Amount used, then the conversion behind it (e.g. "150g
+                    per piece") after a centered dot. */}
+                <Text className="mt-1.5 font-inter-regular text-body text-ink">
+                  {rendered.qty}
+                  {rendered.bridgeLabel && <Text className="text-ink-subtle">{`  ·  ${rendered.bridgeLabel}`}</Text>}
+                </Text>
+              </View>
+              {hasPrice && <EstimatedCost price={rendered.price!} />}
+            </View>
+          </Animated.View>
 
           <NutritionSection item={rendered} />
           <MicronutrientSection item={rendered} onLockedPro={onLockedPro} />
-          {hasNutrition(rendered) && <NutritionSourceSection item={rendered} />}
-          <PriceSourceSection item={rendered} />
+          <SourcesSection item={rendered} />
         </View>
       )}
     </BottomSheet>
