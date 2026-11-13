@@ -7,6 +7,7 @@ type Variant =
   | "heading"
   | "sectionTitle"
   | "sectionSubtitle"
+  | "sheetSection"
   | "headingMedium"
   | "title"
   | "body"
@@ -29,6 +30,9 @@ const variantClasses: Record<Variant, string> = {
   // A notch under sectionTitle (2px smaller), for sections within one (the
   // grocery list's "To buy."). Pair with `dot` too.
   sectionSubtitle: "font-inter-extrabold text-heading-sm tracking-display text-ink-emphasis",
+  // Section titles inside a sheet whose own title is a sectionTitle (the
+  // ingredient sheet's "Nutrition."), so the sheet's title stays on top.
+  sheetSection: "font-inter-extrabold text-subheading tracking-tight text-ink-emphasis",
   // Same size as "heading", medium weight instead of bold.
   headingMedium: "font-inter-medium text-heading text-ink-emphasis",
   subhero: "font-inter-extrabold text-subhero text-ink-emphasis",

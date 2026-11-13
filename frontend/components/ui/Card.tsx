@@ -18,8 +18,13 @@ type CardProps = {
   children: ReactNode;
   className?: string;
   variant?: keyof typeof variantClass;
+  /** false drops the inner padding and clips children to the rounded
+   *  corners, for cards made of full-width rows (the ingredient sheet). */
+  padded?: boolean;
 };
 
-export function Card({ children, className = "", variant = "elevated" }: CardProps) {
-  return <View className={`rounded-2xl p-4 border ${variantClass[variant]} ${className}`}>{children}</View>;
+export function Card({ children, className = "", variant = "elevated", padded = true }: CardProps) {
+  return (
+    <View className={`rounded-2xl border ${padded ? "p-4" : "overflow-hidden"} ${variantClass[variant]} ${className}`}>{children}</View>
+  );
 }
