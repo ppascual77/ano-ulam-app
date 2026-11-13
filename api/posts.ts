@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { readImageForUpload } from "@/lib/imageUpload";
 import type { Database } from "@/lib/database.types";
 
 // Community food posts (public.food_posts) and their likes
@@ -112,13 +113,9 @@ const isLocalUri = (uri: string) => !/^https?:\/\//i.test(uri);
 // Uploads a picked photo (expo-image-picker's file:// uri) under the user's
 // own folder and returns its public URL.
 async function uploadPostImage(localUri: string, userId: string): Promise<string> {
-  const response = await fetch(localUri);
-  const blob = await response.blob();
-  const ext = localUri.split(".").pop()?.toLowerCase().split("?")[0] || "jpg";
+  const { body, contentType, ext } = await readImageForUpload(localUri);
   const path = `${userId}/${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, {
-    contentType: blob.type || `image/${ext}`,
-  });
+  const { error } = await supabase.storage.from(BUCKET).upload(path, body, { contentType });
   if (error) throw error;
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }

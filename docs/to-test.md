@@ -263,6 +263,17 @@ New native packages: `react-native-view-shot`, `expo-sharing`, `expo-keep-awake`
       Share to Messages/IG; cancel the share sheet: nothing else happens. Airplane mode with an
       uncached photo: the card still shares after ~2.5s.
 
+## Photo uploads and the RLS audit (2026-11-13)
+
+- [ ] **Photos upload as images:** post a Community photo, change your avatar, and submit a recipe
+      with a cover photo. Each shows up as before. Then tell Claude to check Storage: the new files
+      should be `image/jpeg` (or png/heic), not `text/plain`; after that the buckets get an
+      image-only rule.
+- [ ] **Deleting still cleans up:** delete your own pending recipe (its photo folder goes) and a post
+      with a photo.
+- [ ] **Moderated posts:** a removed post stays visible (labelled) on its author's own profile,
+      hidden for everyone else; admin Reported Posts still lists it.
+
 ## Body stats on the account (2026-11-13)
 
 - [ ] **Old phone copy moves in:** on a phone that had set a nutrition goal before, open Settings

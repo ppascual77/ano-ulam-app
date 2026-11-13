@@ -1,4 +1,5 @@
 import { supabase, invokeEdgeFunction } from "@/lib/supabase";
+import { readImageForUpload } from "@/lib/imageUpload";
 import type { Database } from "@/lib/database.types";
 import { isBridgeLocked, isMacrosVerified, type IngredientRow } from "./ingredients";
 import type { DaCommodityRow } from "./daPrices";
@@ -382,15 +383,10 @@ export async function replaceMealIngredients(mealId: string, inputs: MealIngredi
 // so successive uploads for the same meal don't silently overwrite a URL
 // still cached/displayed elsewhere before the admin confirms the change.
 export async function uploadMealImage(localUri: string, mealId: string): Promise<string> {
-  const response = await fetch(localUri);
-  const blob = await response.blob();
-  const ext = localUri.split(".").pop()?.toLowerCase().split("?")[0] || "jpg";
+  const { body, contentType, ext } = await readImageForUpload(localUri);
   const path = `${mealId}/${Date.now()}.${ext}`;
 
-  const { error } = await supabase.storage.from("meal-images").upload(path, blob, {
-    contentType: blob.type || `image/${ext}`,
-    upsert: true,
-  });
+  const { error } = await supabase.storage.from("meal-images").upload(path, body, { contentType, upsert: true });
   if (error) throw error;
 
   const { data } = supabase.storage.from("meal-images").getPublicUrl(path);

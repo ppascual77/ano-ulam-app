@@ -4,6 +4,7 @@ import { makeRedirectUri } from "expo-auth-session";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 
 import { invokeEdgeFunction, supabase } from "@/lib/supabase";
+import { readImageForUpload } from "@/lib/imageUpload";
 import type { Database } from "@/lib/database.types";
 
 export type UserProfile = Database["public"]["Tables"]["users"]["Row"];
@@ -289,11 +290,9 @@ export async function uploadAvatar(
   const image = await context.renderAsync();
   const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.8 });
 
-  const blob = await (await fetch(saved.uri)).blob();
+  const { body, contentType } = await readImageForUpload(saved.uri);
   const path = `${userId}/avatar-${Date.now()}.jpg`;
-  const { error } = await supabase.storage
-    .from(AVATAR_BUCKET)
-    .upload(path, blob, { contentType: "image/jpeg" });
+  const { error } = await supabase.storage.from(AVATAR_BUCKET).upload(path, body, { contentType });
   if (error) throw error;
   const url = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path).data.publicUrl;
 
