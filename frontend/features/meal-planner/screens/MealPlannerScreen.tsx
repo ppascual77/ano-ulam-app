@@ -1,10 +1,10 @@
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import Animated, { FadeIn, FadeInRight, FadeInUp } from "react-native-reanimated";
-import { ArrowLeft, Pencil, RefreshCw } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated, { FadeIn, FadeInDown, FadeInLeft, FadeInRight, FadeInUp } from "react-native-reanimated";
+import { ArrowLeft, ArrowRight, Pencil, RefreshCw } from "lucide-react-native";
 import { AppText, Button, ConfirmSheet, LandingTitle, LoadingState, Screen, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
@@ -23,13 +23,13 @@ import { PLAN_DAYS, dayLabel, formatPeso, generatePlan, monthDay, regenerateDay,
 import { goalsFromTargets, targetsFromGoals } from "@/frontend/core/nutrition/macros";
 import { useNutritionGoals } from "@/frontend/core/preferences/hooks/useNutritionGoals";
 import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
-import { BudgetInput, MacroGoalCard, ServingStepper, parseBudget } from "../components/PlannerInputs";
+import { BudgetHero, PlanDetailsCard, parseBudget } from "../components/PlannerInputs";
 import { MacroGoalSheet } from "@/frontend/core/nutrition/components/MacroGoalSheet";
 import { GeneratingView } from "../components/GeneratingView";
 import { MealPlannerIntro } from "../components/MealPlannerIntro";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
-import { DateSelector, DayActions, GroceryListButtons, HeroCarousel, MealListRow, SummaryRow, useMeasuredWidth } from "../components/PlanParts";
+import { DateSelector, GroceryCard, HeroCarousel, RegenerateDayButton, SummaryRow, useMeasuredWidth } from "../components/PlanParts";
 import { SwapMealSheet } from "../components/PlannerSheets";
 
 // Meal Planner: setup (budget, people, optional macro goal) -> a short
@@ -102,7 +102,12 @@ export default function MealPlannerScreen() {
   // Which of the day's meals is in the hero (and highlighted in the list).
   const [selectedMeal, setSelectedMeal] = useState(0);
   const hero = useMeasuredWidth();
+  const insets = useSafeAreaInsets();
+  // Which way the last day change went, so the new day slides in from the
+  // side you moved towards.
+  const dayDirection = useRef<1 | -1>(1);
   const selectDay = (index: number) => {
+    dayDirection.current = index < selectedDay ? -1 : 1;
     setSelectedDay(index);
     setSelectedMeal(0);
   };
@@ -192,6 +197,13 @@ export default function MealPlannerScreen() {
 
   const viewRecipe = (meal: MealPlan["days"][number]["meals"][number]["meal"]) => detail.open(meal.id);
 
+  // The day being viewed, as "today" or e.g. "Fri, Nov 14".
+  const groceryDayName = !plan
+    ? "today"
+    : plan.days[groceryDay].date.toDateString() === new Date().toDateString()
+      ? "today"
+      : `${dayLabel(plan.days[groceryDay].date, 1)}, ${monthDay(plan.days[groceryDay].date)}`;
+
   const regenerate = () => {
     if (!plan) return;
     const meals = regenerateDay(pool, plan, selectedDay);
@@ -225,7 +237,7 @@ export default function MealPlannerScreen() {
 
       {store.stage === "setup" && !savedPlan.loading && (
         <Animated.View key="setup" entering={FadeInUp.duration(250)} className="flex-1">
-          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false} contentContainerClassName="gap-4 px-5 pb-10 pt-2">
+          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false} contentContainerClassName="gap-4 px-5 pb-6 pt-2">
             {/* Same title style as "Price Watch." and "Browse." (20px from
                 the edge like every screen); its period is where the intro's
                 dot lands. */}
@@ -241,36 +253,40 @@ export default function MealPlannerScreen() {
                 ) : (
                   "Hello!"
                 )}{" "}
-                Meals and a grocery list for 7
-                days, built around your budget.
+                Set a budget and we&apos;ll plan {planLength} days of meals, with the grocery list.
               </AppText>
             </View>
 
-            <View className="items-center gap-3 py-2">
-              {/* Reuses onboarding's meal-planning illustration until the
-                  planner's own hero asset arrives. */}
-              <Image source={require("@/assets/onboarding/slide-3.gif")} style={{ width: 180, height: 174 }} contentFit="contain" />
-              <Text className="max-w-[280px] text-center font-inter-regular text-body text-web-ink-body">
-                Tell us a few details and we'll plan your week for you.
-              </Text>
-            </View>
-
-            <BudgetInput value={store.budget} onChange={store.setBudget} />
-            <ServingStepper value={store.servings} onChange={store.setServings} />
-            <MacroGoalCard
-              targets={targets}
-              goal={store.goal}
-              onEnable={() => setMacroSheetOpen(true)}
-              onEdit={() => setMacroSheetOpen(true)}
-              fromGoals={usingGoals}
-              locked={!isPro}
-              onLocked={() => openPro(MACRO_GOAL_COPY)}
-            />
-
-            <View className="mt-2">
-              <Button label="Continue" onPress={() => build()} disabled={budget <= 0 || poolLoading} />
-            </View>
+            <Animated.View entering={FadeInDown.delay(80).duration(320)}>
+              <BudgetHero value={store.budget} onChange={store.setBudget} servings={store.servings} days={planLength} />
+            </Animated.View>
+            <Animated.View entering={FadeInDown.delay(140).duration(320)}>
+              <PlanDetailsCard
+                servings={store.servings}
+                onServingsChange={store.setServings}
+                days={planLength}
+                targets={targets}
+                goal={store.goal}
+                onEnableMacros={() => setMacroSheetOpen(true)}
+                onEditMacros={() => setMacroSheetOpen(true)}
+                fromGoals={usingGoals}
+                macrosLocked={!isPro}
+                onMacrosLocked={() => openPro(MACRO_GOAL_COPY)}
+              />
+            </Animated.View>
           </ScrollView>
+
+          {/* Pinned under the form, so it's always in reach (and above the
+              keyboard's done key). */}
+          <View className="border-t border-ink-emphasis/5 bg-white px-5 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) + 8 }}>
+            <Button
+              label={`Plan my ${planLength} days`}
+              icon={<ArrowRight color={colors.white} size={18} />}
+              iconPosition="right"
+              onPress={() => build()}
+              disabled={budget <= 0 || poolLoading}
+            />
+          </View>
         </Animated.View>
       )}
 
@@ -301,73 +317,76 @@ export default function MealPlannerScreen() {
 
       {store.stage === "plan" && plan && (
         <Animated.View key="plan" entering={FadeInUp.duration(300)} className="flex-1">
-          <View className="flex-row items-center px-5 pb-3 pt-2">
-            <Pressable onPress={() => setConfirm("regenerate")} hitSlop={10} accessibilityLabel="Regenerate plan" className="w-16">
-              <RefreshCw color={colors.webInk.DEFAULT} size={20} />
-            </Pressable>
-            <View className="flex-1 items-center">
-              <Text className="font-inter-bold text-subheading text-web-ink">Your {shownDays}-Day Meal Plan</Text>
-              <Text className="font-inter-regular text-small text-web-ink-muted">
-                {monthDay(plan.days[0].date)} – {monthDay(plan.days[plan.days.length - 1].date)}
+          {/* Title and what the plan was built for on the left; regenerate
+              the whole plan and edit its details on the right (each
+              confirmed in a sheet first). */}
+          <Animated.View entering={FadeInDown.duration(320)} className="flex-row items-start gap-2 px-5 pb-1">
+            <View className="flex-1">
+              <AppText variant="sectionTitle" dot>
+                Your week
+              </AppText>
+              <Text className="mt-0.5 font-inter-regular text-small text-ink-subtle">
+                {monthDay(plan.days[0].date)} – {monthDay(plan.days[plan.days.length - 1].date)} · {plan.servings}{" "}
+                {plan.servings === 1 ? "person" : "people"} · {formatPeso(plan.budget)}
               </Text>
             </View>
-            <View className="w-16 items-end">
-              <Pressable onPress={() => setConfirm("edit")} hitSlop={10} accessibilityLabel="Edit plan details">
-                <Pencil color={colors.webInk.DEFAULT} size={19} />
-              </Pressable>
-            </View>
+            <Pressable
+              onPress={() => setConfirm("regenerate")}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Regenerate the whole plan"
+              className="mt-1 h-9 w-9 items-center justify-center rounded-full border border-ink-emphasis/10 bg-white active:bg-primary/5"
+            >
+              <RefreshCw color={colors.ink.emphasis} size={16} />
+            </Pressable>
+            <Pressable
+              onPress={() => setConfirm("edit")}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Edit plan details"
+              className="mt-1 h-9 w-9 items-center justify-center rounded-full border border-ink-emphasis/10 bg-white active:bg-primary/5"
+            >
+              <Pencil color={colors.ink.emphasis} size={15} />
+            </Pressable>
+          </Animated.View>
+
+          <View className="pt-3">
+            <DateSelector plan={plan} selected={selectedDay} isPremium={isPro} onSelect={selectDay} onLocked={() => openPro()} />
           </View>
 
-          <DateSelector plan={plan} selected={selectedDay} isPremium={isPro} onSelect={selectDay} onLocked={() => openPro()} />
-
           <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="gap-4 px-5 pb-10 pt-4">
-            <SummaryRow plan={plan} day={plan.days[Math.min(selectedDay, plan.days.length - 1)]} />
+            {/* Keyed by day: switching days slides the new day in from the
+                side you moved towards. */}
+            <Animated.View
+              key={selectedDay}
+              entering={(dayDirection.current === 1 ? FadeInRight : FadeInLeft).duration(240)}
+              className="gap-4"
+              onLayout={hero.onLayout}
+            >
+              <SummaryRow plan={plan} day={plan.days[Math.min(selectedDay, plan.days.length - 1)]} />
 
-            {/* Keyed by day: switching days slides the new day in. */}
-            <Animated.View key={selectedDay} entering={FadeInRight.duration(220)} className="gap-4" onLayout={hero.onLayout}>
               {hero.width > 0 && (
-                <HeroCarousel
-                  day={plan.days[Math.min(selectedDay, plan.days.length - 1)]}
-                  servings={plan.servings}
-                  dayIndex={selectedDay}
-                  width={hero.width}
-                  selected={selectedMeal}
-                  onChange={setSelectedMeal}
-                  onOpen={(item) => viewRecipe(item.meal)}
-                />
-              )}
-
-              <View className="gap-2">
-                {plan.days[Math.min(selectedDay, plan.days.length - 1)].meals.map((item, i) => (
-                  <MealListRow
-                    key={item.slot}
-                    item={item}
-                    active={i === selectedMeal}
+                <Animated.View entering={FadeInDown.delay(120).duration(360)}>
+                  <HeroCarousel
+                    day={plan.days[Math.min(selectedDay, plan.days.length - 1)]}
                     servings={plan.servings}
-                    // First tap brings it into the hero; tapping the one
-                    // already there opens its recipe.
-                    onPress={() => (i === selectedMeal ? viewRecipe(item.meal) : setSelectedMeal(i))}
+                    width={hero.width}
+                    selected={selectedMeal}
+                    onChange={setSelectedMeal}
+                    onOpen={(item) => viewRecipe(item.meal)}
+                    swapLocked={!isPro}
+                    onSwap={(item) => (isPro ? setSwap({ dayIndex: selectedDay, slot: item.slot }) : openPro())}
                   />
-                ))}
-              </View>
+                </Animated.View>
+              )}
             </Animated.View>
 
-            <DayActions
-              locked={!isPro}
-              onRegenerate={() => (isPro ? regenerate() : openPro())}
-              onSwap={() =>
-                isPro
-                  ? setSwap({ dayIndex: selectedDay, slot: plan.days[Math.min(selectedDay, plan.days.length - 1)].meals[selectedMeal].slot })
-                  : openPro()
-              }
-              onEdit={() => (isPro ? showToast("Editing a day is coming soon") : openPro())}
-            />
-            <GroceryListButtons
-              dayName={
-                plan.days[groceryDay].date.toDateString() === new Date().toDateString()
-                  ? "today"
-                  : `${dayLabel(plan.days[groceryDay].date, 1)}, ${monthDay(plan.days[groceryDay].date)}`
-              }
+            <RegenerateDayButton dayName={groceryDayName} locked={!isPro} onPress={() => (isPro ? regenerate() : openPro())} />
+            <GroceryCard
+              dayName={groceryDayName}
+              dayItems={dayGrocery.items.length}
+              dayTotal={dayGrocery.total}
+              weekItems={isPro ? grocery.items.length : 0}
               weekLocked={!isPro}
               onDay={() => openGrocery("day")}
               onWeek={() => openGrocery("all")}
@@ -418,7 +437,7 @@ export default function MealPlannerScreen() {
         body={
           confirmKind.current === "edit"
             ? "You'll go back to your budget, people and nutrition goal. Building again replaces this plan."
-            : "We'll plan a fresh 5 days with the same budget and settings. Your current meals and swaps will be replaced."
+            : `We'll plan a fresh ${shownDays} days with the same budget and settings. Your current meals and swaps will be replaced.`
         }
         confirmLabel={confirmKind.current === "edit" ? "Edit details" : "Regenerate"}
         onCancel={() => setConfirm(null)}
