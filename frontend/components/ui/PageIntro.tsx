@@ -32,6 +32,13 @@ export const INTRO_DOT_FLY_MS = 650;
 export const INTRO_DOT_FLY_ARC = 120;
 const FLY_MS = INTRO_DOT_FLY_MS;
 const FLY_ARC = INTRO_DOT_FLY_ARC;
+// Part way through the flight the landing spot is measured again and the
+// dot eases onto where it really is (the header can still shift a little
+// while the cover fades); on arrival, a last check glides it the final
+// pixels instead of letting the real dot pop in beside it.
+const CORRECT_AT = 0.55;
+const CORRECT_MS = 220;
+const SETTLE_MS = 120;
 
 // How long the dot sits still between popping in (dotAt) and taking off
 // (flyAt), so its pop has settled and the flight starts from rest. Price
@@ -56,6 +63,12 @@ export function usePageIntro({
   onFinish?: () => void;
 }) {
   const [state, setState] = useState<IntroState>(enabled ? "armed" : "done");
+  // The dot has arrived: the real landing spot shows while the overlay (with
+  // the flying dot on top of it) stays up two more frames, so the swap from
+  // one dot to the other can't blink or double up.
+  const [landing, setLanding] = useState(false);
+  // Once per play: a skip and the flight's own end can both call finish.
+  const finishing = useRef(false);
   const [run, setRun] = useState(0);
   const targetRef = useRef<ViewInstance>(null);
   const onArmRef = useRef(onArm);
@@ -66,6 +79,8 @@ export function usePageIntro({
   useFocusEffect(
     useCallback(() => {
       if (!enabled) return;
+      finishing.current = false;
+      setLanding(false);
       setState("playing");
       return () => {
         // Leaving the page: it's been seen, even if it didn't finish. Re-arm
@@ -73,13 +88,21 @@ export function usePageIntro({
         onFinishRef.current?.();
         onArmRef.current?.();
         setRun((n) => n + 1);
+        setLanding(false);
         setState("armed");
       };
     }, [enabled]),
   );
   const finish = useCallback(() => {
-    setState("done");
-    onFinishRef.current?.();
+    if (finishing.current) return;
+    finishing.current = true;
+    setLanding(true);
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        setState((prev) => (prev === "playing" ? "done" : prev));
+        onFinishRef.current?.();
+      }),
+    );
   }, []);
   // Turned off (e.g. Reduce motion switched on): drop the cover right away.
   // Turned on later (e.g. once "seen intros" has loaded, after the page
@@ -98,7 +121,7 @@ export function usePageIntro({
     /** Put on the header's landing spot (a View, collapsable={false}). */
     targetRef,
     /** Hide the landing spot until the flying dot gets there. */
-    landed: state === "done",
+    landed: state === "done" || landing,
     finish,
   };
 }
@@ -150,7 +173,9 @@ export function PageIntro({
   const fly = useSharedValue(0);
   const start = useSharedValue({ x: 0, y: 0 });
   // The landing spot's center and size, in this overlay's coordinates.
-  const target = useSharedValue({ x: 0, y: 0, size: 6 });
+  const targetX = useSharedValue(0);
+  const targetY = useSharedValue(0);
+  const targetSize = useSharedValue(6);
 
   useEffect(() => {
     if (!size || !active) return;
@@ -161,29 +186,68 @@ export function PageIntro({
       dot.value = withSequence(withSpring(1.25, { damping: 6, stiffness: 300 }), withSpring(1));
     }, dotAt);
 
-    // Measure the landing spot just before the flight (the page has laid
-    // out by then), then fly there.
-    const timer = setTimeout(() => {
+    // The landing spot's center and size, relative to this overlay.
+    const measureTarget = (then: (spot: { x: number; y: number; size: number } | null) => void) => {
       const root = rootRef.current;
       const dest = targetRef.current;
-      if (!root || !dest) {
-        onDone();
-        return;
-      }
+      if (!root || !dest) return then(null);
       root.measureInWindow((rx, ry) => {
-        dest.measureInWindow((tx, ty, tw, th) => {
-          target.value = { x: tx - rx + tw / 2, y: ty - ry + th / 2, size: Math.max(tw, 1) };
-          content.value = withTiming(0, { duration: CONTENT_FADE_MS });
-          backdrop.value = withTiming(0, { duration: FADE_MS });
-          fly.value = withTiming(1, { duration: FLY_MS, easing: Easing.inOut(Easing.cubic) }, (done) => {
+        dest.measureInWindow((tx, ty, tw, th) => then({ x: tx - rx + tw / 2, y: ty - ry + th / 2, size: Math.max(tw, 1) }));
+      });
+    };
+    let correctTimer: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
+
+    // On arrival: one last measure; if the spot moved, glide the last bit.
+    const arrive = () => {
+      if (cancelled) return;
+      measureTarget((spot) => {
+        if (cancelled) return;
+        if (spot && (Math.abs(spot.x - targetX.value) > 0.5 || Math.abs(spot.y - targetY.value) > 0.5)) {
+          const glide = { duration: SETTLE_MS, easing: Easing.out(Easing.cubic) };
+          targetX.value = withTiming(spot.x, glide);
+          targetY.value = withTiming(spot.y, glide, (done) => {
             if (done) scheduleOnRN(onDone);
           });
+          return;
+        }
+        onDone();
+      });
+    };
+
+    // Measure the landing spot just before the flight (the page has laid
+    // out by then), then fly there, correcting course part way.
+    const timer = setTimeout(() => {
+      measureTarget((spot) => {
+        if (cancelled) return;
+        if (!spot) {
+          onDone();
+          return;
+        }
+        targetX.value = spot.x;
+        targetY.value = spot.y;
+        targetSize.value = spot.size;
+        content.value = withTiming(0, { duration: CONTENT_FADE_MS });
+        backdrop.value = withTiming(0, { duration: FADE_MS });
+        fly.value = withTiming(1, { duration: FLY_MS, easing: Easing.inOut(Easing.cubic) }, (done) => {
+          if (done) scheduleOnRN(arrive);
         });
+        correctTimer = setTimeout(() => {
+          measureTarget((now) => {
+            if (cancelled || !now) return;
+            const blend = { duration: CORRECT_MS, easing: Easing.out(Easing.cubic) };
+            targetX.value = withTiming(now.x, blend);
+            targetY.value = withTiming(now.y, blend);
+            targetSize.value = withTiming(now.size, blend);
+          });
+        }, FLY_MS * CORRECT_AT);
       });
     }, flyAt);
     return () => {
+      cancelled = true;
       clearTimeout(popTimer);
       clearTimeout(timer);
+      clearTimeout(correctTimer);
     };
     // Once it's active and sized; the rest are stable for a run.
   }, [size, active]);
@@ -193,11 +257,10 @@ export function PageIntro({
   const dotStyle = useAnimatedStyle(() => {
     const f = fly.value;
     const s = start.value;
-    const t = target.value;
-    const x = s.x + (t.x - s.x) * f;
-    const y = s.y + (t.y - s.y) * f - FLY_ARC * 4 * f * (1 - f);
+    const x = s.x + (targetX.value - s.x) * f;
+    const y = s.y + (targetY.value - s.y) * f - FLY_ARC * 4 * f * (1 - f);
     // Shrinks from its scene size to exactly the landing spot's size.
-    const scale = dot.value * (1 + (t.size / dotSize - 1) * f);
+    const scale = dot.value * (1 + (targetSize.value / dotSize - 1) * f);
     return {
       opacity: dot.value > 0 ? 1 : 0,
       backgroundColor: interpolateColor(f, [0.55, 1], [colors.accent, landColor]),
