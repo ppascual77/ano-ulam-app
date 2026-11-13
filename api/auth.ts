@@ -147,17 +147,14 @@ async function createSessionFromUrl(url: string) {
  *  session is set up (the app shows its "signing you in" screen then). */
 export async function signInWithGoogle(onApproved?: () => void) {
   const redirectTo = makeRedirectUri();
-  console.log("[auth debug] redirectTo:", redirectTo);
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo, skipBrowserRedirect: true },
   });
   if (error) throw error;
-  console.log("[auth debug] authorize url:", data.url);
 
   const result = await WebBrowser.openAuthSessionAsync(data.url ?? "", redirectTo);
-  console.log("[auth debug] browser result:", result);
   if (result.type !== "success") return null;
 
   onApproved?.();
