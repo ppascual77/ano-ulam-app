@@ -214,7 +214,7 @@ function EstimateTag() {
 const ICON_SIZE = 18;
 const estimateIcon = <Sparkles color={colors.notice.icon} size={ICON_SIZE} />;
 
-// One source: icon tile, name, details, and either a price or (when it
+// One source: icon tile, name, details, an optional price, and (when it
 // links out) an arrow. The whole row is the tap target. `divided`: a
 // hairline above, for every row after a group's first. `estimate`: an
 // amber tile and an ESTIMATE tag, for anything not yet verified.
@@ -259,7 +259,9 @@ function SourceRow({
         {extra}
       </View>
       {trailing}
-      {url && !trailing && <ArrowUpRight color={colors.ink.subtle} size={16} />}
+      {/* On every row that links out (prices too), so it's clear the row
+          opens the source. */}
+      {url && <ArrowUpRight color={colors.ink.subtle} size={16} />}
     </>
   );
 
