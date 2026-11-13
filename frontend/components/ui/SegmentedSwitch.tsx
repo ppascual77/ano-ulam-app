@@ -41,9 +41,12 @@ type SegmentedSwitchProps<T extends string> = {
   onChange: (value: T) => void;
   /** Defaults to "sm" (compact, e.g. beside a section title). */
   size?: keyof typeof SIZES;
+  /** Spans its parent's width, options sharing it equally (the Meal
+   *  Planner's Breakfast / Lunch / Dinner tabs). */
+  fill?: boolean;
 };
 
-export function SegmentedSwitch<T extends string>({ options, value, onChange, size = "sm" }: SegmentedSwitchProps<T>) {
+export function SegmentedSwitch<T extends string>({ options, value, onChange, size = "sm", fill = false }: SegmentedSwitchProps<T>) {
   const sizing = SIZES[size];
   const selectedIndex = Math.max(0, options.findIndex((o) => o.value === value));
   // Each option's measured width; the thumb's position and size come from
@@ -77,7 +80,7 @@ export function SegmentedSwitch<T extends string>({ options, value, onChange, si
 
   return (
     // overflow-hidden keeps the bouncing thumb inside the rounded track.
-    <View className="flex-row self-start overflow-hidden rounded-full bg-web-divider/70 p-1" accessibilityRole="radiogroup">
+    <View className={`flex-row overflow-hidden rounded-full bg-web-divider/70 p-1 ${fill ? "self-stretch" : "self-start"}`} accessibilityRole="radiogroup">
       {/* Plain style, no className: NativeWind re-applies className styles
           on re-render and can knock out Reanimated's animated values. */}
       <Animated.View style={[THUMB_BASE, thumbStyle]} />
@@ -93,7 +96,7 @@ export function SegmentedSwitch<T extends string>({ options, value, onChange, si
             }}
             accessibilityRole="radio"
             accessibilityState={{ selected }}
-            className={`rounded-full ${sizing.option}`}
+            className={`rounded-full ${sizing.option} ${fill ? "flex-1 items-center" : ""}`}
           >
             <Text className={`font-inter-semibold ${sizing.text} ${selected ? "text-primary" : "text-ink-subtle"}`}>{option.label}</Text>
           </Pressable>
