@@ -26,6 +26,7 @@ import type { FoodPost, PostInput } from "@/api/posts";
 import type { KlipyKind } from "@/api/klipy";
 import { LinkPreviewCard } from "./LinkPreviewCard";
 import { KlipyPicker } from "./KlipyPicker";
+import { compressPostPhoto } from "../utils/compressPostPhoto";
 
 type CreatePostSheetProps = {
   visible: boolean;
@@ -39,7 +40,8 @@ type CreatePostSheetProps = {
 
 // Photo, GIF and sticker are mutually exclusive: picking one clears the
 // others, same as the web app.
-type Attachment = { kind: "photo" | "gif" | "sticker"; uri: string } | null;
+// `width`/`height`: a freshly picked photo's size (for compressing it).
+type Attachment = { kind: "photo" | "gif" | "sticker"; uri: string; width?: number; height?: number } | null;
 
 function ToolbarPill({
   label,
@@ -55,7 +57,11 @@ function ToolbarPill({
   highlight?: boolean;
   onPress: () => void;
 }) {
-  const tone = active ? "border-brand-green bg-brand-green/10" : highlight ? "border-accent bg-accent/5" : "border-web-divider";
+  const tone = active
+    ? "border-brand-green bg-brand-green/10"
+    : highlight
+      ? "border-accent bg-accent/5"
+      : "border-web-divider";
   const text = active ? "text-brand-green" : highlight ? "text-accent" : "text-web-ink-soft";
   return (
     <Pressable onPress={onPress} className={`flex-row items-center gap-1.5 rounded-full border px-3 py-1.5 ${tone}`}>
@@ -132,7 +138,11 @@ function PhotoRewardBar({ hasPhoto, onAddPhoto }: { hasPhoto: boolean; onAddPhot
             <Text className="flex-1 font-inter-semibold text-small text-ink-emphasis">
               Add a photo to earn <Text className="text-accent">{POST_REWARD_DAYS} days of Pro</Text>
             </Text>
-            <Pressable onPress={onAddPhoto} accessibilityRole="button" className="rounded-full bg-accent px-3 py-1.5 active:opacity-80">
+            <Pressable
+              onPress={onAddPhoto}
+              accessibilityRole="button"
+              className="rounded-full bg-accent px-3 py-1.5 active:opacity-80"
+            >
               <Text className="font-inter-bold text-sub text-white">Add photo</Text>
             </Pressable>
           </View>
@@ -155,7 +165,9 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
   const [attachment, setAttachment] = useState<Attachment>(null);
   // Which Klipy picker is open inline, if any.
   const [picker, setPicker] = useState<KlipyKind | null>(null);
-  const [posting, setPosting] = useState(false);
+  // While saving: "preparing" (compressing a picked photo), then "posting".
+  const [phase, setPhase] = useState<"preparing" | "posting" | null>(null);
+  const posting = phase !== null;
   // A first photo post earns Pro days: nudged while that's still open (new
   // posts only, not to paying subscribers).
   const paying = usePaysForPro();
@@ -205,7 +217,7 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
             : null,
     );
     setPicker(null);
-    setPosting(false);
+    setPhase(null);
   }, [visible, editPost]);
 
   const hasLink = linkOpen && looksLikeLink(link);
@@ -215,7 +227,8 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
     setPicker(null);
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.8 });
     if (result.canceled || !result.assets[0]) return;
-    setAttachment({ kind: "photo", uri: result.assets[0].uri });
+    const asset = result.assets[0];
+    setAttachment({ kind: "photo", uri: asset.uri, width: asset.width, height: asset.height });
   };
 
   const togglePicker = (kind: KlipyKind) => {
@@ -226,17 +239,26 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
 
   const submit = async () => {
     if (!canPost) return;
-    setPosting(true);
+    Keyboard.dismiss();
+    setPicker(null);
     try {
+      // A newly picked photo is resized and compressed first (an existing
+      // one, when editing, is already a hosted URL).
+      let imageUri: string | null = attachment?.kind === "photo" ? attachment.uri : null;
+      if (imageUri && !/^https?:\/\//i.test(imageUri)) {
+        setPhase("preparing");
+        imageUri = await compressPostPhoto(imageUri, attachment?.width, attachment?.height).catch(() => imageUri);
+      }
+      setPhase("posting");
       await onSubmit({
         caption,
-        image_uri: attachment?.kind === "photo" ? attachment.uri : null,
+        image_uri: imageUri,
         gif_url: attachment?.kind === "gif" ? attachment.uri : null,
         sticker_url: attachment?.kind === "sticker" ? attachment.uri : null,
         link_url: hasLink ? link.trim() : null,
       });
     } finally {
-      setPosting(false);
+      setPhase(null);
     }
   };
 
@@ -251,20 +273,24 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
   );
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} heightPercent={0.9}>
+    // Can't be closed mid-save (the post would still go up, unseen).
+    <BottomSheet visible={visible} onClose={posting ? () => {} : onClose} heightPercent={0.9}>
       <View className="flex-1 px-5 pt-10">
         <View className="flex-row items-center justify-between">
           <Pressable
             onPress={onClose}
+            disabled={posting}
             accessibilityLabel="Close"
-            className="h-8 w-8 items-center justify-center rounded-full bg-web-divider"
+            className={`h-8 w-8 items-center justify-center rounded-full bg-web-divider ${posting ? "opacity-40" : ""}`}
           >
             <X color={colors.webInk.soft} size={16} />
           </Pressable>
           <Text className="font-inter-bold text-body text-web-ink">{editPost ? "Edit Post" : "New Post"}</Text>
-          <Pressable onPress={submit} disabled={!canPost} className={canPost ? "" : "opacity-40"}>
+          {/* Dimmed only when there's nothing to post: while saving, the
+              spinner stays at full strength. */}
+          <Pressable onPress={submit} disabled={!canPost} className={canPost || posting ? "" : "opacity-40"}>
             {posting ? (
-              <Spinner variant="wave" size={12} color={colors.accent} />
+              <Spinner variant="wave" size={16} color={colors.accent} />
             ) : (
               <Text className="font-inter-bold text-body text-brand-green">{editPost ? "Save" : "Post"}</Text>
             )}
@@ -273,7 +299,12 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
 
         {/* Caption + link + attachment previews scroll above the toolbar,
             so they stay reachable when the keyboard or a picker takes space. */}
-        <ScrollView className="flex-1" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView
+          className={`flex-1 ${posting ? "opacity-50" : ""}`}
+          pointerEvents={posting ? "none" : "auto"}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View className="mt-5 flex-row gap-3">
             <Avatar name={author.name} imageUri={author.avatarUrl ?? undefined} size={40} />
             <TextInput
@@ -305,7 +336,13 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
               {hasLink && (
                 <LinkPreviewCard
                   url={link.trim().startsWith("http") ? link.trim() : `https://${link.trim()}`}
-                  title={link.trim().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0]}
+                  title={
+                    link
+                      .trim()
+                      .replace(/^https?:\/\//, "")
+                      .replace(/^www\./, "")
+                      .split("/")[0]
+                  }
                   description={null}
                   image={null}
                 />
@@ -331,48 +368,70 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
               {removeAttachmentButton}
             </View>
           )}
-
         </ScrollView>
 
-        {photoRewardOpen && <PhotoRewardBar hasPhoto={attachment?.kind === "photo"} onAddPhoto={() => void pickPhoto()} />}
+        {photoRewardOpen && !posting && (
+          <PhotoRewardBar hasPhoto={attachment?.kind === "photo"} onAddPhoto={() => void pickPhoto()} />
+        )}
 
-        {/* Toolbar: sits on top of the keyboard while it's open, otherwise
-            at the bottom of the sheet (with a picker under it, if open). */}
-        <View className="flex-row flex-wrap gap-2 border-t border-web-divider py-2">
-          <ToolbarPill
-            label="Link"
-            icon={<Link2 color={linkOpen ? colors.brandGreen.DEFAULT : colors.webInk.soft} size={14} />}
-            active={linkOpen}
-            onPress={() => {
-              if (linkOpen) setLink("");
-              setLinkOpen((open) => !open);
-            }}
-          />
-          <ToolbarPill
-            label="Photo"
-            icon={
-              <ImageIcon
-                color={attachment?.kind === "photo" ? colors.brandGreen.DEFAULT : photoRewardOpen ? colors.accent : colors.webInk.soft}
-                size={14}
-              />
-            }
-            active={attachment?.kind === "photo"}
-            highlight={photoRewardOpen}
-            onPress={pickPhoto}
-          />
-          <ToolbarPill
-            label="GIF"
-            active={picker === "gifs" || attachment?.kind === "gif"}
-            onPress={() => togglePicker("gifs")}
-          />
-          <ToolbarPill
-            label="STK"
-            active={picker === "stickers" || attachment?.kind === "sticker"}
-            onPress={() => togglePicker("stickers")}
-          />
-        </View>
+        {/* While saving, the toolbar becomes a status row: what's happening,
+            in words, until the sheet closes on success. */}
+        {posting ? (
+          <Animated.View
+            entering={FadeIn.duration(150)}
+            className="flex-row items-center justify-center gap-2.5 border-t border-web-divider py-3.5"
+            accessibilityLiveRegion="polite"
+          >
+            <Spinner variant="spiral" size={18} color={colors.brandGreen.DEFAULT} />
+            <Text className="font-inter-semibold text-body text-web-ink">
+              {phase === "preparing" ? "Preparing your photo…" : editPost ? "Saving…" : "Posting…"}
+            </Text>
+          </Animated.View>
+        ) : (
+          /* Toolbar: sits on top of the keyboard while it's open, otherwise
+            at the bottom of the sheet (with a picker under it, if open). */
+          <View className="flex-row flex-wrap gap-2 border-t border-web-divider py-2">
+            <ToolbarPill
+              label="Link"
+              icon={<Link2 color={linkOpen ? colors.brandGreen.DEFAULT : colors.webInk.soft} size={14} />}
+              active={linkOpen}
+              onPress={() => {
+                if (linkOpen) setLink("");
+                setLinkOpen((open) => !open);
+              }}
+            />
+            <ToolbarPill
+              label="Photo"
+              icon={
+                <ImageIcon
+                  color={
+                    attachment?.kind === "photo"
+                      ? colors.brandGreen.DEFAULT
+                      : photoRewardOpen
+                        ? colors.accent
+                        : colors.webInk.soft
+                  }
+                  size={14}
+                />
+              }
+              active={attachment?.kind === "photo"}
+              highlight={photoRewardOpen}
+              onPress={pickPhoto}
+            />
+            <ToolbarPill
+              label="GIF"
+              active={picker === "gifs" || attachment?.kind === "gif"}
+              onPress={() => togglePicker("gifs")}
+            />
+            <ToolbarPill
+              label="STK"
+              active={picker === "stickers" || attachment?.kind === "sticker"}
+              onPress={() => togglePicker("stickers")}
+            />
+          </View>
+        )}
 
-        {picker && (
+        {picker && !posting && (
           <KlipyPicker
             key={picker}
             kind={picker}
