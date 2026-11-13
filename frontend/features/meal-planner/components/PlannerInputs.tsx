@@ -1,22 +1,11 @@
-import { ReactNode, useEffect, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import Animated, {
-  Easing,
-  cancelAnimation,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from "react-native-reanimated";
-import { ArrowRight, ChartColumn, ChevronRight, Lightbulb, Lock, Users, Wallet, type LucideIcon } from "lucide-react-native";
-import { PulsePressable, Stepper, Toggle } from "@/frontend/components/ui";
-import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { ReactNode, useRef } from "react";
+import { Pressable, Text, TextInput, View, type TextInputInstance } from "react-native";
+import { CalendarDays, ChartColumn, ChevronRight, Lock, Users, type LucideIcon } from "lucide-react-native";
+import { RollingText, Stepper, Toggle } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 import { GOAL_OPTIONS, type Goal, type MacroTargets } from "@/frontend/core/nutrition/macros";
+import { monthDay } from "../utils/generatePlan";
 
 export const MAX_SERVINGS = 10;
 
@@ -27,239 +16,213 @@ const formatBudget = (text: string) => {
   return digits ? Number(digits).toLocaleString("en-PH") : "";
 };
 
-// Icon tile + title + one-line description: the head of each setup card.
-function CardHead({ Icon, tone = "green", title, optional, body, trailing }: { Icon: LucideIcon; tone?: "green" | "orange"; title: string; optional?: boolean; body: string; trailing?: ReactNode }) {
-  const orange = tone === "orange";
-  return (
-    <View className="flex-row items-center gap-3">
-      <View className={`h-10 w-10 items-center justify-center rounded-xl ${orange ? "bg-brand-orange/15" : "bg-white"}`}>
-        <Icon color={orange ? colors.brandOrange : colors.brandGreen.DEFAULT} size={20} />
-      </View>
-      <View className="flex-1">
-        <Text className="font-inter-semibold text-body text-web-ink">
-          {title}
-          {optional && <Text className="font-inter-regular text-web-ink-muted"> (Optional)</Text>}
-        </Text>
-        <Text className="mt-0.5 font-inter-regular text-small text-web-ink-muted">{body}</Text>
-      </View>
-      {trailing}
-    </View>
-  );
-}
+const WEEKDAY = new Intl.DateTimeFormat("en-US", { weekday: "short" });
 
-function SetupCard({ children }: { children: ReactNode }) {
-  return <View className="gap-3 rounded-2xl bg-brand-green/5 p-4">{children}</View>;
-}
+// ---- Budget ----------------------------------------------------------------
 
-export function BudgetInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+type BudgetHeroProps = {
+  value: string;
+  onChange: (value: string) => void;
+  /** People and days, for the "per person, per day" line. */
+  servings: number;
+  days: number;
+};
+
+// The setup's hero: the weekly budget as one big figure you type straight
+// into, and what it works out to per person per day (rolls as either
+// changes), so the number means something before planning.
+export function BudgetHero({ value, onChange, servings, days }: BudgetHeroProps) {
+  const input = useRef<TextInputInstance | null>(null);
+  const budget = parseBudget(value);
+  const perDay = budget > 0 ? Math.round(budget / Math.max(1, servings) / Math.max(1, days)) : 0;
+
   return (
-    <SetupCard>
-      <CardHead Icon={Wallet} title="Weekly budget" body="We'll find the best meals within your budget." />
-      <View className="flex-row items-center rounded-xl border border-web-divider bg-white px-4 py-3">
-        <Text className="font-inter-semibold text-subheading text-web-ink">₱</Text>
-        <View className="mx-3 h-5 w-px bg-web-divider" />
+    <View className="rounded-3xl bg-mood-bg p-5">
+      <Text className="font-inter-semibold text-sub uppercase tracking-widest text-ink-subtle">Weekly budget</Text>
+      {/* The whole row focuses the field, so the ₱ is a tap target too. */}
+      <Pressable onPress={() => input.current?.focus()} accessible={false} className="mt-2 flex-row items-center">
+        <Text className="font-inter-extrabold text-heading-lg text-primary">₱</Text>
         <TextInput
+          ref={input}
           value={value}
           onChangeText={(text) => onChange(formatBudget(text))}
-          placeholder="e.g. 1,500"
+          placeholder="0"
           placeholderTextColor={colors.ink.placeholder}
           keyboardType="number-pad"
           returnKeyType="done"
-          className="flex-1 font-inter-extrabold text-subheading text-web-ink"
+          accessibilityLabel="Weekly budget in pesos"
+          className="ml-1.5 flex-1 font-inter-extrabold text-subhero tracking-display text-ink-emphasis"
           style={{ padding: 0 }}
         />
-      </View>
-    </SetupCard>
-  );
-}
-
-export function ServingStepper({ value, onChange }: { value: number; onChange: (value: number) => void }) {
-  return (
-    <SetupCard>
-      <CardHead Icon={Users} title="How many people?" body="We'll adjust ingredient quantities for you." />
-      {/* The same stepper as Home's Serving box, a size up. */}
-      <View className="pl-[52px]">
-        <Stepper
-          size="lg"
-          value={value}
-          onChange={onChange}
-          min={1}
-          max={MAX_SERVINGS}
-          decrementLabel="Fewer people"
-          incrementLabel="More people"
-        />
-      </View>
-    </SetupCard>
-  );
-}
-
-type MacroGoalCardProps = {
-  targets: MacroTargets | null;
-  goal: Goal | null;
-  /** Toggle on: opens the nutrition sheet. */
-  onEnable: () => void;
-  /** Tap the enabled card: edit. */
-  onEdit: () => void;
-  /** The targets are your saved nutrition goals (Pro): labelled as such. */
-  fromGoals?: boolean;
-  /** Free: macro goals are Pro (they're nutrition goals). The card shows
-   *  the PRO badge, and any tap opens the upsell instead. */
-  locked?: boolean;
-  onLocked?: () => void;
-};
-
-// Off: toggle + a "not sure about macros?" reassurance. On: a summary card
-// (tap to edit stats, goal or targets).
-export function MacroGoalCard({ targets, goal, onEnable, onEdit, fromGoals = false, locked = false, onLocked }: MacroGoalCardProps) {
-  if (locked) return <LockedMacroGoalCard onPress={onLocked} />;
-  if (targets) {
-    const goalLabel = GOAL_OPTIONS.find((o) => o.value === goal)?.label;
-    return (
-      <Pressable onPress={onEdit} className="flex-row items-center gap-3 rounded-2xl border border-web-divider bg-white p-4 active:bg-web-divider/40">
-        <View className="h-10 w-10 items-center justify-center rounded-xl bg-brand-orange/15">
-          <ChartColumn color={colors.brandOrange} size={20} />
-        </View>
-        <View className="flex-1">
-          <Text className="font-inter-semibold text-body text-web-ink">{fromGoals ? "Your nutrition goals" : "Macro goal enabled"}</Text>
-          <Text className="mt-0.5 font-inter-regular text-small text-web-ink-body">
-            {targets.calories.toLocaleString("en-PH")} kcal · {targets.protein}g protein{goalLabel ? ` · ${goalLabel}` : ""}
-          </Text>
-        </View>
-        <ChevronRight color={colors.webInk.muted} size={18} />
       </Pressable>
-    );
-  }
-  return (
-    <SetupCard>
-      <CardHead
-        Icon={ChartColumn}
-        tone="orange"
-        title="Set a macro goal"
-        optional
-        body="Plan around calories and macros."
-        trailing={<Toggle checked={false} onChange={(on) => on && onEnable()} />}
-      />
-      <View className="flex-row items-start gap-3 rounded-xl bg-notice-bg px-3 py-2.5">
-        <Lightbulb color={colors.notice.icon} size={16} />
-        <View className="flex-1">
-          <Text className="font-inter-semibold text-small text-notice-text">Not sure about macros?</Text>
-          <Text className="font-inter-regular text-small text-notice-text">You can always skip this and set it later.</Text>
+      <View className="mt-4 flex-row items-center justify-between border-t border-primary/10 pt-3">
+        <Text className="font-inter-regular text-small text-ink-subtle">About per person, per day</Text>
+        <View className="flex-row items-center gap-1">
+          {perDay > 0 ? (
+            <RollingText value={`₱${perDay.toLocaleString("en-PH")}`} rank={perDay} className="font-inter-extrabold text-subheading text-primary" />
+          ) : (
+            <Text className="font-inter-extrabold text-subheading text-ink-placeholder">₱–</Text>
+          )}
+          <Text className="font-inter-semibold text-small text-ink-subtle">/ day</Text>
         </View>
-      </View>
-    </SetupCard>
-  );
-}
-
-// ---- Locked macro goal (Free) ---------------------------------------------
-
-// The preview bars: a balanced day's shape, no numbers (they'd read as the
-// user's data). Each fills to its share as the card appears, one after
-// another.
-const PREVIEW_BARS = [
-  { label: "Calories", share: 0.78 },
-  { label: "Protein", share: 0.62 },
-  { label: "Carbs", share: 0.45 },
-];
-const BAR_MS = 700;
-const BAR_STAGGER = 110;
-// The light sweep: a soft white band crossing the card, then a rest.
-const SWEEP_MS = 1100;
-const SWEEP_REST_MS = 2600;
-const SWEEP_WIDTH = 90;
-const SWEEP_BAND = ["rgba(255,255,255,0)", "rgba(255,255,255,0.55)", "rgba(255,255,255,0)"] as const;
-
-function PreviewBar({ label, share, index, reduceMotion }: { label: string; share: number; index: number; reduceMotion: boolean }) {
-  const fill = useSharedValue(reduceMotion ? share : 0);
-  useEffect(() => {
-    if (reduceMotion) return;
-    fill.value = withDelay(250 + index * BAR_STAGGER, withTiming(share, { duration: BAR_MS, easing: Easing.out(Easing.cubic) }));
-    // Once, as the card appears.
-  }, []);
-  const fillStyle = useAnimatedStyle(() => ({ width: `${fill.value * 100}%` }));
-  return (
-    <View className="flex-1 gap-1.5 rounded-xl bg-white px-3 py-2.5">
-      <Text className="font-inter-semibold text-sub uppercase text-ink-subtle">{label}</Text>
-      <View className="h-1.5 overflow-hidden rounded-full bg-accent/10">
-        <Animated.View style={[{ height: "100%", borderRadius: 999, backgroundColor: colors.accent }, fillStyle]} />
       </View>
     </View>
   );
 }
 
-// "Set a macro goal" for a free user: a premium card in Pro's accent orange
-// (a solid accent icon tile, the PRO badge, a lock), a preview of a
-// balanced day, and "Unlock with Pro". A soft light sweeps across it now and
-// then. Any tap opens the Pro page. With Reduce motion: no sweep, the bars
-// show filled.
-function LockedMacroGoalCard({ onPress }: { onPress?: () => void }) {
-  const reduceMotion = useReduceMotion();
-  const [width, setWidth] = useState(0);
-  const sweep = useSharedValue(0);
-  useEffect(() => {
-    if (reduceMotion || width === 0) return;
-    sweep.value = withDelay(
-      900,
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: SWEEP_MS, easing: Easing.inOut(Easing.quad) }),
-          withTiming(1, { duration: SWEEP_REST_MS }),
-          withTiming(0, { duration: 0 }),
-        ),
-        -1,
-      ),
-    );
-    return () => cancelAnimation(sweep);
-  }, [width, reduceMotion]);
-  const sweepStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: -SWEEP_WIDTH * 2 + (width + SWEEP_WIDTH * 3) * sweep.value }, { rotate: "18deg" }],
-  }));
+// ---- Plan details (people, days, macro goal) ---------------------------------
+
+/** One row of the details card: icon tile, title, one-line detail, and
+ *  whatever control sits on the right. */
+function DetailRow({
+  Icon,
+  tile = "green",
+  title,
+  detail,
+  trailing,
+  divided,
+  onPress,
+  accessibilityLabel,
+}: {
+  Icon: LucideIcon;
+  /** "accent": a solid orange tile (Pro), "accentSoft": a tinted one. */
+  tile?: "green" | "accent" | "accentSoft";
+  title: ReactNode;
+  detail: string;
+  trailing?: ReactNode;
+  divided?: boolean;
+  onPress?: () => void;
+  accessibilityLabel?: string;
+}) {
+  const tileClass = tile === "accent" ? "bg-accent" : tile === "accentSoft" ? "bg-accent/15" : "bg-primary/10";
+  const iconColor = tile === "accent" ? colors.white : tile === "accentSoft" ? colors.accent : colors.primary;
+  const content = (
+    <>
+      <View className={`h-9 w-9 items-center justify-center rounded-xl ${tileClass}`}>
+        <Icon color={iconColor} size={18} />
+      </View>
+      <View className="flex-1">
+        <View className="flex-row items-center gap-1.5">{title}</View>
+        <Text className="mt-0.5 font-inter-regular text-small text-ink-subtle">{detail}</Text>
+      </View>
+      {trailing}
+    </>
+  );
+  const rowClass = `flex-row items-center gap-3 px-4 py-3.5 ${divided ? "border-t border-ink-emphasis/5" : ""}`;
+  return onPress ? (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel} className={`${rowClass} active:bg-primary/5`}>
+      {content}
+    </Pressable>
+  ) : (
+    <View className={rowClass}>{content}</View>
+  );
+}
+
+function RowTitle({ children }: { children: ReactNode }) {
+  return <Text className="font-inter-semibold text-body text-ink-emphasis">{children}</Text>;
+}
+
+type PlanDetailsCardProps = {
+  servings: number;
+  onServingsChange: (value: number) => void;
+  /** Days in a new plan (5, or Pro's 5/7 from Settings), starting today. */
+  days: number;
+  targets: MacroTargets | null;
+  goal: Goal | null;
+  /** Toggle on: opens the nutrition sheet. */
+  onEnableMacros: () => void;
+  /** Tap the set goal: edit it. */
+  onEditMacros: () => void;
+  /** The targets are your saved nutrition goals (Pro): labelled as such. */
+  fromGoals?: boolean;
+  /** Free: macro goals are Pro (they're nutrition goals). The row shows the
+   *  PRO badge and a lock, and opens the Pro page. */
+  macrosLocked?: boolean;
+  onMacrosLocked?: () => void;
+};
+
+// Everything after the budget, as one grouped card: how many people, how
+// many days, and the optional macro goal.
+export function PlanDetailsCard({
+  servings,
+  onServingsChange,
+  days,
+  targets,
+  goal,
+  onEnableMacros,
+  onEditMacros,
+  fromGoals = false,
+  macrosLocked = false,
+  onMacrosLocked,
+}: PlanDetailsCardProps) {
+  const today = new Date();
+  const goalLabel = GOAL_OPTIONS.find((o) => o.value === goal)?.label;
 
   return (
-    <PulsePressable
-      onPress={onPress}
-      radius={16}
-      ringColor={colors.accent}
-      pulse="subtle"
-      accessibilityRole="button"
-      accessibilityLabel="Set a macro goal, a Pro feature. Unlock with Pro"
-    >
-      <View
-        onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-        className="gap-3.5 overflow-hidden rounded-2xl border border-accent/25 bg-accent/5 p-4"
-      >
-        {!reduceMotion && (
-          <Animated.View pointerEvents="none" style={[{ position: "absolute", top: -40, bottom: -40, left: 0, width: SWEEP_WIDTH }, sweepStyle]}>
-            <LinearGradient colors={SWEEP_BAND} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={{ flex: 1 }} />
-          </Animated.View>
-        )}
-
-        <View className="flex-row items-center gap-3">
-          <View className="h-10 w-10 items-center justify-center rounded-xl bg-accent">
-            <ChartColumn color={colors.white} size={20} />
-          </View>
-          <View className="flex-1">
-            <View className="flex-row items-center gap-2">
-              <Text className="font-inter-semibold text-body text-ink-emphasis">Set a macro goal</Text>
+    <View className="overflow-hidden rounded-2xl border border-primary/10 bg-white">
+      <DetailRow
+        Icon={Users}
+        title={<RowTitle>People</RowTitle>}
+        detail="Quantities and costs scale to fit"
+        trailing={
+          <Stepper
+            value={servings}
+            onChange={onServingsChange}
+            min={1}
+            max={MAX_SERVINGS}
+            decrementLabel="Fewer people"
+            incrementLabel="More people"
+          />
+        }
+      />
+      <DetailRow
+        Icon={CalendarDays}
+        divided
+        title={<RowTitle>Days</RowTitle>}
+        detail={`Starting today, ${WEEKDAY.format(today)} ${monthDay(today)}`}
+        trailing={<Text className="font-inter-semibold text-body text-ink-emphasis">{days} days</Text>}
+      />
+      {macrosLocked ? (
+        <DetailRow
+          Icon={ChartColumn}
+          tile="accent"
+          divided
+          onPress={onMacrosLocked}
+          accessibilityLabel="Macro goal, a Pro feature. Unlock with Pro"
+          title={
+            <>
+              <RowTitle>Macro goal</RowTitle>
               <ProBadge />
-            </View>
-            <Text className="mt-0.5 font-inter-regular text-small text-ink-subtle">Plan every day around your calories and protein.</Text>
-          </View>
-          <View className="h-8 w-8 items-center justify-center rounded-full bg-accent/10">
-            <Lock color={colors.accent} size={14} strokeWidth={2.5} />
-          </View>
-        </View>
-
-        <View className="flex-row gap-2">
-          {PREVIEW_BARS.map((bar, i) => (
-            <PreviewBar key={bar.label} label={bar.label} share={bar.share} index={i} reduceMotion={reduceMotion} />
-          ))}
-        </View>
-
-        <View className="flex-row items-center justify-end gap-1">
-          <Text className="font-inter-semibold text-small text-accent">Unlock with Pro</Text>
-          <ArrowRight color={colors.accent} size={14} strokeWidth={2.5} />
-        </View>
-      </View>
-    </PulsePressable>
+            </>
+          }
+          detail="Aim every day at your calories and protein"
+          trailing={<Lock color={colors.accent} size={16} strokeWidth={2.5} />}
+        />
+      ) : targets ? (
+        <DetailRow
+          Icon={ChartColumn}
+          tile="accentSoft"
+          divided
+          onPress={onEditMacros}
+          accessibilityLabel="Edit macro goal"
+          title={<RowTitle>{fromGoals ? "Your nutrition goals" : "Macro goal"}</RowTitle>}
+          detail={`${targets.calories.toLocaleString("en-PH")} kcal · ${targets.protein}g protein${goalLabel ? ` · ${goalLabel}` : ""}`}
+          trailing={<ChevronRight color={colors.ink.subtle} size={18} />}
+        />
+      ) : (
+        <DetailRow
+          Icon={ChartColumn}
+          tile="accentSoft"
+          divided
+          title={
+            <RowTitle>
+              Macro goal <Text className="font-inter-regular text-ink-subtle">(Optional)</Text>
+            </RowTitle>
+          }
+          detail="Plan around calories and macros"
+          trailing={<Toggle checked={false} onChange={(on) => on && onEnableMacros()} />}
+        />
+      )}
+    </View>
   );
 }
