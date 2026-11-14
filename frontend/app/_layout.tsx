@@ -1,7 +1,7 @@
 import "../../global.css";
 
 import { useEffect, useCallback } from "react";
-import { View } from "react-native";
+import { View, LogBox } from "react-native";
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ReducedMotionConfig, ReduceMotion } from "react-native-reanimated";
@@ -46,6 +46,12 @@ import { DotRevealOverlay } from "@/frontend/features/onboarding/components/DotR
 WebBrowser.maybeCompleteAuthSession();
 
 SplashScreen.preventAutoHideAsync();
+
+// NativeWind (react-native-css-interop) registers className support for every
+// core component at startup, ImageBackground included, and merely touching it
+// makes React Native print its "ImageBackground is deprecated" warning. The app
+// never uses ImageBackground; hidden until NativeWind stops touching it.
+LogBox.ignoreLogs(["ImageBackground is deprecated"]);
 
 export default function RootLayout() {
   // Signed in with notifications allowed: this phone's push token stays
