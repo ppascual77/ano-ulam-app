@@ -124,8 +124,9 @@ Supabase project config don't get tangled with UI code.
 - Every screen's root should be `<Screen>` (handles safe-area insets + base padding), not a
   raw `<View>`.
 - Import `Text` and `TextInput` from `@/frontend/components/ui/Text`, never from
-  `react-native`. They size text in three fixed levels picked by the phone's text-size setting
-  (Regular up to the default, Bigger up to 1.25x, Largest above: reading text 1 / 1.15 / 1.3x,
+  `react-native`. Below the default text size they shrink with the phone like any app; from the
+  default up they size text in three fixed levels (Regular at the default, Bigger up to 1.25x,
+  Largest above: reading text 1 / 1.15 / 1.3x,
   22-24px headings 1 / 1.1 / 1.15x, 30px+ display never grows), so there are only three layouts to
   check. The size comes from the `text-*` size token or a style `fontSize`; keep `Text.tsx`'s token
   table in step with `tailwind.config.js`.

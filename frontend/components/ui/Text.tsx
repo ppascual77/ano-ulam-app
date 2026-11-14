@@ -6,15 +6,17 @@ import { StyleSheet, Text as RNText, TextInput as RNTextInput, useWindowDimensio
 // iOS Text Size / Larger Text) step by step. The phone's setting picks a level:
 //
 //   phone setting            level     reading   headings (22-24px)   display (30px+)
-//   smallest .. default       Regular   1x        1x                   1x
+//   below default             (phone)   follows the phone, shrinking like any app
+//   default                   Regular   1x        1x                   1x
 //   middle (up to 1.25x)      Bigger    1.15x     1.1x                 1x
 //   largest (above 1.25x)     Largest   1.3x      1.15x                1x
 //
-// Small settings never shrink AnoUlam below its design, display sizes (hero
-// titles, big prices) never grow, and there are only three layouts to test.
-// The system's own scaling is off (allowFontScaling false); the size comes
-// from the text's size token (text-body, text-heading, ...) or its style's
-// fontSize. Text with neither inherits its parent's (already scaled) size.
+// Smaller-than-default settings shrink AnoUlam with the phone, as before the
+// levels existed. From the default up, the system's own scaling is off
+// (allowFontScaling false) and the size comes from the text's size token
+// (text-body, text-heading, ...) or its style's fontSize; display sizes (hero
+// titles, big prices) never grow. Text with neither inherits its parent's
+// (already scaled) size.
 // Import these instead of React Native's
 // (`import { Text } from "@/frontend/components/ui/Text"`).
 
@@ -68,13 +70,16 @@ function levelStyle(level: Level, className: string | undefined, style: Componen
 }
 
 export function Text(props: ComponentProps<typeof RNText> & { className?: string }) {
-  const level = textLevel(useWindowDimensions().fontScale);
-  const sized = levelStyle(level, props.className, props.style);
+  const { fontScale } = useWindowDimensions();
+  // Below the default: let the phone shrink it, as any app.
+  if (fontScale < 1) return <RNText {...props} />;
+  const sized = levelStyle(textLevel(fontScale), props.className, props.style);
   return <RNText {...props} allowFontScaling={false} style={sized ? [props.style, sized] : props.style} />;
 }
 
 export function TextInput(props: ComponentProps<typeof RNTextInput> & { className?: string }) {
-  const level = textLevel(useWindowDimensions().fontScale);
-  const sized = levelStyle(level, props.className, props.style);
+  const { fontScale } = useWindowDimensions();
+  if (fontScale < 1) return <RNTextInput {...props} />;
+  const sized = levelStyle(textLevel(fontScale), props.className, props.style);
   return <RNTextInput {...props} allowFontScaling={false} style={sized ? [props.style, sized] : props.style} />;
 }
