@@ -2,12 +2,16 @@ import { Pressable, View } from "react-native";
 import { openWebUrl } from "@/lib/openWebUrl";
 import { Text } from "@/frontend/components/ui/Text";
 import { Image } from "expo-image";
+import { X } from "lucide-react-native";
+import { colors } from "@/frontend/constants/theme";
 
 type LinkPreviewCardProps = {
   url: string;
   title: string | null;
   description: string | null;
   image: string | null;
+  /** The composer's ✕: takes the link off the post. */
+  onRemove?: () => void;
 };
 
 function hostname(url: string) {
@@ -20,7 +24,7 @@ function hostname(url: string) {
 
 // Gray box with a thumbnail, title, description and hostname for a link
 // attached to a post. Opens the link.
-export function LinkPreviewCard({ url, title, description, image }: LinkPreviewCardProps) {
+export function LinkPreviewCard({ url, title, description, image, onRemove }: LinkPreviewCardProps) {
   return (
     <Pressable
       onPress={() => openWebUrl(url)}
@@ -42,6 +46,16 @@ export function LinkPreviewCard({ url, title, description, image }: LinkPreviewC
           {hostname(url)}
         </Text>
       </View>
+      {onRemove && (
+        <Pressable
+          onPress={onRemove}
+          hitSlop={8}
+          accessibilityLabel="Remove link"
+          className="mr-2 mt-2 h-6 w-6 items-center justify-center rounded-full bg-web-ink/70"
+        >
+          <X color={colors.white} size={14} />
+        </Pressable>
+      )}
     </Pressable>
   );
 }

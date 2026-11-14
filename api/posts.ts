@@ -40,6 +40,9 @@ export type PostInput = {
    *  current photo URL (kept). */
   image_uri?: string | null;
   link_url?: string | null;
+  /** The link's preview as the composer already fetched it (same link): saved
+   *  as is, so the page isn't fetched a second time. */
+  link_preview?: LinkFields | null;
   gif_url?: string | null;
   sticker_url?: string | null;
 };
@@ -141,7 +144,7 @@ async function removePostImage(url: string | null) {
 
 // ---- link previews -----------------------------------------------------------
 
-type LinkFields = Pick<FoodPost, "link_url" | "link_title" | "link_description" | "link_image">;
+export type LinkFields = Pick<FoodPost, "link_url" | "link_title" | "link_description" | "link_image">;
 
 const NO_LINK: LinkFields = { link_url: null, link_title: null, link_description: null, link_image: null };
 
@@ -180,7 +183,7 @@ function metaContent(html: string, key: string): string | null {
 
 // Reads the page's Open Graph tags on the device (no CORS in the app). Falls
 // back to the hostname as the title when the page can't be read in time.
-async function fetchLinkPreview(rawUrl: string): Promise<LinkFields> {
+export async function fetchLinkPreview(rawUrl: string): Promise<LinkFields> {
   const url = withScheme(rawUrl.trim());
   const fallback: LinkFields = { link_url: url, link_title: hostnameOf(url), link_description: null, link_image: null };
   const controller = new AbortController();
@@ -215,6 +218,13 @@ async function fetchLinkPreview(rawUrl: string): Promise<LinkFields> {
   }
 }
 
+// The composer's preview when it's for this link, else a fresh read.
+function linkFieldsFor(input: PostInput): Promise<LinkFields> {
+  const url = withScheme((input.link_url ?? "").trim());
+  if (input.link_preview && input.link_preview.link_url === url) return Promise.resolve(input.link_preview);
+  return fetchLinkPreview(url);
+}
+
 // ---- writes ------------------------------------------------------------------
 
 function contentFields(input: PostInput) {
@@ -231,7 +241,7 @@ export async function createPost(input: PostInput): Promise<void> {
   const userId = await currentUserId();
   const [imageUrl, link] = await Promise.all([
     input.image_uri ? (isLocalUri(input.image_uri) ? uploadPostImage(input.image_uri, userId) : input.image_uri) : null,
-    input.link_url ? fetchLinkPreview(input.link_url) : NO_LINK,
+    input.link_url ? linkFieldsFor(input) : NO_LINK,
   ]);
   const { error } = await supabase.from("food_posts").insert({ user_id: userId, image_url: imageUrl, ...contentFields(input), ...link });
   if (error) {
@@ -257,7 +267,7 @@ export async function updatePost(previous: FoodPost, input: PostInput): Promise<
             link_description: previous.link_description,
             link_image: previous.link_image,
           }
-        : fetchLinkPreview(input.link_url),
+        : linkFieldsFor(input),
   ]);
   const { error } = await supabase
     .from("food_posts")
