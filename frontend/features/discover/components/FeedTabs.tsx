@@ -116,7 +116,17 @@ export function FeedTabs({ active, onChange, disabled = false, variant }: FeedTa
             className="flex-row items-center gap-1.5 px-4"
           >
             <tab.Icon color={selected ? colors.ink.emphasis : tone.inactiveIcon} size={14} strokeWidth={2.4} />
-            <Text className={`font-inter-bold text-small ${selected ? "text-ink-emphasis" : tone.inactiveText}`}>{tab.label}</Text>
+            {/* Android measures bold Inter a hair narrower than it draws it
+                with its default "high quality" line breaking, clipping the
+                last letter ("Communit"): measured the simple way, plus a
+                hair of room at the end. */}
+            <Text
+              textBreakStrategy="simple"
+              numberOfLines={1}
+              className={`pr-0.5 font-inter-bold text-small ${selected ? "text-ink-emphasis" : tone.inactiveText}`}
+            >
+              {tab.label}
+            </Text>
           </Pressable>
         );
       })}
