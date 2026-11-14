@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Pressable, View } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { Image } from "expo-image";
@@ -6,6 +7,7 @@ import { Lock } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
+import { track } from "@/frontend/core/analytics/analytics";
 
 type SeeAllMatchesCardProps = {
   /** How many results are past the free cap. */
@@ -18,7 +20,14 @@ type SeeAllMatchesCardProps = {
   variant?: "card" | "row";
   /** The carousel's card width ("card" only). */
   width?: number;
+  /** Where it shows, for analytics (pro_wall_shown). */
+  screen: WallScreen;
 };
+
+type WallScreen = "browse" | "mood" | "budget" | "pantry" | "see_all";
+// One pro_wall_shown per wall: a screen showing two of these at once (Mood
+// results' overlay and end card) or re-rendering them counts once.
+let lastWall: { screen: WallScreen; at: number } | null = null;
 
 // One locked meal peeks through, blurred (three side by side read as
 // glitchy).
@@ -30,12 +39,24 @@ const THUMB = 40;
 // Mobbin-style peek), "See every match with Pro" and how many more there
 // are. Opens the Pro page titled for it. Searches still count once each,
 // so this is about depth, not how often.
-export function SeeAllMatchesCard({ hiddenCount, preview = [], variant = "card", width }: SeeAllMatchesCardProps) {
+export function SeeAllMatchesCard({ hiddenCount, preview = [], variant = "card", width, screen }: SeeAllMatchesCardProps) {
   const peek = preview[0];
+  useEffect(() => {
+    const now = Date.now();
+    if (lastWall && lastWall.screen === screen && now - lastWall.at < 2000) return;
+    lastWall = { screen, at: now };
+    track("pro_wall_shown", { screen, hidden_count: hiddenCount });
+    // Once per appearance.
+  }, []);
   const open = () =>
     router.push({
       pathname: "/pro",
-      params: { title: "See every", highlight: "match", subtitle: "Free shows the first results of each search. Pro shows them all." },
+      params: {
+        title: "See every",
+        highlight: "match",
+        subtitle: "Free shows the first results of each search. Pro shows them all.",
+        source: "results_wall",
+      },
     });
   const more = `+${hiddenCount} more ${hiddenCount === 1 ? "meal" : "meals"}`;
   const label = `See every match with Pro, ${more}`;

@@ -162,7 +162,7 @@ export default function MealPlannerScreen() {
   // Free, tapping anything locked: straight to the full Pro page, titled for
   // what was tapped (no quick sheet in between).
   const openPro = (copy: { title: string; highlight: string; subtitle: string } = LOCKED_DAYS_COPY(shownDays - 1)) =>
-    router.push({ pathname: "/pro", params: copy });
+    router.push({ pathname: "/pro", params: { ...copy, source: "locked_day" } });
   // Macro goals are Pro (they're the nutrition goals): a free user's plans
   // never use targets, even ones set before (e.g. while Pro).
   const targets = isPro ? store.targets : null;

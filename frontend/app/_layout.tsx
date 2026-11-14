@@ -1,7 +1,7 @@
 import "../../global.css";
 
-import { useEffect, useCallback } from "react";
-import { View, LogBox } from "react-native";
+import { useEffect, useCallback, useRef } from "react";
+import { AppState, View, LogBox } from "react-native";
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ReducedMotionConfig, ReduceMotion } from "react-native-reanimated";
@@ -35,6 +35,7 @@ import { GlobalLoginGate, PendingSaveReplay } from "@/frontend/features/auth/com
 import { RewardCelebration } from "@/frontend/core/pro/components/RewardCelebration";
 import { usePushTokenSync } from "@/frontend/core/notifications/hooks/usePushPermission";
 import { PushTapRouter } from "@/frontend/core/notifications/components/PushTapRouter";
+import { identifyUser, resetUser, track } from "@/frontend/core/analytics/analytics";
 import { SaveLimitSheet } from "@/frontend/core/saved/components/SaveLimitSheet";
 import { SaveFeedbackLayer } from "@/frontend/core/saved/components/SaveFeedbackLayer";
 import { noteTouch, useSaveFeedbackStore } from "@/frontend/core/saved/store/useSaveFeedbackStore";
@@ -106,6 +107,28 @@ export default function RootLayout() {
     if (sessionUserId) void adoptGuestPreferences(sessionUserId);
     else forgetSessionPreferences();
   }, [authLoading, sessionUserId]);
+  // Analytics follow the account too: events after sign-in belong to it, and
+  // signing out starts a fresh anonymous id.
+  // (Only an actual sign-out resets: a guest keeps one id across launches,
+  // so guest retention can be measured.)
+  const analyticsUser = useRef<string | null>(null);
+  useEffect(() => {
+    if (authLoading) return;
+    if (sessionUserId) identifyUser(sessionUserId);
+    else if (analyticsUser.current) resetUser();
+    analyticsUser.current = sessionUserId;
+  }, [authLoading, sessionUserId]);
+  // app_opened: once the first session check is done, then every return to
+  // the front.
+  useEffect(() => {
+    if (authLoading) return;
+    track("app_opened", {});
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") track("app_opened", {});
+    });
+    return () => sub.remove();
+    // Only after the first session check.
+  }, [authLoading]);
   // Pro follows the account the same way (RevenueCat logs in as the user).
   const setProUser = useProStore((s) => s.setUser);
   useEffect(() => {

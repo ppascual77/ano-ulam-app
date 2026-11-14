@@ -71,7 +71,7 @@ export function ProFeatureSheet({ feature, onClose }: { feature: ProFeatureKey |
   const openPro = () => {
     if (!f) return;
     onClose();
-    router.push({ pathname: "/pro", params: f.pro });
+    router.push({ pathname: "/pro", params: { ...f.pro, source: "feature" } });
   };
 
   return (

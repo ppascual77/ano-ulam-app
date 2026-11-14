@@ -104,7 +104,7 @@ export function SearchResults({ results, loading, renderCard }: SearchResultsPro
                 keyExtractor={(meal) => meal.id ?? meal.name}
                 renderItem={({ item }) => <>{renderCard(item)}</>}
                 // The row's own gap spaces it from the last card.
-                ListFooterComponent={hiddenCount > 0 ? <SeeAllMatchesCard hiddenCount={hiddenCount} preview={all.slice(meals.length)} width={CARD_WIDTH} /> : undefined}
+                ListFooterComponent={hiddenCount > 0 ? <SeeAllMatchesCard screen="browse" hiddenCount={hiddenCount} preview={all.slice(meals.length)} width={CARD_WIDTH} /> : undefined}
                 ListFooterComponentStyle={hiddenCount > 0 ? { alignSelf: "stretch" } : undefined}
                 showsHorizontalScrollIndicator={false}
                 // Each swipe settles on a card's start.

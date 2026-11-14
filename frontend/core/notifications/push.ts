@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import Constants from "expo-constants";
+import { track } from "@/frontend/core/analytics/analytics";
 import { registerPushToken, unregisterPushToken } from "@/api/push";
 
 // Push notifications (for now: "Your recipe is live", sent by the database
@@ -105,7 +106,7 @@ async function saveToken() {
 
 /** Banners and sound: iOS's prompt (from undecided or quiet; iOS shows it
  *  once), then saves this phone's token. True when banners are allowed. */
-export async function enablePush(): Promise<boolean> {
+export async function enablePush(source: "recipe_submitted" | "settings"): Promise<boolean> {
   if (!Notifications) return false;
   await ensureAndroidChannel();
   let permission = await getPushPermission();
@@ -115,6 +116,7 @@ export async function enablePush(): Promise<boolean> {
     );
   }
   if (__DEV__) console.log("[push] permission:", permission);
+  if (permission === "granted" || permission === "denied") track("push_permission", { state: permission, source });
   if (canReceivePush(permission)) await saveToken();
   return permission === "granted";
 }
@@ -133,6 +135,7 @@ export async function syncPushToken() {
       }),
     );
     if (__DEV__) console.log("[push] quiet by default:", permission);
+    if (permission === "quiet") track("push_permission", { state: "quiet", source: "sign_in" });
   }
   if (canReceivePush(permission)) await saveToken();
 }

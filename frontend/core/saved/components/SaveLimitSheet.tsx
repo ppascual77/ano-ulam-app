@@ -23,6 +23,7 @@ export function SaveLimitSheet({ presentation = "modal", onOpenPro }: SaveLimitS
 
   return (
     <DailyLimitSheet
+      kind="saved_meals"
       visible={open}
       what="saved meals"
       limit={SAVED_MEALS_LIMIT}
@@ -31,7 +32,7 @@ export function SaveLimitSheet({ presentation = "modal", onOpenPro }: SaveLimitS
       secondary={presentation === "modal" ? { label: "Manage saved meals", onPress: openSavedTab } : undefined}
       presentation={presentation}
       onClose={closeSaveLimit}
-      onOpenPro={onOpenPro ?? (() => router.push("/pro"))}
+      onOpenPro={onOpenPro ?? (() => router.push({ pathname: "/pro", params: { source: "saved_limit" } }))}
     />
   );
 }

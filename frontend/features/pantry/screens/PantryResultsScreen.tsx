@@ -165,7 +165,7 @@ export default function PantryResultsScreen() {
             ListFooterComponent={
               hiddenHere > 0 ? (
                 <View className="mt-3">
-                  <SeeAllMatchesCard hiddenCount={hiddenHere} preview={preview} variant="row" />
+                  <SeeAllMatchesCard screen="pantry" hiddenCount={hiddenHere} preview={preview} variant="row" />
                 </View>
               ) : undefined
             }

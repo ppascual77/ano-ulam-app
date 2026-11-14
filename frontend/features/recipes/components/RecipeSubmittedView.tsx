@@ -87,7 +87,7 @@ export function RecipeSubmittedView({ recipeName, onDone }: { recipeName: string
   const [asking, setAsking] = useState(false);
   const notifyMe = async () => {
     setAsking(true);
-    const allowed = await enablePush().catch(() => false);
+    const allowed = await enablePush("recipe_submitted").catch(() => false);
     if (allowed && !pushEnabled) settingsActions.setPushEnabled(true);
     push.refresh();
     setAsking(false);

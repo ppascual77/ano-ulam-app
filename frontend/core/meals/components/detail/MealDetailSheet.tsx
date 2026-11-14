@@ -14,6 +14,7 @@ import { GlobalLoginGate } from "@/frontend/features/auth/components/GlobalLogin
 import { SaveLimitSheet } from "@/frontend/core/saved/components/SaveLimitSheet";
 import { useLoginGateStore } from "@/frontend/features/auth/store/useLoginGateStore";
 import type { IngredientType, MealType } from "../../mealTypes";
+import { trackProPageOpened } from "@/frontend/core/analytics/analytics";
 
 // The meal detail is full screen; the ingredient sheet tops out at 75% of
 // it, so it reads as a sheet on top rather than a second full screen.
@@ -111,6 +112,9 @@ export function MealDetailSheet({
   // the full Pro page straight away: in this sheet's overlay, since a /pro
   // screen would open behind it.
   const [proPageOpen, setProPageOpen] = useState(false);
+  useEffect(() => {
+    if (proPageOpen) trackProPageOpened("micros");
+  }, [proPageOpen]);
 
   // While open, a guest's login sheet shows inside this one (its overlay)
   // instead of as a second Modal from the app root.

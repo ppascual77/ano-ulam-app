@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { Text } from "@/frontend/components/ui/Text";
 import { router, useLocalSearchParams } from "expo-router";
 import { Screen } from "@/frontend/components/ui";
 import { ProPage } from "@/frontend/core/pro/components/ProPage";
+import { trackProPageOpened, type ProSource } from "@/frontend/core/analytics/analytics";
 
 // The /pro route: the full Pro page as a screen (Settings, the planner's
 // upsell). Inside the meal sheet, MealDetailSheet shows the same ProPage.
@@ -13,7 +15,17 @@ import { ProPage } from "@/frontend/core/pro/components/ProPage";
 export default function ProScreen() {
   // Optional, from an upsell (e.g. the planner's locked days): the page's
   // title speaks to what was tapped, ending in an orange `highlight` word.
-  const { title, highlight, subtitle } = useLocalSearchParams<{ title?: string; highlight?: string; subtitle?: string }>();
+  const { title, highlight, subtitle, source } = useLocalSearchParams<{
+    title?: string;
+    highlight?: string;
+    subtitle?: string;
+    /** What opened it, for analytics (pro_page_opened). */
+    source?: ProSource;
+  }>();
+  useEffect(() => {
+    trackProPageOpened(source ?? "other");
+    // Once per opening.
+  }, []);
   return (
     <Screen edges={[]} padded={false} dismissKeyboardOnTap={false}>
       <ProPage

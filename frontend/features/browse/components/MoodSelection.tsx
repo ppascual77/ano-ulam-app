@@ -97,6 +97,7 @@ const openPro = () =>
       title: "See every",
       highlight: "match",
       subtitle: "Free shows the first results of each search. Pro shows them all.",
+      source: "results_wall",
     },
   });
 
@@ -252,7 +253,7 @@ export function MoodSelection({ onSelectMeal }: MoodSelectionProps) {
     pageLocked ? (
       // A short last page of locked meals: the Pro card in the space after.
       <Animated.View key={`${moodId}-end-locked`} entering={enter(onPage.length)} style={{ flex: 1, height }}>
-        <SeeAllMatchesCard hiddenCount={hiddenCount} preview={onPage} />
+        <SeeAllMatchesCard screen="mood" hiddenCount={hiddenCount} preview={onPage} />
       </Animated.View>
     ) : (
       <Animated.View key={`${moodId}-end`} entering={enter(onPage.length)} style={{ flex: 1, height }}>
@@ -362,7 +363,7 @@ export function MoodSelection({ onSelectMeal }: MoodSelectionProps) {
               className="absolute bottom-0 left-0 right-0 top-0 items-center justify-center"
             >
               <View style={{ width: 240, height: 170 }}>
-                <SeeAllMatchesCard hiddenCount={hiddenCount} preview={onPage} />
+                <SeeAllMatchesCard screen="mood" hiddenCount={hiddenCount} preview={onPage} />
               </View>
             </View>
           )}

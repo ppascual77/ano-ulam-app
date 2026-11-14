@@ -9,6 +9,7 @@ import Purchases, {
 } from "react-native-purchases";
 import { create } from "zustand";
 import { getEarnedProUntil } from "@/api/proRewards";
+import { proSourceForPurchase, track } from "@/frontend/core/analytics/analytics";
 import type { PlanKey } from "../proContent";
 
 // Pro is a real App Store subscription, through RevenueCat: it checks the
@@ -302,7 +303,10 @@ export const useProStore = create<ProStore>((set, get) => {
       try {
         const { customerInfo } = await Purchases.purchasePackage(pkg);
         apply(customerInfo);
-        return get().isPro ? "purchased" : "cancelled";
+        if (!get().isPro) return "cancelled";
+        const props = { plan, source: proSourceForPurchase() };
+        track(get().subscription?.status === "trial" ? "trial_started" : "purchase_completed", props);
+        return "purchased";
       } catch (error) {
         const code = (error as { code?: string }).code;
         if (code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) return "cancelled";

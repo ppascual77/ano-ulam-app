@@ -140,12 +140,12 @@ export default function SettingsScreen() {
     if (!on) return settingsActions.setPushEnabled(false);
     settingsActions.setPushEnabled(true);
     if (push.permission === "denied") return void Linking.openSettings();
-    const allowed = await enablePush().catch(() => false);
+    const allowed = await enablePush("settings").catch(() => false);
     push.refresh();
     if (!allowed) setToast({ id: Date.now(), message: "Notifications are off for AnoUlam. Turn them on in iOS Settings.", tone: "error" });
   };
   const showBanners = async () => {
-    await enablePush().catch(() => false);
+    await enablePush("settings").catch(() => false);
     push.refresh();
   };
   const settingsActions = useAccountSettingsActions();
@@ -269,9 +269,9 @@ export default function SettingsScreen() {
             {subscription && <ProPlanCard subscription={subscription} onPress={() => setManageOpen(true)} />}
             {/* Earned Pro (no subscription) comes before an expired plan. */}
             {!subscription && earnedUntil && new Date(earnedUntil).getTime() > Date.now() && (
-              <EarnedProCard until={earnedUntil} onPress={() => router.push("/pro")} />
+              <EarnedProCard until={earnedUntil} onPress={() => router.push({ pathname: "/pro", params: { source: "settings" } })} />
             )}
-            {!subscription && !isPro && lapsed && <ProPlanCard subscription={lapsed} onPress={() => router.push("/pro")} />}
+            {!subscription && !isPro && lapsed && <ProPlanCard subscription={lapsed} onPress={() => router.push({ pathname: "/pro", params: { source: "settings" } })} />}
             {/* What Pro includes is a checklist inside the plan card. */}
             {!isPro && !lapsed && <ProPitchCard />}
             {!isPro && earnTip && (
@@ -309,7 +309,7 @@ export default function SettingsScreen() {
           <Animated.View entering={enter(3)}>
             <SettingsSection title="Pro features">
               {isPro && (
-                <Pressable onPress={() => router.push("/pro")} accessibilityRole="button" className="flex-row items-center gap-3 active:opacity-60">
+                <Pressable onPress={() => router.push({ pathname: "/pro", params: { source: "settings" } })} accessibilityRole="button" className="flex-row items-center gap-3 active:opacity-60">
                   <View className="flex-1">
                     <SettingsRowLabel>See all Pro features</SettingsRowLabel>
                     <SettingsRowDescription>Everything in your plan.</SettingsRowDescription>

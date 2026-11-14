@@ -2,9 +2,15 @@
 
 What to measure once real users are on the app, and the events that needs. Started 2026-11-08.
 
-**No analytics tool is in the app yet.** Decided 2026-11-14: **PostHog** (`posthog-react-native`,
-the same tool as the web app), added before launch (on the before-release list in
-`docs/integration-status.md`). Revenue and subscriptions already
+**PostHog is in the app** (added 2026-11-14, `posthog-react-native` 4.85.1, the same tool as the
+web app): `frontend/core/analytics/analytics.ts` logs exactly the events below, nothing
+automatic (no screen views, taps, session replay or GeoIP). It's off until
+`EXPO_PUBLIC_POSTHOG_KEY` is set (`.env` and EAS), and off in development unless
+`EXPO_PUBLIC_POSTHOG_IN_DEV=1`. `EXPO_PUBLIC_POSTHOG_HOST` defaults to the US cloud
+(`https://us.i.posthog.com`; EU projects use `https://eu.i.posthog.com`). Guests keep one
+anonymous id across launches; signing in identifies them by the Supabase user id, signing out
+starts a new anonymous id. App Store privacy: declare Usage Data → Product Interaction, linked to
+the user, not used for tracking. Revenue and subscriptions already
 report themselves in RevenueCat's dashboard (trials, conversions, renewals, churn): use that
 for money, and the tool below for behaviour. Never log personal data (names, emails, what someone
 typed in a search); the Supabase user id is enough to tie events to an account.
@@ -34,20 +40,20 @@ matters), and, if built, whether a blurred preview of the locked meals lifts tap
 
 | Event | When | Properties |
 | --- | --- | --- |
-| `pro_wall_shown` | The "See every match with Pro" card comes into view | `screen` (browse, budget, pantry, see_all), `hidden_count` |
+| `pro_wall_shown` | The "See every match with Pro" card appears (once per wall) | `screen` (browse, mood, budget, pantry, see_all), `hidden_count` |
 | `limit_sheet_shown` | A daily limit sheet or the saved-meals limit sheet opens | `kind` (search, budget, pantry, saved_meals) |
-| `pro_page_opened` | The Pro page opens | `source` (results_wall, limit_sheet, saved_limit, settings, locked_day, macro_goal, micros, …) |
+| `pro_page_opened` | The Pro page opens | `source` (results_wall, limit_sheet, saved_limit, settings, locked_day, feature, micros, other) |
 | `trial_started` / `purchase_completed` | Apple's purchase goes through | `plan`, `source` (the `pro_page_opened` source it came from) |
-| `app_opened` | The app comes to the front | `is_pro`, `account_age_days` |
+| `app_opened` | The app starts or comes to the front | (the common ones below) |
 | `push_permission` | Notification permission changes (quiet at sign-in, banners via "Notify me" or Settings, refused) | `state` (quiet, granted, denied), `source` (sign_in, recipe_submitted, settings) |
-| `push_opened` | A push is tapped | `type` (recipe_approved, price_drop, weekly_best_buys) |
+| `push_opened` | A push is tapped | `type` (recipe_approved, price_drop, weekly_best_buys, new_meals) |
 
 Push questions: do price pushes bring people back (`push_opened` → `app_opened` sessions), does
 the free weekly line lead to `pro_page_opened` (and Pro), and how many quiet users upgrade to
 banners. The server already logs every price push sent (`price_alert_log.recipients`).
 
-Each event carries the user id (or an anonymous id for guests), whether they're Pro, and the
-account's age in days, so the questions above are straight funnels and retention cohorts:
+Each event carries the user id (or an anonymous id for guests), `is_pro`, `signed_in` and
+`account_age_days` (null for guests), so the questions above are straight funnels and retention cohorts:
 
 - (1) `pro_page_opened` → `trial_started` / `purchase_completed`, split by `source`.
 - (2) Free users with a `pro_wall_shown` or `limit_sheet_shown` on day N: share with an

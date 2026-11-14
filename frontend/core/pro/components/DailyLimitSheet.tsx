@@ -1,13 +1,16 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Pressable, View } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { ArrowRight } from "lucide-react-native";
 import { AppText, BottomSheet, Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { ProBadge } from "./ProBadge";
+import { track } from "@/frontend/core/analytics/analytics";
 
 type DailyLimitSheetProps = {
   visible: boolean;
+  /** Which limit, for analytics (limit_sheet_shown). */
+  kind: "search" | "budget" | "pantry" | "saved_meals";
   /** Plural, lowercase: "searches", "budget suggestions". */
   what: string;
   /** Today's limit for this user. */
@@ -30,7 +33,10 @@ type DailyLimitSheetProps = {
 // (see dailyLimits): Browse search, Suggest by Budget, Suggest by Pantry.
 // Same look as ProUpgradeSheet, kept short: what ran out, the same quiet
 // "See all Pro features" line, and Unlock Pro.
-export function DailyLimitSheet({ visible, what, limit, onClose, onOpenPro, title, body, secondary, presentation }: DailyLimitSheetProps) {
+export function DailyLimitSheet({ visible, kind, what, limit, onClose, onOpenPro, title, body, secondary, presentation }: DailyLimitSheetProps) {
+  useEffect(() => {
+    if (visible) track("limit_sheet_shown", { kind });
+  }, [visible, kind]);
   const openProPending = useRef(false);
   const secondaryPending = useRef(false);
   const openPro = () => {

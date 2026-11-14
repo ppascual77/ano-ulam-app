@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { router } from "expo-router";
 import { listenForPushTaps } from "../push";
+import { track } from "@/frontend/core/analytics/analytics";
 
 // Where a tapped push lands. Price pushes (the Pro daily drop alert, the
 // Saturday best buys) open Price Watch; Sunday's new meals open Home; "Your
@@ -11,6 +12,7 @@ export function PushTapRouter() {
   useEffect(
     () =>
       listenForPushTaps((data) => {
+        track("push_opened", { type: typeof data.type === "string" ? data.type : "unknown" });
         if (data.type === "price_drop" || data.type === "weekly_best_buys") {
           // A beat, so a cold start's navigator is mounted first.
           setTimeout(() => router.navigate("/price-watch"), 300);

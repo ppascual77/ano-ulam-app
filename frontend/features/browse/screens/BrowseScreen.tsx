@@ -391,11 +391,12 @@ export default function BrowseScreen() {
 
       <Toast toast={toast} onHide={() => setToast(null)} />
       <DailyLimitSheet
+      kind="search"
         visible={limitSheetOpen}
         what="searches"
         limit={search.limit}
         onClose={() => setLimitSheetOpen(false)}
-        onOpenPro={() => router.push("/pro")}
+        onOpenPro={() => router.push({ pathname: "/pro", params: { source: "limit_sheet" } })}
       />
       {statusBar.strip}
       {headerBottom != null && (

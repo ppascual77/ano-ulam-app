@@ -124,7 +124,7 @@ export default function MealListScreen() {
               );
             })}
           </View>
-          {hiddenCount > 0 && <SeeAllMatchesCard hiddenCount={hiddenCount} preview={preview} variant="row" />}
+          {hiddenCount > 0 && <SeeAllMatchesCard screen="see_all" hiddenCount={hiddenCount} preview={preview} variant="row" />}
           <View className="h-6" />
         </ScrollView>
 

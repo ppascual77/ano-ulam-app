@@ -197,7 +197,7 @@ export function MealCarouselSection({
               ...(showProCard
                 ? [
                     <Animated.View key="see-all-pro" entering={CARD_IN} className="flex-1">
-                      <SeeAllMatchesCard hiddenCount={hiddenCount} preview={meals.slice(capped.length)} width={cardWidth ?? CARD_WIDTH} />
+                      <SeeAllMatchesCard screen="budget" hiddenCount={hiddenCount} preview={meals.slice(capped.length)} width={cardWidth ?? CARD_WIDTH} />
                     </Animated.View>,
                   ]
                 : []),

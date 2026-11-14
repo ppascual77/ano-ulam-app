@@ -37,11 +37,12 @@ export function usePantryResultsGate() {
 
   const limitSheet = (
     <DailyLimitSheet
+      kind="pantry"
       visible={limitSheetOpen}
       what="pantry suggestions"
       limit={daily.limit}
       onClose={() => setLimitSheetOpen(false)}
-      onOpenPro={() => router.push("/pro")}
+      onOpenPro={() => router.push({ pathname: "/pro", params: { source: "limit_sheet" } })}
     />
   );
 

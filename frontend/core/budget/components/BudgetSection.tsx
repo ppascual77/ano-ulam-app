@@ -82,11 +82,12 @@ function BudgetSectionInner({ categoriesLanding }: BudgetSectionProps) {
       )}
 
       <DailyLimitSheet
+      kind="budget"
         visible={limitSheetOpen}
         what="budget suggestions"
         limit={daily.limit}
         onClose={() => setLimitSheetOpen(false)}
-        onOpenPro={() => router.push("/pro")}
+        onOpenPro={() => router.push({ pathname: "/pro", params: { source: "limit_sheet" } })}
       />
     </View>
   );

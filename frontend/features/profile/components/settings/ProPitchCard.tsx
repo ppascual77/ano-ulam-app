@@ -95,7 +95,7 @@ export function ProPitchCard() {
         )}
 
         <Pressable
-          onPress={() => router.push("/pro")}
+          onPress={() => router.push({ pathname: "/pro", params: { source: "settings" } })}
           accessibilityRole="button"
           className="mt-5 items-center rounded-full bg-white py-3.5 active:opacity-90"
         >
@@ -107,7 +107,7 @@ export function ProPitchCard() {
           {hasTrial ? "Then " : ""}
           {monthly}/month or {yearly}/year (save {YEARLY_SAVE_PCT}%).{"\n"}Cancel anytime.
         </Text>
-        <Pressable onPress={() => router.push("/pro")} hitSlop={8} accessibilityRole="link" className="mt-3 self-center active:opacity-70">
+        <Pressable onPress={() => router.push({ pathname: "/pro", params: { source: "settings" } })} hitSlop={8} accessibilityRole="link" className="mt-3 self-center active:opacity-70">
           <Text className="font-inter-bold text-small text-white underline">Compare Free and Pro</Text>
         </Pressable>
       </LinearGradient>
