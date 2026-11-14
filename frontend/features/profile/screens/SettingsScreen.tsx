@@ -413,6 +413,14 @@ export default function SettingsScreen() {
                   onChange={settingsActions.setWeeklyDigest}
                 />
               )}
+              {pushOn && (
+                <SettingsToggle
+                  label="New meals"
+                  description="Sundays: the meals added that week."
+                  value={settings.data?.push_new_meals ?? true}
+                  onChange={settingsActions.setNewMeals}
+                />
+              )}
               {/* Quiet (the default): one tap to banners and sound. */}
               {push.permission === "quiet" && pushOn && (
                 <Pressable onPress={() => void showBanners()} hitSlop={6} className="-mt-2 self-start active:opacity-60">

@@ -96,6 +96,7 @@ The full list stays in `docs/to-test.md`; this is the short, current one.
 | Subscribe to Pro (sandbox, free in TestFlight) | [ ] | n/a (needs Play setup) |
 | Restore purchases | [ ] | n/a |
 | Allow notifications, then get one (approve your own test recipe as admin) | [ ] | n/a (needs Firebase) |
+| Settings → Notifications → "New meals" toggle shows; Sunday 9:00 PH push lists up to 5 new meals, tap opens Home | [ ] | n/a (needs Firebase) |
 | Admin: Review Recipes approve/reject, Manage Meals edit, DA Daily Prices import | [ ] | [ ] |
 
 ## 9. Random meal inspection (every test round)

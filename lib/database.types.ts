@@ -520,6 +520,7 @@ export type Database = {
           procedure: string[]
           protein: number | null
           protein_type: string | null
+          published_at: string | null
           reference_image_url: string | null
           rejection_reason: string | null
           restaurant: string | null
@@ -556,6 +557,7 @@ export type Database = {
           procedure?: string[]
           protein?: number | null
           protein_type?: string | null
+          published_at?: string | null
           reference_image_url?: string | null
           rejection_reason?: string | null
           restaurant?: string | null
@@ -592,6 +594,7 @@ export type Database = {
           procedure?: string[]
           protein?: number | null
           protein_type?: string | null
+          published_at?: string | null
           reference_image_url?: string | null
           rejection_reason?: string | null
           restaurant?: string | null
@@ -844,6 +847,7 @@ export type Database = {
           pro_reward_until: string | null
           pro_until: string | null
           push_enabled: boolean
+          push_new_meals: boolean
           push_price_alerts: boolean
           push_weekly_digest: boolean
           seen_intros: string[]
@@ -864,6 +868,7 @@ export type Database = {
           pro_reward_until?: string | null
           pro_until?: string | null
           push_enabled?: boolean
+          push_new_meals?: boolean
           push_price_alerts?: boolean
           push_weekly_digest?: boolean
           seen_intros?: string[]
@@ -884,6 +889,7 @@ export type Database = {
           pro_reward_until?: string | null
           pro_until?: string | null
           push_enabled?: boolean
+          push_new_meals?: boolean
           push_price_alerts?: boolean
           push_weekly_digest?: boolean
           seen_intros?: string[]
@@ -1018,6 +1024,7 @@ export type Database = {
       send_daily_price_alert: { Args: never; Returns: string }
       send_expo_push: { Args: { p_messages: Json }; Returns: undefined }
       send_weekly_best_buys: { Args: never; Returns: string }
+      send_weekly_new_meals: { Args: never; Returns: string }
       unregister_push_token: { Args: { p_token: string }; Returns: undefined }
     }
     Enums: {

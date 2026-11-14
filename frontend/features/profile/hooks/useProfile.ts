@@ -156,6 +156,8 @@ export type AccountSettings = {
   push_price_alerts: boolean;
   /** Saturday's best buys (users.push_weekly_digest). */
   push_weekly_digest: boolean;
+  /** Sunday's new meals of the week (users.push_new_meals). */
+  push_new_meals: boolean;
 };
 
 // Privacy, newsletter and notifications, on the user's row
@@ -170,6 +172,7 @@ export function useAccountSettings(): { data: AccountSettings | undefined } {
           push_enabled: row.push_enabled,
           push_price_alerts: row.push_price_alerts,
           push_weekly_digest: row.push_weekly_digest,
+          push_new_meals: row.push_new_meals,
         }
       : undefined,
   };
@@ -193,5 +196,6 @@ export function useAccountSettingsActions() {
     setPushEnabled: (on: boolean) => save({ push_enabled: on }),
     setPriceAlerts: (on: boolean) => save({ push_price_alerts: on }),
     setWeeklyDigest: (on: boolean) => save({ push_weekly_digest: on }),
+    setNewMeals: (on: boolean) => save({ push_new_meals: on }),
   };
 }
