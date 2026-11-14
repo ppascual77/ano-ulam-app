@@ -42,7 +42,6 @@ import { PreferencesSheet } from "@/frontend/core/budget/components/PreferencesS
 import { ProFeatureSheet, type ProFeatureKey } from "@/frontend/core/pro/components/ProFeatureSheet";
 import { canReceivePush, enablePush } from "@/frontend/core/notifications/push";
 import { usePushPermission } from "@/frontend/core/notifications/hooks/usePushPermission";
-import { useOnboardingStore } from "@/frontend/core/preferences/store/useOnboardingStore";
 
 const LOG_OUT_DELAY_MS = 2000;
 const SUPPORT_EMAIL = "anoulam.app@gmail.com";
@@ -225,25 +224,6 @@ export default function SettingsScreen() {
         if (isSignedIn) await signOut.mutateAsync();
       } finally {
         router.replace("/home");
-        setActivity(null);
-      }
-    }, LOG_OUT_DELAY_MS);
-  };
-
-  // Dev builds only (never in TestFlight/App Store): back to a brand-new
-  // install's state, to test onboarding and the page intros from scratch on
-  // a phone where clearing app data doesn't reach the app's storage (Expo Go).
-  const resetToFirstRun = () => {
-    const { setActivity } = useAuthActivityStore.getState();
-    setActivity("loggingOut");
-    setTimeout(async () => {
-      try {
-        if (isSignedIn) await signOut.mutateAsync();
-        resetIntros();
-        await useOnboardingStore.getState().reset();
-      } finally {
-        if (router.canDismiss()) router.dismissAll();
-        router.replace("/");
         setActivity(null);
       }
     }, LOG_OUT_DELAY_MS);
@@ -479,12 +459,6 @@ export default function SettingsScreen() {
                   {reduceMotion ? "Off while Reduce motion is on." : "Show each page's intro once more."}
                 </SettingsRowDescription>
               </Pressable>
-              {__DEV__ && (
-                <Pressable onPress={resetToFirstRun} accessibilityRole="button" className="active:opacity-60">
-                  <SettingsRowLabel>Reset to first run (dev only)</SettingsRowLabel>
-                  <SettingsRowDescription>Signs out and shows onboarding and page intros again, like a new install.</SettingsRowDescription>
-                </Pressable>
-              )}
             </SettingsSection>
           </Animated.View>
 
