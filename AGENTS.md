@@ -5,8 +5,8 @@ On Expo SDK 58 (RN 0.88, React 19.3) since 2026-10-26. Since 2026-11-07 we devel
 dev build (`expo-dev-client`, `eas build --profile development --platform ios`, then
 `npx expo start --dev-client`): Sign in with Apple and App Store purchases (RevenueCat) only work
 there. Adding or upgrading a native package means a new dev build; JS changes just reload. Expo
-Go still opens the app (RevenueCat falls back to a mock preview mode), but it only runs the one SDK
-it was built for and auto-updates, so it no longer decides when we upgrade. Check a native
+Go still opens the app (without purchases: RevenueCat isn't started there, see `useProStore`), but it
+only runs the one SDK it was built for and auto-updates, so it no longer decides when we upgrade. Check a native
 package's iOS dependencies resolve on CocoaPods before upgrading it (react-native-purchases is
 pinned to 10.16.0 for that reason).
 

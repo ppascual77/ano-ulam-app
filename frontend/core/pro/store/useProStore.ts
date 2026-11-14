@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import Purchases, {
   INTRO_ELIGIBILITY_STATUS,
   LOG_LEVEL,
@@ -44,8 +45,13 @@ const ENTITLEMENT = "anoulam_pro";
 // One RevenueCat public key per store. Android's stays unset until Google
 // Play subscriptions are connected in RevenueCat; until then Android runs
 // without a key, the same as Expo Go.
-const API_KEY =
-  Platform.OS === "ios"
+// Not inside Expo Go: there RevenueCat can't reach the real store and, given
+// the App Store key, logs "Error configuring Purchases" as a red error. Expo
+// Go just runs without purchases, like a phone with no key.
+const IN_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+const API_KEY = IN_EXPO_GO
+  ? undefined
+  : Platform.OS === "ios"
     ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY
     : Platform.OS === "android"
       ? process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY

@@ -4,6 +4,22 @@ What can be tested **now**, side by side. Tick `[x]` as you go. `n/a` = not poss
 Use the newest builds: iPhone TestFlight (or the dev build), Android dev build (or the preview `.apk`).
 The full list stays in `docs/to-test.md`; this is the short, current one.
 
+## 0. Look and layout (watch for these on every screen)
+
+| Test | iPhone | Android |
+| --- | :---: | :---: |
+| Nothing sits under the status bar (clock, battery) or under the bottom bar / home indicator | [ ] | [ ] |
+| No text cut off, overlapping, or breaking mid-word (names, prices, buttons) | [ ] | [ ] |
+| Buttons fully visible and easy to tap, none hidden behind the bottom nav | [ ] | [ ] |
+| Keyboard never covers the field you're typing in (search, Add a Recipe, post caption) | [ ] | [ ] |
+| Bottom sheets open and close smoothly; dragging down / tapping outside closes them | [ ] | [ ] |
+| Images load (meal photos, avatars, GIFs); no blank boxes | [ ] | [ ] |
+| Fonts look right (Inter, bold titles), no fallback system font | [ ] | [ ] |
+| Status bar clock readable on every screen (light on green headers, dark on white) | [ ] | [ ] |
+| Scrolling and tab switching feel smooth (judge Android speed on the preview build) | [ ] | [ ] |
+| App icon and splash screen look sharp (new build needed for the splash) | [ ] | [ ] |
+| Android Back button: closes sheets first, then goes back a screen | n/a | [ ] |
+
 ## 1. First run and sign-in
 
 | Test | iPhone | Android |
