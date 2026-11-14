@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { View, type ViewInstance } from "react-native";
+import { Platform, Share, View, type ViewInstance } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { Image } from "expo-image";
 import { Clock3, Flame, Users } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { resolveMealImage } from "../../resolveMealImage";
 import type { MealType } from "../../mealTypes";
+import { APP_STORE_URL } from "@/frontend/core/app/storeLinks";
 
 // 4:5, the shape that fills a post in most feeds and chats.
 const CARD_W = 360;
@@ -96,6 +97,14 @@ export function MealShareCapture({ meal, onDone }: { meal: MealType; onDone: (sh
         const { captureRef } = require("react-native-view-shot") as typeof import("react-native-view-shot");
         const Sharing = require("expo-sharing") as typeof import("expo-sharing");
         const uri = await captureRef(ref, { format: "png", quality: 1, result: "tmpfile" });
+        if (Platform.OS === "ios") {
+          // iOS: the card and a line with the App Store link, together.
+          const message = `${meal.name} on AnoUlam: ₱${Math.round(perServingPrice(meal))} per serving. ${APP_STORE_URL}`;
+          await Share.share({ url: uri, message });
+          return onDone(true);
+        }
+        // Android's share sheet takes an image or text, not both: the card.
+        // (Add the Play link as text once AnoUlam is on Google Play.)
         if (!(await Sharing.isAvailableAsync())) return onDone(false);
         await Sharing.shareAsync(uri, { mimeType: "image/png", UTI: "public.png", dialogTitle: `Share ${meal.name}` });
         onDone(true);
