@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { AppText, BottomSheet, DotLabel } from "@/frontend/components/ui";
 import { MacroSection } from "@/frontend/core/meals/components/detail/MacroSection";

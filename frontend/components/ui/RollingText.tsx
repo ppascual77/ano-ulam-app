@@ -1,5 +1,6 @@
 import { useRef } from "react";
-import { type StyleProp, Text, type TextStyle } from "react-native";
+import { type StyleProp, type TextStyle } from "react-native";
+import { Text } from "./Text";
 import Animated, { Easing, LayoutAnimationConfig, useSharedValue, withTiming } from "react-native-reanimated";
 
 const ROLL_MS = 240;

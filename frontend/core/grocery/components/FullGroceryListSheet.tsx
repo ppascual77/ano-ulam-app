@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import Animated, { FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
 import { ChevronDown, Info } from "lucide-react-native";
 import { AppText, BottomSheet, NoticeBanner, SegmentedSwitch } from "@/frontend/components/ui";

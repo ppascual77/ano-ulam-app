@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { formatPeso, trendOf, unitSuffix, type PriceItem } from "@/frontend/core/prices/utils/prices";
 import { FRESH_PICK_CARD_HEIGHT } from "./FreshPickCard";
 import { RollingPrice } from "./RollingPrice";

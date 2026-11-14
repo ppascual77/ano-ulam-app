@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Image, Linking, Pressable, Text, View } from "react-native";
+import { Image, Linking, Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { router } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { BadgeCheck, BookOpen, Mail, PhilippinePeso, Utensils, Zap, type LucideIcon } from "lucide-react-native";

@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
-import { Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Keyboard, Platform, Pressable, ScrollView, View } from "react-native";
+import { Text, TextInput } from "@/frontend/components/ui/Text";
 import Animated, {
   Easing,
   FadeIn,

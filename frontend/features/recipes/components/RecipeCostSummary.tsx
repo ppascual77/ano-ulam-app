@@ -1,4 +1,5 @@
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { RollingText } from "@/frontend/components/ui";
 import { servingsCount, type RecipeDraft } from "../types";

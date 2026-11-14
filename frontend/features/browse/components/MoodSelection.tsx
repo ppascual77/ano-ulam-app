@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import * as Haptics from "expo-haptics";
 import Animated, { Easing, FadeIn, FadeInDown, FadeInLeft, FadeInRight, FadeOut } from "react-native-reanimated";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";

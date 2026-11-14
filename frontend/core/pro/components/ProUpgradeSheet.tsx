@@ -1,5 +1,6 @@
 import { type ReactNode, useMemo, useRef } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { ArrowRight } from "lucide-react-native";
 import { AppText, BoilingDoodle, BottomSheet, Button, drawBoilPair, type Doodle } from "@/frontend/components/ui";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";

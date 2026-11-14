@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "./Text";
 
 // "solid" is the large pill (icon + uppercase label on a filled background,
 // e.g. a meal card's time/restaurant/verified badges). "soft" is a tinted

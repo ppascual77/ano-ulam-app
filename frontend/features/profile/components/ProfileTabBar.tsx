@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import * as Haptics from "expo-haptics";
 import Animated, { Easing, FadeIn, LinearTransition, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { Bookmark, ChefHat, ImageIcon, LayoutGrid, ShoppingCart, type LucideIcon } from "lucide-react-native";

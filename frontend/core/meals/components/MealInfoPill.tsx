@@ -1,4 +1,5 @@
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import getMealPills from "@/frontend/core/meals/utils/getMealPills";
 import type { MealPillType, PillType } from "@/frontend/core/meals/mealTypes";
 

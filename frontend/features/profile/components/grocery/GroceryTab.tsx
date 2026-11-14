@@ -1,6 +1,7 @@
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { router } from "expo-router";
 import { ChevronRight, Lightbulb, ShoppingCart, Utensils } from "lucide-react-native";
 import { AppText, Spinner } from "@/frontend/components/ui";

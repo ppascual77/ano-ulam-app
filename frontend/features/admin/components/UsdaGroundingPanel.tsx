@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Linking, Pressable, Text, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { ScrollView } from "react-native-gesture-handler";
 import { ExternalLink } from "lucide-react-native";
 import { AppText, Button, LoadingState } from "@/frontend/components/ui";

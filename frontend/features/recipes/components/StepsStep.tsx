@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Pressable, Text, TextInput, View, type TextInputInstance } from "react-native";
+import { Pressable, View, type TextInputInstance } from "react-native";
+import { Text, TextInput } from "@/frontend/components/ui/Text";
 import * as Haptics from "expo-haptics";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from "react-native-reanimated";

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import Animated from "react-native-reanimated";
 import { AppText, BottomSheet } from "@/frontend/components/ui";
 import { capitalize } from "../../utils/dietary";

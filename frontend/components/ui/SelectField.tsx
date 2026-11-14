@@ -1,4 +1,5 @@
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
+import { Text } from "./Text";
 import { ChevronDown } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { OutsideLabel } from "./TextField";

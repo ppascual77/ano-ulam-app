@@ -1,4 +1,5 @@
-import { Pressable, Text } from "react-native";
+import { Pressable } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { router } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";

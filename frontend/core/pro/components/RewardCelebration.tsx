@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { AppState, Modal, Text, View } from "react-native";
+import { AppState, Modal, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Animated, { Easing, FadeIn, FadeInDown, FadeOut, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";

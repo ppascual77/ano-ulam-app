@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { ScrollView } from "react-native-gesture-handler";
 import { AppText, ErrorState, LoadingState, SearchBar, SegmentedSwitch, Spinner } from "@/frontend/components/ui";
 import {

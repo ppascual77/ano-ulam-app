@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { StatusBar } from "expo-status-bar";
 import { Sparkles } from "lucide-react-native";
 import { BottomSheet, ConfirmSheet } from "@/frontend/components/ui";

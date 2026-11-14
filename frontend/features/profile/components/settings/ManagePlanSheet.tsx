@@ -1,5 +1,6 @@
 import { useRef } from "react";
-import { Image as RNImage, Text, View } from "react-native";
+import { Image as RNImage, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { AppText, BottomSheet, Button, showGlobalToast } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { manageSubscription, useProSubscription, type ProSubscription } from "@/frontend/core/pro/store/useProStore";

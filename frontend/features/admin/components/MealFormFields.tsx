@@ -1,4 +1,5 @@
-import { View, Pressable, Text } from "react-native";
+import { View, Pressable } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { Plus, Trash2 } from "lucide-react-native";
 import { AppText, Button, ChipSelect, TextField } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";

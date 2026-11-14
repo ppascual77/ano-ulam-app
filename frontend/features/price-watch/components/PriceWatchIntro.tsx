@@ -1,5 +1,6 @@
 import { type RefObject, useEffect, useMemo } from "react";
-import { Text, View, type ViewInstance } from "react-native";
+import { View, type ViewInstance } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import Animated, {
   Easing,
   FadeInDown,

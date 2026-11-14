@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { FlatList, Pressable, Text, View, useWindowDimensions, type FlatListInstance } from "react-native";
+import { FlatList, Pressable, View, useWindowDimensions, type FlatListInstance } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { StatusBar } from "expo-status-bar";
 import { canKeepAwake } from "../../nativeFeatures";
 import * as Haptics from "expo-haptics";

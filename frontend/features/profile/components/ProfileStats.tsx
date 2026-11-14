@@ -1,5 +1,6 @@
 import { Fragment } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useCountUp } from "../hooks/useCountUp";
 

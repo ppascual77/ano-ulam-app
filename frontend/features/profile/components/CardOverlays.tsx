@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { AlertTriangle, Clock3, FileText } from "lucide-react-native";
 import { Avatar } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";

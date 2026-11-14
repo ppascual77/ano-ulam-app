@@ -1,4 +1,5 @@
-import { Linking, Pressable, Text, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { ArrowRight, Share2 } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { PostAuthor, PostCaption, PostPhoto } from "./PostParts";

@@ -1,5 +1,6 @@
 import { ReactNode, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { Image } from "expo-image";
 import { ChevronRight, Clock, ShieldCheck, Store, Target } from "lucide-react-native";
 import { useNutritionGoals } from "@/frontend/core/preferences/hooks/useNutritionGoals";

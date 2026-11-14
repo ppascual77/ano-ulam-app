@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
-import { Image as RNImage, Linking, Pressable, Text, View } from "react-native";
+import { Image as RNImage, Linking, Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { Image, type ImageSource } from "expo-image";
 import { BadgeCheck } from "lucide-react-native";
 import { Avatar } from "@/frontend/components/ui";

@@ -1,5 +1,6 @@
 import { type RefObject, useMemo, useRef } from "react";
-import { Pressable, Text, View, type ViewInstance } from "react-native";
+import { Pressable, View, type ViewInstance } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { Check, Plus } from "lucide-react-native";
 import { Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";

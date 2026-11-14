@@ -1,4 +1,5 @@
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { RollingText } from "@/frontend/components/ui";
 
 // A Button label with a number that rolls when it changes ("Show 12 meals",

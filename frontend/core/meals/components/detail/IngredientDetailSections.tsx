@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
-import { Linking, Pressable, Text, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import Animated from "react-native-reanimated";
 import { ArrowUpRight, Database, Info, Minus, ShoppingCart, Sparkles, Store, TrendingDown, TrendingUp } from "lucide-react-native";
 import { AppText, Card, Chips } from "@/frontend/components/ui";

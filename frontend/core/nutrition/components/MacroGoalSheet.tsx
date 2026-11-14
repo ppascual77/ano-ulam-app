@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions, type TextInputInstance } from "react-native";
+import { Pressable, ScrollView, View, useWindowDimensions, type TextInputInstance } from "react-native";
+import { Text, TextInput } from "@/frontend/components/ui/Text";
 import Animated, { SlideInLeft, SlideInRight, SlideOutLeft, SlideOutRight, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import {
   ArrowLeft,

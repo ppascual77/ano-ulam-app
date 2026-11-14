@@ -1,5 +1,6 @@
 import { ReactNode, useRef } from "react";
-import { Pressable, Text, TextInput, View, type TextInputInstance } from "react-native";
+import { Pressable, View, type TextInputInstance } from "react-native";
+import { Text, TextInput } from "@/frontend/components/ui/Text";
 import { CalendarDays, ChartColumn, ChevronRight, Lock, Users, type LucideIcon } from "lucide-react-native";
 import { RollingText, Stepper, Toggle } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";

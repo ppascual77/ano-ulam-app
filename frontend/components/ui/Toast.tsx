@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "./Text";
 import { Image, type ImageProps } from "expo-image";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { Easing, FadeOutUp, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";

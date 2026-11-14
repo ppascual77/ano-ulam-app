@@ -1,5 +1,6 @@
 import { useRef } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { Camera, Check, ChefHat, type LucideIcon } from "lucide-react-native";
 import { AppText, BottomSheet, Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";

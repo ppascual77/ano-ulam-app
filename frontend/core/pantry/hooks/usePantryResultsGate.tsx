@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Text } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { router } from "expo-router";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";

@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
-import { View, Text } from "react-native";
+import { View, useWindowDimensions } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { Image } from "expo-image";
 import { Redirect, router, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -41,6 +42,12 @@ export default function IntroScreen() {
   const onboardingDone = useOnboardingStore((s) => s.done);
   const [returningUser] = useState(isSignedIn || onboardingDone);
   const reduceMotion = useReduceMotion();
+  // The art and the spacing follow the screen's height (the design is for a
+  // ~850pt-tall phone): shorter screens get a smaller GIF and tighter gaps.
+  const { height: screenHeight } = useWindowDimensions();
+  const fit = Math.min(1, screenHeight / 850);
+  const artWidth = Math.round(255 * fit);
+  const gap = Math.round(32 * fit);
 
   // The button's own dot hides once the overlay's has taken over from it.
   const [handedOff, setHandedOff] = useState(false);
@@ -99,10 +106,13 @@ export default function IntroScreen() {
         style={{ flex: 1 }}
         className="justify-center mx-10"
       >
-        <View className="w-full items-center mb-8">
+        {/* Scales with the screen's height: full size on a tall phone,
+            smaller on a short one, so the button never lands on the
+            navigation bar. */}
+        <View className="w-full items-center" style={{ marginBottom: gap }}>
           <Image
             source={require("@/assets/onboarding/intro.gif")}
-            style={{ width: 255, height: 306 }}
+            style={{ width: artWidth, height: artWidth * (306 / 255) }}
             contentFit="contain"
           />
         </View>
@@ -111,16 +121,23 @@ export default function IntroScreen() {
           Never run out of ulam ideas
         </AppText>
 
-        <Text className="font-inter-extrabold text-hero">
-          <Text className="text-primary">Ano</Text>
-          <Text className="text-accent">Ulam </Text>
-          {"\n"}
-          <Text className="text-ink-emphasis">mo</Text>
-          {"\n"}
-          <Text className="text-ink-emphasis">today?</Text>
-        </Text>
+        {/* One line per Text, each shrinking to fit its width if it must
+            (a 360-wide phone can't fit "AnoUlam" at 70px), never breaking
+            mid-word. */}
+        <View>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} className="font-inter-extrabold text-hero">
+            <Text className="text-primary">Ano</Text>
+            <Text className="text-accent">Ulam</Text>
+          </Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} className="font-inter-extrabold text-hero text-ink-emphasis">
+            mo
+          </Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} className="font-inter-extrabold text-hero text-ink-emphasis">
+            today?
+          </Text>
+        </View>
 
-        <View className="mt-20" style={{ opacity: handedOff ? 0 : 1 }}>
+        <View style={{ marginTop: gap * 2.5, opacity: handedOff ? 0 : 1 }}>
           <DotMorphButton
             key={run}
             label="GET STARTED"

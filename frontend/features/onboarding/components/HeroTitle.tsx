@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from "react";
-import { Text, View, type TextLayoutEvent } from "react-native";
+import { View, type TextLayoutEvent } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import type { HeroSegment } from "../slides";
 
 type TextLayoutLine = TextLayoutEvent["nativeEvent"]["lines"][number];

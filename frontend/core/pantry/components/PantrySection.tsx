@@ -1,5 +1,6 @@
 import { memo, type ReactNode, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { Plus } from "lucide-react-native";
 import { AppText, LandingTitle, LoadingState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";

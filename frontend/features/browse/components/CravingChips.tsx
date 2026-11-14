@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { Check, X } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { Image, type ImageSource } from "expo-image";

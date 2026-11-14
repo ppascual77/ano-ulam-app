@@ -1,5 +1,6 @@
 import { ReactNode, useState } from "react";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { FlatList, Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { Info, User2 } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { MealCardSkeleton } from "@/frontend/core/meals/components/card/MealCardSkeleton";

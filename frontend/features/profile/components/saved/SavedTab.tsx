@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { router, useFocusEffect } from "expo-router";
 import { Bookmark, Utensils } from "lucide-react-native";
 import { ConfirmSheet } from "@/frontend/components/ui";

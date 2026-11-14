@@ -1,4 +1,5 @@
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import type { AvoidedIngredient } from "@/api/auth";
 import { useAvoidImpact } from "@/frontend/core/preferences/hooks/useAvoidImpact";

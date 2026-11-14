@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from "react-native";
+import { Pressable, RefreshControl, ScrollView, View, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { useQueryClient } from "@tanstack/react-query";
 import Animated, { Easing, FadeIn, FadeInDown, FadeOut, LinearTransition, useSharedValue } from "react-native-reanimated";
 import { router } from "expo-router";

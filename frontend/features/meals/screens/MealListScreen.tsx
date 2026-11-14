@@ -2,10 +2,10 @@ import { useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
-  Text,
   View,
   useWindowDimensions,
 } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import { AppText, Screen } from "@/frontend/components/ui";

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { BookmarkX, PenLine, RefreshCw } from "lucide-react-native";
 import { AppText, BottomSheet } from "@/frontend/components/ui";

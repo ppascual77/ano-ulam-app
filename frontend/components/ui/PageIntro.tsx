@@ -1,5 +1,6 @@
 import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from "react";
-import { Modal, Pressable, Text, View, type ViewInstance } from "react-native";
+import { Modal, Pressable, View, type ViewInstance } from "react-native";
+import { Text } from "./Text";
 import { useFocusEffect } from "expo-router";
 import Animated, {
   Easing,

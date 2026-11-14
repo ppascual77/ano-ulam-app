@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { formatPeso, trendOf, unitSuffix, type PriceItem } from "@/frontend/core/prices/utils/prices";
 import { PriceSparkline } from "./PriceSparkline";
 import { TREND_TEXT } from "./TrendIcon";

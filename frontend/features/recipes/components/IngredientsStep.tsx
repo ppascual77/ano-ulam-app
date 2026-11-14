@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text, TextInput } from "@/frontend/components/ui/Text";
 import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
 import Animated, {

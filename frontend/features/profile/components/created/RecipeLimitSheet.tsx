@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { AppText, BottomSheet } from "@/frontend/components/ui";
 import { RECIPE_LIMIT } from "@/api/recipes";
 

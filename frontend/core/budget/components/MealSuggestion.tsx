@@ -1,6 +1,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useAvoidFilter } from "@/frontend/core/preferences/hooks/useAvoidFilter";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { X, Target } from "lucide-react-native";
 import { useNutritionGoals } from "@/frontend/core/preferences/hooks/useNutritionGoals";
 import { goalDistance } from "@/frontend/core/nutrition/goalFit";

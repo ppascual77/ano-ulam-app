@@ -1,6 +1,7 @@
 import { AppText } from "./AppText";
 import type { ReactNode } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "./Text";
 import { BottomSheet } from "./BottomSheet";
 import { Spinner } from "./Spinner";
 import { colors } from "@/frontend/constants/theme";

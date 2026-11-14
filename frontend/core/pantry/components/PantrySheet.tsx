@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, type ScrollViewInstance, Text, View, type ViewInstance } from "react-native";
+import { Pressable, ScrollView, type ScrollViewInstance, View, type ViewInstance } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import Animated, {

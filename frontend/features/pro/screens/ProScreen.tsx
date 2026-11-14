@@ -1,4 +1,4 @@
-import { Text } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { router, useLocalSearchParams } from "expo-router";
 import { Screen } from "@/frontend/components/ui";
 import { ProPage } from "@/frontend/core/pro/components/ProPage";

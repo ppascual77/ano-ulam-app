@@ -1,4 +1,5 @@
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import Svg, { Path } from "react-native-svg";
 import { colors } from "@/frontend/constants/theme";
 

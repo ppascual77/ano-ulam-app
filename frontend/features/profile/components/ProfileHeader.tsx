@@ -1,5 +1,6 @@
 import { type ComponentProps, ReactNode, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text, TextInput } from "@/frontend/components/ui/Text";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { Camera, Pencil, Plus } from "lucide-react-native";

@@ -1,6 +1,7 @@
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn, FadeInDown, FadeInLeft, FadeInRight, FadeInUp } from "react-native-reanimated";

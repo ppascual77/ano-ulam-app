@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { CalendarDays, EyeOff, Infinity as InfinityIcon, TrendingDown } from "lucide-react-native";

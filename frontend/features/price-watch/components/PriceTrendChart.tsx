@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Animated, { Easing, useAnimatedProps, useSharedValue, withDelay, withSpring, withTiming } from "react-native-reanimated";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import Svg, { Circle, Line, Path, Text as SvgText } from "react-native-svg";
 import { colors, fonts } from "@/frontend/constants/theme";
 import {

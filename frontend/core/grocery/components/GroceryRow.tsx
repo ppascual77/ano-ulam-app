@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { Check, Plus, Undo2 } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";

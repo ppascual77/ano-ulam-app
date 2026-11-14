@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Pressable, TextInput, TextInputProps, View } from "react-native";
+import { Pressable, TextInputProps, View } from "react-native";
+import { TextInput } from "./Text";
 import { CircleX, Search } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 

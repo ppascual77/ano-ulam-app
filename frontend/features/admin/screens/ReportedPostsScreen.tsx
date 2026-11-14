@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { RefreshControl, ScrollView, Text, View } from "react-native";
+import { RefreshControl, ScrollView, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { Image } from "expo-image";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppText, Avatar, Button, ErrorState, LoadingState, Screen, Toast, type ToastState } from "@/frontend/components/ui";

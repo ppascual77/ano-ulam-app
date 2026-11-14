@@ -1,5 +1,6 @@
 import { useRef } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { AppText, BottomSheet } from "@/frontend/components/ui";
 import type { SignInProvider } from "../hooks/useAuth";
 import { SignInButtons } from "./SignInButtons";

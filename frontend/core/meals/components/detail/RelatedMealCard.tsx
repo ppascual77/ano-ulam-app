@@ -1,4 +1,5 @@
-import { DimensionValue, Pressable, Text, View } from "react-native";
+import { DimensionValue, Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { Image } from "expo-image";
 import { Clock } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";

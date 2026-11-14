@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { router } from "expo-router";
 import { ChevronRight } from "lucide-react-native";
 import { BoilingDoodle, TREND_DOODLES, drawBoilPair } from "@/frontend/components/ui";

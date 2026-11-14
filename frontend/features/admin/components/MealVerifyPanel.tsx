@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { View, Text } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { AlertTriangle, ArrowRight, Check, CheckCircle2, Sparkles } from "lucide-react-native";
 import { AppText, Button, NoticeBanner, Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";

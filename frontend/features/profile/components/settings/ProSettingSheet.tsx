@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { ScrollView, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { AppText, BottomSheet, Button } from "@/frontend/components/ui";
 
 type ProSettingSheetProps = {

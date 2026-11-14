@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import * as Clipboard from "expo-clipboard";
 import { ChefHat } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";

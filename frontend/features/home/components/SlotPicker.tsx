@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { Text, View, useWindowDimensions } from "react-native";
+import { View, useWindowDimensions } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   Easing,

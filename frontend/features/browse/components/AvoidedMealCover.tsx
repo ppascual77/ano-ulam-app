@@ -1,5 +1,6 @@
 import { ReactNode, useRef } from "react";
-import { Pressable, StyleSheet, Text, View, type ViewInstance } from "react-native";
+import { Pressable, StyleSheet, View, type ViewInstance } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { BlurTargetView, BlurView } from "expo-blur";
 import { EyeOff } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";

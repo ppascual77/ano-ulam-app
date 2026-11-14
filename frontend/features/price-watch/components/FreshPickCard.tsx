@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { LinearGradient } from "expo-linear-gradient";
 import { Minus, TrendingDown, TrendingUp } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";

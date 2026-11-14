@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Text } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { Sparkles } from "lucide-react-native";
 import { AppText, NoticeBanner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";

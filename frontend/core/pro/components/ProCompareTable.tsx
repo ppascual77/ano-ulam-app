@@ -1,5 +1,6 @@
 import type { ComponentProps } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import Animated from "react-native-reanimated";
 import { Check, Minus } from "lucide-react-native";
 import { AppText } from "@/frontend/components/ui";

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Alert, Pressable, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, View } from "react-native";
+import { Text, TextInput } from "@/frontend/components/ui/Text";
 import Animated, { interpolateColor, useAnimatedStyle } from "react-native-reanimated";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";

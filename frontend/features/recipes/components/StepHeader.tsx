@@ -1,4 +1,5 @@
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { AppText } from "@/frontend/components/ui";
 
 // The same opening on every step of Add a Recipe: a dotted title and one

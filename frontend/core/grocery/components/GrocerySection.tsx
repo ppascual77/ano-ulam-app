@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { AppText } from "@/frontend/components/ui";
 import type { GroceryItem } from "../utils/buildGroceryList";
 

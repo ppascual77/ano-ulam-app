@@ -1,5 +1,6 @@
 import { type ReactNode, type RefObject, useEffect, useState } from "react";
-import { StyleSheet, Text, View, type ViewInstance } from "react-native";
+import { StyleSheet, View, type ViewInstance } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import Animated, {
   Easing,
   FadeInDown,

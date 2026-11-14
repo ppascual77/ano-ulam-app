@@ -1,4 +1,5 @@
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { type LucideIcon } from "lucide-react-native";
 import { Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";

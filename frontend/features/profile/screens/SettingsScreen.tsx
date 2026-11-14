@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Linking, Platform, Pressable, ScrollView, Text, View, useWindowDimensions, type ScrollViewInstance } from "react-native";
+import { Linking, Platform, Pressable, ScrollView, View, useWindowDimensions, type ScrollViewInstance } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import Constants from "expo-constants";
 import Animated, { Easing, FadeInDown } from "react-native-reanimated";
 import { Gift } from "lucide-react-native";

@@ -1,4 +1,5 @@
-import { Text, TextProps } from "react-native";
+import { TextProps } from "react-native";
+import { Text } from "./Text";
 
 // Ordered by visual hierarchy, largest first, so the list reads top-to-bottom
 // the same way the styles render on screen.

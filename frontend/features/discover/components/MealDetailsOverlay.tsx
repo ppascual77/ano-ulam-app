@@ -1,4 +1,5 @@
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { Clock, Store } from "lucide-react-native";
 import { MealInfoPill } from "@/frontend/core/meals/components/MealInfoPill";

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { router } from "expo-router";
 import Animated, { Easing, FadeIn, FadeInDown } from "react-native-reanimated";
 import { AppText, BottomSheet, Button } from "@/frontend/components/ui";

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { ActivePill } from "@/frontend/components/ui";
 import type { PantryIngredient } from "../types";
 import { usePantryGroups } from "../hooks/usePantryMatches";

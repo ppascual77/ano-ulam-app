@@ -1,4 +1,5 @@
-import { Image, Text, View, useWindowDimensions } from "react-native";
+import { Image, View, useWindowDimensions } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { SignInPrompt } from "@/frontend/features/auth/components/SignInPrompt";
 import type { SignInProvider } from "@/frontend/features/auth/hooks/useAuth";
 

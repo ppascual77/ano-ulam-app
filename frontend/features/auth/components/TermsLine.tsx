@@ -1,4 +1,4 @@
-import { Text } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { router } from "expo-router";
 
 // "By continuing, you agree to our Terms of Service and Privacy Policy",

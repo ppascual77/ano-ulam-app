@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Linking, Pressable, Text, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { ScrollView } from "react-native-gesture-handler";
 import { Check, CheckCircle2, ExternalLink } from "lucide-react-native";
 import { AppText, Button, ErrorState, LoadingState, NoticeBanner, Spinner } from "@/frontend/components/ui";

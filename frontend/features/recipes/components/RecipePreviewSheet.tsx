@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { ScrollView, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { AppText, BottomSheet } from "@/frontend/components/ui";
 import { MealDetailContent } from "@/frontend/core/meals/components/detail/MealDetailContent";
 import { IngredientDetailSheet } from "@/frontend/core/meals/components/detail/IngredientDetailSheet";

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Text } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { ConfirmSheet } from "@/frontend/components/ui";
 import type { FoodPost } from "@/api/posts";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";

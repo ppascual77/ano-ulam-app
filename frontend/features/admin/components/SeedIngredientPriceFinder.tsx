@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Linking, Pressable, Text, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, Landmark, ShoppingCart } from "lucide-react-native";
 import { AppText, Button, TextField } from "@/frontend/components/ui";

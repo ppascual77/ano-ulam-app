@@ -1,4 +1,5 @@
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Pressable, View } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { BadgeCheck } from "lucide-react-native";
 import { Avatar } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";

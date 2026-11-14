@@ -1,4 +1,4 @@
-import { Text } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 
 type HighlightedTextProps = {
   /** Wrap key phrases in **double asterisks** to highlight them. */

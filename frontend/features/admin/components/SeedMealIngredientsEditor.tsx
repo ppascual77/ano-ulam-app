@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { View, Text, Pressable } from "react-native";
+import { View, Pressable } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { Info, Plus, Search, Sparkles, Trash2 } from "lucide-react-native";
 import { AppText, Button, Dropdown, NoticeBanner, TextField, SelectField } from "@/frontend/components/ui";
 import type { DropdownItem } from "@/frontend/components/ui";

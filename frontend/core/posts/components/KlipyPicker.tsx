@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { FlatList, Pressable, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, View } from "react-native";
+import { Text, TextInput } from "@/frontend/components/ui/Text";
 import { Image } from "expo-image";
 import { useQuery } from "@tanstack/react-query";
 import { Search, X } from "lucide-react-native";

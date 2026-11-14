@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
-import { Text, View, type LayoutChangeEvent } from "react-native";
+import { View, type LayoutChangeEvent } from "react-native";
+import { Text } from "@/frontend/components/ui/Text";
 import { AppText, Toggle } from "@/frontend/components/ui";
 
 type SettingsSectionProps = {
