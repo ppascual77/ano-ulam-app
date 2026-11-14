@@ -130,7 +130,7 @@ export function ProfileHeader({
       <View className="mt-1.5 h-3 flex-row items-center justify-between">
         {/* Only near the limit; over it, red with how far over. */}
         {remaining <= COUNTER_FROM ? (
-          <Animated.Text
+          <Animated.Text allowFontScaling={false}
             entering={FadeIn.duration(180)}
             exiting={FadeOut.duration(120)}
             className={`font-inter-medium text-sub ${over ? "text-like" : "text-ink-subtle"}`}

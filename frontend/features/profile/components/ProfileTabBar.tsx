@@ -143,7 +143,7 @@ export function ProfileTabBar({ tabs, active, onChange, stuck, name, miniAvatar 
                     // for a moment, then the tabs would resize a second time
                     // and re-aim the pill mid-slide (the glitch). Gone in the
                     // same frame the new label appears: one resize, one slide.
-                    <Animated.Text
+                    <Animated.Text allowFontScaling={false}
                       entering={FadeIn.delay(reduceMotion ? 0 : 90).duration(200)}
                       numberOfLines={1}
                       className="font-inter-semibold text-body text-primary"

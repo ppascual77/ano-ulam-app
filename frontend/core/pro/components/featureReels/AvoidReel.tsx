@@ -70,7 +70,7 @@ export function AvoidReel({ active, reduceMotion }: { active: boolean; reduceMot
 
       <View className="h-5">
         {hiding && (
-          <Animated.Text entering={FadeIn.duration(200)} className="font-inter-semibold text-sub text-ink-subtle">
+          <Animated.Text allowFontScaling={false} entering={FadeIn.duration(200)} className="font-inter-semibold text-sub text-ink-subtle">
             {scene.hiddenIds.size} {scene.hiddenIds.size === 1 ? "meal" : "meals"} with {scene.term.toLowerCase()} hidden, everywhere
           </Animated.Text>
         )}
