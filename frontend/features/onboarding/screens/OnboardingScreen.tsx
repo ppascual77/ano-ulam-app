@@ -249,17 +249,6 @@ export default function OnboardingScreen({ tour = false }: OnboardingScreenProps
         />
       </View>
       <SafeAreaView edges={["top", "bottom"]} style={{ flex: 1 }}>
-        {/* The tour from Settings can be left anytime: Skip, then Done on
-            the last slide. */}
-        {tour && (
-          <View className="flex-row justify-end px-6 pt-2">
-            <Pressable onPress={() => router.back()} accessibilityRole="button" hitSlop={12} className="py-1 active:opacity-60">
-              <Text className={`font-inter-semibold text-body ${isLast ? "text-primary" : "text-ink-subtle"}`}>
-                {isLast ? "Done" : "Skip"}
-              </Text>
-            </Pressable>
-          </View>
-        )}
         <ScrollView
           horizontal
           pagingEnabled
@@ -289,7 +278,9 @@ export default function OnboardingScreen({ tour = false }: OnboardingScreenProps
 
         {/* No next button: the slides are swiped (the indicator shows
             where you are), and the last one has its own actions. */}
-        <View className="h-8 flex-row items-center px-10 mb-6">
+        {/* The tour from Settings: its way out sits beside the dots, under
+            the thumb (Skip while swiping, a Done button on the last slide). */}
+        <View className="h-8 flex-row items-center justify-between px-10 mb-6">
           {/* The flat accent pill squeezes into a ball, hops to the next
               page and flattens out again. */}
           <CarouselIndicator
@@ -300,6 +291,20 @@ export default function OnboardingScreen({ tour = false }: OnboardingScreenProps
             hopMarkerRef={indicatorDotRef}
             hopMarkerHidden={arriving}
           />
+          {tour &&
+            (isLast ? (
+              <Pressable
+                onPress={() => router.back()}
+                accessibilityRole="button"
+                className="rounded-full bg-primary px-6 py-2.5 active:opacity-80"
+              >
+                <Text className="font-inter-semibold text-body text-white">Done</Text>
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => router.back()} accessibilityRole="button" hitSlop={12} className="py-2 active:opacity-60">
+                <Text className="font-inter-semibold text-body text-ink-subtle">Skip</Text>
+              </Pressable>
+            ))}
         </View>
       </SafeAreaView>
 
