@@ -22,7 +22,7 @@ type SeeAllMatchesCardProps = {
 
 // One locked meal peeks through, blurred (three side by side read as
 // glitchy).
-const BLUR = 18;
+export const BLUR = 18;
 const THUMB = 40;
 
 // Where a free account's results stop (FREE_RESULTS_CAP): in place of "Show
