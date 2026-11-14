@@ -27,6 +27,7 @@ import { type SignInProvider, useSignIn } from "@/frontend/features/auth/hooks/u
 import { useAuthActivityStore } from "@/frontend/features/auth/store/useAuthActivityStore";
 import { useUpdateUserProfile } from "@/frontend/features/auth/hooks/useUserProfile";
 import { useOnboardingStore } from "@/frontend/core/preferences/store/useOnboardingStore";
+import { useTabBarStore } from "@/frontend/components/navigation/useTabBarStore";
 
 const preferencesSlide = onboardingSlides.find(
   (s) => s.type === "preferences",
@@ -175,6 +176,8 @@ export default function OnboardingScreen({ tour = false }: OnboardingScreenProps
   const goHome = () => {
     // Once per phone: from now on the app opens straight to Home.
     useOnboardingStore.getState().markDone();
+    // No bottom nav under Home's welcome intro (Home shows it again after).
+    useTabBarStore.getState().setHidden(true);
     const dot = indicatorDotRef.current;
     if (!dot) {
       router.replace({ pathname: "/home", params: { intro: "1" } });
@@ -280,7 +283,7 @@ export default function OnboardingScreen({ tour = false }: OnboardingScreenProps
             where you are), and the last one has its own actions. */}
         {/* The tour from Settings: its way out sits beside the dots, under
             the thumb (Skip while swiping, a Done button on the last slide). */}
-        <View className="h-8 flex-row items-center justify-between px-10 mb-6">
+        <View className={`flex-row items-center justify-between px-10 mb-6 ${tour ? "min-h-12" : "h-8"}`}>
           {/* The flat accent pill squeezes into a ball, hops to the next
               page and flattens out again. */}
           <CarouselIndicator

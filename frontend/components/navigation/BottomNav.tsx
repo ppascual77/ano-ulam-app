@@ -1,11 +1,18 @@
 import { useEffect, useRef } from "react";
 import { Pressable, View, type ViewInstance } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, usePathname } from "expo-router";
 import { CircleUserRound, House, Lock, Search, TrendingUp, Utensils } from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
 import { ActivePill, AppText, Avatar, Dropdown } from "@/frontend/components/ui";
+import { useTabBarStore } from "./useTabBarStore";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { useDisplayName } from "@/frontend/features/auth/hooks/useDisplayName";
 import { useMyAvatarUrl } from "@/frontend/features/auth/hooks/useUserProfile";
@@ -24,9 +31,7 @@ const LEFT_TABS: Tab[] = [
   { href: "/browse", label: "Browse", icon: Search },
 ];
 
-const RIGHT_TABS: Tab[] = [
-  { href: "/price-watch", label: "Price Watch", icon: TrendingUp },
-];
+const RIGHT_TABS: Tab[] = [{ href: "/price-watch", label: "Price Watch", icon: TrendingUp }];
 
 // Same spring as SegmentedSwitch's thumb, so the active pill pops in with
 // the same small bounce as Home's By Budget / By Pantry switch.
@@ -138,7 +143,11 @@ function ProfileTabButton() {
         <ActivePill active={active} />
         <Animated.View style={popStyle}>
           {isGuest ? (
-            <CircleUserRound color={active ? colors.primary : colors.ink.subtle} size={22} strokeWidth={active ? 2.4 : 2} />
+            <CircleUserRound
+              color={active ? colors.primary : colors.ink.subtle}
+              size={22}
+              strokeWidth={active ? 2.4 : 2}
+            />
           ) : (
             // A thin white edge lifts it off the pill; it fits the 32px slot,
             // so the label keeps its usual gap (the old green ring didn't).
@@ -147,7 +156,12 @@ function ProfileTabButton() {
             </View>
           )}
           {/* Always laid out (just hidden), so the flight can measure it. */}
-          <View ref={dotRef} collapsable={false} pointerEvents="none" style={{ position: "absolute", top: 0, right: 0, width: DOT_SIZE, height: DOT_SIZE }}>
+          <View
+            ref={dotRef}
+            collapsable={false}
+            pointerEvents="none"
+            style={{ position: "absolute", top: 0, right: 0, width: DOT_SIZE, height: DOT_SIZE }}
+          >
             <Animated.View style={[{ flex: 1 }, dotStyle]}>
               <View className="flex-1 rounded-full border-2 border-white bg-accent" />
             </Animated.View>
@@ -190,10 +204,7 @@ function ProfileTabButton() {
 // active/inactive like the other four, since it's the app's primary action.
 function DiscoverTabButton() {
   return (
-    <Pressable
-      onPress={() => router.navigate("/discover")}
-      className="flex-1 items-center justify-center gap-1"
-    >
+    <Pressable onPress={() => router.navigate("/discover")} className="flex-1 items-center justify-center gap-1">
       <View className="-mt-8 h-16 w-16 items-center justify-center rounded-full bg-primary shadow-sm">
         <Utensils color={colors.white} size={25} strokeWidth={2} />
       </View>
@@ -210,18 +221,27 @@ function DiscoverTabButton() {
 // nested inside a screen's <Screen> (which only covers the "top" edge for
 // tab screens).
 export function BottomNav() {
+  // Hidden under a full-screen moment (see useTabBarStore); fades back in.
+  const hidden = useTabBarStore((s) => s.hidden);
+  const shownValue = useSharedValue(hidden ? 0 : 1);
+  useEffect(() => {
+    shownValue.value = hidden ? 0 : withTiming(1, { duration: 250 });
+  }, [hidden, shownValue]);
+  const navStyle = useAnimatedStyle(() => ({ opacity: shownValue.value }));
   return (
-    <SafeAreaView edges={["bottom"]} className="border-t border-ink-emphasis/10 bg-white">
-      <View className="flex-row items-end justify-between px-6 pt-2 pb-1">
-        {LEFT_TABS.map((tab) => (
-          <TabButton key={tab.href} {...tab} />
-        ))}
-        <DiscoverTabButton />
-        {RIGHT_TABS.map((tab) => (
-          <TabButton key={tab.href} {...tab} />
-        ))}
-        <ProfileTabButton />
-      </View>
-    </SafeAreaView>
+    <Animated.View style={navStyle} pointerEvents={hidden ? "none" : "auto"}>
+      <SafeAreaView edges={["bottom"]} className="border-t border-ink-emphasis/10 bg-white">
+        <View className="flex-row items-end justify-between px-6 pt-2 pb-1">
+          {LEFT_TABS.map((tab) => (
+            <TabButton key={tab.href} {...tab} />
+          ))}
+          <DiscoverTabButton />
+          {RIGHT_TABS.map((tab) => (
+            <TabButton key={tab.href} {...tab} />
+          ))}
+          <ProfileTabButton />
+        </View>
+      </SafeAreaView>
+    </Animated.View>
   );
 }

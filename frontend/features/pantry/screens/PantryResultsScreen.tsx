@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { FlatList, Pressable, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FlatList, Pressable, StyleSheet, View, type ViewInstance } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { router } from "expo-router";
 import { Image } from "expo-image";
@@ -60,6 +60,13 @@ export default function PantryResultsScreen() {
   const { data: meals, isLoading: loadingMeals } = useRealMeals();
   const detail = useMealDetail();
   const savedMeals = useSavedMealActions();
+  // The save confetti over the whole screen (see the overlay below): where,
+  // relative to the overlay, and a fresh id per burst.
+  const overlayRef = useRef<ViewInstance>(null);
+  const [burst, setBurst] = useState<{ id: number; x: number; y: number } | null>(null);
+  const showBurst = useCallback((x: number, y: number) => {
+    overlayRef.current?.measureInWindow((ox, oy) => setBurst({ id: Date.now(), x: x - ox, y: y - oy }));
+  }, []);
   const reduce = useReduceMotion();
 
   // A free account sees the first FREE_RESULTS_CAP matches (readiest
@@ -175,6 +182,7 @@ export default function PantryResultsScreen() {
                   saved={!!savedMeals.savedFor(item.meal)}
                   justAdded={justAdded}
                   onToggleSave={() => void savedMeals.toggle(item.meal)}
+                  onSaveBurst={showBurst}
                   onHaveIt={haveIt}
                   onPress={() => detail.open(item.meal.id)}
                 />
@@ -183,6 +191,16 @@ export default function PantryResultsScreen() {
           />
         </>
       )}
+
+      {/* Save confetti, drawn over the whole screen at the bookmark that was
+          tapped: inside the list it was clipped by the list's top edge. */}
+      <View ref={overlayRef} collapsable={false} pointerEvents="none" style={StyleSheet.absoluteFill}>
+        {burst && (
+          <View style={{ position: "absolute", left: burst.x, top: burst.y, width: 0, height: 0 }}>
+            <Confetti burstId={burst.id} />
+          </View>
+        )}
+      </View>
 
       {/* The pantry as ids, so the meal shows what you have vs need. */}
       <MealDetailSheet meal={detail.meal} onClose={detail.close} pantryIds={pantryIds} />
@@ -224,6 +242,7 @@ function MatchRow({
   saved,
   justAdded,
   onToggleSave,
+  onSaveBurst,
   onHaveIt,
   onPress,
 }: {
@@ -233,14 +252,24 @@ function MatchRow({
   saved: boolean;
   justAdded: Set<string>;
   onToggleSave: () => void;
+  /** A save landed: where the bookmark is on screen (window coordinates). */
+  onSaveBurst: (x: number, y: number) => void;
   onHaveIt: (ing: MissingIngredient) => void;
   onPress: () => void;
 }) {
   const shown = match.missing.slice(0, MISSING_SHOWN);
   const more = match.missing.length - shown.length;
   // Confetti when a save lands (not on unsave, not on mount), like every
-  // other save button (MealSaveButton).
+  // other save button (MealSaveButton). The screen draws it (see
+  // PantryResultsScreen's overlay), at this bookmark.
   const saveBurstId = useBurstOnActivate(saved);
+  const bookmarkRef = useRef<ViewInstance>(null);
+  useEffect(() => {
+    if (saveBurstId === 0) return;
+    bookmarkRef.current?.measureInWindow((x, y, w, h) => onSaveBurst(x + w / 2, y + h / 2));
+    // Only when a new save lands.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveBurstId]);
   return (
     <Pressable
       onPress={onPress}
@@ -261,8 +290,7 @@ function MatchRow({
           <Text numberOfLines={2} className="flex-1 font-inter-bold text-body-lg text-ink-emphasis">
             {meal.name}
           </Text>
-          <View>
-            <Confetti burstId={saveBurstId} />
+          <View ref={bookmarkRef} collapsable={false}>
             <Pressable onPress={onToggleSave} hitSlop={10} accessibilityLabel={saved ? `Unsave ${meal.name}` : `Save ${meal.name}`}>
               <Bookmark color={colors.primary} fill={saved ? colors.primary : "none"} size={20} />
             </Pressable>

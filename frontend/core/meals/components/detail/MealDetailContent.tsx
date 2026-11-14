@@ -37,7 +37,7 @@ import {
   Trash2,
   TrendingDown,
   Check,
-  Share as ShareIcon,
+  Share2 as ShareIcon,
 } from "lucide-react-native";
 import {
   AppText,
@@ -82,9 +82,9 @@ import { formatMealPrice } from "@/frontend/core/prices/utils/prices";
 const ICON_HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
 // Roughly the top third of the screen, like the reference design.
-const HERO_HEIGHT = 320;
+export const HERO_HEIGHT = 320;
 // How far the rounded details card rides up over the bottom of the photo.
-const CARD_OVERLAP = 24;
+export const CARD_OVERLAP = 24;
 // The card's rounded top: its own strip, outside the scroll, so it can hold
 // still (round corners over the photo) while the details scroll under it.
 const CARD_CAP = 20;

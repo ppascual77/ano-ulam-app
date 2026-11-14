@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -16,6 +16,7 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 import { HomeIntro } from "@/frontend/features/home/components/HomeIntro";
 import { useDisplayName } from "@/frontend/features/auth/hooks/useDisplayName";
 import { colors } from "@/frontend/constants/theme";
+import { useTabBarStore } from "@/frontend/components/navigation/useTabBarStore";
 
 type Mode = "budget" | "pantry";
 
@@ -51,6 +52,11 @@ export default function HomeScreen() {
   const [introPending, setIntroPending] = useState(params.intro === "1");
   const reduceMotion = useReduceMotion();
   const intro = usePageIntro({ enabled: introPending && !reduceMotion });
+  // The bottom nav stays hidden (onboarding hid it) until the welcome intro
+  // is over, so it doesn't peek out under the intro's cover.
+  useEffect(() => {
+    useTabBarStore.getState().setHidden(intro.showing);
+  }, [intro.showing]);
   const entry =
     params.dotX && params.dotY ? { x: Number(params.dotX), y: Number(params.dotY) } : undefined;
   // Stable, so the memoized BudgetSection skips Home's other re-renders.

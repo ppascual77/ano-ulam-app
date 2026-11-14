@@ -178,21 +178,22 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
   // Space under the toolbar that tracks the keyboard, so the Link / Photo /
   // GIF / STK row rides right on top of it (like Facebook's composer).
   // Built on RN's own keyboard events: react-native-keyboard-controller
-  // would be smoother but needs native code Expo Go doesn't ship. iOS only:
-  // on Android the system already resizes the window for the keyboard, so a
-  // spacer there would double the offset.
+  // would be smoother but needs native code Expo Go doesn't ship. Both
+  // platforms: Android no longer resizes the window for the keyboard now
+  // that the app (and this sheet's Modal) draws edge to edge. iOS sends
+  // "will" events (the spacer moves with the keyboard); Android only "did".
   const insets = useSafeAreaInsets();
   const keyboardSpace = useSharedValue(0);
   useEffect(() => {
-    if (Platform.OS !== "ios") return;
-    const show = Keyboard.addListener("keyboardWillShow", (e) => {
+    const ios = Platform.OS === "ios";
+    const show = Keyboard.addListener(ios ? "keyboardWillShow" : "keyboardDidShow", (e) => {
       // The sheet already pads the home-indicator area at its bottom.
       keyboardSpace.value = withTiming(Math.max(0, e.endCoordinates.height - insets.bottom), {
         duration: e.duration || 250,
         easing: Easing.out(Easing.cubic),
       });
     });
-    const hide = Keyboard.addListener("keyboardWillHide", (e) => {
+    const hide = Keyboard.addListener(ios ? "keyboardWillHide" : "keyboardDidHide", (e) => {
       keyboardSpace.value = withTiming(0, { duration: e.duration || 250, easing: Easing.out(Easing.cubic) });
     });
     return () => {

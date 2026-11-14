@@ -6,7 +6,7 @@ import { Confetti, Dropdown, useBurstOnActivate } from "@/frontend/components/ui
 import { colors } from "@/frontend/constants/theme";
 import type { FoodPost } from "@/api/posts";
 import { LinkPreviewCard } from "./LinkPreviewCard";
-import { PostAuthor, PostCaption, PostPhoto } from "./PostParts";
+import { PostAuthor, PostCaption, PostPhoto, SkeletonImage } from "./PostParts";
 
 type FoodPostCardProps = {
   post: FoodPost;
@@ -101,7 +101,7 @@ export function FoodPostCard({
 
       {post.gif_url && (
         <View className="mx-4 mt-2.5 overflow-hidden rounded-2xl">
-          <Image source={{ uri: post.gif_url }} style={{ width: "100%", aspectRatio: 4 / 3 }} contentFit="cover" />
+          <SkeletonImage source={{ uri: post.gif_url }} style={{ width: "100%", aspectRatio: 4 / 3 }} />
         </View>
       )}
 

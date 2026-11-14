@@ -1,4 +1,6 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { Image as RNImage, Linking, Pressable, View } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { Image, type ImageSource } from "expo-image";
@@ -69,11 +71,45 @@ export function PostCaption({ text }: { text: string }) {
   return <Text className="mt-2.5 px-4 font-inter-regular text-body leading-6 text-web-ink-soft">{nodes}</Text>;
 }
 
+// A post's photo or GIF that shows a skeleton until it has loaded (the
+// same soft pulse as PostSkeleton; still with Reduce motion), then fades in.
+export function SkeletonImage({
+  source,
+  contentFit = "cover",
+  style,
+}: {
+  source: ImageSource | number;
+  contentFit?: "cover" | "contain";
+  style: object;
+}) {
+  const reduceMotion = useReduceMotion();
+  const [loaded, setLoaded] = useState(false);
+  const pulse = useSharedValue(0.6);
+  useEffect(() => {
+    if (loaded || reduceMotion) return;
+    pulse.value = withRepeat(withTiming(1, { duration: 700 }), -1, true);
+  }, [loaded, reduceMotion, pulse]);
+  const pulseStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
+  return (
+    <View style={style}>
+      {!loaded && <Animated.View pointerEvents="none" style={pulseStyle} className="absolute inset-0 bg-web-divider" />}
+      <Image
+        source={source}
+        style={{ flex: 1 }}
+        contentFit={contentFit}
+        transition={200}
+        onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(true)}
+      />
+    </View>
+  );
+}
+
 // Full-bleed (no side padding) 16:9 photo; tap opens the lightbox.
 export function PostPhoto({ source, onPress }: { source: ImageSource | number; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} className="mt-2.5 w-full bg-web-divider active:opacity-90" style={{ aspectRatio: 16 / 9 }}>
-      <Image source={source} style={{ flex: 1 }} contentFit="cover" />
+    <Pressable onPress={onPress} className="mt-2.5 w-full active:opacity-90">
+      <SkeletonImage source={source} style={{ width: "100%", aspectRatio: 16 / 9 }} />
     </Pressable>
   );
 }

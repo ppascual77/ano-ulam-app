@@ -8,6 +8,7 @@ import { colors } from "@/frontend/constants/theme";
 import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
 import { MealDetailContent } from "./MealDetailContent";
 import { IngredientDetailSheet } from "./IngredientDetailSheet";
+import { MealDetailSkeleton } from "./MealDetailSkeleton";
 import { ProPage } from "@/frontend/core/pro/components/ProPage";
 import { GlobalLoginGate } from "@/frontend/features/auth/components/GlobalLoginGate";
 import { SaveLimitSheet } from "@/frontend/core/saved/components/SaveLimitSheet";
@@ -17,6 +18,8 @@ import type { IngredientType, MealType } from "../../mealTypes";
 // The meal detail is full screen; the ingredient sheet tops out at 75% of
 // it, so it reads as a sheet on top rather than a second full screen.
 const INGREDIENT_SHEET_HEIGHT_PERCENT = 0.75;
+// BottomSheet's open slide (340ms), plus a frame.
+const OPEN_SLIDE_MS = 360;
 
 // Shortest time the Save/Unsave button shows its spinner.
 const MIN_BUSY_MS = 500;
@@ -85,6 +88,17 @@ export function MealDetailSheet({
   // The ingredient whose detail sheet is open on top of this one, already
   // scaled to the servings shown when it was tapped. null = closed.
   const [selectedIngredient, setSelectedIngredient] = useState<IngredientType | null>(null);
+  // The full page mounts once the sheet has slid up: rendering it during the
+  // slide made opening a meal lag. Until then, the skeleton (photo + bars).
+  const [contentReady, setContentReady] = useState(false);
+  useEffect(() => {
+    if (!meal) {
+      setContentReady(false);
+      return;
+    }
+    const timer = setTimeout(() => setContentReady(true), OPEN_SLIDE_MS);
+    return () => clearTimeout(timer);
+  }, [meal]);
   // Locked micronutrients (meal or ingredient) tapped by a free user open
   // the full Pro page straight away: in this sheet's overlay, since a /pro
   // screen would open behind it.
@@ -228,7 +242,8 @@ export function MealDetailSheet({
         </>
       }
     >
-      {renderedMeal && (
+      {renderedMeal && !contentReady && <MealDetailSkeleton meal={renderedMeal} />}
+      {renderedMeal && contentReady && (
         <MealDetailContent
           key={renderedMeal.id}
           meal={renderedMeal}

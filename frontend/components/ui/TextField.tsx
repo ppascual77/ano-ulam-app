@@ -163,7 +163,10 @@ export function TextField({
             className={`flex-1 text-subheading text-ink-emphasis ${value ? "font-inter-semibold" : "font-inter-regular"} ${
               icon ? "ml-2" : ""
             }`}
-            style={{ padding: 0 }}
+            // Multiline: the input fills the whole box (its 104 minus the
+            // py-3 padding), so a tap anywhere in it starts typing, not
+            // only on the first line.
+            style={multiline ? { padding: 0, minHeight: 80, alignSelf: "stretch" } : { padding: 0 }}
             {...props}
           />
           {suffix && <Text className="ml-2 font-inter-regular text-body text-ink-subtle">{suffix}</Text>}

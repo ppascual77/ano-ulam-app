@@ -98,6 +98,43 @@ The full list stays in `docs/to-test.md`; this is the short, current one.
 | Allow notifications, then get one (approve your own test recipe as admin) | [ ] | n/a (needs Firebase) |
 | Admin: Review Recipes approve/reject, Manage Meals edit, DA Daily Prices import | [ ] | [ ] |
 
+## 9. Random meal inspection (every test round)
+
+Open **5 random meals** (different categories: breakfast, lunch, dinner, fast food) and check
+each one like a picky user would.
+
+| Check | Meal 1 | Meal 2 | Meal 3 | Meal 4 | Meal 5 |
+| --- | :---: | :---: | :---: | :---: | :---: |
+| Photo: right dish, plated, not blurry or cropped oddly | [ ] | [ ] | [ ] | [ ] | [ ] |
+| Name and description read naturally, no typos | [ ] | [ ] | [ ] | [ ] | [ ] |
+| Price looks believable for the servings (₱ per serving makes sense) | [ ] | [ ] | [ ] | [ ] | [ ] |
+| Calories and macros look believable (not 0, not absurd) | [ ] | [ ] | [ ] | [ ] | [ ] |
+| Every ingredient has a quantity and a price (none "N/A" that shouldn't be) | [ ] | [ ] | [ ] | [ ] | [ ] |
+| Tap 2 ingredients: their sheet shows a real price source | [ ] | [ ] | [ ] | [ ] | [ ] |
+| Steps are complete, in order, and match the ingredients | [ ] | [ ] | [ ] | [ ] | [ ] |
+| Servings + / −: quantities and price scale sensibly | [ ] | [ ] | [ ] | [ ] | [ ] |
+
+Write the meal names and anything off in Notes, then send them to Claude to fix in the data.
+
+## 10. Android subscriptions (once Google Play is set up)
+
+Needs: Play Console app approved, the app installed from the **Internal testing** link (Play
+Store), your Gmail under **License testing**, and the RevenueCat Android key in the build.
+
+| Test | Android |
+| --- | :---: |
+| Pro page shows Google Play's prices (₱99 / month, ₱599 / year) and the 3-day trial | [ ] |
+| Start the free trial with a license-test account: Google's sheet says it's a test, no charge | [ ] |
+| After buying: Pro unlocks right away (unlock animation, Pro badges gone, limits lifted) | [ ] |
+| Settings plan card shows Free trial / Active with the right renewal date | [ ] |
+| Close and reopen the app: still Pro | [ ] |
+| Cancel in Google Play → Subscriptions: Settings shows Cancelled / "Pro until …" | [ ] |
+| Let a test subscription expire (test renewals take minutes): Pro ends, Expired shows | [ ] |
+| Restore purchases on a fresh install (same Google account): Pro comes back | [ ] |
+| Same account on the iPhone: Pro shows there too (one account, both stores) | [ ] |
+| Supabase: the account's `pro_until` updates after the Android purchase (RevenueCat webhook) | [ ] |
+| Android push: allow notifications, approve a test recipe: the push arrives (needs Firebase) | [ ] |
+
 ## Notes
 
 | Phone | Model / build | Anything odd |
