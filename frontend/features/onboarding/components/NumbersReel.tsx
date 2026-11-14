@@ -483,7 +483,7 @@ function MapScene({ width }: { width: number }) {
 // ---- the summary ------------------------------------------------------------------
 
 const SUMMARY = [
-  { label: "Nutrition", source: "FNRI & USDA food data", detail: "per 100 g, scaled to the amount used", color: colors.primary },
+  { label: "Nutrition", source: "official food databases", detail: "per 100 g, scaled to the amount used", color: colors.primary },
   { label: "Prices", source: "Dept. of Agriculture & groceries", detail: "the cheapest per kg or liter", color: colors.accent },
   { label: "Totals", source: "every ingredient, added up", detail: "for the servings you cook", color: colors.primary },
 ];
@@ -549,7 +549,7 @@ export function NumbersReel() {
     <View
       style={{ height: STAGE_HEIGHT }}
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-      accessibilityLabel="Pork belly is looked up: its calories in two food databases, USDA (U.S. food data) and FNRI (Philippine food data), giving 380 kcal per 100 g from USDA; its price at markets and stores, the Department of Agriculture and Landers (the cheapest, ₱366 per kg). Then every ingredient of the dish is checked the same way. Every ulam is backed by real data: nutrition from FNRI and USDA, prices from the Department of Agriculture and groceries, every ingredient added up for the servings you cook."
+      accessibilityLabel="Pork belly is looked up: its calories in two food databases, USDA (U.S. food data) and FNRI (Philippine food data), giving 380 kcal per 100 g from USDA; its price at markets and stores, the Department of Agriculture and Landers (the cheapest, ₱366 per kg). Then every ingredient of the dish is checked the same way. Every ulam is backed by real data: nutrition from official food databases, prices from the Department of Agriculture and groceries, every ingredient added up for the servings you cook."
     >
       {width > 0 && (
         <>

@@ -126,7 +126,7 @@ export const onboardingSlides: OnboardingSlideData[] = [
       { text: "meals" },
     ],
     description:
-      "**Balance your macros** and see **what you need to buy**, all in one place. Nutrition is based on **FNRI and USDA** food data whenever available.",
+      "**Balance your macros** and see **what you need to buy**, all in one place. Nutrition is based on **official food databases** whenever available.",
     image: require("@/assets/onboarding/slide-3.gif"),
     link: "numbers",
   },
