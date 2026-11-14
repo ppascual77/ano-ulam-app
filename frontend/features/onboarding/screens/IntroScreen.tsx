@@ -8,6 +8,7 @@ import { RotatingBlob } from "../components/RotatingBlob";
 import { startDotReveal } from "../components/DotReveal";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { useOnboardingStore } from "@/frontend/core/preferences/store/useOnboardingStore";
 
 // Get Started shrinks to an orange dot, which swells to fill the screen and
 // opens onto onboarding (DotReveal).
@@ -36,7 +37,9 @@ export default function IntroScreen() {
   // Whether they were signed in when the app opened. Signing in later
   // happens inside onboarding, which takes them to Home itself (with the
   // welcome intro), so this screen mustn't redirect then too.
-  const [returningUser] = useState(isSignedIn);
+  // ...or anyone who finished onboarding on this phone (once per device).
+  const onboardingDone = useOnboardingStore((s) => s.done);
+  const [returningUser] = useState(isSignedIn || onboardingDone);
   const reduceMotion = useReduceMotion();
 
   // The button's own dot hides once the overlay's has taken over from it.
@@ -47,11 +50,18 @@ export default function IntroScreen() {
   const launched = useRef(false);
   useFocusEffect(
     useCallback(() => {
+      // Back here after finishing onboarding (Android's back button from
+      // Home; iOS's swipe is off): it's done on this phone, so Home again.
+      // (A first open as a returning user is handled by the Redirect below.)
+      if (!returningUser && useOnboardingStore.getState().done) {
+        router.replace("/home");
+        return;
+      }
       if (!launched.current) return;
       launched.current = false;
       setHandedOff(false);
       setRun((n) => n + 1);
-    }, []),
+    }, [returningUser]),
   );
 
   // app/_layout.tsx waits for the initial session check before rendering

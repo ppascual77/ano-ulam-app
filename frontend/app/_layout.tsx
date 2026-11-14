@@ -27,6 +27,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/frontend/features/auth/store/useAuthStore";
 import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenIntrosStore";
+import { useOnboardingStore } from "@/frontend/core/preferences/store/useOnboardingStore";
 import { DotHandoffOverlay, GlobalToast } from "@/frontend/components/ui";
 import { AuthActivityOverlay } from "@/frontend/features/auth/components/AuthActivityOverlay";
 import { GlobalLoginGate, PendingSaveReplay } from "@/frontend/features/auth/components/GlobalLoginGate";
@@ -94,6 +95,11 @@ export default function RootLayout() {
   useEffect(() => {
     if (!authLoading) void setProUser(sessionUserId);
   }, [authLoading, sessionUserId, setProUser]);
+  // Onboarding done on this phone: read before the first screen renders.
+  const onboardingLoaded = useOnboardingStore((s) => s.loaded);
+  useEffect(() => {
+    void useOnboardingStore.getState().load();
+  }, []);
   const setSession = useAuthStore((s) => s.setSession);
   const setLoading = useAuthStore((s) => s.setLoading);
 
@@ -111,16 +117,16 @@ export default function RootLayout() {
   }, [setSession, setLoading]);
 
   const onLayoutRootView = useCallback(async () => {
-    if ((fontsLoaded || fontError) && !authLoading) {
+    if ((fontsLoaded || fontError) && !authLoading && onboardingLoaded) {
       await SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, fontError, authLoading]);
+  }, [fontsLoaded, fontError, authLoading, onboardingLoaded]);
 
   useEffect(() => {
     onLayoutRootView();
   }, [onLayoutRootView]);
 
-  if ((!fontsLoaded && !fontError) || authLoading) {
+  if ((!fontsLoaded && !fontError) || authLoading || !onboardingLoaded) {
     return null;
   }
 
@@ -144,7 +150,10 @@ export default function RootLayout() {
                 {/* Fades in (instead of sliding), so onboarding's page
                     indicator dot appears to stay put as Home's welcome
                     intro takes it over. */}
-                <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
+                {/* No swipe back: the Intro screen sits under Home once
+                    onboarding replaces itself with it, and swiping there
+                    would offer onboarding again. */}
+                <Stack.Screen name="(tabs)" options={{ animation: "fade", gestureEnabled: false }} />
                 {/* Swapped in under Get Started's orange dot while it fills
                     the screen (DotReveal), so no transition of its own. With
                     reduce motion there's no dot: a plain fade. */}
