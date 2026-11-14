@@ -17,6 +17,7 @@ import { removePost } from "@/api/moderation";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { postKeys } from "../queryKeys";
 import { proKeys } from "@/frontend/core/pro/queryKeys";
+import { blockUser } from "@/api/blocks";
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
 
 type Pages = InfiniteData<FoodPost[], number>;
@@ -125,6 +126,20 @@ export function usePostList({ userId, enabled = true, pageSize, refreshKey = 0 }
     }
   };
 
+  // Blocking the poster: all their posts leave this viewer's lists right
+  // away (the feed stops returning them too). Same shape as report.
+  const block = async (post: FoodPost): Promise<boolean> => {
+    patchAllLists(queryClient, viewerId, (list) => list.filter((p) => p.user_id !== post.user_id));
+    try {
+      await blockUser(post.user_id);
+      void queryClient.invalidateQueries({ queryKey: postKeys.blocked(viewerId) });
+      return true;
+    } catch {
+      void queryClient.invalidateQueries({ queryKey: postKeys.all(viewerId) });
+      return false;
+    }
+  };
+
   // Admin: hidden for everyone (moderation, not a delete). Same shape.
   const adminRemove = async (post: FoodPost): Promise<boolean> => {
     patchAllLists(queryClient, viewerId, (list) => list.filter((p) => p.id !== post.id));
@@ -150,6 +165,7 @@ export function usePostList({ userId, enabled = true, pageSize, refreshKey = 0 }
     toggleLike,
     remove,
     report,
+    block,
     adminRemove,
   };
 }

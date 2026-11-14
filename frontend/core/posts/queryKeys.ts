@@ -6,4 +6,6 @@ export const postKeys = {
   user: (viewerId: string | null, userId: string) => ["posts", viewerId, "user", userId] as const,
   // Outside "posts" on purpose: post lists patch everything under it.
   count: (userId: string) => ["post-count", userId] as const,
+  /** Settings → Blocked accounts. */
+  blocked: (viewerId: string | null) => ["blocked-users", viewerId] as const,
 };

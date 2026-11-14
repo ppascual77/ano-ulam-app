@@ -42,6 +42,7 @@ import { PreferencesSheet } from "@/frontend/core/budget/components/PreferencesS
 import { ProFeatureSheet, type ProFeatureKey } from "@/frontend/core/pro/components/ProFeatureSheet";
 import { canReceivePush, enablePush } from "@/frontend/core/notifications/push";
 import { openPrivacyPolicy, openTerms } from "@/frontend/core/app/legalLinks";
+import { BlockedAccountsSheet } from "../components/settings/BlockedAccountsSheet";
 import { usePushPermission } from "@/frontend/core/notifications/hooks/usePushPermission";
 
 const LOG_OUT_DELAY_MS = 2000;
@@ -171,6 +172,7 @@ export default function SettingsScreen() {
   const [proSheet, setProSheet] = useState<ProSettingKey | null>(null);
   const closeProSheet = () => setProSheet(null);
   const [manageOpen, setManageOpen] = useState(false);
+  const [blockedOpen, setBlockedOpen] = useState(false);
   // How a free account can still earn Pro (the first reward not yet earned).
   const rewards = useProRewardProgress().data;
   const earnTip =
@@ -479,6 +481,9 @@ export default function SettingsScreen() {
                 value={settings.data?.show_saved_public ?? false}
                 onChange={settingsActions.setShowSaved}
               />
+              {isSignedIn && (
+                <LinkRow label="Blocked accounts" value="People whose posts you don't see" onPress={() => setBlockedOpen(true)} />
+              )}
             </SettingsSection>
           </Animated.View>
 
@@ -577,6 +582,12 @@ export default function SettingsScreen() {
         busy={deleteAccount.isPending}
         onCancel={() => setConfirmDelete(false)}
         onConfirm={runDelete}
+      />
+
+      <BlockedAccountsSheet
+        visible={blockedOpen}
+        onClose={() => setBlockedOpen(false)}
+        onToast={(message, tone) => setToast({ id: Date.now(), message, tone })}
       />
 
       <Toast toast={toast} onHide={() => setToast(null)} />
