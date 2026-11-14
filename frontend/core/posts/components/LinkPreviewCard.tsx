@@ -1,4 +1,5 @@
-import { Linking, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { openWebUrl } from "@/lib/openWebUrl";
 import { Text } from "@/frontend/components/ui/Text";
 import { Image } from "expo-image";
 
@@ -22,7 +23,7 @@ function hostname(url: string) {
 export function LinkPreviewCard({ url, title, description, image }: LinkPreviewCardProps) {
   return (
     <Pressable
-      onPress={() => Linking.openURL(url)}
+      onPress={() => openWebUrl(url)}
       className="flex-row overflow-hidden rounded-xl border border-web-divider bg-web-divider/50"
     >
       {image && <Image source={{ uri: image }} style={{ width: 80, height: 80 }} contentFit="cover" />}

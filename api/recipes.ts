@@ -199,6 +199,9 @@ export async function approveRecipe(mealId: string) {
   if (getUnlinkedIngredients(meal).length > 0) {
     throw new Error("Link every flagged ingredient before approving.");
   }
+  // Price and macros from the real ingredient data, not whatever the
+  // poster's phone (or a direct API call) wrote while it was pending.
+  await recomputeMealTotals(mealId);
   await updateMeal(mealId, { status: "approved", rejection_reason: null });
 }
 

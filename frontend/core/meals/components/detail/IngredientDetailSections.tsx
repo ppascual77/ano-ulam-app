@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
-import { Linking, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { openWebUrl } from "@/lib/openWebUrl";
 import { Text } from "@/frontend/components/ui/Text";
 import Animated from "react-native-reanimated";
 import { ArrowUpRight, Database, Info, Minus, ShoppingCart, Sparkles, Store, TrendingDown, TrendingUp } from "lucide-react-native";
@@ -268,7 +269,7 @@ function SourceRow({
 
   const rowClass = `flex-row items-center gap-3 px-4 py-3 ${divided ? "border-t border-ink-emphasis/5" : ""}`;
   return url ? (
-    <Pressable accessibilityRole="link" onPress={() => Linking.openURL(url)} className={`${rowClass} active:bg-primary/5`}>
+    <Pressable accessibilityRole="link" onPress={() => openWebUrl(url)} className={`${rowClass} active:bg-primary/5`}>
       {content}
     </Pressable>
   ) : (

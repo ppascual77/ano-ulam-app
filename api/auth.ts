@@ -136,6 +136,14 @@ async function createSessionFromUrl(url: string) {
   const { params, errorCode } = getQueryParams(url);
   if (errorCode) throw new Error(errorCode);
 
+  // PKCE (lib/supabase.ts flowType): a one-time code, redeemed with the
+  // verifier this phone kept when the sign-in started.
+  if (params.code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(params.code);
+    if (error) throw error;
+    return data.session;
+  }
+
   const { access_token, refresh_token } = params;
   if (!access_token || !refresh_token) return null;
 

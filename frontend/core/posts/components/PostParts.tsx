@@ -1,7 +1,8 @@
 import { ReactNode, useEffect, useState } from "react";
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
-import { Image as RNImage, Linking, Pressable, View } from "react-native";
+import { Image as RNImage, Pressable, View } from "react-native";
+import { openWebUrl } from "@/lib/openWebUrl";
 import { Text } from "@/frontend/components/ui/Text";
 import { Image, type ImageSource } from "expo-image";
 import { BadgeCheck } from "lucide-react-native";
@@ -60,7 +61,7 @@ export function PostCaption({ text }: { text: string }) {
     const raw = match[0];
     const href = raw.startsWith("http") ? raw : `https://${raw}`;
     nodes.push(
-      <Text key={match.index} className="text-brand-green underline" onPress={() => Linking.openURL(href)}>
+      <Text key={match.index} className="text-brand-green underline" onPress={() => openWebUrl(href)}>
         {raw}
       </Text>,
     );

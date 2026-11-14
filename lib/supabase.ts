@@ -68,6 +68,9 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    // The browser sign-in fallback gets back a one-time code (exchanged in
+    // api/auth.ts) instead of the tokens themselves in the redirect URL.
+    flowType: "pkce",
   },
 });
 

@@ -275,6 +275,23 @@ New native packages: `react-native-view-shot`, `expo-sharing`, `expo-keep-awake`
 - [ ] **Moderated posts:** a removed post stays visible (labelled) on its author's own profile,
       hidden for everyone else; admin Reported Posts still lists it.
 
+## Security hardening (2026-11-14, migration 20261114010000 live)
+
+Database rules checked live on 2026-11-14 (faked counts reset, outside image/avatar URLs and
+`tel:` links refused, `is_pro` closed). These are the app paths that must still work:
+
+- [ ] **Submit a recipe with a cover photo** from a non-admin account: it saves, the photo shows.
+      Then as admin, **Approve** it: the price and macros are recalculated (they may change if the
+      phone's numbers were off) and it goes live.
+- [ ] **Change avatar** and **back to initials**: both save.
+- [ ] **Food Post with a photo, a GIF, a sticker, and a link:** each posts; tapping the link opens
+      the browser; tapping a link in a caption opens it too.
+- [ ] **Google sign-in, browser fallback** (Expo Go, or a build without the native module): signs
+      in (now PKCE: the redirect carries a code, not tokens).
+- [ ] **/seed-meal still reaches the admin edge functions** (service key gate rewritten): run one
+      import, or any step that calls import-meal-from-url / estimate-pack-sizes.
+- [ ] **Admin screens' AI tools** (Seed Meal, ingredient grounding) work signed in as admin.
+
 ## Body stats on the account (2026-11-13)
 
 - [ ] **Old phone copy moves in:** on a phone that had set a nutrition goal before, open Settings
