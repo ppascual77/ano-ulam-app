@@ -4,6 +4,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn, FadeInDown, FadeInLeft, FadeInRight, FadeInUp } from "react-native-reanimated";
+import { Image } from "expo-image";
 import { ArrowLeft, ArrowRight, Pencil, RefreshCw } from "lucide-react-native";
 import { AppText, Button, ConfirmSheet, LandingTitle, LoadingState, Screen, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -256,6 +257,18 @@ export default function MealPlannerScreen() {
                 Set a budget and we&apos;ll plan {planLength} days of meals, with the grocery list.
               </AppText>
             </View>
+
+            {/* The meal-planning illustration (onboarding's), between the title
+                and the budget. Still under Reduce motion. */}
+            <Animated.View entering={FadeInDown.delay(40).duration(320)} className="items-center">
+              <Image
+                source={require("@/assets/onboarding/slide-3.gif")}
+                style={{ width: 180, height: 174 }}
+                contentFit="contain"
+                autoplay={!reduceMotion}
+                accessibilityIgnoresInvertColors
+              />
+            </Animated.View>
 
             <Animated.View entering={FadeInDown.delay(80).duration(320)}>
               <BudgetHero value={store.budget} onChange={store.setBudget} servings={store.servings} days={planLength} />
