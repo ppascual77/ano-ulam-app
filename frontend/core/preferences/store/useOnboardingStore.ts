@@ -14,6 +14,8 @@ type OnboardingState = {
   loaded: boolean;
   load: () => Promise<void>;
   markDone: () => void;
+  /** Dev builds' "Reset to first run": onboarding shows again. */
+  reset: () => Promise<void>;
 };
 
 export const useOnboardingStore = create<OnboardingState>((set) => ({
@@ -30,5 +32,9 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
   markDone: () => {
     set({ done: true });
     AsyncStorage.setItem(STORAGE_KEY, "1").catch(() => {});
+  },
+  reset: async () => {
+    set({ done: false });
+    await AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
   },
 }));
