@@ -2,8 +2,9 @@
 
 What to measure once real users are on the app, and the events that needs. Started 2026-11-08.
 
-**No analytics tool is in the app yet.** Pick one before launch (PostHog is a common choice for
-Expo: event tracking, funnels, retention, and a free tier). Revenue and subscriptions already
+**No analytics tool is in the app yet.** Decided 2026-11-14: **PostHog** (`posthog-react-native`,
+the same tool as the web app), added before launch (on the before-release list in
+`docs/integration-status.md`). Revenue and subscriptions already
 report themselves in RevenueCat's dashboard (trials, conversions, renewals, churn): use that
 for money, and the tool below for behaviour. Never log personal data (names, emails, what someone
 typed in a search); the Supabase user id is enough to tie events to an account.
