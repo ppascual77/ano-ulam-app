@@ -79,7 +79,7 @@ function OfficialRecipesTab({ onToast }: { onToast: Toast }) {
                 width={width}
                 layout="grid"
                 isFastFood={meal.category === "fast_food"}
-                onPress={() => detail.open(meal.id)}
+                onPress={() => detail.open(meal)}
               />
             )}
           />
@@ -114,7 +114,7 @@ function OfficialRecipesTab({ onToast }: { onToast: Toast }) {
         </Text>
       </View>
 
-      <MealDetailSheet meal={detail.meal} onClose={detail.close} onNotify={onToast} />
+      <MealDetailSheet meal={detail.meal} loading={detail.loading} onClose={detail.close} onNotify={onToast} />
     </View>
   );
 }

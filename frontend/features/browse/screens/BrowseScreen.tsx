@@ -220,7 +220,7 @@ export default function BrowseScreen() {
     if (!search.isAvoided(meal)) return card;
     return (
       <AvoidedMealCover
-        onView={() => detail.open(meal.id)}
+        onView={() => detail.open(meal)}
         onManage={() => router.navigate({ pathname: "/profile/settings", params: { pro: "avoid" } })}
       >
         {card}
@@ -233,8 +233,8 @@ export default function BrowseScreen() {
       meal={meal}
       isFastFood={meal.category === "fast_food"}
       showDescription
-      onPress={() => detail.open(meal.id)}
-      onViewDetails={() => detail.open(meal.id)}
+      onPress={() => detail.open(meal)}
+      onViewDetails={() => detail.open(meal)}
       onBookmarkPress={
         isGuest
           ? () => {
@@ -326,7 +326,7 @@ export default function BrowseScreen() {
             </AppText>
             <TodaysPickCard
               meal={todaysPick}
-              onPress={() => detail.open(todaysPick.id)}
+              onPress={() => detail.open(todaysPick)}
               onBookmarkPress={
                 isGuest
                   ? () => {
@@ -374,7 +374,7 @@ export default function BrowseScreen() {
           </Animated.View>
         ) : (
           <Animated.View key="moods" entering={enter(2)} exiting={FadeOut.duration(140)} className="mb-6">
-            <MoodSelection onSelectMeal={(meal) => detail.open(meal.id)} />
+            <MoodSelection onSelectMeal={(meal) => detail.open(meal)} />
           </Animated.View>
         )}
       </ScrollView>

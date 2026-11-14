@@ -55,6 +55,9 @@ type MealDetailSheetProps = {
   /** From Pantry results: the pantry's ingredient ids, for "You have it" /
    *  "To buy" on `meal`'s ingredients (not on related meals opened from it). */
   pantryIds?: Set<string>;
+  /** `meal` is a card's (no ingredients yet) while the full one loads
+   *  (useMealDetail): the skeleton shows until it's in. */
+  loading?: boolean;
 };
 
 export function MealDetailSheet({
@@ -69,6 +72,7 @@ export function MealDetailSheet({
   recipeOwner,
   onNotify,
   pantryIds,
+  loading = false,
 }: MealDetailSheetProps) {
   // Keep the last meal rendered while the sheet animates closed, so the
   // content doesn't flash empty before it's off-screen.
@@ -90,15 +94,19 @@ export function MealDetailSheet({
   const [selectedIngredient, setSelectedIngredient] = useState<IngredientType | null>(null);
   // The full page mounts once the sheet has slid up: rendering it during the
   // slide made opening a meal lag. Until then, the skeleton (photo + bars).
-  const [contentReady, setContentReady] = useState(false);
+  // Keyed on opening, not on the meal: the card's meal giving way to the
+  // full one mustn't restart the wait.
+  const [slidUp, setSlidUp] = useState(false);
+  const isOpen = !!meal;
   useEffect(() => {
-    if (!meal) {
-      setContentReady(false);
+    if (!isOpen) {
+      setSlidUp(false);
       return;
     }
-    const timer = setTimeout(() => setContentReady(true), OPEN_SLIDE_MS);
+    const timer = setTimeout(() => setSlidUp(true), OPEN_SLIDE_MS);
     return () => clearTimeout(timer);
-  }, [meal]);
+  }, [isOpen]);
+  const contentReady = slidUp && !loading;
   // Locked micronutrients (meal or ingredient) tapped by a free user open
   // the full Pro page straight away: in this sheet's overlay, since a /pro
   // screen would open behind it.
@@ -114,7 +122,12 @@ export function MealDetailSheet({
     return removeHost;
   }, [open]);
 
-  useEffect(() => {
+  // A new meal (or the card's giving way to the full one) shows from the
+  // very first render, not a frame later as an effect would: no blank or
+  // previous meal flashing as the sheet opens.
+  const [shownProp, setShownProp] = useState(meal);
+  if (meal !== shownProp) {
+    setShownProp(meal);
     if (meal) {
       setRenderedMeal(meal);
       setHistory([]);
@@ -122,7 +135,7 @@ export function MealDetailSheet({
     }
     // A new meal, or this sheet closing, also closes any open ingredient.
     setSelectedIngredient(null);
-  }, [meal]);
+  }
 
   // Tapping a related meal swaps the sheet's content without closing it.
   const handleSelectMeal = (next: MealType) => {

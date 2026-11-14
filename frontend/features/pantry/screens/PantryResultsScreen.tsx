@@ -184,7 +184,7 @@ export default function PantryResultsScreen() {
                   onToggleSave={() => void savedMeals.toggle(item.meal)}
                   onSaveBurst={showBurst}
                   onHaveIt={haveIt}
-                  onPress={() => detail.open(item.meal.id)}
+                  onPress={() => detail.open(item.meal)}
                 />
               </Animated.View>
             )}
@@ -203,7 +203,7 @@ export default function PantryResultsScreen() {
       </View>
 
       {/* The pantry as ids, so the meal shows what you have vs need. */}
-      <MealDetailSheet meal={detail.meal} onClose={detail.close} pantryIds={pantryIds} />
+      <MealDetailSheet meal={detail.meal} loading={detail.loading} onClose={detail.close} pantryIds={pantryIds} />
     </Screen>
   );
 }

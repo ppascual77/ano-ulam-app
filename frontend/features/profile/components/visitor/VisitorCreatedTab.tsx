@@ -77,7 +77,7 @@ export function VisitorCreatedTab({ userId, loadMoreSignal, onToast }: VisitorCr
                   meal={meal}
                   width={width}
                   layout="grid"
-                  onPress={() => detail.open(meal.id)}
+                  onPress={() => detail.open(meal)}
                 />
               )}
             />
@@ -112,7 +112,7 @@ export function VisitorCreatedTab({ userId, loadMoreSignal, onToast }: VisitorCr
         </View>
       )}
 
-      <MealDetailSheet meal={detail.meal} onClose={detail.close} onNotify={onToast} />
+      <MealDetailSheet meal={detail.meal} loading={detail.loading} onClose={detail.close} onNotify={onToast} />
       {moderation.sheets}
       <ImageLightbox source={lightbox} onClose={() => setLightbox(null)} />
     </View>

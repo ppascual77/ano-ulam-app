@@ -14,7 +14,7 @@ import { allRewardsEarned, useProRewardProgress } from "@/frontend/core/pro/hook
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { colors } from "@/frontend/constants/theme";
-import { getMeal } from "@/api/meals";
+import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
@@ -238,19 +238,11 @@ export default function DiscoverScreen() {
 
   // ---- View Recipe: full meal (with ingredients) in MealDetailSheet --------
 
-  const [detailMealId, setDetailMealId] = useState<string | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const detailQuery = useQuery({
-    queryKey: ["meals", "discover-detail", detailMealId],
-    queryFn: () => getMeal(detailMealId as string),
-    enabled: !!detailMealId,
-  });
-  const detailMeal = detailQuery.data ? mealRowToMealType(detailQuery.data, detailQuery.data.meal_ingredients) : null;
-
+  // Opens at once on the reel's meal (skeleton), the full one swaps in.
+  const detail = useMealDetail();
+  const detailOpen = !!detail.meal;
   const openRecipe = () => {
-    if (!activeMeal?.id) return;
-    setDetailMealId(activeMeal.id);
-    setDetailOpen(true);
+    if (activeMeal) detail.open(activeMeal);
   };
 
   // ---- tabs ----------------------------------------------------------------
@@ -435,7 +427,7 @@ export default function DiscoverScreen() {
               </View>
 
               <View className="absolute left-5 right-5" style={{ bottom: VIEW_RECIPE_BOTTOM }}>
-                <ViewRecipeButton onPress={openRecipe} loading={detailOpen && detailQuery.isLoading} />
+                <ViewRecipeButton onPress={openRecipe} />
               </View>
             </>
           )}
@@ -493,8 +485,9 @@ export default function DiscoverScreen() {
 
 
       <MealDetailSheet
-        meal={detailOpen ? detailMeal : null}
-        onClose={() => setDetailOpen(false)}
+        meal={detail.meal}
+        loading={detail.loading}
+        onClose={detail.close}
         overlay={detailOpen ? renderGate("inline") : undefined}
       />
 

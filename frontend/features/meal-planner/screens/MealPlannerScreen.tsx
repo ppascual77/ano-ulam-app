@@ -197,7 +197,7 @@ export default function MealPlannerScreen() {
     }
   };
 
-  const viewRecipe = (meal: MealPlan["days"][number]["meals"][number]["meal"]) => detail.open(meal.id);
+  const viewRecipe = (meal: MealPlan["days"][number]["meals"][number]["meal"]) => detail.open(meal);
 
   // The day being viewed, as "today" or e.g. "Fri, Nov 14".
   const groceryDayName = !plan
@@ -511,7 +511,7 @@ export default function MealPlannerScreen() {
         }}
       />
 
-      <MealDetailSheet meal={detail.meal} onClose={detail.close} />
+      <MealDetailSheet meal={detail.meal} loading={detail.loading} onClose={detail.close} />
 
       <Toast toast={toast} onHide={() => setToast(null)} />
       {intro.showing && <MealPlannerIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={intro.finish} />}

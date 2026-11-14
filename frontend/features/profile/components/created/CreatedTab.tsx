@@ -6,7 +6,7 @@ import * as Clipboard from "expo-clipboard";
 import { ChefHat, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react-native";
 import { ConfirmSheet, Dropdown } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { getMeal } from "@/api/meals";
+import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
 import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
@@ -81,14 +81,10 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
     // Only on a new signal.
   }, [loadMoreSignal]);
 
-  // Meal Details for a recipe: fetched with its ingredients on open.
-  const [detailId, setDetailId] = useState<string | null>(null);
-  const detailQuery = useQuery({
-    queryKey: ["meals", "profile-detail", detailId],
-    queryFn: () => getMeal(detailId as string),
-    enabled: !!detailId,
-  });
-  const detailMeal = detailId && detailQuery.data ? mealRowToMealType(detailQuery.data, detailQuery.data.meal_ingredients) : null;
+  // Meal Details for a recipe: opens at once on the card, the full meal
+  // (with ingredients) swaps in.
+  const detail = useMealDetail();
+  const detailMeal = detail.meal;
 
   const [confirmLive, setConfirmLive] = useState<MealType | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ meal: MealType; fromDetails: boolean } | null>(null);
@@ -149,7 +145,7 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
                     meal={meal}
                     width={width}
                     layout="grid"
-                    onPress={() => setDetailId(meal.id ?? null)}
+                    onPress={() => detail.open(meal)}
                     hideActions={!live}
                     dimmed={meal.status === "rejected"}
                     topLeft={live ? undefined : <RecipeStatusBadge status={meal.status} reason={meal.rejection_reason} />}
@@ -203,7 +199,8 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
 
       <MealDetailSheet
         meal={detailMeal}
-        onClose={() => setDetailId(null)}
+        loading={detail.loading}
+        onClose={detail.close}
         onClosed={() => {
           const meal = deleteAfterDetails.current;
           deleteAfterDetails.current = null;
@@ -214,12 +211,12 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
           detailMeal
             ? {
                 onEditRecipe: () => {
-                  setDetailId(null);
+                  detail.close();
                   onToast(EDIT_COMING_SOON, "success");
                 },
                 onDeleteRecipe: () => {
                   deleteAfterDetails.current = detailMeal;
-                  setDetailId(null);
+                  detail.close();
                 },
               }
             : undefined
