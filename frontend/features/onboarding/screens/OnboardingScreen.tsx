@@ -24,6 +24,7 @@ import { onboardingSlides, type OnboardingSlideData, type PreferencesSlideData }
 import { type SignInProvider, useSignIn } from "@/frontend/features/auth/hooks/useAuth";
 import { useAuthActivityStore } from "@/frontend/features/auth/store/useAuthActivityStore";
 import { useUpdateUserProfile } from "@/frontend/features/auth/hooks/useUserProfile";
+import { useOnboardingStore } from "@/frontend/core/preferences/store/useOnboardingStore";
 
 const preferencesSlide = onboardingSlides.find(
   (s) => s.type === "preferences",
@@ -158,6 +159,8 @@ export default function OnboardingScreen() {
   // exactly where it is now (Home fades in over this screen, see
   // app/_layout.tsx) and hops it into "Hey, welcome!".
   const goHome = () => {
+    // Once per phone: from now on the app opens straight to Home.
+    useOnboardingStore.getState().markDone();
     const dot = indicatorDotRef.current;
     if (!dot) {
       router.replace({ pathname: "/home", params: { intro: "1" } });

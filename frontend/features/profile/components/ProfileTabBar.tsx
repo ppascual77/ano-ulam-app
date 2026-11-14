@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
-import Animated, { Easing, FadeIn, FadeOut, LinearTransition, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, LinearTransition, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { Bookmark, ChefHat, ImageIcon, LayoutGrid, ShoppingCart, type LucideIcon } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
@@ -138,9 +138,12 @@ export function ProfileTabBar({ tabs, active, onChange, stuck, name, miniAvatar 
                 <Icon color={isActive ? colors.primary : colors.ink.subtle} size={18} strokeWidth={isActive ? 2.2 : 1.8} />
                 {compact ? (
                   isActive && (
+                    // No exit fade: the old label would hold its tab's width
+                    // for a moment, then the tabs would resize a second time
+                    // and re-aim the pill mid-slide (the glitch). Gone in the
+                    // same frame the new label appears: one resize, one slide.
                     <Animated.Text
                       entering={FadeIn.delay(reduceMotion ? 0 : 90).duration(200)}
-                      exiting={FadeOut.duration(100)}
                       numberOfLines={1}
                       className="font-inter-semibold text-body text-primary"
                     >

@@ -111,10 +111,11 @@ export function ProfileScaffold({
         <ProfileTabBar tabs={tabs} active={activeTab} onChange={onTabChange} stuck={stuck} name={miniName} miniAvatar={miniAvatar} />
       </View>
 
-      {/* At least most of a screen tall, so switching to a short tab
-          doesn't yank the scroll position. */}
+      {/* At least a screen tall: with the tab bar pinned, a shorter tab (an
+          empty Pantry) would otherwise leave the page shorter than the
+          screen, and the scroll would snap back and yank the header. */}
       {/* Bottom padding clears the home indicator (top-only safe area). */}
-      <View className="px-5 pt-4" style={{ minHeight: windowHeight * 0.6, paddingBottom: insets.bottom + 40 }}>
+      <View className="px-5 pt-4" style={{ minHeight: windowHeight, paddingBottom: insets.bottom + 40 }}>
         <Animated.View key={activeTab} entering={entering}>
           {children}
         </Animated.View>

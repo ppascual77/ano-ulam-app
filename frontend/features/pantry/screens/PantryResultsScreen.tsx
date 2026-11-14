@@ -5,7 +5,7 @@ import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import Animated, { Easing, FadeIn, FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
 import { ArrowLeft, Bookmark, Check, Plus } from "lucide-react-native";
-import { AppText, LoadingState, Screen, SegmentedSwitch } from "@/frontend/components/ui";
+import { AppText, Confetti, LoadingState, Screen, SegmentedSwitch, useBurstOnActivate } from "@/frontend/components/ui";
 import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
 import { colors } from "@/frontend/constants/theme";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
@@ -237,6 +237,9 @@ function MatchRow({
 }) {
   const shown = match.missing.slice(0, MISSING_SHOWN);
   const more = match.missing.length - shown.length;
+  // Confetti when a save lands (not on unsave, not on mount), like every
+  // other save button (MealSaveButton).
+  const saveBurstId = useBurstOnActivate(saved);
   return (
     <Pressable
       onPress={onPress}
@@ -257,9 +260,12 @@ function MatchRow({
           <Text numberOfLines={2} className="flex-1 font-inter-bold text-body-lg text-ink-emphasis">
             {meal.name}
           </Text>
-          <Pressable onPress={onToggleSave} hitSlop={10} accessibilityLabel={saved ? `Unsave ${meal.name}` : `Save ${meal.name}`}>
-            <Bookmark color={colors.primary} fill={saved ? colors.primary : "none"} size={20} />
-          </Pressable>
+          <View>
+            <Confetti burstId={saveBurstId} />
+            <Pressable onPress={onToggleSave} hitSlop={10} accessibilityLabel={saved ? `Unsave ${meal.name}` : `Save ${meal.name}`}>
+              <Bookmark color={colors.primary} fill={saved ? colors.primary : "none"} size={20} />
+            </Pressable>
+          </View>
         </View>
         <Dots have={match.have} need={match.need} />
         {match.missing.length === 0 ? (
