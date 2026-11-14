@@ -160,8 +160,11 @@ export default function RootLayout() {
                 <Stack.Screen name="onboarding" options={{ animation: reduceMotionOn ? "fade" : "none" }} />
                 {/* The full Pro page slides up over whatever opened it. */}
                 <Stack.Screen name="pro" options={{ presentation: "fullScreenModal" }} />
-                {/* Settings' "How AnoUlam works": slides up over Settings. */}
-                <Stack.Screen name="onboarding-tour" options={{ presentation: "fullScreenModal" }} />
+                {/* Settings' "How AnoUlam works": slides up over Settings.
+                    A regular screen with a bottom-up slide, not a native
+                    fullScreenModal: inside that, the slides' SafeAreaView got
+                    no insets (Skip landed in the status bar). */}
+                <Stack.Screen name="onboarding-tour" options={{ animation: reduceMotionOn ? "fade" : "slide_from_bottom", gestureEnabled: false }} />
               </Stack>
               {/* Above every screen: a title dot flying to the next screen's. */}
               <DotHandoffOverlay enabled={!reduceMotionOn} />
