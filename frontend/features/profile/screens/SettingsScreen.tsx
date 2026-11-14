@@ -41,6 +41,7 @@ import { ProSettingRow } from "../components/settings/ProSettingRow";
 import { PreferencesSheet } from "@/frontend/core/budget/components/PreferencesSheet";
 import { ProFeatureSheet, type ProFeatureKey } from "@/frontend/core/pro/components/ProFeatureSheet";
 import { canReceivePush, enablePush } from "@/frontend/core/notifications/push";
+import { openPrivacyPolicy, openTerms } from "@/frontend/core/app/legalLinks";
 import { usePushPermission } from "@/frontend/core/notifications/hooks/usePushPermission";
 
 const LOG_OUT_DELAY_MS = 2000;
@@ -485,8 +486,8 @@ export default function SettingsScreen() {
           <SettingsSection title="About">
             <LinkRow label="How AnoUlam works" value="Take the quick tour again" onPress={() => router.push("/onboarding-tour")} />
             <LinkRow label="Send feedback" onPress={sendFeedback} />
-            <LinkRow label="Privacy Policy" onPress={() => router.push("/privacy")} />
-            <LinkRow label="Terms of Service" onPress={() => router.push("/terms")} />
+            <LinkRow label="Privacy Policy" onPress={openPrivacyPolicy} />
+            <LinkRow label="Terms of Service" onPress={openTerms} />
             <Text className="font-inter-regular text-body text-ink-subtle">Version {APP_VERSION}</Text>
           </SettingsSection>
           </Animated.View>

@@ -3,7 +3,6 @@ import { Linking, Pressable, ScrollView, View, useWindowDimensions } from "react
 import { Text } from "@/frontend/components/ui/Text";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
-import * as WebBrowser from "expo-web-browser";
 import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { ArrowRight, X } from "lucide-react-native";
 import { AppText, Button, showGlobalToast } from "@/frontend/components/ui";
@@ -16,6 +15,7 @@ import { useProStore, useProSubscription } from "../store/useProStore";
 import { nextLine, planName } from "../subscriptionCopy";
 import { ProUnlockOverlay } from "./ProUnlockOverlay";
 import { CompareTable } from "./ProCompareTable";
+import { openPrivacyPolicy, openTerms } from "@/frontend/core/app/legalLinks";
 import {
   PLANS,
   QUOTES,
@@ -27,8 +27,6 @@ import {
 
 // Required next to a subscription's buy button (App Review 3.1.2). Opened in
 // an in-app browser, so they work when this page sits inside a sheet too.
-const TERMS_URL = "https://anoulam.app/terms";
-const PRIVACY_URL = "https://anoulam.app/privacy";
 
 function FooterLink({ label, onPress, disabled, role = "link" }: { label: string; onPress: () => void; disabled?: boolean; role?: "link" | "button" }) {
   return (
@@ -182,9 +180,9 @@ export function ProPage({ onClose, onStarted, allowLinks = true, onManage, title
             <View className="flex-row flex-wrap items-center justify-center gap-x-2">
               <FooterLink label={restoring ? "Restoring..." : "Restore purchases"} onPress={() => void restorePurchases()} disabled={restoring} role="button" />
               <Text className="font-inter-regular text-small text-ink-subtle">·</Text>
-              <FooterLink label="Terms of Use" onPress={() => void WebBrowser.openBrowserAsync(TERMS_URL)} />
+              <FooterLink label="Terms of Use" onPress={openTerms} />
               <Text className="font-inter-regular text-small text-ink-subtle">·</Text>
-              <FooterLink label="Privacy Policy" onPress={() => void WebBrowser.openBrowserAsync(PRIVACY_URL)} />
+              <FooterLink label="Privacy Policy" onPress={openPrivacyPolicy} />
             </View>
           </>
         )}
