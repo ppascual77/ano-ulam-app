@@ -832,6 +832,24 @@ export type Database = {
           },
         ]
       }
+      user_blocks: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           avatar_url: string | null
@@ -929,6 +947,15 @@ export type Database = {
       daily_limit: { Args: { p_kind: string }; Returns: number }
       daily_uses_left: { Args: { p_kind: string }; Returns: number }
       dismiss_post_reports: { Args: { p_post: string }; Returns: undefined }
+      get_blocked_users: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          blocked_at: string
+          display_name: string
+          user_id: string
+        }[]
+      }
       get_food_posts: {
         Args: { p_limit?: number; p_offset?: number; p_user_id?: string }
         Returns: {
@@ -1158,4 +1185,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

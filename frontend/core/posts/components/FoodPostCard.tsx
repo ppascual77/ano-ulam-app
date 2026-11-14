@@ -1,7 +1,7 @@
 import { Pressable, View } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { Image } from "expo-image";
-import { Flag, Heart, MoreHorizontal, Pencil, Share2, ShieldOff, Trash2 } from "lucide-react-native";
+import { Ban, Flag, Heart, MoreHorizontal, Pencil, Share2, ShieldOff, Trash2 } from "lucide-react-native";
 import { Confetti, Dropdown, useBurstOnActivate } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import type { FoodPost } from "@/api/posts";
@@ -19,6 +19,8 @@ type FoodPostCardProps = {
   onDelete?: () => void;
   /** Someone else's post: report it (usePostModeration). */
   onReport?: () => void;
+  /** Someone else's post: block its poster (usePostModeration). */
+  onBlock?: () => void;
   /** Admins, someone else's post: hide it for everyone. */
   onAdminRemove?: () => void;
   /** Tapping the author (opens their profile). */
@@ -39,6 +41,7 @@ export function FoodPostCard({
   onEdit,
   onDelete,
   onReport,
+  onBlock,
   onAdminRemove,
   onPressAuthor,
   framed = false,
@@ -54,6 +57,9 @@ export function FoodPostCard({
       ? [{ label: "Delete", icon: <Trash2 color={colors.like} size={12} />, onPress: onDelete, destructive: true }]
       : []),
     ...(onReport ? [{ label: "Report post", icon: <Flag color={colors.webInk.soft} size={12} />, onPress: onReport }] : []),
+    ...(onBlock
+      ? [{ label: `Block ${post.display_name ?? "user"}`, icon: <Ban color={colors.like} size={12} />, onPress: onBlock, destructive: true }]
+      : []),
     ...(onAdminRemove
       ? [{ label: "Remove post (admin)", icon: <ShieldOff color={colors.like} size={12} />, onPress: onAdminRemove, destructive: true }]
       : []),

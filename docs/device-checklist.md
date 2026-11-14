@@ -77,6 +77,8 @@ The full list stays in `docs/to-test.md`; this is the short, current one.
 | Post a photo: "Preparing your photo…" then "Posting…", posts quickly | [ ] | [ ] |
 | GIF and sticker pickers load results | [ ] | [ ] |
 | Report someone else's post (second account) | [ ] | [ ] |
+| Block someone from their post's ··· menu: all their posts disappear (feed and their profile) | [ ] | [ ] |
+| Settings → Privacy → Blocked accounts → Unblock: their posts come back | [ ] | [ ] |
 
 ## 7. Profile and Settings
 
