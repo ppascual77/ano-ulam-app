@@ -1,3 +1,4 @@
+import { NativeModules, Platform, TurboModuleRegistry } from "react-native";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as WebBrowser from "expo-web-browser";
 import { makeRedirectUri } from "expo-auth-session";
@@ -143,9 +144,57 @@ async function createSessionFromUrl(url: string) {
   return data.session;
 }
 
+// ---- Google: native first, browser as fallback --------------------------
+
+// Native Google sign-in: Google's own account picker inside the app, showing
+// "AnoUlam" (not the raw Supabase address the browser flow shows), and an ID
+// token Supabase verifies, like Apple. Needs a build with the native module
+// (@react-native-google-signin/google-signin, pinned to 16.2.0: newer ones
+// need GoogleSignIn 10, which isn't on CocoaPods trunk) and the Google client
+// IDs (.env / EAS: EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, plus
+// EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID on iOS). Without either (Expo Go, an older
+// build, IDs not set yet) it falls back to the browser flow below.
+type GoogleSigninModule = typeof import("@react-native-google-signin/google-signin");
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+
+let googleNative: GoogleSigninModule | null | undefined;
+function nativeGoogle(): GoogleSigninModule | null {
+  if (googleNative !== undefined) return googleNative;
+  const hasModule = !!(TurboModuleRegistry.get("RNGoogleSignin") ?? NativeModules.RNGoogleSignin);
+  const hasIds = !!GOOGLE_WEB_CLIENT_ID && (Platform.OS !== "ios" || !!GOOGLE_IOS_CLIENT_ID);
+  if (!hasModule || !hasIds) return (googleNative = null);
+  // Loaded only now: the package throws on import in a build without it.
+  const mod = require("@react-native-google-signin/google-signin") as GoogleSigninModule;
+  mod.GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID, iosClientId: GOOGLE_IOS_CLIENT_ID });
+  return (googleNative = mod);
+}
+
+async function signInWithGoogleNative(google: GoogleSigninModule, onApproved?: () => void) {
+  const { GoogleSignin, isSuccessResponse, isErrorWithCode, statusCodes } = google;
+  try {
+    if (Platform.OS === "android") await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const response = await GoogleSignin.signIn();
+    if (!isSuccessResponse(response)) return null; // closed the picker
+    const idToken = response.data.idToken;
+    if (!idToken) throw new Error("Google sign-in returned no ID token");
+    onApproved?.();
+    const { data, error } = await supabase.auth.signInWithIdToken({ provider: "google", token: idToken });
+    if (error) throw error;
+    return data.session;
+  } catch (err) {
+    if (isErrorWithCode(err) && (err.code === statusCodes.SIGN_IN_CANCELLED || err.code === statusCodes.IN_PROGRESS)) return null;
+    throw err;
+  }
+}
+
 /** `onApproved` fires once the provider's sheet says yes, before the
  *  session is set up (the app shows its "signing you in" screen then). */
 export async function signInWithGoogle(onApproved?: () => void) {
+  const google = nativeGoogle();
+  if (google) return signInWithGoogleNative(google, onApproved);
+
+  // Fallback: the browser flow (Expo Go, older builds, client IDs not set).
   const redirectTo = makeRedirectUri();
 
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -205,6 +254,8 @@ export function signIn(provider: SignInProvider, onApproved?: () => void) {
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
+  // Forget the Google account picked, so the next sign-in asks again.
+  await nativeGoogle()?.GoogleSignin.signOut().catch(() => {});
 }
 
 // Permanently deletes the signed-in user's account and their recipes (see
