@@ -41,6 +41,25 @@ Notifications?.setNotificationHandler({
   }),
 });
 
+// Android: pushes need a notification channel, and on Android 13+ the
+// permission prompt only appears once one exists. The database sends every
+// push with channelId "default" (send_expo_push), so this is the channel
+// people see in the app's notification settings.
+let channelReady = false;
+async function ensureAndroidChannel() {
+  if (Platform.OS !== "android" || !Notifications || channelReady) return;
+  try {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "Notifications",
+      importance: Notifications.AndroidImportance.DEFAULT,
+      lightColor: "#09773E",
+    });
+    channelReady = true;
+  } catch (err) {
+    if (__DEV__) console.warn("[push] creating the Android channel failed:", err);
+  }
+}
+
 const projectId: string | undefined = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
 
 function toPermission(settings: Awaited<ReturnType<NotificationsModule["getPermissionsAsync"]>>): PushPermission {
@@ -88,6 +107,7 @@ async function saveToken() {
  *  once), then saves this phone's token. True when banners are allowed. */
 export async function enablePush(): Promise<boolean> {
   if (!Notifications) return false;
+  await ensureAndroidChannel();
   let permission = await getPushPermission();
   if (permission === "undetermined" || permission === "quiet") {
     permission = toPermission(
@@ -104,6 +124,7 @@ export async function enablePush(): Promise<boolean> {
  *  whoever is signed in now). Never shows a prompt. */
 export async function syncPushToken() {
   if (!Notifications) return;
+  await ensureAndroidChannel();
   let permission = await getPushPermission();
   if (permission === "undetermined" && Platform.OS === "ios") {
     permission = toPermission(

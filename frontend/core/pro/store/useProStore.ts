@@ -41,7 +41,15 @@ export type ProSubscription = {
 /** The RevenueCat entitlement both plans unlock (its identifier, set when
  *  the RevenueCat project was created; identifiers can't be renamed). */
 const ENTITLEMENT = "anoulam_pro";
-const API_KEY = Platform.OS === "ios" ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY : undefined;
+// One RevenueCat public key per store. Android's stays unset until Google
+// Play subscriptions are connected in RevenueCat; until then Android runs
+// without a key, the same as Expo Go.
+const API_KEY =
+  Platform.OS === "ios"
+    ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY
+    : Platform.OS === "android"
+      ? process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY
+      : undefined;
 
 type ProStore = {
   /** The running subscription (trial, active or cancelled-but-running). */
