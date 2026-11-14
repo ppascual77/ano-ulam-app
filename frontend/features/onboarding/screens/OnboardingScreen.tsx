@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   View,
+  Pressable,
   ScrollView,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -8,6 +9,7 @@ import {
   type ViewInstance,
 } from "react-native";
 import { router } from "expo-router";
+import { Text } from "@/frontend/components/ui/Text";
 import * as Haptics from "expo-haptics";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CarouselIndicator } from "@/frontend/components/ui";
@@ -95,13 +97,25 @@ function renderSlide(slide: OnboardingSlideData, width: number, callbacks: Slide
   }
 }
 
-export default function OnboardingScreen() {
+// The "how it works" slides only: Settings' tour (no preferences or
+// sign-in, which Settings already covers and replaying could overwrite).
+const tourSlides = onboardingSlides.filter((s) => s.type === "content");
+
+type OnboardingScreenProps = {
+  /** Settings' "How AnoUlam works": the content slides only, with Skip
+   *  (Done on the last slide) to go back. Doesn't mark onboarding done or
+   *  save anything. */
+  tour?: boolean;
+};
+
+export default function OnboardingScreen({ tour = false }: OnboardingScreenProps) {
+  const slides = tour ? tourSlides : onboardingSlides;
   const { width } = useWindowDimensions();
   const topBlobRef = useRef<RotatingBlobHandle>(null);
   const bottomBlobRef = useRef<RotatingBlobHandle>(null);
   const indicatorDotRef = useRef<ViewInstance>(null);
   const [index, setIndex] = useState(0);
-  const isLast = index === onboardingSlides.length - 1;
+  const isLast = index === slides.length - 1;
 
   const [goals, setGoals] = useState<Set<string>>(() => new Set(defaultGoals));
   const [groupSelections, setGroupSelections] = useState<Record<string, string[]>>({});
@@ -235,6 +249,17 @@ export default function OnboardingScreen() {
         />
       </View>
       <SafeAreaView edges={["top", "bottom"]} style={{ flex: 1 }}>
+        {/* The tour from Settings can be left anytime: Skip, then Done on
+            the last slide. */}
+        {tour && (
+          <View className="flex-row justify-end px-6 pt-2">
+            <Pressable onPress={() => router.back()} accessibilityRole="button" hitSlop={12} className="py-1 active:opacity-60">
+              <Text className={`font-inter-semibold text-body ${isLast ? "text-primary" : "text-ink-subtle"}`}>
+                {isLast ? "Done" : "Skip"}
+              </Text>
+            </Pressable>
+          </View>
+        )}
         <ScrollView
           horizontal
           pagingEnabled
@@ -246,7 +271,7 @@ export default function OnboardingScreen() {
           className="flex-1"
           contentContainerStyle={{ flexGrow: 1 }}
         >
-          {onboardingSlides.map((slide) =>
+          {slides.map((slide) =>
             renderSlide(slide, width, {
               goals,
               onToggleGoal: toggleGoal,
@@ -270,7 +295,7 @@ export default function OnboardingScreen() {
           <CarouselIndicator
             variant="hop"
             hopRest="pill"
-            total={onboardingSlides.length}
+            total={slides.length}
             activeIndex={index}
             hopMarkerRef={indicatorDotRef}
             hopMarkerHidden={arriving}

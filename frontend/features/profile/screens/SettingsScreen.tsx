@@ -67,7 +67,8 @@ const SCROLL_TO_SECTION_DELAY_MS = 300;
 // /profile/settings, from the gear on your profile: your account and plan,
 // Pro (the pitch and your free limits, or your plan), meal preferences, Pro
 // features, notifications, app, privacy, About (legal links, feedback,
-// version), and Log out with Delete account at the very end.
+// version), and Log out with Delete account at the very end. About also
+// opens the app tour (onboarding's slides again, with Skip).
 type ProSettingKey = "avoid" | "goals";
 
 const listNames = (names: string[]) =>
@@ -474,6 +475,7 @@ export default function SettingsScreen() {
 
           <Animated.View entering={enter(8)}>
           <SettingsSection title="About">
+            <LinkRow label="How AnoUlam works" value="Take the quick tour again" onPress={() => router.push("/onboarding-tour")} />
             <LinkRow label="Send feedback" onPress={sendFeedback} />
             <LinkRow label="Privacy Policy" onPress={() => router.push("/privacy")} />
             <LinkRow label="Terms of Service" onPress={() => router.push("/terms")} />
