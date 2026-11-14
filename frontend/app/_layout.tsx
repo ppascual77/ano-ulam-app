@@ -28,6 +28,7 @@ import { useAuthStore } from "@/frontend/features/auth/store/useAuthStore";
 import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { useOnboardingStore } from "@/frontend/core/preferences/store/useOnboardingStore";
+import { adoptGuestPreferences, forgetSessionPreferences, loadGuestPreferences } from "@/frontend/core/preferences/hooks/usePreferences";
 import { DotHandoffOverlay, GlobalToast } from "@/frontend/components/ui";
 import { AuthActivityOverlay } from "@/frontend/features/auth/components/AuthActivityOverlay";
 import { GlobalLoginGate, PendingSaveReplay } from "@/frontend/features/auth/components/GlobalLoginGate";
@@ -86,6 +87,8 @@ export default function RootLayout() {
     void loadSeenIntros();
     void loadSaveFeedback();
     void loadPro();
+    // A guest's preferences (onboarding picks), kept on the phone.
+    void loadGuestPreferences();
   }, [loadReduceMotion, loadSurpriseMe, loadSeenIntros, loadSaveFeedback, loadPro]);
 
   const authLoading = useAuthStore((s) => s.loading);
@@ -96,6 +99,13 @@ export default function RootLayout() {
   useEffect(() => {
     if (!authLoading) void syncSeenIntros(sessionUserId);
   }, [authLoading, sessionUserId, syncSeenIntros]);
+  // Signing in: a guest's preferences go to the account if it has none yet.
+  // Signing out: back to the guest's own (or the defaults).
+  useEffect(() => {
+    if (authLoading) return;
+    if (sessionUserId) void adoptGuestPreferences(sessionUserId);
+    else forgetSessionPreferences();
+  }, [authLoading, sessionUserId]);
   // Pro follows the account the same way (RevenueCat logs in as the user).
   const setProUser = useProStore((s) => s.setUser);
   useEffect(() => {

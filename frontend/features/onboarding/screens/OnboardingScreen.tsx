@@ -27,6 +27,7 @@ import { type SignInProvider, useSignIn } from "@/frontend/features/auth/hooks/u
 import { useAuthActivityStore } from "@/frontend/features/auth/store/useAuthActivityStore";
 import { useUpdateUserProfile } from "@/frontend/features/auth/hooks/useUserProfile";
 import { useOnboardingStore } from "@/frontend/core/preferences/store/useOnboardingStore";
+import { saveGuestOnboardingPicks } from "@/frontend/core/preferences/hooks/usePreferences";
 import { useTabBarStore } from "@/frontend/components/navigation/useTabBarStore";
 
 const preferencesSlide = onboardingSlides.find(
@@ -191,6 +192,17 @@ export default function OnboardingScreen({ tour = false }: OnboardingScreenProps
     });
   };
 
+  // "Continue without an account": the picks are kept on the phone for the
+  // guest (and go to the account if they sign in later, see usePreferences).
+  const continueAsGuest = () => {
+    saveGuestOnboardingPicks({
+      dietary_focus: groupSelections["dietary-focus"]?.[0] ?? "none",
+      allergens: groupSelections["allergens"] ?? [],
+      goals: Array.from(goals),
+    });
+    goHome();
+  };
+
   const handleSignIn = async (provider: SignInProvider) => {
     try {
       const session = await signIn.mutateAsync(provider);
@@ -270,7 +282,7 @@ export default function OnboardingScreen({ tour = false }: OnboardingScreenProps
               groupSelections,
               onGroupChange: handleGroupChange,
               onSignIn: handleSignIn,
-              onContinueWithoutAccount: goHome,
+              onContinueWithoutAccount: continueAsGuest,
               isSigningIn: signIn.isPending,
               accountActive: isLast,
               onOpenNumbers: () => setNumbersOpen(true),
