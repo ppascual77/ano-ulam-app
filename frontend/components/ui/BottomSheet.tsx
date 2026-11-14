@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, View, useWindowDimensions } from "react-native";
+import { Dimensions, Modal, Pressable, ScrollView, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -83,7 +83,12 @@ export function BottomSheet({
 }: BottomSheetProps) {
   const { height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const sheetHeight = fullScreen ? screenHeight : screenHeight * heightPercent;
+  // A full-screen sheet fills its Modal (flex: 1) instead of taking the
+  // window's height: on Android the window leaves out the status (and
+  // navigation) bar while the translucent Modal covers the whole screen, so
+  // a window-tall sheet stopped short and left a gap at the top. It slides
+  // by the full screen height, so nothing peeks in while it opens/closes.
+  const sheetHeight = fullScreen ? Math.max(screenHeight, Dimensions.get("screen").height) : screenHeight * heightPercent;
   // The panel's actual rendered height. Equal to sheetHeight for a fixed
   // sheet; smaller for a fitContent sheet with little content. Used for the
   // drag-to-dismiss threshold, so a short sheet doesn't need to be dragged
@@ -153,7 +158,7 @@ export function BottomSheet({
       <Animated.View
         // Sliding out by the full max height hides a shorter fitContent
         // panel just the same, so the open/close animation needs no change.
-        style={[fitContent ? { maxHeight: sheetHeight } : { height: sheetHeight }, sheetStyle]}
+        style={[fullScreen ? { flex: 1 } : fitContent ? { maxHeight: sheetHeight } : { height: sheetHeight }, sheetStyle]}
         onLayout={(e) => {
           panelHeight.value = e.nativeEvent.layout.height;
         }}
