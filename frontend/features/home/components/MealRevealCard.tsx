@@ -159,7 +159,7 @@ export function MealRevealCard({ meal, onLanded, onViewDetails, onDismiss, overl
   const face = { width: cardWidth, height: cardHeight };
 
   return (
-    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onDismiss}>
+    <Modal visible transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={onDismiss}>
       {/* Full-screen orange sunburst with slowly turning rays (fades in with
           the card). Tapping anywhere off the card still dismisses.
           Positioned with a plain style, NOT a className: NativeWind re-applies

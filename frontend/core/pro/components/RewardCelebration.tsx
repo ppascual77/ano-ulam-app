@@ -211,7 +211,7 @@ export function RewardCelebration() {
   };
 
   return (
-    <Modal visible={!!showing} transparent animationType="none" statusBarTranslucent onRequestClose={done}>
+    <Modal visible={!!showing} transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={done}>
       {showing && (
         <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(180)} className="flex-1 items-center justify-center bg-ink-emphasis/40 px-8">
           <CelebrationCard reward={showing} earnedUntil={earnedUntil} onDone={done} />

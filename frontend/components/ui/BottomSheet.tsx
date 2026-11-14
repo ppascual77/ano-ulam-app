@@ -206,7 +206,7 @@ export function BottomSheet({
   if (presentation === "inline") return sheet;
 
   return (
-    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
+    <Modal visible transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
       {sheet}
     </Modal>
   );

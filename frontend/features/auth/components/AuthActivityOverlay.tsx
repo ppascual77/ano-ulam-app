@@ -40,7 +40,7 @@ export function AuthActivityOverlay() {
   }, [activity]);
 
   return (
-    <Modal visible={!!activity || settling} transparent animationType="fade" statusBarTranslucent>
+    <Modal visible={!!activity || settling} transparent animationType="fade" statusBarTranslucent navigationBarTranslucent>
       <View className="flex-1 items-center justify-center gap-5 bg-white" accessibilityLiveRegion="polite">
         <Spinner variant="spiral" size={SPIRAL_SIZE} color={colors.accent} />
         <AppText variant="caption">{label}</AppText>
