@@ -50,8 +50,9 @@ import { usePushPermission } from "@/frontend/core/notifications/hooks/usePushPe
 const LOG_OUT_DELAY_MS = 2000;
 const SUPPORT_EMAIL = "anoulam.app@gmail.com";
 const APP_VERSION = Constants.expoConfig?.version ?? "dev";
-// "1.0.0 (12)", plus the OTA update's short id when one is running instead
-// of the JS shipped in the binary, so a bug report says exactly what code it is.
+// For the feedback email only (Settings shows just APP_VERSION): "1.0.0 (12)",
+// plus the OTA update's short id when one is running instead of the JS shipped
+// in the binary, so a bug report says exactly what code it came from.
 const BUILD_NUMBER = Application.nativeBuildVersion;
 const OTA_UPDATE_ID = !Updates.isEmbeddedLaunch && Updates.updateId ? Updates.updateId.slice(0, 8) : null;
 const VERSION_LABEL = [`${APP_VERSION}${BUILD_NUMBER ? ` (${BUILD_NUMBER})` : ""}`, OTA_UPDATE_ID && `update ${OTA_UPDATE_ID}`]
@@ -502,7 +503,7 @@ export default function SettingsScreen() {
             <LinkRow label="Send feedback" onPress={sendFeedback} />
             <LinkRow label="Privacy Policy" onPress={openPrivacyPolicy} />
             <LinkRow label="Terms of Service" onPress={openTerms} />
-            <Text className="font-inter-regular text-body text-ink-subtle">Version {VERSION_LABEL}</Text>
+            <Text className="font-inter-regular text-body text-ink-subtle">Version {APP_VERSION}</Text>
           </SettingsSection>
           </Animated.View>
 
