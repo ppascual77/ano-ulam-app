@@ -7,6 +7,7 @@ import { create } from "zustand";
 import { isModalSheetOpen, showGlobalToast } from "@/frontend/components/ui";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
+import { openGroceryList, onGroceryListOpened } from "@/frontend/core/grocery/store/useGrocerySheetStore";
 import { savedKeyOf } from "../types";
 
 // What a save looks like from anywhere in the app, so people learn where
@@ -17,10 +18,15 @@ import { savedKeyOf } from "../types";
 //   3. a "Saved to your Profile" toast, only while it's still being learned
 //      (first HINT_LIMIT saves, or until the Saved tab is opened), or
 //      whenever the flight can't play (nav covered, no tap, Reduce motion)
+//   4. before that one, for a meal that feeds the grocery list (home-cooked,
+//      with ingredients): "Ingredients added to your grocery list" with
+//      "View list", the first GROCERY_HINT_LIMIT times or until the list is
+//      opened (Home's cart button does the rest)
 // Unsaving gets an Undo toast; the saved-meals limit opens SaveLimitSheet.
 
 const STORAGE_KEY = "anoulam.saveFeedback";
 const HINT_LIMIT = 3;
+const GROCERY_HINT_LIMIT = 3;
 // A tap older than this didn't start the save (e.g. a guest's save replayed
 // after signing in), so there's nothing to fly from.
 const TOUCH_FRESH_MS = 1000;
@@ -28,7 +34,7 @@ const TOUCH_FRESH_MS = 1000;
 type Point = { x: number; y: number };
 export type SaveFlight = { id: number; from: Point; to: Point; image: ImageProps["source"] };
 
-type Persisted = { unseen: boolean; hintsShown: number; learned: boolean };
+type Persisted = { unseen: boolean; hintsShown: number; learned: boolean; groceryHints: number; groceryLearned: boolean };
 
 type SaveFeedbackState = Persisted & {
   /** Key of the meal saved last, for the Saved tab's one-time pulse. */
@@ -47,6 +53,8 @@ export const useSaveFeedbackStore = create<SaveFeedbackState>((set) => ({
   unseen: false,
   hintsShown: 0,
   learned: false,
+  groceryHints: 0,
+  groceryLearned: false,
   lastSavedKey: null,
   flight: null,
   landed: 0,
@@ -64,9 +72,14 @@ export const useSaveFeedbackStore = create<SaveFeedbackState>((set) => ({
 
 function update(patch: Partial<Persisted>) {
   useSaveFeedbackStore.setState(patch);
-  const { unseen, hintsShown, learned } = useSaveFeedbackStore.getState();
-  AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ unseen, hintsShown, learned })).catch(() => {});
+  const { unseen, hintsShown, learned, groceryHints, groceryLearned } = useSaveFeedbackStore.getState();
+  AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ unseen, hintsShown, learned, groceryHints, groceryLearned })).catch(() => {});
 }
+
+// Opening the grocery list (from anywhere) means it's been found.
+onGroceryListOpened(() => {
+  if (!useSaveFeedbackStore.getState().groceryLearned) update({ groceryLearned: true });
+});
 
 // ---- where the flight starts and lands --------------------------------------
 
@@ -120,12 +133,23 @@ function hintToast(meal: MealType) {
   });
 }
 
+function groceryToast(meal: MealType) {
+  showGlobalToast({
+    message: "Ingredients added to your grocery list",
+    tone: "success",
+    image: resolveMealImage(meal),
+    action: { label: "View list", onPress: openGroceryList },
+  });
+}
+
 // ---- the events ---------------------------------------------------------------
 
 export async function announceSaved(meal: MealType) {
   const state = useSaveFeedbackStore.getState();
   useSaveFeedbackStore.setState({ lastSavedKey: savedKeyOf(meal) });
   const learning = !state.learned && state.hintsShown < HINT_LIMIT;
+  const feedsGrocery = meal.category !== "fast_food" && (meal.ingredients?.length ?? 0) > 0;
+  const groceryLearning = feedsGrocery && !state.groceryLearned && state.groceryHints < GROCERY_HINT_LIMIT;
   const touch = lastTouch && Date.now() - lastTouch.at < TOUCH_FRESH_MS ? lastTouch : null;
   lastTouch = null;
 
@@ -139,7 +163,12 @@ export async function announceSaved(meal: MealType) {
     update({ unseen: true });
   }
 
-  if (learning) {
+  // One toast per save: the grocery hint first (the flight and the dot
+  // still show where the meal went).
+  if (groceryLearning) {
+    update({ groceryHints: state.groceryHints + 1 });
+    groceryToast(meal);
+  } else if (learning) {
     update({ hintsShown: state.hintsShown + 1 });
     hintToast(meal);
   } else if (!to) {

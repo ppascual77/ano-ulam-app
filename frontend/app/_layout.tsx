@@ -38,6 +38,7 @@ import { PushTapRouter } from "@/frontend/core/notifications/components/PushTapR
 import { identifyUser, resetUser, track } from "@/frontend/core/analytics/analytics";
 import { SaveLimitSheet } from "@/frontend/core/saved/components/SaveLimitSheet";
 import { SaveFeedbackLayer } from "@/frontend/core/saved/components/SaveFeedbackLayer";
+import { GroceryListSheetHost } from "@/frontend/core/grocery/components/GroceryListSheetHost";
 import { noteTouch, useSaveFeedbackStore } from "@/frontend/core/saved/store/useSaveFeedbackStore";
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
@@ -218,6 +219,8 @@ export default function RootLayout() {
               <GlobalLoginGate />
               {/* A free account saving past the cap: the Pro pitch. */}
               <SaveLimitSheet />
+              {/* The grocery list, from Home's cart or a save toast. */}
+              <GroceryListSheetHost />
               <PendingSaveReplay />
               {/* A Pro reward landing (first photo post, first approved recipe). */}
               <RewardCelebration />

@@ -129,7 +129,6 @@ function ingredientWeekChange(ingredient: IngredientType, changes: Map<string, D
 }
 
 function IngredientRow({ ingredient, onPress: onPressProp, dropPct, have }: IngredientRowProps) {
-  const isMain = ingredient.type === "main";
   const isWater = PLAIN_WATER.test(ingredient.name.trim());
   const onPress = isWater ? undefined : onPressProp;
 
@@ -146,21 +145,15 @@ function IngredientRow({ ingredient, onPress: onPressProp, dropPct, have }: Ingr
             {capitalize(ingredient.name)}
             <Text className="font-inter-light text-small text-ink-subtle">{`  (${ingredient.qty})`}</Text>
           </Text>
-          {/* Main / Staple chip under the name, sized to its label; from
-              Pantry results, whether you have it beside it. */}
-          <View className="flex-row flex-wrap gap-1.5">
-            <View className={`self-start rounded-full px-2 py-1 ${isMain ? "bg-primary/10" : "bg-ink-emphasis/5"}`}>
-              <Text className={`font-inter-semibold text-sub ${isMain ? "text-primary" : "text-ink-subtle"}`}>
-                {isMain ? "Main" : "Staple"}
-              </Text>
+          {/* From Pantry results: whether you have it. (No Main / Staple
+              chip: every ingredient counts toward price and nutrition, so
+              the split told the reader nothing.) */}
+          {have != null && !isWater && (
+            <View className={`flex-row items-center gap-1 self-start rounded-full px-2 py-1 ${have ? "bg-primary" : "bg-accent/10"}`}>
+              {have ? <Check color={colors.white} size={11} strokeWidth={3} /> : null}
+              <Text className={`font-inter-bold text-sub ${have ? "text-white" : "text-accent"}`}>{have ? "You have it" : "To buy"}</Text>
             </View>
-            {have != null && !isWater && (
-              <View className={`flex-row items-center gap-1 self-start rounded-full px-2 py-1 ${have ? "bg-primary" : "bg-accent/10"}`}>
-                {have ? <Check color={colors.white} size={11} strokeWidth={3} /> : null}
-                <Text className={`font-inter-bold text-sub ${have ? "text-white" : "text-accent"}`}>{have ? "You have it" : "To buy"}</Text>
-              </View>
-            )}
-          </View>
+          )}
         </View>
       </View>
 

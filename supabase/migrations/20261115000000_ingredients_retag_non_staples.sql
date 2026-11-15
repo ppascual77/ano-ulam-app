@@ -1,0 +1,258 @@
+-- Retag ingredients that aren't pantry staples from role 'pantry' to 'main'.
+--
+-- role = 'pantry' means "most kitchens already have this" (salt, cooking
+-- oil, soy sauce): the grocery list files it under "Pantry staples" (not
+-- counted, no checkbox) and By Pantry tolerates it missing for "Cook now".
+-- The seed batches used it more loosely, as "shelf-stable / pantry aisle",
+-- so dairy, noodles, beans, canned goods, fresh herbs and specialty items
+-- were hidden among the staples instead of being on the shopping run.
+--
+-- Kept as staples: rice, butter/margarine, garlic, onion, dried spices,
+-- everyday vinegars, soy sauce, patis, ketchup, oyster sauce, mayonnaise,
+-- bouillon cubes and seasoning mixes, neutral cooking oils, baking basics
+-- (all-purpose flour, cornstarch, baking powder/soda, white/brown sugar),
+-- salt, pepper, cooking oil, bay leaf, water.
+--
+-- Covers the seed batches plus ingredients added since (checked against
+-- the live table on 2026-11-15). Last, every ingredient still without a
+-- role gets one.
+--
+-- Data only. Matches on canonical_name, and only rows still 'pantry' (or
+-- null), so a role an admin already changed is left alone and re-running
+-- is harmless. Price and nutrition are unaffected (every ingredient is
+-- costed); what changes is the grocery list's To buy / staples split and
+-- totals, By Pantry's "Cook now", and ingredient order in meal details.
+
+update public.ingredients
+set role = 'main'
+where role = 'pantry'
+  and canonical_name in (
+    -- beef
+    'Corned beef, canned',
+    -- fish seafood
+    'Tuna, canned in oil',
+    'Tuna, canned in water',
+    'Sardines, canned in tomato sauce',
+    -- eggs dairy
+    'Fresh milk, whole',
+    'Evaporated milk, canned',
+    'Condensed milk, sweetened, canned',
+    'Powdered milk, full cream',
+    'Cheddar cheese',
+    'Quickmelt cheese',
+    'All-purpose cream',
+    'Yogurt, plain',
+    'Yogurt, Greek, plain',
+    -- rice grains noodles
+    'Brown rice, raw',
+    'Brown rice, cooked',
+    'Glutinous rice, raw',
+    'Glutinous rice, cooked',
+    'Fried rice, sinangag',
+    'Corn kernels, raw',
+    'Corn grits, raw',
+    'Rolled oats, raw',
+    'Oatmeal, cooked',
+    'Rice noodles, dried',
+    'Rice noodles, cooked',
+    'Egg noodles, dried',
+    'Egg noodles, cooked',
+    'Glass noodles, dried',
+    'Glass noodles, cooked',
+    'Spaghetti, dried',
+    'Spaghetti, cooked',
+    'Macaroni, dried',
+    'Macaroni, cooked',
+    'Instant noodles, dried',
+    'Pandesal',
+    'White bread, sliced',
+    'Rice flour',
+    -- legumes
+    'Mung beans, dried',
+    'Mung beans, cooked',
+    'Kidney beans, dried',
+    'Kidney beans, cooked',
+    'White beans, dried',
+    'White beans, cooked',
+    'Black beans, dried',
+    'Black beans, cooked',
+    'Garbanzo beans, dried',
+    'Garbanzo beans, cooked',
+    'Soybeans, dried',
+    'Soybeans, cooked',
+    'Peanuts, raw',
+    'Peanuts, roasted',
+    'Lentils, dried',
+    'Lentils, cooked',
+    'Pigeon peas, dried',
+    'Peanut butter',
+    -- fruits
+    'Mango, dried',
+    'Pineapple, canned',
+    'Peach, canned',
+    'Fruit cocktail, canned',
+    'Raisins',
+    'Nata de coco',
+    -- aromatics herbs spices
+    'Garlic, fried',
+    'Onion, spring, raw',
+    'Shallots, raw',
+    'Shallots, fried',
+    'Turmeric, raw',
+    'Galangal, raw',
+    'Lemongrass, raw',
+    'Basil, raw',
+    'Cilantro, raw',
+    'Parsley, raw',
+    'Mint, raw',
+    'Pandan leaves, raw',
+    'Dill, raw',
+    'Ginger, raw',
+    -- condiments sauces vinegars
+    'Vinegar, apple cider',
+    'Vinegar, balsamic',
+    'Vinegar, rice',
+    'Soy sauce, dark',
+    'Shrimp paste, raw',
+    'Shrimp paste, sauteed',
+    'Fermented fish paste',
+    'Atchara',
+    'Tomato sauce',
+    'Tomato paste',
+    'Hoisin sauce',
+    'Worcestershire sauce',
+    'Mustard, prepared',
+    'Mustard, dijon',
+    'Barbecue sauce',
+    'Sweet chili sauce',
+    'Sriracha',
+    'Liver sauce',
+    'Gravy, brown',
+    'Gravy, chicken',
+    'Peanut sauce',
+    'Coconut milk, canned',
+    'Coconut cream, canned',
+    'Chili garlic sauce',
+    'Chili oil',
+    'Salted black beans',
+    'Miso paste',
+    'Honey',
+    'Relish, sweet pickle',
+    'Salted egg sauce',
+    'Cheese sauce',
+    'Toyomansi',
+    'Ranch dressing',
+    'Thousand island dressing',
+    'Calamansi juice, bottled',
+    'Adobo sauce, bottled',
+    'Sinigang mix, powdered',
+    'Sweet and sour sauce',
+    'Teriyaki sauce',
+    -- oils fats
+    'Olive oil',
+    'Olive oil, extra virgin',
+    'Sesame oil',
+    'Peanut oil',
+    'Lard',
+    'Shortening, vegetable',
+    'Ghee',
+    'Annatto oil',
+    'Garlic oil',
+    'Chicken fat, rendered',
+    -- baking and packaged goods
+    'Bread flour',
+    'Cake flour',
+    'Yeast, active dry',
+    'Gelatin, powdered',
+    'Cocoa powder',
+    'Chocolate, dark, baking',
+    'Vanilla extract',
+    'Food coloring',
+    'Sugar, muscovado',
+    'Sugar, powdered',
+    'Corn syrup',
+    'Molasses',
+    'Canned mushrooms',
+    'Canned green peas',
+    'Canned corn kernels',
+    'Canned luncheon meat',
+    'Vienna sausage, canned',
+    'Meatloaf, canned',
+    'Canned tomatoes, whole',
+    'Crackers, saltine',
+    'Biscuits, Marie',
+    'Crackers, graham',
+    'Bread crumbs',
+    'Cornflakes',
+    'Instant coffee',
+    'Instant chocolate drink mix',
+    'Powdered juice drink mix',
+    'Gravy mix, powdered',
+    'Pancake mix, powdered',
+    'Cake mix, powdered',
+    'Cooking wine, Chinese',
+    'Tapioca pearls',
+    'Gulaman powder',
+    'Cassava flour',
+    -- filipino specialty
+    'Lumpia wrapper',
+    'Siomai wrapper',
+    'Banana leaves',
+    'Carabao milk, raw',
+    'Kesong puti',
+    'Macapuno',
+    'Ube halaya',
+    'Pinipig',
+    'Puto',
+    'Bibingka',
+    'Kutsinta',
+    'Suman',
+    'Sapin-sapin',
+    'Palitaw',
+    'Polvoron',
+    'Pastillas',
+    'Yema',
+    'Peanut brittle',
+    'Taba ng talangka',
+    'Buro',
+    'Palapa',
+    'Fish crackers',
+    'Ampalaya chips',
+    'Pili nuts',
+    'Malagkit flour',
+    -- added after the seed batches (from the live table)
+    'Breadcrumbs',
+    'calamansi juice',
+    'Carnation Everyday Creamer',
+    'Cheese spread',
+    'chicken broth',
+    'Leeks, raw',
+    'Lily buds, dried',
+    'Liver spread, canned',
+    'low-sodium beef broth',
+    'Mackerel, canned',
+    'Pancake mix',
+    'Parmesan cheese (grated)',
+    'Pork and beans, canned',
+    'White wheat bread'
+  );
+
+-- Ingredients that never got a role (added through Seed Meal / AI fill-in
+-- without one). The app already treats a missing role as main; this makes
+-- it explicit. Seasonings first, as staples:
+update public.ingredients
+set role = 'pantry'
+where role is null
+  and canonical_name in (
+    'Annatto powder',
+    'dried safflower petals',
+    'Liquid seasoning, soy-based',
+    'Pork broth cubes'
+  );
+
+-- ...and everything else without a role is something you shop for.
+update public.ingredients
+set role = 'main'
+where role is null;
+
+-- Water stays 'pantry' on purpose: it should never land on a grocery list.
