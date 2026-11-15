@@ -5,7 +5,18 @@ import { StatusBar } from "expo-status-bar";
 import { canKeepAwake } from "../../nativeFeatures";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { Easing, FadeIn, FadeOut, SlideInDown, SlideOutDown, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  SlideOutDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+  type SharedValue,
+} from "react-native-reanimated";
 import { ChevronLeft, ChevronRight, ChevronUp, ShoppingBasket, X } from "lucide-react-native";
 import { AppText, BottomSheet, Button, DotLabel } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -29,22 +40,114 @@ function ProgressSegment({ filled }: { filled: boolean }) {
   );
 }
 
-// A step's text with the words that name an ingredient softly highlighted.
-// Amounts live in the All ingredients list, not in the step. Nested Text,
-// so it wraps like the rest of the sentence.
-function StepText({ segments, className }: { segments: StepSegment[]; className: string }) {
+// A step's text with the words that name an ingredient highlighted. Amounts
+// live in the All ingredients list, not in the step. Each word is its own
+// piece (so a highlight can be drawn and animated behind it); words that run
+// together ("garlic,") stay one unit so they wrap together, and the space
+// inside a multi-word ingredient ("soy sauce") keeps the highlight going.
+type Piece = { text: string; highlighted: boolean };
+
+function toUnits(segments: StepSegment[]): Piece[][] {
+  const units: Piece[][] = [[]];
+  const add = (piece: Piece) => {
+    const unit = units[units.length - 1];
+    const prev = unit[unit.length - 1];
+    if (prev && prev.highlighted === piece.highlighted) prev.text += piece.text;
+    else unit.push({ ...piece });
+  };
+  for (const segment of segments) {
+    const parts = segment.text.split(/(\s+)/);
+    parts.forEach((part, k) => {
+      if (!part) return;
+      if (/^\s+$/.test(part)) {
+        // Between two words of the same ingredient: the highlight continues.
+        if (segment.keys && k > 0 && k < parts.length - 1) add({ text: " ", highlighted: true });
+        else add({ text: " ", highlighted: false });
+        units.push([]);
+      } else {
+        add({ text: part, highlighted: !!segment.keys });
+      }
+    });
+  }
+  return units.filter((unit) => unit.length > 0);
+}
+
+// Highlights sweep in from the right, all of a step's at once, on a smooth
+// ease-in-out bezier (no overshoot); with Reduce motion they fade in.
+const HIGHLIGHT_EASING = Easing.bezier(0.65, 0, 0.35, 1);
+const HIGHLIGHT_DURATION = 650;
+const HIGHLIGHT_DELAY = 150;
+
+function Highlight({ progress, reduceMotion }: { progress: SharedValue<number>; reduceMotion: boolean }) {
+  const style = useAnimatedStyle(() =>
+    reduceMotion ? { opacity: progress.value } : { transform: [{ scaleX: progress.value }] },
+  );
   return (
-    <Text className={className}>
-      {segments.map((s, i) =>
-        s.keys ? (
-          <Text key={i} className="bg-tinted-bg text-ink-emphasis">
-            {s.text}
-          </Text>
-        ) : (
-          s.text
-        ),
+    <Animated.View
+      pointerEvents="none"
+      className="absolute inset-x-0 inset-y-0.5 rounded-sm bg-tinted-bg"
+      style={[{ transformOrigin: "right" }, style]}
+    />
+  );
+}
+
+function StepText({
+  segments,
+  textClass,
+  progress,
+  reduceMotion,
+}: {
+  segments: StepSegment[];
+  textClass: string;
+  progress: SharedValue<number>;
+  reduceMotion: boolean;
+}) {
+  const units = toUnits(segments);
+  return (
+    <View className="mt-4 flex-row flex-wrap" accessible accessibilityLabel={segments.map((s) => s.text).join("")}>
+      {units.map((unit, u) => (
+        <View key={u} className="flex-row">
+          {unit.map((piece, p) =>
+            piece.highlighted ? (
+              <View key={p}>
+                <Highlight progress={progress} reduceMotion={reduceMotion} />
+                <Text className={`${textClass} text-ink-emphasis`}>{piece.text}</Text>
+              </View>
+            ) : (
+              <Text key={p} className={textClass}>
+                {piece.text}
+              </Text>
+            ),
+          )}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+type Page = { lead: StepSegment[]; detail: StepSegment[] | null };
+
+function StepPage({ page, number, active, width, reduceMotion }: { page: Page; number: number; active: boolean; width: number; reduceMotion: boolean }) {
+  // 0 -> 1 each time this step comes into view; back to 0 once it's left.
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    progress.value = active
+      ? withDelay(HIGHLIGHT_DELAY, withTiming(1, { duration: reduceMotion ? 250 : HIGHLIGHT_DURATION, easing: HIGHLIGHT_EASING }))
+      : 0;
+  }, [active, reduceMotion]);
+  return (
+    // Sits high rather than centered, so a short step doesn't float in empty
+    // space; scrolls if a long one at the largest text size runs past the
+    // footer.
+    <ScrollView style={{ width }} contentContainerClassName="px-7 pb-8 pt-10" showsVerticalScrollIndicator={false}>
+      <DotLabel>{`Step ${number}`}</DotLabel>
+      {/* The first sentence as the headline, read from arm's length; the
+          rest a size down. */}
+      <StepText segments={page.lead} textClass="font-inter-bold text-heading leading-8 text-ink-emphasis" progress={progress} reduceMotion={reduceMotion} />
+      {page.detail && (
+        <StepText segments={page.detail} textClass="font-inter-regular text-subheading leading-7 text-ink" progress={progress} reduceMotion={reduceMotion} />
       )}
-    </Text>
+    </ScrollView>
   );
 }
 
@@ -158,17 +261,9 @@ export function CookMode({ mealName, steps, ingredients, servings, onClose }: Co
         getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
         onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
         className="flex-1"
+        extraData={index}
         renderItem={({ item, index: i }) => (
-          // Sits high rather than centered, so a short step doesn't float
-          // in empty space; scrolls if a long one at the largest text size
-          // runs past the footer.
-          <ScrollView style={{ width }} contentContainerClassName="px-7 pb-8 pt-10" showsVerticalScrollIndicator={false}>
-            <DotLabel>{`Step ${i + 1}`}</DotLabel>
-            {/* The first sentence as the headline, read from arm's length;
-                the rest a size down. */}
-            <StepText segments={item.lead} className="mt-4 font-inter-bold text-heading leading-8 text-ink-emphasis" />
-            {item.detail && <StepText segments={item.detail} className="mt-4 font-inter-regular text-subheading leading-7 text-ink" />}
-          </ScrollView>
+          <StepPage page={item} number={i + 1} active={i === index} width={width} reduceMotion={reduceMotion} />
         )}
       />
 
