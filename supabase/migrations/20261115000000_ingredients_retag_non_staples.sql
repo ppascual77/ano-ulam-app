@@ -7,7 +7,7 @@
 -- so dairy, noodles, beans, canned goods, fresh herbs and specialty items
 -- were hidden among the staples instead of being on the shopping run.
 --
--- Kept as staples: rice, butter/margarine, garlic, onion, ginger, dried
+-- Kept as staples: rice, butter/margarine, garlic, onion, dried
 -- spices, everyday vinegars, soy sauce, patis, ketchup, oyster sauce,
 -- mayonnaise, bouillon cubes, neutral cooking oils, and baking basics
 -- (all-purpose flour, cornstarch, baking powder/soda, white/brown sugar),
@@ -215,5 +215,13 @@ where role = 'pantry'
     'Fish crackers',
     'Ampalaya chips',
     'Pili nuts',
-    'Malagkit flour'
+    'Malagkit flour',
+    -- fresh ginger (bought for the dish; ground ginger stays a staple)
+    'Ginger, raw',
+    -- added after the seed batches (from the live table)
+    'Breadcrumbs',
+    'calamansi juice',
+    'Carnation Everyday Creamer',
+    'Cheese spread',
+    'chicken broth'
   );
