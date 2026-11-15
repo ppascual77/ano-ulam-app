@@ -7,18 +7,19 @@
 -- so dairy, noodles, beans, canned goods, fresh herbs and specialty items
 -- were hidden among the staples instead of being on the shopping run.
 --
--- Kept as staples: rice, butter/margarine, garlic, onion, dried
--- spices, everyday vinegars, soy sauce, patis, ketchup, oyster sauce,
--- mayonnaise, bouillon cubes, neutral cooking oils, and baking basics
+-- Kept as staples: rice, butter/margarine, garlic, onion, dried spices,
+-- everyday vinegars, soy sauce, patis, ketchup, oyster sauce, mayonnaise,
+-- bouillon cubes and seasoning mixes, neutral cooking oils, baking basics
 -- (all-purpose flour, cornstarch, baking powder/soda, white/brown sugar),
--- plus everything in seed.sql (salt, pepper, cooking oil, bay leaf, ...).
+-- salt, pepper, cooking oil, bay leaf, water.
 --
--- Last, every ingredient still without a role gets one (see the end).
+-- Covers the seed batches plus ingredients added since (checked against
+-- the live table on 2026-11-15). Last, every ingredient still without a
+-- role gets one.
 --
--- Data only. Matches on canonical_name, and only rows still 'pantry', so a
--- role an admin already changed is left alone and re-running is harmless.
--- Ingredients added after the seed batches (Seed Meal, AI fill-in) aren't
--- covered here. Price and nutrition are unaffected (every ingredient is
+-- Data only. Matches on canonical_name, and only rows still 'pantry' (or
+-- null), so a role an admin already changed is left alone and re-running
+-- is harmless. Price and nutrition are unaffected (every ingredient is
 -- costed); what changes is the grocery list's To buy / staples split and
 -- totals, By Pantry's "Cook now", and ingredient order in meal details.
 
@@ -106,6 +107,7 @@ where role = 'pantry'
     'Mint, raw',
     'Pandan leaves, raw',
     'Dill, raw',
+    'Ginger, raw',
     -- condiments sauces vinegars
     'Vinegar, apple cider',
     'Vinegar, balsamic',
@@ -157,7 +159,7 @@ where role = 'pantry'
     'Annatto oil',
     'Garlic oil',
     'Chicken fat, rendered',
-    -- pantry staples
+    -- baking and packaged goods
     'Bread flour',
     'Cake flour',
     'Yeast, active dry',
@@ -218,8 +220,6 @@ where role = 'pantry'
     'Ampalaya chips',
     'Pili nuts',
     'Malagkit flour',
-    -- fresh ginger (bought for the dish; ground ginger stays a staple)
-    'Ginger, raw',
     -- added after the seed batches (from the live table)
     'Breadcrumbs',
     'calamansi juice',
