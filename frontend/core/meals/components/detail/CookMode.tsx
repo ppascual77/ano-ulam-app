@@ -83,10 +83,24 @@ function Highlight({ progress, reduceMotion }: { progress: SharedValue<number>; 
     reduceMotion ? { opacity: progress.value } : { transform: [{ scaleX: progress.value }] },
   );
   return (
+    // Position and color in style, not className: NativeWind classes don't
+    // reach an animated view's style here (theme.ts's tintedBg is for
+    // exactly this).
     <Animated.View
       pointerEvents="none"
-      className="absolute inset-x-0 inset-y-0.5 rounded-sm bg-tinted-bg"
-      style={[{ transformOrigin: "right" }, style]}
+      style={[
+        {
+          position: "absolute",
+          left: 0,
+          right: 0,
+          top: 2,
+          bottom: 2,
+          borderRadius: 2,
+          backgroundColor: colors.tintedBg,
+          transformOrigin: "right",
+        },
+        style,
+      ]}
     />
   );
 }
