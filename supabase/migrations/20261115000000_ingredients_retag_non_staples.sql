@@ -13,6 +13,8 @@
 -- (all-purpose flour, cornstarch, baking powder/soda, white/brown sugar),
 -- plus everything in seed.sql (salt, pepper, cooking oil, bay leaf, ...).
 --
+-- Last, every ingredient still without a role gets one (see the end).
+--
 -- Data only. Matches on canonical_name, and only rows still 'pantry', so a
 -- role an admin already changed is left alone and re-running is harmless.
 -- Ingredients added after the seed batches (Seed Meal, AI fill-in) aren't
@@ -223,5 +225,29 @@ where role = 'pantry'
     'calamansi juice',
     'Carnation Everyday Creamer',
     'Cheese spread',
-    'chicken broth'
+    'chicken broth',
+    'Leeks, raw',
+    'Lily buds, dried',
+    'Liver spread, canned',
+    'low-sodium beef broth',
+    'Mackerel, canned',
+    'Pancake mix',
+    'Parmesan cheese (grated)'
   );
+
+-- Ingredients that never got a role (added through Seed Meal / AI fill-in
+-- without one). The app already treats a missing role as main; this makes
+-- it explicit. Seasonings first, as staples:
+update public.ingredients
+set role = 'pantry'
+where role is null
+  and canonical_name in (
+    'Annatto powder',
+    'dried safflower petals',
+    'Liquid seasoning, soy-based'
+  );
+
+-- ...and everything else without a role is something you shop for.
+update public.ingredients
+set role = 'main'
+where role is null;
