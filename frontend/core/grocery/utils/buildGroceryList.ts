@@ -1,4 +1,4 @@
-import { formatCount } from "@/frontend/core/meals/utils/multiplyQty";
+import { formatCount, splitQty } from "@/frontend/core/meals/utils/multiplyQty";
 import { groceryName, grocerySection, type GrocerySectionKey } from "./groceryLabels";
 import type { IngredientType, MealType, PriceSourceType } from "@/frontend/core/meals/mealTypes";
 
@@ -61,15 +61,16 @@ function parseQty(ingredient: IngredientType): QtyPart {
   if (ingredient.count) {
     return { key: `count:${ingredient.count.label}`, amount: ingredient.count.amount, unit: ingredient.count.label };
   }
-  // "500 g", "1.5 kg", "2 cups, chopped": a number, then a unit word. Any
-  // prep notes after it are dropped (they don't matter at the store).
-  const match = ingredient.qty.trim().match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?/);
-  if (!match) return { key: `text:${ingredient.qty}`, text: ingredient.qty };
-  const amount = parseFloat(match[1]);
-  const rawUnit = (match[2] ?? "").toLowerCase();
-  const alias = UNIT_ALIASES[rawUnit];
+  // "500 g", "1.5 kg", "1/4 cup", "½ cup", "2 cups, chopped": an amount,
+  // then a unit word. Any prep notes after it are dropped (they don't
+  // matter at the store).
+  const split = splitQty(ingredient.qty);
+  if (!split) return { key: `text:${ingredient.qty}`, text: ingredient.qty };
+  const { amount } = split;
+  const unit = split.rest.trim().match(/^[a-zA-Z]+/)?.[0] ?? "";
+  const alias = UNIT_ALIASES[unit.toLowerCase()];
   if (alias) return { key: `unit:${alias.unit}`, amount: amount * alias.factor, unit: alias.unit };
-  return { key: `unit:${rawUnit}`, amount, unit: match[2] ?? "" };
+  return { key: `unit:${unit.toLowerCase()}`, amount, unit };
 }
 
 const round = (n: number) => (Number.isInteger(n) ? n : Math.round(n * 10) / 10);

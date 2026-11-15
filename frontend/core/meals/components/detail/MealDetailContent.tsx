@@ -69,6 +69,7 @@ import { RelatedMeals } from "./RelatedMeals";
 import { useLiveSaveCount } from "../../hooks/useLiveSaveCount";
 import { resolveMealImage } from "../../resolveMealImage";
 import { scaleIngredient } from "../../utils/scaleMeal";
+import { groupIngredients, PLAIN_WATER } from "../../utils/ingredientOrder";
 import { DIETARY_ICONS, capitalize } from "../../utils/dietary";
 import type { IngredientType, MealType } from "../../mealTypes";
 import { useDaWeekChanges, type DaWeekChange } from "@/frontend/core/prices/hooks/useDaWeekChanges";
@@ -99,33 +100,6 @@ const TITLE_HANDOFF = 48;
 // How far each slides during the handoff.
 const HANDOFF_SLIDE = 16;
 
-function orderIngredients(ingredients: IngredientType[]) {
-  const main = ingredients.filter((it) => it.type === "main");
-  const oils = ingredients.filter((it) => it.type === "pantry" && /oil/i.test(it.name));
-  const rest = ingredients.filter((it) => it.type === "pantry" && !/oil/i.test(it.name));
-  return [...main, ...oils, ...rest];
-}
-
-// Splits a recipe into its parts ("For the sauce", "For seasoning the
-// chicken"): the unlabeled main list first, then each section in the order
-// the recipe first lists it. Each group keeps orderIngredients' order.
-// A meal with no sections comes back as one unlabeled group, unchanged.
-function groupIngredients(ingredients: IngredientType[]) {
-  const groups: { section: string | null; items: IngredientType[] }[] = [];
-  for (const ingredient of ingredients) {
-    const section = ingredient.section?.trim() || null;
-    let group = groups.find((g) => g.section === section);
-    if (!group) {
-      group = { section, items: [] };
-      groups.push(group);
-    }
-    group.items.push(ingredient);
-  }
-  return groups
-    .sort((a, b) => Number(a.section !== null) - Number(b.section !== null))
-    .map((g) => ({ section: g.section, items: orderIngredients(g.items) }));
-}
-
 // Heading over a recipe section's ingredients ("For the sauce").
 function IngredientSectionLabel({ children }: { children: string }) {
   return <Text className="mt-3 font-inter-semibold text-body text-ink-subtle">{children}</Text>;
@@ -153,10 +127,6 @@ function ingredientWeekChange(ingredient: IngredientType, changes: Map<string, D
   });
   return pcts.length > 0 ? pcts.reduce((a, b) => a + b, 0) / pcts.length : undefined;
 }
-
-// Plain water ("Water", "hot water", "tubig", ...): free and nothing to look
-// up, so its row shows no price/N/A and isn't tappable. Not "coconut water".
-const PLAIN_WATER = /^((hot|cold|warm|boiling|tap|mainit na|malamig na)\s+)?(water|tubig)$/i;
 
 function IngredientRow({ ingredient, onPress: onPressProp, dropPct, have }: IngredientRowProps) {
   const isMain = ingredient.type === "main";
@@ -484,6 +454,8 @@ export function MealDetailContent({
   const weekChanges = useDaWeekChanges(daCommodityIds);
 
   const scale = servings / (meal.serving_size ?? 1);
+  // Cook mode's list, at the servings picked here.
+  const cookIngredients = useMemo(() => (meal.ingredients ?? []).map((it) => scaleIngredient(it, scale)), [meal.ingredients, scale]);
   const displayCalories = Math.round(meal.calories * scale);
   const displayProtein = Number((meal.protein * scale).toFixed(1));
   const displayCarbs = Number((meal.carbs * scale).toFixed(1));
@@ -1049,7 +1021,13 @@ export function MealDetailContent({
       )}
 
       {!preview && cooking && meal.procedure && meal.procedure.length > 0 && (
-        <CookMode mealName={meal.name} steps={meal.procedure} onClose={() => setCooking(false)} />
+        <CookMode
+          mealName={meal.name}
+          steps={meal.procedure}
+          ingredients={cookIngredients}
+          servings={servings}
+          onClose={() => setCooking(false)}
+        />
       )}
       {sharing && (
         <MealShareCapture
