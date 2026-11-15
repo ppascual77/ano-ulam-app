@@ -411,13 +411,15 @@ export function SourcesSection({ item }: { item: SourcesItem }) {
                 key={`${d.commodity}|${d.specification}`}
                 divided={priceRow++ > 0}
                 icon={<Store color={colors.ink.emphasis} size={ICON_SIZE} />}
-                // Where the price is from, as a shopper thinks of it; the
-                // Department of Agriculture is credited in the footnote.
-                title="Metro Manila markets"
+                // Where the price is from, as a shopper thinks of it, and
+                // whose data it is (also in the footnote).
+                title="Metro Manila wet markets"
                 subtitle={commodity}
                 extra={
                   <>
-                    <Text className="font-inter-regular text-small text-ink-subtle">Daily average · {daDate(d.date)}</Text>
+                    <Text className="font-inter-regular text-small text-ink-subtle">
+                      Dept. of Agriculture daily average · {daDate(d.date)}
+                    </Text>
                     {change && <DaWeekChangeLine change={change} pricePerUnit={d.pricePerUnit} />}
                   </>
                 }
