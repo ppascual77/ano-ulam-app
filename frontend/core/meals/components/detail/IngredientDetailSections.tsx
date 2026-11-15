@@ -379,7 +379,11 @@ export function SourcesSection({ item }: { item: SourcesItem }) {
     <SheetSection
       title="Sources"
       aside={hasLink ? "Tap to view" : undefined}
-      footnote={prices.length > 0 ? "Prices are per standard market unit. Your actual cost may vary." : undefined}
+      footnote={
+        prices.length > 0
+          ? `${da.length > 0 ? "Market prices are based on the Department of Agriculture's daily price monitoring of Metro Manila wet markets. " : ""}Prices are per standard market unit. Your actual cost may vary.`
+          : undefined
+      }
       index={3}
     >
       {showNutrition && (
@@ -407,9 +411,16 @@ export function SourcesSection({ item }: { item: SourcesItem }) {
                 key={`${d.commodity}|${d.specification}`}
                 divided={priceRow++ > 0}
                 icon={<Store color={colors.ink.emphasis} size={ICON_SIZE} />}
-                title="Dept. of Agriculture"
-                subtitle={`${commodity} · Metro Manila wet markets, ${daDate(d.date)}`}
-                extra={change && <DaWeekChangeLine change={change} pricePerUnit={d.pricePerUnit} />}
+                // Where the price is from, as a shopper thinks of it; the
+                // Department of Agriculture is credited in the footnote.
+                title="Metro Manila markets"
+                subtitle={commodity}
+                extra={
+                  <>
+                    <Text className="font-inter-regular text-small text-ink-subtle">Daily average · {daDate(d.date)}</Text>
+                    {change && <DaWeekChangeLine change={change} pricePerUnit={d.pricePerUnit} />}
+                  </>
+                }
                 url={DA_PRICE_PAGE}
                 trailing={<PriceTrailing price={d.pricePerUnit} isBest={isBest} highlight={isBest || !compare} />}
               />
