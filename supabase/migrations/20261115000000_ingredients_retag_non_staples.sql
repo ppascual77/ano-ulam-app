@@ -232,7 +232,9 @@ where role = 'pantry'
     'low-sodium beef broth',
     'Mackerel, canned',
     'Pancake mix',
-    'Parmesan cheese (grated)'
+    'Parmesan cheese (grated)',
+    'Pork and beans, canned',
+    'White wheat bread'
   );
 
 -- Ingredients that never got a role (added through Seed Meal / AI fill-in
@@ -244,10 +246,13 @@ where role is null
   and canonical_name in (
     'Annatto powder',
     'dried safflower petals',
-    'Liquid seasoning, soy-based'
+    'Liquid seasoning, soy-based',
+    'Pork broth cubes'
   );
 
 -- ...and everything else without a role is something you shop for.
 update public.ingredients
 set role = 'main'
 where role is null;
+
+-- Water stays 'pantry' on purpose: it should never land on a grocery list.
