@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Linking, Platform, Pressable, ScrollView, View, useWindowDimensions, type ScrollViewInstance } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import Constants from "expo-constants";
+import * as Application from "expo-application";
+import * as Updates from "expo-updates";
 import Animated, { Easing, FadeInDown } from "react-native-reanimated";
 import { Gift } from "lucide-react-native";
 import { allRewardsEarned, useProRewardProgress } from "@/frontend/core/pro/hooks/useProRewardProgress";
@@ -48,6 +50,13 @@ import { usePushPermission } from "@/frontend/core/notifications/hooks/usePushPe
 const LOG_OUT_DELAY_MS = 2000;
 const SUPPORT_EMAIL = "anoulam.app@gmail.com";
 const APP_VERSION = Constants.expoConfig?.version ?? "dev";
+// "1.0.0 (12)", plus the OTA update's short id when one is running instead
+// of the JS shipped in the binary, so a bug report says exactly what code it is.
+const BUILD_NUMBER = Application.nativeBuildVersion;
+const OTA_UPDATE_ID = !Updates.isEmbeddedLaunch && Updates.updateId ? Updates.updateId.slice(0, 8) : null;
+const VERSION_LABEL = [`${APP_VERSION}${BUILD_NUMBER ? ` (${BUILD_NUMBER})` : ""}`, OTA_UPDATE_ID && `update ${OTA_UPDATE_ID}`]
+  .filter(Boolean)
+  .join(" · ");
 
 // A tappable row inside a settings card (About links).
 // With `value`, what's currently set shows under the label (Meal
@@ -233,7 +242,7 @@ export default function SettingsScreen() {
   };
 
   const sendFeedback = () => {
-    const subject = encodeURIComponent(`AnoUlam app feedback (v${APP_VERSION}, ${Platform.OS})`);
+    const subject = encodeURIComponent(`AnoUlam app feedback (v${VERSION_LABEL}, ${Platform.OS})`);
     void Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${subject}`);
   };
 
@@ -493,7 +502,7 @@ export default function SettingsScreen() {
             <LinkRow label="Send feedback" onPress={sendFeedback} />
             <LinkRow label="Privacy Policy" onPress={openPrivacyPolicy} />
             <LinkRow label="Terms of Service" onPress={openTerms} />
-            <Text className="font-inter-regular text-body text-ink-subtle">Version {APP_VERSION}</Text>
+            <Text className="font-inter-regular text-body text-ink-subtle">Version {VERSION_LABEL}</Text>
           </SettingsSection>
           </Animated.View>
 
