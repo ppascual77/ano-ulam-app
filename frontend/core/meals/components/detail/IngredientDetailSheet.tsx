@@ -56,7 +56,6 @@ export function IngredientDetailSheet({ ingredient, onClose, maxHeightPercent, o
     }
   }, [ingredient]);
 
-  const isMain = rendered?.type === "main";
   const hasPrice = rendered?.price != null && rendered.price > 0;
 
   return (
@@ -71,20 +70,11 @@ export function IngredientDetailSheet({ ingredient, onClose, maxHeightPercent, o
     >
       {rendered && (
         <View key={opens} className="px-5 pt-6 pb-8">
-          {/* Role pill, then the name with the amount under it on the left
-              and the estimated cost as the one big figure on the right
+          {/* The name with the amount under it on the left and the
+              estimated cost as the one big figure on the right
               (top-aligned, so a wrapped name keeps it on its first line). */}
           <Animated.View entering={riseIn(0)}>
-            <View className="flex-row">
-              <View className={`flex-row items-center gap-1.5 rounded-full px-2.5 py-1 ${isMain ? "bg-primary/10" : "bg-ink-emphasis/5"}`}>
-                <View className={`h-1.5 w-1.5 rounded-full ${isMain ? "bg-primary" : "bg-ink-subtle"}`} />
-                <Text className={`font-inter-semibold text-small ${isMain ? "text-primary" : "text-ink-subtle"}`}>
-                  {isMain ? "Main ingredient" : "Pantry staple"}
-                </Text>
-              </View>
-            </View>
-
-            <View className="mt-3 flex-row items-start gap-4">
+            <View className="flex-row items-start gap-4">
               <View className="flex-1">
                 <AppText variant="sectionTitle" dot>
                   {capitalize(rendered.name)}
