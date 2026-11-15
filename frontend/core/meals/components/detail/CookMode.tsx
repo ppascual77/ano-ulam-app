@@ -29,17 +29,16 @@ function ProgressSegment({ filled }: { filled: boolean }) {
   );
 }
 
-// A step's text with the words that name an ingredient softly highlighted,
-// and that ingredient's amount (for the servings picked) right after its
-// first mention. Nested Text, so it wraps like the rest of the sentence.
+// A step's text with the words that name an ingredient softly highlighted.
+// Amounts live in the All ingredients list, not in the step. Nested Text,
+// so it wraps like the rest of the sentence.
 function StepText({ segments, className }: { segments: StepSegment[]; className: string }) {
   return (
     <Text className={className}>
       {segments.map((s, i) =>
         s.keys ? (
-          <Text key={i}>
-            <Text className="bg-tinted-bg text-ink-emphasis">{s.text}</Text>
-            {s.amount ? <Text className="font-inter-bold text-body text-primary">{` ${s.amount}`}</Text> : null}
+          <Text key={i} className="bg-tinted-bg text-ink-emphasis">
+            {s.text}
           </Text>
         ) : (
           s.text
@@ -251,13 +250,17 @@ export function CookMode({ mealName, steps, ingredients, servings, onClose }: Co
                 {group.items.map((item) => {
                   const named = mentioned.has(item.key);
                   return (
-                    <View
-                      key={item.key}
-                      className={`flex-row items-center justify-between gap-4 rounded-xl px-3 py-3 ${named ? "bg-tinted-bg/50" : ""}`}
-                    >
-                      <Text className="flex-1 font-inter-medium text-body-lg text-ink-emphasis">{capitalize(item.name)}</Text>
-                      <Text className={`text-body ${named ? "font-inter-bold text-primary" : "font-inter-regular text-ink-subtle"}`}>
-                        {item.qty}
+                    // Named in the step: the name and amount carry the step
+                    // text's highlight (nested Text, so it sits behind the
+                    // words only).
+                    <View key={item.key} className="flex-row items-center justify-between gap-4 px-3 py-3">
+                      <Text className="flex-1 font-inter-medium text-body-lg text-ink-emphasis">
+                        <Text className={named ? "bg-tinted-bg" : ""}>{capitalize(item.name)}</Text>
+                      </Text>
+                      <Text className="text-body">
+                        <Text className={named ? "bg-tinted-bg font-inter-semibold text-ink-emphasis" : "font-inter-regular text-ink-subtle"}>
+                          {item.qty}
+                        </Text>
                       </Text>
                     </View>
                   );
