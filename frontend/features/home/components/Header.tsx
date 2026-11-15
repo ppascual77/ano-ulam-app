@@ -4,6 +4,7 @@ import { Text } from "@/frontend/components/ui/Text";
 import { Image } from "expo-image";
 import { AppText } from "@/frontend/components/ui";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { GroceryButton } from "./GroceryButton";
 
 type HeaderProps = {
   /** Undefined/guest shows "Hello" only, no name. */
@@ -13,15 +14,16 @@ type HeaderProps = {
 };
 
 // The avatar (and the admin menu) moved to the bottom nav's Profile tab.
-// White text: it sits on HomeBackdrop's dark green.
+// White text: it sits on HomeBackdrop's dark green. Top right: the grocery
+// list shortcut, level with the greeting.
 function HeaderInner({ name, children }: HeaderProps) {
   // Reduce motion: the "today?" GIF holds still on its first frame.
   // `autoplay` only applies when the image loads, and Home stays mounted
   // while the setting changes, so the key reloads it either way.
   const reduceMotion = useReduceMotion();
   return (
-    <View className="ml-2 flex-row items-center justify-between">
-      <View>
+    <View className="ml-2 flex-row items-start justify-between gap-3">
+      <View className="shrink">
         <AppText variant="title" className="text-white">
           {name ? (
             <>
@@ -42,6 +44,9 @@ function HeaderInner({ name, children }: HeaderProps) {
           />
         </View>
         {children}
+      </View>
+      <View className="pt-1">
+        <GroceryButton />
       </View>
     </View>
   );

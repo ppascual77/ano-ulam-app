@@ -41,6 +41,8 @@ export type GroceryListTab = {
 type FullGroceryListSheetProps = {
   visible: boolean;
   onClose: () => void;
+  /** After the close animation ends (see BottomSheet's onClosed). */
+  onClosed?: () => void;
   /** With more than one, a tab switcher shows under the title. */
   tabs: GroceryListTab[];
   /** Which tab it opens on (defaults to the first). */
@@ -96,7 +98,7 @@ function useCountUp(target: number, resetKey: string, run: boolean) {
   return value;
 }
 
-export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantry }: FullGroceryListSheetProps) {
+export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initialTab, pantry }: FullGroceryListSheetProps) {
   const [activeKey, setActiveKey] = useState(initialTab ?? tabs[0]?.key);
   useEffect(() => {
     if (visible) setActiveKey(initialTab ?? tabs[0]?.key);
@@ -201,7 +203,7 @@ export function FullGroceryListSheet({ visible, onClose, tabs, initialTab, pantr
     ));
 
   return (
-    <BottomSheet visible={visible} onClose={onClose}>
+    <BottomSheet visible={visible} onClose={onClose} onClosed={onClosed}>
       <ScrollView contentContainerClassName="px-6 pb-10 pt-10" showsVerticalScrollIndicator={false}>
         <AppText variant="sectionTitle" dot>Grocery list</AppText>
         <Text className="mt-0.5 font-inter-medium text-body text-ink-subtle">
