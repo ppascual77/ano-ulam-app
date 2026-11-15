@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { View } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { StatusBar } from "expo-status-bar";
+import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
 import { Sparkles } from "lucide-react-native";
 import { BottomSheet, ConfirmSheet } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
@@ -21,6 +22,10 @@ import { trackProPageOpened } from "@/frontend/core/analytics/analytics";
 const INGREDIENT_SHEET_HEIGHT_PERCENT = 0.75;
 // BottomSheet's open slide (340ms), plus a frame.
 const OPEN_SLIDE_MS = 360;
+
+// Skeleton to page crossfade (see contentReady).
+const PAGE_FADE_IN = FadeIn.duration(240).easing(Easing.out(Easing.quad));
+const SKELETON_FADE_OUT = FadeOut.duration(340).easing(Easing.in(Easing.quad));
 
 // Shortest time the Save/Unsave button shows its spinner.
 const MIN_BUSY_MS = 500;
@@ -112,6 +117,11 @@ export function MealDetailSheet({
     return () => clearTimeout(timer);
   }, [isOpen]);
   const contentReady = slidUp && !loading;
+  // Skeleton to page is a crossfade (swapping them outright blinked, since
+  // the page's photo needs a frame to draw): the page fades in while the
+  // skeleton, underneath, fades out. The page rises quickly (ease-out) and
+  // the skeleton lets go slowly (ease-in, a little longer), so together they
+  // never thin out enough for white to flash through.
   // Locked micronutrients (meal or ingredient) tapped by a free user open
   // the full Pro page straight away: in this sheet's overlay, since a /pro
   // screen would open behind it.
@@ -263,32 +273,42 @@ export function MealDetailSheet({
         </>
       }
     >
-      {renderedMeal && !contentReady && <MealDetailSkeleton meal={renderedMeal} />}
-      {renderedMeal && contentReady && (
-        <MealDetailContent
-          key={renderedMeal.id}
-          meal={renderedMeal}
-          initialServings={(meal && renderedMeal.id === meal.id ? initialServings : undefined) ?? savedEntry?.serving_size}
-          saved={{
-            isSaved: !!savedEntry,
-            savedServings: savedEntry?.serving_size,
-            busy: busyMeal === renderedMeal,
-            onSave: (servings) => track(renderedMeal, savedMeals.save(renderedMeal, servings)),
-            onUnsave: () => savedEntry && track(renderedMeal, savedMeals.unsave(savedEntry)),
-            onUpdate: setPendingServings,
-          }}
-          recipeOwner={meal && renderedMeal.id === meal.id ? recipeOwner : undefined}
-          pantryIds={meal && renderedMeal.id === meal.id ? pantryIds : undefined}
-          onSelectMeal={handleSelectMeal}
-          onBack={handleBackOrClose}
-          direction={direction}
-          onEdit={onEdit}
-          onArchive={onArchive}
-          onDelete={onDelete}
-          onSelectIngredient={setSelectedIngredient}
-          onLockedPro={() => setProPageOpen(true)}
-          review={review}
-        />
+      {renderedMeal && (
+        <View className="flex-1">
+          {!contentReady && (
+            <Animated.View exiting={SKELETON_FADE_OUT} className="absolute inset-0">
+              <MealDetailSkeleton meal={renderedMeal} />
+            </Animated.View>
+          )}
+          {contentReady && (
+            <Animated.View entering={PAGE_FADE_IN} className="flex-1">
+              <MealDetailContent
+                key={renderedMeal.id}
+                meal={renderedMeal}
+                initialServings={(meal && renderedMeal.id === meal.id ? initialServings : undefined) ?? savedEntry?.serving_size}
+                saved={{
+                  isSaved: !!savedEntry,
+                  savedServings: savedEntry?.serving_size,
+                  busy: busyMeal === renderedMeal,
+                  onSave: (servings) => track(renderedMeal, savedMeals.save(renderedMeal, servings)),
+                  onUnsave: () => savedEntry && track(renderedMeal, savedMeals.unsave(savedEntry)),
+                  onUpdate: setPendingServings,
+                }}
+                recipeOwner={meal && renderedMeal.id === meal.id ? recipeOwner : undefined}
+                pantryIds={meal && renderedMeal.id === meal.id ? pantryIds : undefined}
+                onSelectMeal={handleSelectMeal}
+                onBack={handleBackOrClose}
+                direction={direction}
+                onEdit={onEdit}
+                onArchive={onArchive}
+                onDelete={onDelete}
+                onSelectIngredient={setSelectedIngredient}
+                onLockedPro={() => setProPageOpen(true)}
+                review={review}
+              />
+            </Animated.View>
+          )}
+        </View>
       )}
     </BottomSheet>
   );
