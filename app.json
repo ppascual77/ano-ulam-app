@@ -103,6 +103,12 @@
         "projectId": "e35cf600-c412-45df-afa1-c3b618daebe1"
       }
     },
-    "owner": "ppascual"
+    "owner": "ppascual",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e35cf600-c412-45df-afa1-c3b618daebe1"
+    }
   }
 }

@@ -4,7 +4,12 @@ Read the exact versioned docs at https://docs.expo.dev/versions/v58.0.0/ before 
 On Expo SDK 58 (RN 0.88, React 19.3) since 2026-10-26. Since 2026-11-07 we develop in our own EAS
 dev build (`expo-dev-client`, `eas build --profile development --platform ios`, then
 `npx expo start --dev-client`): Sign in with Apple and App Store purchases (RevenueCat) only work
-there. Adding or upgrading a native package means a new dev build; JS changes just reload. Expo
+there. Adding or upgrading a native package means a new dev build; JS changes just reload.
+OTA updates (expo-updates, since 2026-11-15): JS/asset-only changes reach store builds with
+`eas update --channel production --environment production --message "..."`, no review.
+`runtimeVersion` follows the app version, so an update only reaches builds of the same version.
+Anything native (new package, plugin, permission, icon) still needs a new build + review, and
+the version in app.json bumped so old builds don't pull JS that expects missing native code. Expo
 Go still opens the app (without purchases: RevenueCat isn't started there, see `useProStore`), but it
 only runs the one SDK it was built for and auto-updates, so it no longer decides when we upgrade. Check a native
 package's iOS dependencies resolve on CocoaPods before upgrading it (react-native-purchases is
