@@ -194,7 +194,9 @@ function mealIngredientToIngredientType(mi: MealIngredientRow): IngredientType &
     name: mi.ingredient.canonical_name,
     ingredientId: mi.ingredient_id,
     displayName: mi.ingredient.display_name,
-    type: (mi.ingredient.role as "main" | "pantry") ?? "pantry",
+    // Never set counts as main: better an extra row on the grocery list
+    // than something you need hidden among the staples.
+    type: mi.ingredient.role === "pantry" ? "pantry" : "main",
     calories: totals?.calories != null ? roundCalories(totals.calories) : undefined,
     protein: totals?.protein != null ? roundMacro(totals.protein) : undefined,
     carbs: totals?.carbohydrates != null ? roundMacro(totals.carbohydrates) : undefined,

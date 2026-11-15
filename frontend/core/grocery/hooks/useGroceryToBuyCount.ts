@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { listGroceryChecks } from "@/api/groceryChecks";
-import { useSavedMeals } from "@/frontend/core/saved/hooks/useSavedMeals";
+import { useSavedMealsForGrocery } from "./useSavedMealsForGrocery";
 import { buildGroceryList } from "../utils/buildGroceryList";
 import { applyStaplesToBuy, useStaplesToBuy } from "../store/useStaplesToBuyStore";
 import { groceryChecksKey } from "./useGroceryChecks";
@@ -12,7 +12,7 @@ import { groceryChecksKey } from "./useGroceryChecks";
 // useGroceryChecks updates when the sheet closes), and never holds pending
 // checkbox changes of its own, so it can't send stale ones.
 export function useGroceryToBuyCount(userId: string | null) {
-  const saved = useSavedMeals();
+  const saved = useSavedMealsForGrocery();
   const staplesToBuy = useStaplesToBuy();
   const checks = useQuery({
     queryKey: groceryChecksKey("saved", userId),
@@ -20,8 +20,8 @@ export function useGroceryToBuyCount(userId: string | null) {
     enabled: !!userId,
   });
   return useMemo(() => {
-    const items = applyStaplesToBuy(buildGroceryList(saved.data ?? []), staplesToBuy);
+    const items = applyStaplesToBuy(buildGroceryList(saved.meals), staplesToBuy);
     // Checked at a different quantity = needs restocking = still to buy.
     return items.filter((item) => item.category === "main" && checks.data?.[item.id] !== item.qty).length;
-  }, [saved.data, staplesToBuy, checks.data]);
+  }, [saved.meals, staplesToBuy, checks.data]);
 }

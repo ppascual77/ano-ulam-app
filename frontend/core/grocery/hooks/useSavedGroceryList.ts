@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useSavedMeals } from "@/frontend/core/saved/hooks/useSavedMeals";
+import { useSavedMealsForGrocery } from "./useSavedMealsForGrocery";
 import { buildGroceryList } from "../utils/buildGroceryList";
 import { applyStaplesToBuy, useStaplesToBuy } from "../store/useStaplesToBuyStore";
 import { useGroceryChecks } from "./useGroceryChecks";
@@ -8,12 +8,12 @@ import { useGroceryChecks } from "./useGroceryChecks";
 // change; Profile's Grocery tab and the grocery sheet's "Saved meals" tab)
 // plus its checkboxes (useGroceryChecks, the "saved" list).
 export function useSavedGroceryList(userId: string | null) {
-  const saved = useSavedMeals();
+  const saved = useSavedMealsForGrocery();
   const checks = useGroceryChecks("saved", userId);
   const staplesToBuy = useStaplesToBuy();
   const items = useMemo(
-    () => applyStaplesToBuy(buildGroceryList(saved.data ?? []), staplesToBuy),
-    [saved.data, staplesToBuy],
+    () => applyStaplesToBuy(buildGroceryList(saved.meals), staplesToBuy),
+    [saved.meals, staplesToBuy],
   );
 
   const total = items.reduce((sum, item) => (item.category === "main" ? sum + item.price : sum), 0);

@@ -517,3 +517,12 @@ export function applyUsdaMatch(matched: UsdaGroundingMatch, confidence: "HIGH" |
     last_verified_at: new Date().toISOString(),
   };
 }
+
+// The current role of each ingredient (null = never set), for lists built
+// from saved meal snapshots, whose copied roles can be out of date.
+export async function getIngredientRoles(ids: string[]): Promise<Record<string, string | null>> {
+  if (ids.length === 0) return {};
+  const { data, error } = await supabase.from("ingredients").select("id, role").in("id", ids);
+  if (error) throw error;
+  return Object.fromEntries(data.map((row) => [row.id, row.role]));
+}
