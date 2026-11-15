@@ -3,6 +3,18 @@ import { readImageForUpload } from "@/lib/imageUpload";
 import type { Database } from "@/lib/database.types";
 import { isBridgeLocked, isMacrosVerified, type IngredientRow } from "./ingredients";
 import type { DaCommodityRow } from "./daPrices";
+import {
+  computeItemTotals,
+  computeProposedTotals,
+  convertQuantityToBasis,
+  mealTotals,
+  type ProposedTotals,
+} from "@/supabase/functions/_shared/pricing";
+// The meal math lives in supabase/functions/_shared/pricing.ts, shared with
+// the daily DA import so both compute the same numbers.
+export { computeItemTotals, computeProposedTotals, convertQuantityToBasis, mealTotals };
+export type { ProposedTotals };
+export type { QuantityConversion } from "@/supabase/functions/_shared/pricing";
 
 export type MealRow = Database["public"]["Tables"]["meals"]["Row"];
 export type MealIngredientRow = Database["public"]["Tables"]["meal_ingredients"]["Row"];
@@ -509,59 +521,8 @@ export function matchIngredientCandidates(
 // vinegars, etc. use per-100ml).
 // ---------------------------------------------------------------------------
 
-export type QuantityConversion =
-  | { ok: true; basisAmount: number; basisUnit: string }
-  | { ok: false; reason: string };
 
-export function convertQuantityToBasis(
-  amount: number,
-  unit: string,
-  ingredient: IngredientRow,
-): QuantityConversion {
-  let grams: number | null = null;
-  let ml: number | null = null;
 
-  if (unit === "g") grams = amount;
-  else if (unit === "kg") grams = amount * 1000;
-  else if (unit === "ml") ml = amount;
-  else if (unit === "L") ml = amount * 1000;
-  else if (unit === "piece") {
-    if (ingredient.grams_per_piece == null) {
-      return { ok: false, reason: `${ingredient.canonical_name} has no grams_per_piece bridge set` };
-    }
-    grams = amount * ingredient.grams_per_piece;
-  } else {
-    return { ok: false, reason: `Unrecognized unit "${unit}"` };
-  }
-
-  if (ingredient.basis_unit === "g") {
-    if (grams != null) return { ok: true, basisAmount: grams, basisUnit: "g" };
-    // have ml, need grams
-    if (ingredient.grams_per_ml == null) {
-      return { ok: false, reason: `${ingredient.canonical_name} has no grams_per_ml bridge set` };
-    }
-    return { ok: true, basisAmount: (ml as number) * ingredient.grams_per_ml, basisUnit: "g" };
-  }
-
-  if (ingredient.basis_unit === "ml") {
-    if (ml != null) return { ok: true, basisAmount: ml, basisUnit: "ml" };
-    // have grams, need ml
-    if (ingredient.grams_per_ml == null) {
-      return { ok: false, reason: `${ingredient.canonical_name} has no grams_per_ml bridge set` };
-    }
-    return { ok: true, basisAmount: (grams as number) / ingredient.grams_per_ml, basisUnit: "ml" };
-  }
-
-  return { ok: false, reason: `${ingredient.canonical_name} has an unrecognized basis_unit "${ingredient.basis_unit}"` };
-}
-
-export type ProposedTotals = {
-  calories: number | null;
-  protein: number | null;
-  carbohydrates: number | null;
-  fat: number | null;
-  price: number | null;
-};
 
 // Scales an ingredient's per-basis_amount macros/price to the actual
 // quantity used. Price is scaled independently since estimated_price_unit
@@ -571,40 +532,6 @@ export type ProposedTotals = {
 // between them; without it the price is null rather than a guess. Before
 // 2026-10-14 the cross-domain case was always null, so those ingredients
 // silently added ₱0 to every meal.
-export function computeProposedTotals(ingredient: IngredientRow, conversion: QuantityConversion): ProposedTotals {
-  if (!conversion.ok) {
-    return { calories: null, protein: null, carbohydrates: null, fat: null, price: null };
-  }
-  const macroScale = conversion.basisAmount / ingredient.basis_amount;
-  const scaleOrNull = (v: number | null) => (v == null ? null : v * macroScale);
-
-  let price: number | null = null;
-  if (ingredient.estimated_price != null && ingredient.estimated_price_unit) {
-    const priceUnit = ingredient.estimated_price_unit;
-    const isWeightUnit = priceUnit === "g" || priceUnit === "kg";
-    const isVolumeUnit = priceUnit === "ml" || priceUnit === "L";
-    const conversionIsWeight = conversion.basisUnit === "g";
-    const conversionIsVolume = conversion.basisUnit === "ml";
-    const unitBase = priceUnit === "kg" || priceUnit === "L" ? 1000 : 1;
-    const density = ingredient.grams_per_ml;
-    let pricedAmount: number | null = null;
-    if ((isWeightUnit && conversionIsWeight) || (isVolumeUnit && conversionIsVolume)) {
-      pricedAmount = conversion.basisAmount;
-    } else if (density != null && density > 0) {
-      if (isVolumeUnit && conversionIsWeight) pricedAmount = conversion.basisAmount / density;
-      else if (isWeightUnit && conversionIsVolume) pricedAmount = conversion.basisAmount * density;
-    }
-    if (pricedAmount != null) price = (ingredient.estimated_price / unitBase) * pricedAmount;
-  }
-
-  return {
-    calories: scaleOrNull(ingredient.calories),
-    protein: scaleOrNull(ingredient.protein),
-    carbohydrates: scaleOrNull(ingredient.carbohydrates),
-    fat: scaleOrNull(ingredient.fat),
-    price,
-  };
-}
 
 // Macros and price can reflect DIFFERENT effective quantities for the same
 // row — e.g. bulk deep-frying oil, where the cook buys/uses a full cup
@@ -612,23 +539,6 @@ export function computeProposedTotals(ingredient: IngredientRow, conversion: Qua
 // (what macros should reflect). priceQuantityAmount/Unit override the
 // quantity price is computed from; when either is null, price falls back
 // to the same quantity macros use (the common case — nothing overridden).
-export function computeItemTotals(
-  ingredient: IngredientRow,
-  quantityAmount: number,
-  quantityUnit: string,
-  priceQuantityAmount?: number | null,
-  priceQuantityUnit?: string | null,
-): ProposedTotals {
-  const macroConversion = convertQuantityToBasis(quantityAmount, quantityUnit, ingredient);
-  const macroTotals = computeProposedTotals(ingredient, macroConversion);
-
-  const hasOverride = priceQuantityAmount != null && priceQuantityUnit != null;
-  const priceTotals = hasOverride
-    ? computeProposedTotals(ingredient, convertQuantityToBasis(priceQuantityAmount, priceQuantityUnit, ingredient))
-    : macroTotals;
-
-  return { ...macroTotals, price: priceTotals.price };
-}
 
 // ---------------------------------------------------------------------------
 // Recompute a meal's cached totals from its current meal_ingredients — sums
@@ -643,36 +553,7 @@ export function computeItemTotals(
 
 export async function recomputeMealTotals(mealId: string) {
   const meal = await getMeal(mealId);
-  let calories = 0;
-  let protein = 0;
-  let carbohydrates = 0;
-  let fat = 0;
-  let price = 0;
-
-  for (const mi of meal.meal_ingredients) {
-    if (mi.quantity_amount == null || mi.quantity_unit == null) continue;
-    const totals = computeItemTotals(
-      mi.ingredient,
-      mi.quantity_amount,
-      mi.quantity_unit,
-      mi.price_quantity_amount,
-      mi.price_quantity_unit,
-    );
-    calories += totals.calories ?? 0;
-    protein += totals.protein ?? 0;
-    carbohydrates += totals.carbohydrates ?? 0;
-    fat += totals.fat ?? 0;
-    price += totals.price ?? 0;
-  }
-
-  return updateMeal(mealId, {
-    calories,
-    protein,
-    carbohydrates,
-    fat,
-    price,
-    ingredients_synced_at: new Date().toISOString(),
-  });
+  return updateMeal(mealId, { ...mealTotals(meal.meal_ingredients), ingredients_synced_at: new Date().toISOString() });
 }
 
 // ---------------------------------------------------------------------------

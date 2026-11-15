@@ -1,7 +1,10 @@
 import * as FileSystem from "expo-file-system/legacy";
 import { supabase, invokeEdgeFunction } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
-import { cheapestPricePatch, supermarketPriceOptions, type IngredientRow, type PriceOption } from "@/api/ingredients";
+import { daPriceOption, ingredientPricePatch, type DaPrice } from "@/supabase/functions/_shared/pricing";
+// Shared with the daily DA import (supabase/functions/_shared/pricing.ts).
+export { daPriceOption, ingredientPricePatch };
+export type { DaPrice };
 
 export type DaCommodityRow = Database["public"]["Tables"]["da_commodities"]["Row"];
 
@@ -128,20 +131,7 @@ export async function linkDaCommodity(commodityId: string, ingredientId: string 
 // - piece (eggs): ÷ grams per piece → ₱/kg, using the size DA states
 //   ("56-60 grams/pc" → 58 g) or else the ingredient's own grams_per_piece
 // null when there's no size to convert with.
-export function daPriceOption(
-  commodity: Pick<DaCommodityRow, "unit" | "unit_size">,
-  price: number,
-  ingredient: Pick<IngredientRow, "grams_per_piece">,
-): PriceOption | null {
-  if (commodity.unit === "kg") return { source: "da", pricePerUnit: price, unit: "kg" };
-  if (commodity.unit === "bottle") {
-    return commodity.unit_size ? { source: "da", pricePerUnit: price / commodity.unit_size, unit: "L" } : null;
-  }
-  const grams = commodity.unit_size ?? ingredient.grams_per_piece;
-  return grams ? { source: "da", pricePerUnit: (price / grams) * 1000, unit: "kg" } : null;
-}
 
-export type DaPrice = { commodity: Pick<DaCommodityRow, "unit" | "unit_size">; price: number };
 
 // Every linked commodity's latest price, for ingredientPricePatch.
 export function linkedDaPrices(linked: DaCommodityRow[]): DaPrice[] {
@@ -154,10 +144,6 @@ export function linkedDaPrices(linked: DaCommodityRow[]): DaPrice[] {
 // commodity, empty when none): the cheapest of those and its supermarket
 // listings. null when nothing changes. price_sources itself is never
 // touched here, DA is added next to it, not into it.
-export function ingredientPricePatch(ingredient: IngredientRow, daPrices: DaPrice[]): Partial<IngredientRow> | null {
-  const daOptions = daPrices.flatMap(({ commodity, price }) => daPriceOption(commodity, price, ingredient) ?? []);
-  return cheapestPricePatch(ingredient, [...supermarketPriceOptions(ingredient.price_sources), ...daOptions]);
-}
 
 // Ingredient id → its linked commodities.
 export function commoditiesByIngredient(commodities: DaCommodityRow[]): Map<string, DaCommodityRow[]> {

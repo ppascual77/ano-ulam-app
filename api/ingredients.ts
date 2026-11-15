@@ -1,5 +1,10 @@
 import { supabase, invokeEdgeFunction } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
+import { cheapestPriceOption, cheapestPricePatch, supermarketPriceOptions, type PriceOption } from "@/supabase/functions/_shared/pricing";
+// Price picking lives in supabase/functions/_shared/pricing.ts, shared with
+// the daily DA import.
+export { cheapestPriceOption, cheapestPricePatch, supermarketPriceOptions };
+export type { PriceOption };
 
 export type IngredientRow = Database["public"]["Tables"]["ingredients"]["Row"];
 
@@ -214,52 +219,17 @@ export async function groundIngredientPrices(ingredients: IngredientRow[]) {
 
 // One place an ingredient can be bought, in ₱ per kg or L: a supermarket
 // listing (price_sources) or the linked DA commodity's latest price.
-export type PriceOption = { source: "supermarket" | "da"; pricePerUnit: number; unit: "kg" | "L" };
 
 // price_sources is jsonb, so its shape isn't enforced by the DB. A pack
 // estimate (see PackEstimateSource) isn't a store price, so it's skipped:
 // it never sets estimated_price or gets "Best price".
-export function supermarketPriceOptions(priceSources: unknown): PriceOption[] {
-  if (!Array.isArray(priceSources)) return [];
-  return priceSources.flatMap((s) =>
-    s && !isPackEstimate(s) && typeof s.pricePerUnit === "number" && (s.unit === "kg" || s.unit === "L")
-      ? [{ source: "supermarket" as const, pricePerUnit: s.pricePerUnit, unit: s.unit }]
-      : [],
-  );
-}
 
 // The cheapest option sets estimated_price (and gets the "Best price"
 // badge on ingredient detail). Only options in one unit are compared: the
 // first DA one's when there is one, since DA is the reference price.
-export function cheapestPriceOption(options: PriceOption[]): PriceOption | null {
-  if (options.length === 0) return null;
-  const unit = (options.find((o) => o.source === "da") ?? options[0]).unit;
-  return options.filter((o) => o.unit === unit).reduce((best, o) => (o.pricePerUnit < best.pricePerUnit ? o : best));
-}
 
 // The price fields for the cheapest option, or null when there's no option
 // or the ingredient already has exactly that price.
-export function cheapestPricePatch(
-  ingredient: Pick<IngredientRow, "estimated_price" | "estimated_price_unit" | "price_source">,
-  options: PriceOption[],
-): Partial<IngredientRow> | null {
-  const best = cheapestPriceOption(options);
-  if (!best) return null;
-  const price = Math.round(best.pricePerUnit * 100) / 100;
-  if (
-    ingredient.estimated_price === price &&
-    ingredient.estimated_price_unit === best.unit &&
-    ingredient.price_source === best.source
-  ) {
-    return null;
-  }
-  return {
-    estimated_price: price,
-    estimated_price_unit: best.unit,
-    price_source: best.source,
-    price_last_updated_at: new Date().toISOString(),
-  };
-}
 
 // Replaces the supermarket listings with the admin-selected ones (each kept
 // with its link in price_sources, see migration

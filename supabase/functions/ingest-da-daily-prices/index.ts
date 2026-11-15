@@ -25,6 +25,7 @@ import { getDocumentProxy } from "npm:unpdf@0.12.1";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { DA_UPLOADS_PREFIX, listDailyPdfs, parseDailyPriceIndex, type DaParseResult, type ListedPdf, type TextItem } from "./parse.ts";
 import { requireAdmin } from "../_shared/requireAdmin.ts";
+import { ingredientPricePatch, mealTotals, type PricingMealLine } from "../_shared/pricing.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -90,8 +91,10 @@ async function parsePdf(bytes: Uint8Array) {
 }
 
 // Same as api/daPrices.ts saveDaDailyPrices (keep the two in step): the
-// commodities first (new ones added), then that day's prices. The price
-// triggers re-pick each linked ingredient's cheapest price from there.
+// commodities first (new ones added), then that day's prices (a trigger
+// keeps each commodity's latest_price). Then the chain the admin DA import
+// runs by hand (refreshPricesFrom): linked ingredients' prices, then the
+// meals using them.
 async function savePrices(parsed: DaParseResult, sourceUrl: string) {
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const priced = parsed.rows.filter((r) => r.price != null);
@@ -122,7 +125,78 @@ async function savePrices(parsed: DaParseResult, sourceUrl: string) {
     { onConflict: "da_commodity_id,price_date" },
   );
   if (priceError) throw new Error(`Saving prices failed: ${priceError.message}`);
-  return { date: parsed.date, saved: priced.length };
+  const refreshed = await refreshPricesFrom(admin, [...idByKey.values()]);
+  return { date: parsed.date, saved: priced.length, ...refreshed };
+}
+
+type Admin = ReturnType<typeof createClient>;
+const MEAL_BATCH = 10;
+
+// The ingredients linked to these commodities get their price re-picked
+// (cheapest of every linked commodity's latest price and their supermarket
+// listings, the same rule as the app: _shared/pricing.ts), and every meal
+// using an ingredient whose price changed gets its totals recomputed. Safe
+// to run again: unchanged prices write nothing.
+async function refreshPricesFrom(admin: Admin, commodityIds: string[]) {
+  const { data: touched, error } = await admin
+    .from("da_commodities")
+    .select("ingredient_id")
+    .in("id", commodityIds)
+    .not("ingredient_id", "is", null);
+  if (error) throw new Error(`Reading linked ingredients failed: ${error.message}`);
+  const ingredientIds = [...new Set((touched ?? []).map((c) => c.ingredient_id as string))];
+  if (ingredientIds.length === 0) return { ingredientsUpdated: 0, mealsRecomputed: 0 };
+
+  const [{ data: ingredients, error: ingError }, { data: linked, error: linkError }] = await Promise.all([
+    admin
+      .from("ingredients")
+      .select("id, estimated_price, estimated_price_unit, price_source, price_sources, grams_per_piece")
+      .in("id", ingredientIds),
+    admin.from("da_commodities").select("ingredient_id, unit, unit_size, latest_price").in("ingredient_id", ingredientIds),
+  ]);
+  if (ingError) throw new Error(`Reading ingredients failed: ${ingError.message}`);
+  if (linkError) throw new Error(`Reading commodities failed: ${linkError.message}`);
+
+  const changed: string[] = [];
+  for (const ingredient of ingredients ?? []) {
+    const daPrices = (linked ?? []).flatMap((c) =>
+      c.ingredient_id === ingredient.id && c.latest_price != null
+        ? [{ commodity: { unit: c.unit as string, unit_size: c.unit_size as number | null }, price: c.latest_price as number }]
+        : [],
+    );
+    const patch = ingredientPricePatch(ingredient as Parameters<typeof ingredientPricePatch>[0], daPrices);
+    if (!patch) continue;
+    const { error: updateError } = await admin.from("ingredients").update(patch).eq("id", ingredient.id);
+    if (updateError) throw new Error(`Updating an ingredient's price failed: ${updateError.message}`);
+    changed.push(ingredient.id as string);
+  }
+  if (changed.length === 0) return { ingredientsUpdated: 0, mealsRecomputed: 0 };
+
+  const { data: uses, error: usesError } = await admin.from("meal_ingredients").select("meal_id").in("ingredient_id", changed);
+  if (usesError) throw new Error(`Finding meals failed: ${usesError.message}`);
+  const mealIds = [...new Set((uses ?? []).map((u) => u.meal_id as string))];
+
+  for (let i = 0; i < mealIds.length; i += MEAL_BATCH) {
+    await Promise.all(mealIds.slice(i, i + MEAL_BATCH).map((id) => recomputeMeal(admin, id)));
+  }
+  return { ingredientsUpdated: changed.length, mealsRecomputed: mealIds.length };
+}
+
+// Same as api/meals.ts recomputeMealTotals (both use _shared/pricing.ts).
+async function recomputeMeal(admin: Admin, mealId: string) {
+  const { data: lines, error } = await admin
+    .from("meal_ingredients")
+    .select(
+      "quantity_amount, quantity_unit, price_quantity_amount, price_quantity_unit, ingredient:ingredients(canonical_name, basis_amount, basis_unit, grams_per_piece, grams_per_ml, calories, protein, carbohydrates, fat, estimated_price, estimated_price_unit)",
+    )
+    .eq("meal_id", mealId);
+  if (error) throw new Error(`Reading a meal's ingredients failed: ${error.message}`);
+  const totals = mealTotals((lines ?? []).filter((l) => l.ingredient) as unknown as PricingMealLine[]);
+  const { error: updateError } = await admin
+    .from("meals")
+    .update({ ...totals, ingredients_synced_at: new Date().toISOString() })
+    .eq("id", mealId);
+  if (updateError) throw new Error(`Updating a meal's totals failed: ${updateError.message}`);
 }
 
 Deno.serve(async (req: Request) => {
