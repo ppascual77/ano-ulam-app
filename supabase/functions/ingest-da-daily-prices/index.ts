@@ -93,7 +93,7 @@ async function parsePdf(bytes: Uint8Array) {
 // Same as api/daPrices.ts saveDaDailyPrices (keep the two in step): the
 // commodities first (new ones added), then that day's prices (a trigger
 // keeps each commodity's latest_price). Then the chain the admin DA import
-// runs by hand (refreshPricesFrom): linked ingredients' prices, then the
+// runs by hand (refreshLinkedPrices): linked ingredients' prices, then the
 // meals using them.
 async function savePrices(parsed: DaParseResult, sourceUrl: string) {
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -125,24 +125,21 @@ async function savePrices(parsed: DaParseResult, sourceUrl: string) {
     { onConflict: "da_commodity_id,price_date" },
   );
   if (priceError) throw new Error(`Saving prices failed: ${priceError.message}`);
-  const refreshed = await refreshPricesFrom(admin, [...idByKey.values()]);
+  const refreshed = await refreshLinkedPrices(admin);
   return { date: parsed.date, saved: priced.length, ...refreshed };
 }
 
 type Admin = ReturnType<typeof createClient>;
 const MEAL_BATCH = 10;
 
-// The ingredients linked to these commodities get their price re-picked
-// (cheapest of every linked commodity's latest price and their supermarket
+// Every ingredient linked to a DA commodity gets its price re-picked
+// (cheapest of its linked commodities' latest prices and its supermarket
 // listings, the same rule as the app: _shared/pricing.ts), and every meal
-// using an ingredient whose price changed gets its totals recomputed. Safe
-// to run again: unchanged prices write nothing.
-async function refreshPricesFrom(admin: Admin, commodityIds: string[]) {
-  const { data: touched, error } = await admin
-    .from("da_commodities")
-    .select("ingredient_id")
-    .in("id", commodityIds)
-    .not("ingredient_id", "is", null);
+// using an ingredient whose price changed gets its totals recomputed. All
+// of them, not just the ones in today's report, so one missing from a day's
+// PDF still catches up. Safe to run again: unchanged prices write nothing.
+async function refreshLinkedPrices(admin: Admin) {
+  const { data: touched, error } = await admin.from("da_commodities").select("ingredient_id").not("ingredient_id", "is", null);
   if (error) throw new Error(`Reading linked ingredients failed: ${error.message}`);
   const ingredientIds = [...new Set((touched ?? []).map((c) => c.ingredient_id as string))];
   if (ingredientIds.length === 0) return { ingredientsUpdated: 0, mealsRecomputed: 0 };
