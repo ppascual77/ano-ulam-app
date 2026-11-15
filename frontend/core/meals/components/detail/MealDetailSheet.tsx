@@ -59,6 +59,9 @@ type MealDetailSheetProps = {
   /** `meal` is a card's (no ingredients yet) while the full one loads
    *  (useMealDetail): the skeleton shows until it's in. */
   loading?: boolean;
+  /** Servings to open `meal` at (e.g. the Meal Planner's people), instead
+   *  of the recipe's own or the saved servings. Not for related meals. */
+  initialServings?: number;
 };
 
 export function MealDetailSheet({
@@ -74,6 +77,7 @@ export function MealDetailSheet({
   onNotify,
   pantryIds,
   loading = false,
+  initialServings,
 }: MealDetailSheetProps) {
   // Keep the last meal rendered while the sheet animates closed, so the
   // content doesn't flash empty before it's off-screen.
@@ -264,7 +268,7 @@ export function MealDetailSheet({
         <MealDetailContent
           key={renderedMeal.id}
           meal={renderedMeal}
-          initialServings={savedEntry?.serving_size}
+          initialServings={(meal && renderedMeal.id === meal.id ? initialServings : undefined) ?? savedEntry?.serving_size}
           saved={{
             isSaved: !!savedEntry,
             savedServings: savedEntry?.serving_size,

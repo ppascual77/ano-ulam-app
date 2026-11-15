@@ -511,7 +511,8 @@ export default function MealPlannerScreen() {
         }}
       />
 
-      <MealDetailSheet meal={detail.meal} loading={detail.loading} onClose={detail.close} />
+      {/* Opens at the plan's people, like the plan's cards. */}
+      <MealDetailSheet meal={detail.meal} loading={detail.loading} onClose={detail.close} initialServings={plan?.servings} />
 
       <Toast toast={toast} onHide={() => setToast(null)} />
       {intro.showing && <MealPlannerIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={intro.finish} />}
