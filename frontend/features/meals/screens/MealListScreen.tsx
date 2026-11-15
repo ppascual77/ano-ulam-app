@@ -52,7 +52,7 @@ export default function MealListScreen() {
   const [selectedMeal, setSelectedMeal] = useState<MealType | null>(null);
   // With its ingredients (and so micronutrients): these come from a bulk
   // list without them.
-  const detailMeal = useFullMeal(selectedMeal);
+  const { meal: detailMeal, loading: detailLoading } = useFullMeal(selectedMeal);
   // The row's meal ids, looked up in the real catalog (the bulk list).
   const { data: realMeals } = useRealMeals();
 
@@ -132,6 +132,7 @@ export default function MealListScreen() {
 
       <MealDetailSheet
         meal={detailMeal}
+        loading={detailLoading}
         onClose={() => setSelectedMeal(null)}
       />
       <BottomNav />

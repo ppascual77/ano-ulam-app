@@ -115,7 +115,7 @@ export function MealCarouselSection({
   const [selectedMeal, setSelectedMeal] = useState<MealType | null>(null);
   // With its ingredients (and so micronutrients), fetched if the card's
   // meal came from a bulk list.
-  const detailMeal = useFullMeal(selectedMeal);
+  const { meal: detailMeal, loading: detailLoading } = useFullMeal(selectedMeal);
 
   const handleSeeAll = () => {
     router.push({
@@ -204,7 +204,7 @@ export function MealCarouselSection({
             ]}
       </Carousel>
 
-      <MealDetailSheet meal={detailMeal} onClose={() => setSelectedMeal(null)} />
+      <MealDetailSheet meal={detailMeal} loading={detailLoading} onClose={() => setSelectedMeal(null)} />
     </View>
   );
 }

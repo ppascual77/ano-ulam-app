@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { Dimensions, Modal, Pressable, ScrollView, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -97,12 +97,38 @@ export function BottomSheet({
 
   const translateY = useSharedValue(sheetHeight);
   const [modalVisible, setModalVisible] = useState(visible);
+  // Mounted on the very render `visible` turns true (not a render later, via
+  // the effect below), so opening never waits an extra frame.
+  const mounted = visible || modalVisible;
+
+  // The slide up starts once the sheet is actually on screen: a native Modal
+  // takes a frame or two to present, and starting before that would play the
+  // first part of the slide unseen (the sheet popping in late, part way up).
+  // A Modal reports it with onShow; an inline sheet, or a Modal already up
+  // (reopened while closing), slides at once. The timer is a fallback in
+  // case onShow never comes.
+  const slideUp = () => {
+    translateY.value = withTiming(0, { duration: 340 });
+  };
+  const waitingForShow = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onShow = () => {
+    if (!waitingForShow.current) return;
+    clearTimeout(waitingForShow.current);
+    waitingForShow.current = null;
+    slideUp();
+  };
 
   useEffect(() => {
     if (visible) {
+      const alreadyUp = modalVisible;
       setModalVisible(true);
-      translateY.value = withTiming(0, { duration: 340 });
+      if (presentation === "inline" || alreadyUp) slideUp();
+      else waitingForShow.current = setTimeout(onShow, 120);
     } else {
+      if (waitingForShow.current) {
+        clearTimeout(waitingForShow.current);
+        waitingForShow.current = null;
+      }
       translateY.value = withTiming(sheetHeight, { duration: 220 }, (finished) => {
         if (finished) {
           scheduleOnRN(setModalVisible, false);
@@ -147,7 +173,7 @@ export function BottomSheet({
     opacity: interpolate(translateY.value, [0, sheetHeight], [1, 0], Extrapolation.CLAMP),
   }));
 
-  if (!modalVisible) return null;
+  if (!mounted) return null;
 
   const sheet = (
     <View className={presentation === "inline" ? "absolute inset-0 justify-end" : "flex-1 justify-end"}>
@@ -211,7 +237,15 @@ export function BottomSheet({
   if (presentation === "inline") return sheet;
 
   return (
-    <Modal visible transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
+    <Modal
+      visible
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={onClose}
+      onShow={onShow}
+    >
       {sheet}
     </Modal>
   );

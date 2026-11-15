@@ -77,7 +77,7 @@ export function CommunityFavoritesSection() {
   );
   const [selected, setSelected] = useState<MealType | null>(null);
   // With its ingredients (and so micronutrients), fetched if needed.
-  const detailMeal = useFullMeal(selected);
+  const { meal: detailMeal, loading: detailLoading } = useFullMeal(selected);
 
   if (!isLoading && favorites.length === 0) return null;
 
@@ -134,7 +134,7 @@ export function CommunityFavoritesSection() {
         </View>
       )}
 
-      <MealDetailSheet meal={detailMeal} onClose={() => setSelected(null)} />
+      <MealDetailSheet meal={detailMeal} loading={detailLoading} onClose={() => setSelected(null)} />
     </View>
   );
 }

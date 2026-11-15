@@ -226,7 +226,7 @@ function RandomMealPullerInner() {
   const [revealedMeal, setRevealedMeal] = useState<MealType | null>(null);
   const [detailMeal, setDetailMeal] = useState<MealType | null>(null);
   // With its ingredients: the picks come from the bulk list.
-  const fullDetailMeal = useFullMeal(detailMeal);
+  const { meal: fullDetailMeal, loading: fullDetailLoading } = useFullMeal(detailMeal);
   // The real catalog, following preferences; read through a ref by the
   // gesture/timer callbacks.
   const { meals: catalog } = usePreferredMeals();
@@ -493,6 +493,7 @@ function RandomMealPullerInner() {
 
       <MealDetailSheet
         meal={fullDetailMeal}
+        loading={fullDetailLoading}
         onClose={() => {
           setDetailMeal(null);
           scheduleNextAppearance();
