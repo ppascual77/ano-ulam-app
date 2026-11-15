@@ -8,6 +8,7 @@ import { useSavedGroceryList } from "../hooks/useSavedGroceryList";
 import { usePlanGroceryList } from "../hooks/usePlanGroceryList";
 import { closeGroceryList, useGrocerySheetStore } from "../store/useGrocerySheetStore";
 import { FullGroceryListSheet } from "./FullGroceryListSheet";
+import { GroceryMealPicker } from "./GroceryMealPicker";
 
 // The grocery list sheet opened from anywhere (openGroceryList): Home's cart
 // button, a save toast's "View list". Mounted once in app/_layout.tsx. The
@@ -56,7 +57,11 @@ function GroceryListSheet({ visible, onClosed }: { visible: boolean; onClosed: (
           total: grocery.total,
           isChecked: grocery.isChecked,
           onToggle: grocery.toggle,
-          emptyText: "Save home-cooked meals and their ingredients will show up here.",
+          emptyText:
+            grocery.picker.meals.length > 0
+              ? "Pick the meals you're cooking above and their ingredients show up here."
+              : "Save home-cooked meals and their ingredients will show up here.",
+          header: <GroceryMealPicker picker={grocery.picker} />,
         },
         ...(plan
           ? [

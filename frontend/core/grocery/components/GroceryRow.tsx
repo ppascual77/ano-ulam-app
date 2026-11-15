@@ -12,8 +12,8 @@ export const formatPeso = (n: number, decimals = 2) =>
 const BOX_SPRING = { damping: 12, stiffness: 260, mass: 0.6 };
 // Fixed columns, so amounts and prices line up down the list instead of
 // starting wherever each name ends.
-const AMOUNT_WIDTH = 88;
-const PRICE_WIDTH = 64;
+const AMOUNT_WIDTH = 72;
+const PRICE_WIDTH = 56;
 const TABULAR = { fontVariant: ["tabular-nums" as const] };
 
 type GroceryRowProps = {
@@ -27,7 +27,7 @@ type GroceryRowProps = {
   /** A read-only preview (Profile's Grocery tab): faint check boxes and no
    *  tapping a row, since the whole preview opens the full list. */
   preview?: boolean;
-  /** Full list: moves a pantry staple to "To buy" (a "+ To buy" button),
+  /** Full list: moves a pantry staple to "To buy" (a "+ To buy" pill),
    *  or a moved one back (an undo icon under its price). */
   onMove?: () => void;
 };
@@ -63,48 +63,72 @@ function CheckBox({ checked, faint = false }: { checked: boolean; faint?: boolea
   );
 }
 
-// Check box, the name (with "2 meals" / "In pantry" chips), then two fixed
-// columns: what to pick up and the price. No dividers: the list's section
-// headers and spacing group the rows. Checked items fade and get struck
-// through.
+// One line per row, the same shape all the way down:
+//   to buy:            check box · name (and "for 2 meals" under it) · amount · price
+//   staple, not home:  dashed ring · name · "+ To buy"
+//   staple, at home:   green check · name, dimmed (no amount: nothing to buy)
+// No chips, so no row wraps onto a second line and the columns line up.
+// Checked items fade and get struck through.
 export function GroceryRow({ item, checked, onToggle, wrap = false, have = false, preview = false, onMove }: GroceryRowProps) {
   // Main ingredients and staples moved to "To buy" are priced and counted.
   const counted = item.category === "main";
-  // Only items on the shopping run show as checked off (a staple checked
-  // before staples lost their box shouldn't stay faded).
   const done = counted && checked;
-  // A staple isn't on the shopping run, so there's nothing to check off: its
-  // one action is "+ To buy". No box and no blank in its place (a gap there
-  // looked like something was missing).
-  return (
-    <Pressable
-      onPress={counted && !preview ? onToggle : undefined}
-      disabled={!counted || preview}
-      // A preview row lets the tap through to the preview around it.
-      pointerEvents={preview ? "none" : "auto"}
-      accessibilityRole={counted ? "checkbox" : undefined}
-      accessibilityState={counted ? { checked } : undefined}
-      className="flex-row items-center gap-3 px-2 py-2.5"
-    >
-      {counted && <CheckBox checked={checked} faint={preview} />}
 
-      <View className={`flex-1 flex-row flex-wrap items-center gap-1.5 ${done ? "opacity-40" : ""}`}>
+  if (!counted) {
+    // A staple isn't on the shopping run: nothing to check off. At home it
+    // just reads as settled; otherwise "+ To buy" for when you're out.
+    return (
+      <View className="min-h-11 flex-row items-center gap-3 px-2 py-2">
+        {have ? (
+          <View className="h-6 w-6 items-center justify-center rounded-full bg-tinted-bg">
+            <Check color={colors.primary} size={13} strokeWidth={3} />
+          </View>
+        ) : (
+          <View className="h-6 w-6 rounded-full border-2 border-dashed border-web-ink-faint" />
+        )}
         <Text
           numberOfLines={wrap ? undefined : 1}
-          className={`flex-shrink font-inter-semibold text-body text-ink-emphasis ${done ? "line-through" : ""}`}
+          className={`flex-1 text-body ${have ? "font-inter-medium text-ink-subtle" : "font-inter-semibold text-ink-emphasis"}`}
         >
           {item.name}
         </Text>
-        {item.meals > 1 && (
-          <View className="rounded-full bg-category-breakfast px-2.5 py-0.5">
-            <Text className="font-inter-extrabold text-small text-accent">{item.meals} meals</Text>
-          </View>
+        {!have && onMove && (
+          <Pressable
+            onPress={onMove}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={`Move ${item.name} to To buy`}
+            className="flex-row items-center gap-1 rounded-full bg-tinted-bg px-2.5 py-1.5 active:opacity-70"
+          >
+            <Plus color={colors.primary} size={13} strokeWidth={2.5} />
+            <Text className="font-inter-semibold text-small text-primary">To buy</Text>
+          </Pressable>
         )}
-        {have && (
-          <View className="rounded-full bg-tinted-bg px-2.5 py-0.5">
-            <Text className="font-inter-extrabold text-small text-primary">In pantry</Text>
-          </View>
-        )}
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={preview ? undefined : onToggle}
+      disabled={preview}
+      // A preview row lets the tap through to the preview around it.
+      pointerEvents={preview ? "none" : "auto"}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+      accessibilityLabel={item.meals > 1 ? `${item.name}, for ${item.meals} meals` : item.name}
+      className="min-h-11 flex-row items-center gap-3 px-2 py-2.5"
+    >
+      <CheckBox checked={checked} faint={preview} />
+
+      <View className={`flex-1 ${done ? "opacity-40" : ""}`}>
+        <Text
+          numberOfLines={wrap ? undefined : 1}
+          className={`font-inter-semibold text-body text-ink-emphasis ${done ? "line-through" : ""}`}
+        >
+          {item.name}
+        </Text>
+        {item.meals > 1 && <Text className="font-inter-regular text-small text-ink-subtle">for {item.meals} meals</Text>}
       </View>
 
       <Text
@@ -115,32 +139,17 @@ export function GroceryRow({ item, checked, onToggle, wrap = false, have = false
         {item.buy}
       </Text>
 
-      {/* Pantry staples aren't counted: a "+ To buy" button in the price's
-          place for when you're out of one, unless the pantry says you have
-          it ("Staple" where it can't be moved). ("Staple", not "Pantry":
-          "In pantry" already means you have it.) */}
       <View style={{ width: PRICE_WIDTH }} className={`items-end gap-1 ${done ? "opacity-40" : ""}`}>
-        {counted ? (
-          <>
-            {item.price > 0 && (
-              <Text style={TABULAR} className="font-inter-extrabold text-body text-ink-emphasis">
-                {/* "~": no store listing behind it (an AI pack or the used amount). */}
-                {item.estimate ? "~" : ""}₱{formatPeso(item.price, 0)}
-              </Text>
-            )}
-            {item.movedFromStaples && onMove && (
-              <Pressable onPress={onMove} hitSlop={10} accessibilityLabel={`Move ${item.name} back to pantry staples`}>
-                <Undo2 color={colors.ink.subtle} size={16} strokeWidth={2.25} />
-              </Pressable>
-            )}
-          </>
-        ) : have ? null : onMove ? (
-          <Pressable onPress={onMove} hitSlop={8} accessibilityLabel={`Move ${item.name} to To buy`} className="flex-row items-center gap-1">
-            <Plus color={colors.primary} size={14} strokeWidth={2.5} />
-            <Text className="font-inter-semibold text-small text-primary">To buy</Text>
+        {item.price > 0 && (
+          <Text style={TABULAR} className="font-inter-extrabold text-body text-ink-emphasis">
+            {/* "~": no store listing behind it (an AI pack or the used amount). */}
+            {item.estimate ? "~" : ""}₱{formatPeso(item.price, 0)}
+          </Text>
+        )}
+        {item.movedFromStaples && onMove && (
+          <Pressable onPress={onMove} hitSlop={10} accessibilityLabel={`Move ${item.name} back to pantry staples`}>
+            <Undo2 color={colors.ink.subtle} size={16} strokeWidth={2.25} />
           </Pressable>
-        ) : (
-          <Text className="font-inter-medium text-small text-ink-subtle">Staple</Text>
         )}
       </View>
     </Pressable>

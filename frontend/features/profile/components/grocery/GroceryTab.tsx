@@ -17,6 +17,7 @@ import { useCountUp } from "../../hooks/useCountUp";
 import { EmptyState } from "../EmptyState";
 import { GroceryRow, formatPeso } from "@/frontend/core/grocery/components/GroceryRow";
 import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
+import { GroceryMealPicker } from "@/frontend/core/grocery/components/GroceryMealPicker";
 import { GrocerySectionHeader, splitGroceryItems } from "@/frontend/core/grocery/components/GrocerySection";
 
 const PREVIEW_LIMIT = 7;
@@ -95,6 +96,22 @@ export function GroceryTab({ userId }: { userId: string | null }) {
           <View className="items-center py-10">
             <Spinner size={20} color={colors.primary} trackColor={colors.webDivider} />
           </View>
+        ) : items.length === 0 && grocery.picker.meals.length > 0 ? (
+          // Saved meals, but none switched on: pick some in the full list.
+          <Pressable
+            onPress={() => setFullOpen(true)}
+            accessibilityRole="button"
+            className="mt-3 items-center gap-1 rounded-2xl border-2 border-dashed border-accent px-4 py-6 active:opacity-70"
+          >
+            <Text className="font-inter-semibold text-body text-ink-emphasis">No meals on your list</Text>
+            <Text className="text-center font-inter-regular text-small text-ink-subtle">
+              Pick the saved meals you&apos;re cooking and their ingredients show up here.
+            </Text>
+            <View className="mt-2 flex-row items-center gap-1">
+              <Text className="font-inter-medium text-small text-primary">Pick meals</Text>
+              <ChevronRight color={colors.primary} size={15} />
+            </View>
+          </Pressable>
         ) : items.length === 0 ? (
           // The same empty state as the other profile tabs.
           <EmptyState
@@ -182,7 +199,11 @@ export function GroceryTab({ userId }: { userId: string | null }) {
             total,
             isChecked: grocery.isChecked,
             onToggle: grocery.toggle,
-            emptyText: "Save home-cooked meals and their ingredients will show up here.",
+            emptyText:
+            grocery.picker.meals.length > 0
+              ? "Pick the meals you're cooking above and their ingredients show up here."
+              : "Save home-cooked meals and their ingredients will show up here.",
+          header: <GroceryMealPicker picker={grocery.picker} />,
           },
           ...(plan
             ? [

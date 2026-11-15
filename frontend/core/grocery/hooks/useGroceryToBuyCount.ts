@@ -6,13 +6,13 @@ import { buildGroceryList } from "../utils/buildGroceryList";
 import { applyStaplesToBuy, useStaplesToBuy } from "../store/useStaplesToBuyStore";
 import { groceryChecksKey } from "./useGroceryChecks";
 
-// How many saved-meal ingredients are still to buy (main ingredients, and
+// How many ingredients of the saved meals on the list are still to buy (main ingredients, and
 // staples moved to "To buy", not checked off), for Home's cart badge.
 // Read-only on purpose: it reads the checks the server has (the same cache
 // useGroceryChecks updates when the sheet closes), and never holds pending
 // checkbox changes of its own, so it can't send stale ones.
 export function useGroceryToBuyCount(userId: string | null) {
-  const saved = useSavedMealsForGrocery();
+  const saved = useSavedMealsForGrocery(userId);
   const staplesToBuy = useStaplesToBuy();
   const checks = useQuery({
     queryKey: groceryChecksKey("saved", userId),
@@ -20,8 +20,8 @@ export function useGroceryToBuyCount(userId: string | null) {
     enabled: !!userId,
   });
   return useMemo(() => {
-    const items = applyStaplesToBuy(buildGroceryList(saved.meals), staplesToBuy);
+    const items = applyStaplesToBuy(buildGroceryList(saved.onList), staplesToBuy);
     // Checked at a different quantity = needs restocking = still to buy.
     return items.filter((item) => item.category === "main" && checks.data?.[item.id] !== item.qty).length;
-  }, [saved.meals, staplesToBuy, checks.data]);
+  }, [saved.onList, staplesToBuy, checks.data]);
 }

@@ -20,6 +20,7 @@ import { usePlanGroceryList } from "@/frontend/core/grocery/hooks/usePlanGrocery
 import type { GroceryItem } from "@/frontend/core/grocery/utils/buildGroceryList";
 import { useSavedGroceryList } from "@/frontend/core/grocery/hooks/useSavedGroceryList";
 import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
+import { GroceryMealPicker } from "@/frontend/core/grocery/components/GroceryMealPicker";
 import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
 import { PLAN_DAYS, dayLabel, formatPeso, generatePlan, monthDay, regenerateDay, swapOptions, type MealPlan, type MealSlot } from "../utils/generatePlan";
 import { goalsFromTargets, targetsFromGoals } from "@/frontend/core/nutrition/macros";
@@ -490,7 +491,11 @@ export default function MealPlannerScreen() {
             total: savedGrocery.total,
             isChecked: savedGrocery.isChecked,
             onToggle: savedGrocery.toggle,
-            emptyText: "Save home-cooked meals and their ingredients will show up here.",
+            emptyText:
+            savedGrocery.picker.meals.length > 0
+              ? "Pick the meals you're cooking above and their ingredients show up here."
+              : "Save home-cooked meals and their ingredients will show up here.",
+          header: <GroceryMealPicker picker={savedGrocery.picker} />,
           },
         ]}
         pantry={pantry}
