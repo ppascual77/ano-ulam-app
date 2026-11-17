@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Pressable, View } from "react-native";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { Text } from "@/frontend/components/ui/Text";
-import { AppText, BottomSheet, Button, showGlobalToast } from "@/frontend/components/ui";
+import { AppText, Button } from "@/frontend/components/ui";
 import { CheckBox } from "@/frontend/core/grocery/components/GroceryRow";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
-import { usePantryActions } from "../hooks/usePantry";
+import type { PantryIngredient } from "../types";
 import type { UsedUpGroup } from "../usedUp";
 
 // Rows fade up one after another, this far apart (capped).
@@ -15,21 +15,18 @@ const STAGGER_MAX = 8;
 
 type UsedUpBodyProps = {
   groups: UsedUpGroup[];
-  /** `updated`: Update pantry (or Keep everything) was tapped, which also
-   *  says the meal was really cooked. Skip: false. */
-  onDone: (updated: boolean) => void;
-  /** "Skip" by default; the nudge's second step says "Back". */
-  skipLabel?: string;
+  /** Update pantry (or Keep everything): the ticked items, for the caller
+   *  to take out (with the rest of its update and one Undo). */
+  onUpdate: (usedUp: PantryIngredient[]) => void;
+  onBack: () => void;
 };
 
-// "Anything used up?": the list and its buttons, for a sheet of its own
-// (UsedUpSheet, after Start Cooking) or as the second step of Home's nudge
-// sheet. The defaults do the thinking (main ingredients the meal finished
-// are ticked; basics, packs with some left and things a later meal needs
-// are not), so most of the time it's one tap on Update pantry.
-export function UsedUpBody({ groups, onDone, skipLabel = "Skip" }: UsedUpBodyProps) {
+// "Anything used up?": the second step of Home's saved-meals nudge. The
+// defaults do the thinking (main ingredients the meal finished are ticked;
+// basics, packs with some left and things another meal needs are not), so
+// most of the time it's one tap on Update pantry.
+export function UsedUpBody({ groups, onUpdate, onBack }: UsedUpBodyProps) {
   const reduceMotion = useReduceMotion();
-  const pantryActions = usePantryActions();
   const [checked, setChecked] = useState<Set<string>>(() => new Set(groups.flatMap((g) => g.rows.filter((r) => r.checked).map((r) => r.id))));
 
   const toggle = (id: string) => {
@@ -43,21 +40,13 @@ export function UsedUpBody({ groups, onDone, skipLabel = "Skip" }: UsedUpBodyPro
   };
 
   const update = () => {
-    const removed = groups.flatMap((g) => g.rows).filter((r) => checked.has(r.id));
-    if (removed.length > 0) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      pantryActions.removeMany(removed.map((r) => r.id));
-      showGlobalToast({
-        tone: "success",
-        message: removed.length === 1 ? `${removed[0].name} taken out of your pantry` : `${removed.length} items taken out of your pantry`,
-        action: {
-          label: "Undo",
-          inSheet: true,
-          onPress: () => pantryActions.addMany(removed.map(({ id, name }) => ({ id, name }))),
-        },
-      });
-    }
-    onDone(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    onUpdate(
+      groups
+        .flatMap((g) => g.rows)
+        .filter((r) => checked.has(r.id))
+        .map(({ id, name }) => ({ id, name })),
+    );
   };
 
   let index = 0;
@@ -100,7 +89,7 @@ export function UsedUpBody({ groups, onDone, skipLabel = "Skip" }: UsedUpBodyPro
       <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(200).delay(120)}>
         <View className="mt-6 flex-row gap-3">
           <View className="flex-1">
-            <Button variant="muted" label={skipLabel} onPress={() => onDone(false)} />
+            <Button variant="muted" label="Back" onPress={onBack} />
           </View>
           <View style={{ flex: 2 }}>
             <Button label={checked.size > 0 ? `Update pantry · ${checked.size}` : "Keep everything"} onPress={update} />
@@ -108,31 +97,5 @@ export function UsedUpBody({ groups, onDone, skipLabel = "Skip" }: UsedUpBodyPro
         </View>
       </Animated.View>
     </View>
-  );
-}
-
-type UsedUpSheetProps = {
-  visible: boolean;
-  /** `updated`: see UsedUpBody. A drag down counts as Skip. */
-  onClose: (updated: boolean) => void;
-  onClosed?: () => void;
-  groups: UsedUpGroup[];
-  /** "inline" over another sheet (Cook mode sits inside meal details). */
-  presentation?: "modal" | "inline";
-};
-
-// After Start Cooking: the list in a sheet of its own. Remounted on each
-// open, so the defaults are fresh every time.
-export function UsedUpSheet({ visible, onClose, onClosed, groups, presentation = "modal" }: UsedUpSheetProps) {
-  const [run, setRun] = useState(0);
-  useEffect(() => {
-    if (visible) setRun((n) => n + 1);
-  }, [visible]);
-  return (
-    <BottomSheet visible={visible} onClose={() => onClose(false)} onClosed={onClosed} presentation={presentation} fitContent heightPercent={0.85}>
-      <View className="px-6 pb-6 pt-10">
-        <UsedUpBody key={run} groups={groups} onDone={onClose} />
-      </View>
-    </BottomSheet>
   );
 }

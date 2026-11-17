@@ -339,6 +339,110 @@ Database rules checked live on 2026-11-14 (faked counts reset, outside image/ava
       update after each.
 - [ ] **Poster can't undo a removal** by editing the post (edit still saves the caption).
 
+## Pantry loop and price rises (2026-11-17: PRs #64, #65, then the saved-meals rework)
+
+JS only, no new build. All of it runs in Expo Go (`npx expo start --tunnel`, press `s` if it
+says "development build"), signed in with Google or as a guest. Build 11 (the current dev build)
+can't open the app until it has `expo-updates`, so use Expo Go until the next dev build.
+
+**Grocery list: the pantry decides** (saved = on the list)
+
+- [ ] **Every saved meal is on the list.** The photo row says "Cooking N" with no on/off tap;
+      each ring fills as that meal's ingredients reach the pantry, a check when all are in your pantry.
+- [ ] **Tick:** the item moves to **In your cart** ("N picked up · go to your pantry when you close the list") and shows in Profile →
+      Pantry right away. The first tick in an app session says "X added to your pantry" (Undo
+      unticks it and takes it out).
+- [ ] **Untick** (in the cart): "X is back on your list", out of the pantry. Undo re-ticks it.
+- [ ] **Close and reopen:** what you ticked is now under **In your pantry** ("N items you already have"), not
+      in the total or the left/picked counts. Same on the other tab (saved and plan share the
+      pantry).
+- [ ] **Removed from the pantry goes back to To buy:** remove an item in Profile → Pantry, open
+      the list: it's under To buy. (The bug from 2026-11-17.)
+- [ ] **+ To buy** on an In your pantry row: to To buy and out of the pantry ("X moved to To buy"); Undo
+      puts it back.
+- [ ] **Different names:** with "Vinegar" in the pantry, a recipe's "Coconut vinegar" sits under
+      In your pantry with "Using your Vinegar" under it (Profile's preview too).
+- [ ] **Free plan, day 2 or later:** Home's planner card says "Day 2 of your plan is Pro" and
+      opens the plan with the later days locked. **A plan that ended** (overnight, or after
+      moving the date) opens the setup screen, budget and people filled in.
+- [ ] **Fast ticking:** tick 6 to 8 items quickly, close the app within a second or two, reopen.
+      The pantry has exactly those.
+- [ ] Meal Planner's day / whole plan switch: an item ticked in one shows in the cart in the other
+      during the visit, In your pantry after. A new plan starts with whatever is in the pantry.
+- [ ] Water never shows. Home's cart badge matches the sheet's To buy. Ticking the last item still
+      plays the all-done moment.
+
+**Start Cooking:** Done on the last step just closes it, whatever the time. No pantry question.
+
+**Home: "Cooked any of your saved meals?"**
+
+Needs saved meals that use something in your pantry (tick a few of their items on the grocery
+list first).
+
+- [ ] **Shows** about a second after Home settles. Never during the welcome intro, over another
+      sheet, or on another tab. Lists saved meals using something in the pantry, with "Saved
+      today / yesterday / N days ago". **Saved 3+ days ago starts ticked**, newer ones unticked.
+- [ ] **Cooked · N** is disabled with nothing ticked. It slides to "Anything used up?"; Back
+      returns.
+- [ ] **Defaults** on "Anything used up?": loose mains (meat, vegetables) ticked; a pack bigger
+      than the meal used and **eggs** unticked with "Some left in the pack"; an item another saved
+      meal uses unticked with **"Also in X"**; one a planned meal from today on needs unticked
+      with "Still needed for X tonight / tomorrow / on Wed"; oil, garlic, laurel under "Basics ·
+      these usually last", unticked. Only pantry items, each once, never water.
+- [ ] **Update pantry · N:** the ticked items leave the pantry and **the cooked meals are
+      unsaved** (gone from Saved and the grocery list). One toast: "Sinigang done · 3 items taken
+      out of your pantry" / "2 meals done · ...". No separate "Removed from your saved meals"
+      toasts. **Undo** re-saves the meals and puts the items back.
+- [ ] **Keep everything** (nothing ticked): only unsaves the meals ("X done · off your list").
+- [ ] **Once a day:** after answering, skipping or swiping down, not again that day (move the
+      phone's date forward to see it the next day).
+- [ ] **Every 3 days after 3 skips** in a row: day 4 and 5 quiet, asks on day 6 (3 days after the
+      last skip). Answering goes back to daily.
+
+**Meal plan days clean up on their own**
+
+Make a plan, tick its items on the plan's grocery list, then move the phone's date forward a day.
+
+- [ ] **Home's header line:** under the greeting, a pill "Tuesday's plan is done, so we took
+      **chicken and kangkong** out of your pantry" (names in yellow; past 3 names "and N more";
+      several days: "Your past plan days are done, ...") with an **Undo** button. Too long for
+      the pill: the text glides sideways to the end and back (Reduce motion: cut off with "…").
+- [ ] With a price drop too, the two pills take turns **every 10 seconds**, rolling up like a
+      reel (one line up and out, the next up from below, no bounce), the cleanup first, only
+      while Home is on screen. Reduce motion: they swap in place.
+- [ ] **Undo** puts the items back ("Put back in your pantry") and leaves only the price pill.
+      Without Undo it stays for 12 hours, also after closing and reopening the app.
+- [ ] Only loose mains go. Packs, eggs, basics, anything a later plan day or a saved meal needs
+      stay. Nothing to take: no note.
+- [ ] **Once per day passed:** reopening Home the same day, no second note. A plan's **last day**
+      still gets cleaned the day after (even though the planner has moved on).
+- [ ] First run after installing: only looks back 2 days, so an old plan doesn't empty the pantry.
+
+**Onboarding pantry basics** (delete Expo Go's data or the app to see onboarding fresh)
+
+- [ ] A "Your pantry" slide before the account pitch, basics ticked except Oyster sauce. Footer:
+      "N basics go to your pantry. Change them anytime in Profile." / nothing ticked: "Nothing
+      ticked: you can add basics to your pantry anytime."
+- [ ] **Continue without an account:** the ticked basics are in Profile → Pantry.
+- [ ] **Sign in with Google:** the basics end up on the account's pantry (check the database).
+      Cancel sign-in, then continue as guest: there, not doubled.
+- [ ] A grocery list for a meal with soy sauce or garlic puts them under In your pantry, not To buy.
+
+**Price Watch "went up" board**
+
+- [ ] Swipe once from the green "DROPPED · NCR TODAY" board: a red-orange "WENT UP · NCR TODAY"
+      board. The caption switches to "Prices that went up this week" there and back after.
+- [ ] Prices roll from last week's to today's when it comes into view, all increases, spread
+      across food groups, biggest first. Tapping a row opens that item.
+
+**Across all of it**
+
+- [ ] **Guest to account:** a guest's pantry (onboarding basics, anything ticked) moves to the
+      account on sign-in, and the grocery list shows those items under In your pantry.
+- [ ] **Bigger / Largest text:** both steps of the nudge sheet, the plan-day note and the basics
+      slide don't clip; long meal names cut off on one line.
+- [ ] **Reduce motion:** row fade-ins and the nudge's sideways step become plain fades or none.
+
 ## Store setup (no device needed)
 
 - [ ] EU countries still off (148 countries) on the app and both subscriptions.

@@ -13,7 +13,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { Carrot, Check, ChevronDown, Drumstick, House, Info, Package, type LucideIcon } from "lucide-react-native";
+import { Carrot, Check, ChevronDown, Drumstick, House, Info, Package, ShoppingCart, type LucideIcon } from "lucide-react-native";
 import { AppText, BottomSheet, RollingText, SegmentedSwitch, showGlobalToast } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { usePantryActions } from "@/frontend/core/pantry/hooks/usePantry";
@@ -21,12 +21,12 @@ import type { PantryIngredient } from "@/frontend/core/pantry/types";
 import type { GroceryItem } from "../utils/buildGroceryList";
 import { GROCERY_SECTIONS, GROCERY_SECTION_LABELS, type GrocerySectionKey } from "../utils/groceryLabels";
 import { GroceryRow, formatPeso } from "./GroceryRow";
-import { groupGroceryItems, inPantry, type GroceryCheckState } from "../utils/groupGroceryItems";
+import { coveringName, groupGroceryItems } from "../utils/groupGroceryItems";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 
 const EASE = Easing.out(Easing.cubic);
-// A row arriving (a meal switched on, a staple moved to "To buy", an item
-// unchecked from "Got it") or leaving (a meal switched off): a short fade
+// A row arriving (a meal saved, an item moved to "To buy", an item
+// unchecked from "Got it") or leaving (a meal unsaved): a short fade
 // while the rows around it slide to make room or close the gap.
 const MOVE_IN = FadeInDown.duration(280);
 const ROW_IN = FadeIn.duration(220);
@@ -53,11 +53,6 @@ export type GroceryListTab = {
   label: string;
   items: GroceryItem[];
   total: number;
-  isChecked: (item: GroceryItem) => boolean;
-  /** Ticked now, at an older quantity, or not (see useGroceryChecks).
-   *  Without it, a tick is checked or not. */
-  stateOf?: (item: GroceryItem) => GroceryCheckState;
-  onToggle: (item: GroceryItem) => void;
   /** Shown when the list has no items. */
   emptyText: string;
   /** A second choice inside this tab (the meal plan: one day or the whole
@@ -79,8 +74,8 @@ type FullGroceryListSheetProps = {
   pantry: PantryIngredient[];
 };
 
-// The first tick of a session says where ticked items go; after that, ticks
-// are quiet (unticks and "+ To buy" always offer an Undo).
+// The first tick of an app session says where ticked items go; after that,
+// ticks are quiet (unticks and "+ To buy" always offer an Undo).
 let tickHintShown = false;
 
 const COUNT_UP_MS = 600;
@@ -199,48 +194,58 @@ function SummaryCard({ total, left, picked, count, leftover }: SummaryProps) {
 
 type FoldProps = {
   Icon: LucideIcon;
-  /** Icon tile: green for "Got it", neutral for "At home". */
+  /** Green for the cart (this trip), neutral for the pantry. */
   tone: "green" | "neutral";
   title: string;
   subtitle: string;
+  count: number;
   open: boolean;
   onToggle: () => void;
   children: ReactNode;
 };
 
-// A section folded into one line ("At home", "Got it"): opens in place,
-// the chevron turning as it goes.
-function Fold({ Icon, tone, title, subtitle, open, onToggle, children }: FoldProps) {
+// A section folded into one line ("In your cart", "In your pantry"): a
+// filled card with a big icon and a count, so it reads as part of the list
+// rather than a footnote. Opens in place, the chevron turning as it goes.
+function Fold({ Icon, tone, title, subtitle, count, open, onToggle, children }: FoldProps) {
   const reduceMotion = useReduceMotion();
   const turn = useSharedValue(open ? 1 : 0);
   useEffect(() => {
     turn.value = withTiming(open ? 1 : 0, { duration: reduceMotion ? 0 : 220, easing: EASE });
   }, [open, reduceMotion]);
   const chevronStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.value * 180}deg` }] }));
+  const green = tone === "green";
 
   return (
-    <Animated.View layout={reduceMotion ? undefined : MOVE_LAYOUT} className="mt-3 overflow-hidden rounded-2xl border border-ink-emphasis/10">
+    <Animated.View
+      layout={reduceMotion ? undefined : MOVE_LAYOUT}
+      className={`mt-4 overflow-hidden rounded-2xl border ${green ? "border-primary/20 bg-tinted-bg/60" : "border-ink-emphasis/10 bg-mood-bg"}`}
+    >
       <Pressable
         onPress={() => {
           Haptics.selectionAsync();
           onToggle();
         }}
         accessibilityRole="button"
+        accessibilityLabel={`${title}, ${count}. ${subtitle}`}
         accessibilityState={{ expanded: open }}
-        className="flex-row items-center gap-3 px-4 py-3.5 active:opacity-70"
+        className="flex-row items-center gap-3 px-4 py-4 active:opacity-70"
       >
-        <View className={`h-8 w-8 items-center justify-center rounded-xl ${tone === "green" ? "bg-tinted-bg" : "bg-web-divider"}`}>
-          <Icon color={tone === "green" ? colors.primary : colors.ink.subtle} size={16} strokeWidth={tone === "green" ? 2.5 : 2} />
+        <View className={`h-10 w-10 items-center justify-center rounded-xl ${green ? "bg-primary" : "bg-white"}`}>
+          <Icon color={green ? colors.white : colors.primary} size={20} strokeWidth={2.25} />
         </View>
         <View className="flex-1">
           <Text className="font-inter-bold text-body-lg text-ink-emphasis">{title}</Text>
           <Text className="font-inter-regular text-small text-ink-subtle">{subtitle}</Text>
         </View>
+        <View className={`min-w-7 items-center rounded-full px-2 py-0.5 ${green ? "bg-primary" : "bg-white"}`}>
+          <Text className={`font-inter-bold text-small ${green ? "text-white" : "text-ink-emphasis"}`}>{count}</Text>
+        </View>
         <Animated.View style={chevronStyle}>
-          <ChevronDown color={colors.ink.subtle} size={18} />
+          <ChevronDown color={colors.ink.emphasis} size={20} />
         </Animated.View>
       </Pressable>
-      {open && <View className="border-t border-ink-emphasis/5 px-2 pb-2 pt-1">{children}</View>}
+      {open && <View className="border-t border-ink-emphasis/5 bg-white px-2 pb-2 pt-1">{children}</View>}
     </Animated.View>
   );
 }
@@ -253,10 +258,23 @@ function FoldLabel({ children }: { children: ReactNode }) {
 
 export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initialTab, pantry }: FullGroceryListSheetProps) {
   const [activeKey, setActiveKey] = useState(initialTab ?? tabs[0]?.key);
+  // Item ids ticked on this visit: shown under Got it until the list closes,
+  // then (being in the pantry) under At home. Shared by the tabs, since
+  // they share the pantry.
+  const [tickedNow, setTickedNow] = useState<ReadonlySet<string>>(new Set());
   useEffect(() => {
-    if (visible) setActiveKey(initialTab ?? tabs[0]?.key);
-    // Reset to the caller's tab on each open.
+    if (!visible) return;
+    // Each open: the caller's tab, and a fresh trip.
+    setActiveKey(initialTab ?? tabs[0]?.key);
+    setTickedNow(new Set());
   }, [visible]);
+  const setTicked = (id: string, on: boolean) =>
+    setTickedNow((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   const pantryActions = usePantryActions();
   const reduceMotion = useReduceMotion();
   // The row just moved drops in from above; other arrivals just fade.
@@ -272,9 +290,7 @@ export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initial
   // What's on screen: the tab, and its scope when it has one (keys and the
   // total's count-up follow it).
   const viewKey = tab?.scope ? `${tab.key}:${tab.scope.value}` : (tab?.key ?? "");
-  const stateOf = (item: GroceryItem): GroceryCheckState =>
-    tab?.stateOf ? tab.stateOf(item) : tab?.isChecked(item) ? "checked" : "none";
-  const groups = groupGroceryItems(tab?.items ?? [], pantry, stateOf);
+  const groups = groupGroceryItems(tab?.items ?? [], pantry, tickedNow);
   // Whole packs cost more than what a recipe uses, and the gap is what's
   // left over in the pantry, which explains why this total is higher than
   // the meals' own prices.
@@ -296,35 +312,33 @@ export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initial
   }, [left, viewKey, visible]);
 
   if (!tab) return null;
-  const { onToggle } = tab;
   const asPantry = (item: GroceryItem) => (item.ingredientId ? [{ id: item.ingredientId, name: item.canonicalName }] : []);
   const ids = (item: GroceryItem) => (item.ingredientId ? [item.ingredientId] : []);
+  const tick = (item: GroceryItem) => {
+    setTicked(item.id, true);
+    pantryActions.addMany(asPantry(item));
+  };
+  const untick = (item: GroceryItem) => {
+    setTicked(item.id, false);
+    pantryActions.removeMany(ids(item));
+  };
 
-  // A tick means bought: it goes in the pantry. An untick means you don't
-  // have it after all: out of the pantry, back to To buy.
+  // A tick means bought: it goes in the pantry right away (nothing lost if
+  // the app closes), shown under Got it for the rest of this visit. An
+  // untick means you don't have it after all: out of the pantry, To buy.
   const handleToggle = (item: GroceryItem) => {
     Haptics.selectionAsync();
-    const wasChecked = stateOf(item) === "checked";
-    const wasHome = inPantry(pantry, item);
-    onToggle(item);
-    if (wasChecked) {
+    if (tickedNow.has(item.id)) {
       setJustMoved(item.id);
-      pantryActions.removeMany(ids(item));
+      untick(item);
       showGlobalToast({
         tone: "success",
         message: `${item.name} is back on your list`,
-        action: {
-          label: "Undo",
-          inSheet: true,
-          onPress: () => {
-            onToggle(item);
-            pantryActions.addMany(asPantry(item));
-          },
-        },
+        action: { label: "Undo", inSheet: true, onPress: () => tick(item) },
       });
       return;
     }
-    pantryActions.addMany(asPantry(item));
+    tick(item);
     setSettling((prev) => new Set(prev).add(item.id));
     timers.current.push(
       setTimeout(() => {
@@ -340,14 +354,7 @@ export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initial
       showGlobalToast({
         tone: "success",
         message: `${item.name} added to your pantry`,
-        action: {
-          label: "Undo",
-          inSheet: true,
-          onPress: () => {
-            onToggle(item);
-            if (!wasHome) pantryActions.removeMany(ids(item));
-          },
-        },
+        action: { label: "Undo", inSheet: true, onPress: () => untick(item) },
       });
     }
   };
@@ -394,10 +401,11 @@ export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initial
       >
         <GroceryRow
           item={item}
-          checked={!home && stateOf(item) === "checked"}
+          checked={!home && tickedNow.has(item.id)}
           onToggle={() => handleToggle(item)}
           wrap
           atHome={home}
+          usingName={home ? coveringName(pantry, item) : undefined}
           onOutOfIt={home && item.ingredientId ? () => handleOutOfIt(item) : undefined}
         />
       </Animated.View>
@@ -459,34 +467,36 @@ export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initial
 
           {(atHome.length > 0 || gotIt.length > 0) && <View className="h-3" />}
 
+          {/* Checked off on this visit, folded away: the list above keeps
+              getting shorter as you shop. Next time they're In your pantry. */}
+          {gotIt.length > 0 && (
+            <Fold
+              Icon={ShoppingCart}
+              tone="green"
+              title="In your cart"
+              subtitle="Picked up this trip · go to your pantry when you close"
+              count={gotIt.length}
+              open={gotItOpen}
+              onToggle={() => setGotItOpen((open) => !open)}
+            >
+              {renderRows(gotIt, true)}
+            </Fold>
+          )}
+
           {/* Already in the pantry: not bought, not in the total. "+ To buy"
               on a row when you've run out. */}
           {atHome.length > 0 && (
             <Fold
               Icon={House}
               tone="neutral"
-              title="At home"
-              subtitle={`${atHome.length} item${atHome.length === 1 ? "" : "s"} in your pantry`}
+              title="In your pantry"
+              subtitle="Already at home, not in the total"
+              count={atHome.length}
               open={homeOpen}
               onToggle={() => setHomeOpen((open) => !open)}
             >
               <FoldLabel>Tap + To buy if you run out</FoldLabel>
               {renderRows(atHome, true, true)}
-            </Fold>
-          )}
-
-          {/* Checked off, folded away: the list above keeps getting shorter
-              as you shop. */}
-          {gotIt.length > 0 && (
-            <Fold
-              Icon={Check}
-              tone="green"
-              title="Got it"
-              subtitle={`${gotIt.length} picked up · in your pantry`}
-              open={gotItOpen}
-              onToggle={() => setGotItOpen((open) => !open)}
-            >
-              {renderRows(gotIt, true)}
             </Fold>
           )}
         </LayoutAnimationConfig>

@@ -1,53 +1,37 @@
 import { useMemo } from "react";
-import { useGroceryMealsStore } from "../store/useGroceryMealsStore";
+import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
 import { buildGroceryList } from "../utils/buildGroceryList";
-import { useGroceryChecks } from "./useGroceryChecks";
+import { inPantry } from "../utils/groupGroceryItems";
 import { useSavedMealsForGrocery } from "./useSavedMealsForGrocery";
 import type { GroceryMealPickerData } from "../components/GroceryMealPicker";
 
-// The saved-meals grocery list (rebuilt from the saved meals on the list
-// whenever they change; Profile's Grocery tab and the grocery sheet's "Saved
-// meals" tab) plus its checkboxes (useGroceryChecks, the "saved" list) and
-// what the sheet's meal picker needs: every cookable saved meal, which are
-// on, and how much of each one's shopping is picked up.
-export function useSavedGroceryList(userId: string | null) {
-  const saved = useSavedMealsForGrocery(userId);
-  const checks = useGroceryChecks("saved", userId);
-  const items = useMemo(() => buildGroceryList(saved.onList), [saved.onList]);
+// The saved-meals grocery list: every saved home-cooked meal's ingredients,
+// rebuilt whenever the saves change (Profile's Grocery tab and the grocery
+// sheet's "Saved meals" tab). Saved means "cooking this": the morning nudge
+// unsaves a meal once it's cooked. Plus the photo row: each saved meal and
+// how much of its shopping is already in the pantry.
+export function useSavedGroceryList() {
+  const saved = useSavedMealsForGrocery();
+  const { data: pantry = [] } = usePantry();
+  const items = useMemo(() => buildGroceryList(saved.meals), [saved.meals]);
 
   const total = items.reduce((sum, item) => (item.category === "main" ? sum + item.price : sum), 0);
 
-  // Per meal on the list: the share of its "To buy" ingredients checked off
-  // (null: it needs nothing from the store). Items merge by lowercased name,
-  // the same key buildGroceryList uses.
-  const { isChecked } = checks;
+  // Per meal: the share of its main ingredients in the pantry (null: it
+  // needs nothing from the store). Items merge by lowercased name, the same
+  // key buildGroceryList uses.
   const progress = useMemo(() => {
-    const toBuy = new Map(items.filter((item) => item.category === "main").map((item) => [item.id, item]));
+    const mains = new Map(items.filter((item) => item.category === "main").map((item) => [item.id, item]));
     const map = new Map<string, number | null>();
-    for (const meal of saved.onList) {
+    for (const meal of saved.meals) {
       const ids = new Set((meal.ingredients ?? []).map((ingredient) => ingredient.name.trim().toLowerCase()));
-      const mine = [...ids].map((id) => toBuy.get(id)).filter((item) => item != null);
-      map.set(meal.saved_id, mine.length === 0 ? null : mine.filter(isChecked).length / mine.length);
+      const mine = [...ids].map((id) => mains.get(id)).filter((item) => item != null);
+      map.set(meal.saved_id, mine.length === 0 ? null : mine.filter((item) => inPantry(pantry, item)).length / mine.length);
     }
     return map;
-  }, [items, saved.onList, isChecked]);
+  }, [items, saved.meals, pantry]);
 
-  const toggleMeal = useGroceryMealsStore((s) => s.toggle);
-  const picker: GroceryMealPickerData = {
-    meals: saved.meals,
-    off: saved.off,
-    progress,
-    onToggle: (savedId) => toggleMeal(userId, savedId),
-  };
+  const picker: GroceryMealPickerData = { meals: saved.meals, progress };
 
-  return {
-    items,
-    total,
-    loading: saved.isLoading || checks.loading,
-    isChecked,
-    stateOf: checks.stateOf,
-    toggle: checks.toggle,
-    flush: checks.flush,
-    picker,
-  };
+  return { items, total, loading: saved.isLoading, picker };
 }

@@ -2,49 +2,55 @@ import { pantryHas } from "@/frontend/core/pantry/hooks/usePantry";
 import type { PantryIngredient } from "@/frontend/core/pantry/types";
 import type { GroceryItem } from "./buildGroceryList";
 
-// A list item's tick on this grocery list: ticked at today's quantity,
-// ticked at an older one ("stale": a meal was added since, so there's more
-// to buy), or never ticked.
-export type GroceryCheckState = "checked" | "stale" | "none";
-
 // Water is in many recipes but isn't bought or kept.
 const WATER = /^water\b/i;
 
-/** Whether the pantry has this item: by catalog id, else by name. */
+/** The pantry item that covers this one: the same catalog ingredient, else
+ *  one whose name is in its name ("Vinegar" covers "Coconut vinegar"). */
+export function pantryMatch(pantry: PantryIngredient[], item: GroceryItem): PantryIngredient | undefined {
+  return (item.ingredientId ? pantry.find((p) => p.id === item.ingredientId) : undefined) ?? pantry.find((p) => pantryHas([p], item.canonicalName));
+}
+
+/** Whether the pantry has this item (see pantryMatch). */
 export function inPantry(pantry: PantryIngredient[], item: GroceryItem): boolean {
-  if (item.ingredientId && pantry.some((p) => p.id === item.ingredientId)) return true;
-  return pantryHas(pantry, item.canonicalName);
+  return pantryMatch(pantry, item) != null;
+}
+
+/** For an item in the pantry under another name, that name ("Vinegar"). */
+export function coveringName(pantry: PantryIngredient[], item: GroceryItem): string | undefined {
+  const match = pantryMatch(pantry, item);
+  if (!match || match.id === item.ingredientId) return undefined;
+  return match.name.trim().toLowerCase() === item.name.trim().toLowerCase() ? undefined : match.name;
 }
 
 export type GroceryGroups = {
-  /** Still to pick up: never ticked and not at home, or ticked at an older
-   *  quantity (restock). */
+  /** Not in the pantry: still to pick up. */
   toBuy: GroceryItem[];
-  /** Ticked on this list: bought (and so in the pantry). */
+  /** "In your cart": ticked on this visit to the list (and so put in the
+   *  pantry). */
   gotIt: GroceryItem[];
-  /** Already at home (in the pantry, not ticked here): not bought, not
+  /** "In your pantry": there from before this visit, not bought, not
    *  counted in the total. */
   atHome: GroceryItem[];
-  /** ₱ of what this list buys: To buy plus Got it. */
+  /** ₱ of what this trip buys: To buy plus the cart. */
   total: number;
   /** What the meals use of those (whole packs leave some over). */
   used: number;
 };
 
-// The one rule the whole list follows: the pantry says what's at home, a
-// tick says what was bought on this trip. Ticking adds to the pantry and
-// unticking takes out (see FullGroceryListSheet), so the two never disagree.
-export function groupGroceryItems(
-  items: GroceryItem[],
-  pantry: PantryIngredient[],
-  stateOf: (item: GroceryItem) => GroceryCheckState,
-): GroceryGroups {
+// The one rule the whole list follows: the pantry says what's at home. A
+// tick puts an item in the pantry and holds it in the cart until the list
+// closes; next time it's under In your pantry. Taking it out of the pantry
+// (an untick, "+ To buy", Profile, the nudge) brings it back to To buy.
+// `tickedNow`: item ids ticked on this visit (none outside the sheet).
+export function groupGroceryItems(items: GroceryItem[], pantry: PantryIngredient[], tickedNow: ReadonlySet<string> = new Set()): GroceryGroups {
   const groups: GroceryGroups = { toBuy: [], gotIt: [], atHome: [], total: 0, used: 0 };
   for (const item of items) {
     if (WATER.test(item.canonicalName)) continue;
-    const state = stateOf(item);
-    if (state === "checked") groups.gotIt.push(item);
-    else if (state === "none" && inPantry(pantry, item)) groups.atHome.push(item);
+    // An item with no catalog id can't go in the pantry: ticked, it shows
+    // in the cart for this visit only.
+    if (tickedNow.has(item.id)) groups.gotIt.push(item);
+    else if (inPantry(pantry, item)) groups.atHome.push(item);
     else groups.toBuy.push(item);
   }
   for (const item of [...groups.toBuy, ...groups.gotIt]) {

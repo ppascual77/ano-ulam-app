@@ -25,11 +25,11 @@ const SETTLE = { damping: 12, stiffness: 260, mass: 0.6 };
 export function GroceryButton() {
   const userId = useAuth().session?.user.id ?? null;
   if (!userId) return null;
-  return <GroceryButtonInner userId={userId} />;
+  return <GroceryButtonInner />;
 }
 
-function GroceryButtonInner({ userId }: { userId: string }) {
-  const count = useGroceryToBuyCount(userId);
+function GroceryButtonInner() {
+  const count = useGroceryToBuyCount();
   const reduceMotion = useReduceMotion();
   const hop = useSharedValue(0);
   const tip = useSharedValue(0);

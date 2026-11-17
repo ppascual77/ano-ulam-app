@@ -100,13 +100,15 @@ export function useSavedMealActions() {
     }
   };
 
-  const unsave = async (entry: SavedMeal): Promise<string | null> => {
+  // `quiet`: the caller says what happened itself (Home's nudge unsaving
+  // the meals that got cooked, with one Undo for all of them).
+  const unsave = async (entry: SavedMeal, quiet = false): Promise<string | null> => {
     const before = read();
     write(before.filter((e) => e.saved_id !== entry.saved_id));
     try {
       await unsaveMeal(entry.saved_id);
       bumpSaveCount(entry, -1);
-      announceRemoved(entry, () => void save(entry, entry.serving_size, true));
+      if (!quiet) announceRemoved(entry, () => void save(entry, entry.serving_size, true));
       return null;
     } catch {
       write(before);

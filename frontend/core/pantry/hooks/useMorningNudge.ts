@@ -1,68 +1,59 @@
 import { useMemo } from "react";
-import { usePlannerStore } from "@/frontend/features/meal-planner/store/usePlannerStore";
-import type { MealSlot } from "@/frontend/features/meal-planner/utils/generatePlan";
-import { dayKey, useCooked } from "../store/useCookedStore";
+import { useSavedMealsForGrocery } from "@/frontend/core/grocery/hooks/useSavedMealsForGrocery";
+import type { SavedMeal } from "@/frontend/core/saved/types";
+import { dayKey, daysBetween, useNudge } from "../store/useNudgeStore";
 import { usePantry } from "./usePantry";
-import { useMealsWithIngredients } from "./usePlanPantryNeeds";
 import type { UsedUpMeal } from "../usedUp";
 
-const DAY_MS = 86_400_000;
-// Skipped this many times in a row: ask once a week instead of daily.
-const SKIPS_BEFORE_WEEKLY = 3;
-const WEEK_DAYS = 7;
+// Skipped this many times in a row: ask every few days instead of daily.
+const SKIPS_BEFORE_BACKOFF = 3;
+const BACKOFF_DAYS = 3;
+// Saved at least this long ago: probably cooked by now, so it starts ticked.
+const LIKELY_COOKED_DAYS = 3;
 
-export type NudgeMeal = UsedUpMeal & { id: string; slot: MealSlot };
+export type NudgeMeal = UsedUpMeal & {
+  saved: SavedMeal;
+  /** Starts ticked: saved a while ago. */
+  likely: boolean;
+  /** "Saved 4 days ago". */
+  savedLabel: string;
+};
+
+function savedLabel(age: number): string {
+  if (age <= 0) return "Saved today";
+  if (age === 1) return "Saved yesterday";
+  return `Saved ${age} days ago`;
+}
 
 /**
- * Home's "Cooked any of these?": yesterday's planned meals that weren't
- * finished through Start Cooking and used something in the pantry. Once a
- * day (answered or skipped), weekly after three skips in a row, and only
- * with a meal plan (saved meals have no day to ask about).
+ * Home's "Cooked any of your saved meals?": saved means "cooking this", so
+ * this asks which ones got cooked, then takes them off the list (unsaves
+ * them) and what they used up out of the pantry. Only saved meals that use
+ * something in the pantry (nothing to take out otherwise). Once a day
+ * (answered or skipped); after three skips in a row, every three days.
+ * Meal plan days tidy the pantry on their own (usePlanDayCleanup).
  */
 export function useMorningNudge() {
-  const plan = usePlannerStore((s) => s.plan);
-  const cooked = useCooked();
+  const nudge = useNudge();
+  const { meals: saved } = useSavedMealsForGrocery();
   const { data: pantry = [] } = usePantry();
 
-  const now = new Date();
-  const today = dayKey(now);
-  const yesterday = dayKey(new Date(now.getTime() - DAY_MS));
-  const sinceAnswered = cooked.answeredDay
-    ? Math.round((new Date(today).getTime() - new Date(cooked.answeredDay).getTime()) / DAY_MS)
-    : Infinity;
-  const due =
-    cooked.loaded &&
-    cooked.answeredDay !== today &&
-    !(cooked.skipStreak >= SKIPS_BEFORE_WEEKLY && sinceAnswered < WEEK_DAYS) &&
-    pantry.length > 0;
-
-  const day = plan?.days.find((d) => dayKey(new Date(d.date)) === yesterday);
-  const { pending, done } = useMemo(() => {
-    const pending: { id: string; slot: MealSlot; name: string }[] = [];
-    const done: string[] = [];
-    const seen = new Set<string>();
-    for (const { slot, meal } of day?.meals ?? []) {
-      const id = meal.id as string | undefined;
-      if (!id || seen.has(id)) continue;
-      seen.add(id);
-      if (cooked.cooked.includes(`${yesterday}|${id}`)) done.push(meal.name);
-      else pending.push({ id, slot, name: meal.name });
-    }
-    return { pending, done };
-  }, [day, cooked.cooked, yesterday]);
-
-  const ids = useMemo(() => pending.map((m) => m.id), [pending]);
-  const { byId, loading } = useMealsWithIngredients(ids, due && ids.length > 0);
+  const today = dayKey(new Date());
+  // A day after today means the phone's clock went back (or was set ahead
+  // to test): not a real answer, so it doesn't hold the nudge back.
+  const answeredDay = nudge.answeredDay && nudge.answeredDay <= today ? nudge.answeredDay : null;
+  const backedOff = nudge.skipStreak >= SKIPS_BEFORE_BACKOFF && answeredDay != null && daysBetween(answeredDay, today) < BACKOFF_DAYS;
+  const due = nudge.loaded && answeredDay !== today && !backedOff;
 
   const meals: NudgeMeal[] = useMemo(() => {
     const have = new Set(pantry.map((p) => p.id));
-    return pending.flatMap(({ id, slot, name }) => {
-      const ingredients = byId.get(id)?.ingredients ?? [];
-      // Nothing of it in the pantry: nothing to take out, so not asked.
+    return saved.flatMap((meal) => {
+      const ingredients = meal.ingredients ?? [];
       if (!ingredients.some((i) => i.ingredientId && have.has(i.ingredientId))) return [];
-      return [{ key: id, id, slot, name, ingredients }];
+      const age = daysBetween(dayKey(new Date(meal.date_saved)), today);
+      return [{ key: meal.saved_id, name: meal.name, ingredients, saved: meal, likely: age >= LIKELY_COOKED_DAYS, savedLabel: savedLabel(age) }];
     });
-  }, [pending, byId, pantry]);
+  }, [saved, pantry, today]);
 
-  return { visible: due && !loading && meals.length > 0, meals, done, answer: cooked.answer };
+  return { visible: due && meals.length > 0, meals, answer: nudge.answer };
 }

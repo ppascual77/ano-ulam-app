@@ -154,14 +154,20 @@ function Placeholder() {
   );
 }
 
-type CardState = { kind: "loading" } | { kind: "today"; plan: MealPlan; dayIndex: number } | { kind: "next" } | { kind: "start" };
+type CardState =
+  | { kind: "loading" }
+  | { kind: "today"; plan: MealPlan; dayIndex: number }
+  | { kind: "locked"; dayIndex: number }
+  | { kind: "next" }
+  | { kind: "start" };
 
 // Home's one Meal Planner card, by where you are:
 // - no plan: "Plan your week";
 // - a plan running today: "Today's plan", a photo-led card with the meal
 //   that's up next, today's three, and the day vs your nutrition goals;
 // - a plan that has ended: "Plan next week".
-// Free plans only open day 1, so later days show "Plan your week".
+// Free plans only open day 1, so a Free plan's later days say "Day 2 of
+// your plan is Pro" and open the plan with its locks.
 // Switching states crossfades while the card eases to its new height.
 function HomePlanCardInner() {
   const { session } = useAuth();
@@ -178,7 +184,9 @@ function HomePlanCardInner() {
     ? { kind: "loading" }
     : plan && dayIndex >= 0 && (isPro || dayIndex === 0)
       ? { kind: "today", plan, dayIndex }
-      : !plan && saved.data
+      : plan && dayIndex > 0
+        ? { kind: "locked", dayIndex }
+        : !plan && saved.data
         ? { kind: "next" }
         : { kind: "start" };
 
@@ -187,6 +195,13 @@ function HomePlanCardInner() {
       <Animated.View key={state.kind} entering={FadeIn.duration(reduceMotion ? 150 : 260)}>
         {state.kind === "loading" && <Placeholder />}
         {state.kind === "today" && <TodayPlan plan={state.plan} dayIndex={state.dayIndex} />}
+        {state.kind === "locked" && (
+          <PlanWeekCard
+            title={`Day ${state.dayIndex + 1} of your plan is Pro`}
+            subtitle="Free plans cover day 1. Go Pro to cook the rest of your week."
+            cta="See your plan"
+          />
+        )}
         {state.kind === "next" && <PlanWeekCard title="Plan next week" subtitle="Your last plan ended. Your budget and people are ready to go." cta="Plan again" />}
         {state.kind === "start" && <PlanWeekCard />}
       </Animated.View>

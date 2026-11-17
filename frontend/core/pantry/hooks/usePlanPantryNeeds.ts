@@ -5,7 +5,7 @@ import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { usePlannerStore } from "@/frontend/features/meal-planner/store/usePlannerStore";
 import type { MealPlan, PlannedMeal } from "@/frontend/features/meal-planner/utils/generatePlan";
-import { dayKey } from "../store/useCookedStore";
+import { dayKey } from "../store/useNudgeStore";
 
 const DAY_MS = 86_400_000;
 const WEEKDAY = new Intl.DateTimeFormat("en-PH", { weekday: "short" });
@@ -53,19 +53,13 @@ function whenLabel(planned: PlannedMeal, date: Date, now: Date) {
 }
 
 /**
- * Pantry items a later planned meal still needs, by ingredient id, with
- * that meal ("Chicken Tinola tonight"): cooking one meal shouldn't empty
- * the chicken bought for two. `cookingMealId`: the meal just cooked (its
- * first planned spot from today on is left out).
+ * Pantry items a planned meal from today on still needs, by ingredient id,
+ * with the note that says so ("Still needed for Chicken Tinola tonight"):
+ * cooking one meal shouldn't empty the chicken bought for two.
  */
-export function useLaterPlanNeeds(cookingMealId: string | undefined, enabled: boolean) {
+export function useLaterPlanNeeds(enabled: boolean) {
   const plan = usePlannerStore((s) => s.plan);
-  const later = useMemo(() => {
-    const now = new Date();
-    const list = upcoming(plan, now);
-    const skip = list.findIndex(({ planned }) => planned.meal.id === cookingMealId);
-    return list.filter((_, i) => i !== skip);
-  }, [plan, cookingMealId]);
+  const later = useMemo(() => upcoming(plan, new Date()), [plan]);
   const ids = useMemo(() => [...new Set(later.map(({ planned }) => planned.meal.id as string).filter(Boolean))], [later]);
   const { byId, loading } = useMealsWithIngredients(ids, enabled);
   const needs = useMemo(() => {
@@ -75,7 +69,7 @@ export function useLaterPlanNeeds(cookingMealId: string | undefined, enabled: bo
       const meal = byId.get(planned.meal.id as string);
       for (const ingredient of meal?.ingredients ?? []) {
         if (ingredient.ingredientId && !map.has(ingredient.ingredientId)) {
-          map.set(ingredient.ingredientId, `${meal?.name ?? planned.meal.name} ${whenLabel(planned, date, now)}`);
+          map.set(ingredient.ingredientId, `Still needed for ${meal?.name ?? planned.meal.name} ${whenLabel(planned, date, now)}`);
         }
       }
     }

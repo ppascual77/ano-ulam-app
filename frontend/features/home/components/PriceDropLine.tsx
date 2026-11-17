@@ -26,7 +26,7 @@ export function PriceDropLine({ item }: { item: PriceItem }) {
       onPress={() => router.navigate("/price-watch")}
       accessibilityRole="link"
       accessibilityLabel={`${shortName(item)} is ${pct}% cheaper than last week. Open Price Watch`}
-      className="mt-3 flex-row items-center gap-2 self-start rounded-full border border-white/20 bg-white/10 py-1.5 pl-1.5 pr-3 active:bg-white/20"
+      className="flex-row items-center gap-2 self-start rounded-full border border-white/20 bg-white/10 py-1.5 pl-1.5 pr-3 active:bg-white/20"
     >
       <View className="h-6 w-6 items-center justify-center rounded-full bg-white/15">
         <BoilingDoodle versions={DOWN} size={15} color={colors.home.name} strokeWidth={2.6} paused={reduce} />

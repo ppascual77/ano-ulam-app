@@ -22,9 +22,12 @@ type GroceryRowProps = {
   onToggle: () => void;
   /** Full list: names wrap instead of truncating. */
   wrap?: boolean;
-  /** Already in the pantry (the "At home" fold): a settled green check, no
-   *  price, and "+ To buy" (onOutOfIt) for when you've run out. */
+  /** Already in the pantry (the "In your pantry" fold): a settled green
+   *  check, no price, and "+ To buy" (onOutOfIt) for when you've run out. */
   atHome?: boolean;
+  /** At home through a differently named pantry item ("Vinegar" for
+   *  "Coconut vinegar"): said under the name, so the two lists agree. */
+  usingName?: string;
   onOutOfIt?: () => void;
   /** A read-only preview (Profile's Grocery tab): faint check boxes and no
    *  tapping a row, since the whole preview opens the full list. */
@@ -64,19 +67,26 @@ export function CheckBox({ checked, faint = false }: { checked: boolean; faint?:
 
 // One line per row, the same shape all the way down:
 //   to buy / got it:  check box · name (and "for 2 meals" under it) · amount · price
-//   at home:          green check · name, dimmed · "+ To buy"
+//   in your pantry:   green check · name, dimmed · "+ To buy"
 // No chips, so no row wraps onto a second line and the columns line up.
 // Checked items fade and get struck through.
-export function GroceryRow({ item, checked, onToggle, wrap = false, atHome = false, onOutOfIt, preview = false }: GroceryRowProps) {
+export function GroceryRow({ item, checked, onToggle, wrap = false, atHome = false, usingName, onOutOfIt, preview = false }: GroceryRowProps) {
   if (atHome) {
     return (
       <View className="min-h-11 flex-row items-center gap-3 px-2 py-2">
         <View className="h-6 w-6 items-center justify-center rounded-full bg-tinted-bg">
           <Check color={colors.primary} size={13} strokeWidth={3} />
         </View>
-        <Text numberOfLines={wrap ? undefined : 1} className="flex-1 font-inter-medium text-body text-ink-subtle">
-          {item.name}
-        </Text>
+        <View className="flex-1">
+          <Text numberOfLines={wrap ? undefined : 1} className="font-inter-medium text-body text-ink-subtle">
+            {item.name}
+          </Text>
+          {usingName && (
+            <Text numberOfLines={1} className="font-inter-regular text-small text-ink-placeholder">
+              Using your {usingName}
+            </Text>
+          )}
+        </View>
         {onOutOfIt && !preview && (
           <Pressable
             onPress={onOutOfIt}

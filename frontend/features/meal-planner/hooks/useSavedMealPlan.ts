@@ -87,6 +87,19 @@ export function useSavedMealPlan() {
     });
   }, [userId, loadedFor, saved.data, saved.isError, catalog, catalogFailed, loadSaved]);
 
+  // A plan that ended while the app stayed open (overnight, or the clock
+  // moved) drops back to setup, budget and people kept, the same as one
+  // found ended when loading. Otherwise Home says "Plan your week" while
+  // the planner still opens on the old plan.
+  const plan = usePlannerStore((s) => s.plan);
+  const lastDay = plan?.days[plan.days.length - 1]?.date;
+  const ended = !!lastDay && localDate(lastDay) < localDate(new Date());
+  useEffect(() => {
+    if (!ended) return;
+    usePlannerStore.getState().setPlan(null);
+    usePlannerStore.getState().setStage("setup");
+  }, [ended]);
+
   // Resolves false when it couldn't be saved (the plan stays on screen).
   const save = async (plan: MealPlan, goal: Goal | null): Promise<boolean> => {
     if (!userId) return true;
