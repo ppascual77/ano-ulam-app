@@ -7,6 +7,7 @@ import { Header } from "@/frontend/features/home/components/Header";
 import { PriceDropLine, useBiggestPriceDrop } from "@/frontend/features/home/components/PriceDropLine";
 import { RandomMealPuller } from "@/frontend/features/home/components/RandomMealPuller";
 import { HomePlanCard } from "@/frontend/features/home/components/HomePlanCard";
+import { PantryNudgeSheet } from "@/frontend/features/home/components/PantryNudgeSheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HomeBackdrop, homeDarkEdgeTop } from "@/frontend/features/home/components/HomeBackdrop";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
@@ -126,6 +127,9 @@ export default function HomeScreen() {
         )}
       </ScrollView>
       {statusBar.strip}
+      {/* Yesterday's planned meals: "Cooked any of these?" (only when
+          there's something to ask, once a day; not over the welcome intro). */}
+      <PantryNudgeSheet enabled={!introPending && !intro.showing} />
       {/* Below the status bar, where they sat before the page went under it. */}
       <View pointerEvents="box-none" style={{ position: "absolute", top: statusBar.top, left: 0, right: 0, bottom: 0 }}>
         {showSurpriseMe && <RandomMealPuller />}

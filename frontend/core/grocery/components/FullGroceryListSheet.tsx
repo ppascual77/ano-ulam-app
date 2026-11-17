@@ -13,16 +13,15 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { Carrot, Check, ChevronDown, Drumstick, Info, Milk, Package, type LucideIcon } from "lucide-react-native";
-import { AppText, BottomSheet, RollingText, SegmentedSwitch } from "@/frontend/components/ui";
+import { Carrot, Check, ChevronDown, Drumstick, House, Info, Package, type LucideIcon } from "lucide-react-native";
+import { AppText, BottomSheet, RollingText, SegmentedSwitch, showGlobalToast } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { pantryHas } from "@/frontend/core/pantry/hooks/usePantry";
+import { usePantryActions } from "@/frontend/core/pantry/hooks/usePantry";
 import type { PantryIngredient } from "@/frontend/core/pantry/types";
 import type { GroceryItem } from "../utils/buildGroceryList";
 import { GROCERY_SECTIONS, GROCERY_SECTION_LABELS, type GrocerySectionKey } from "../utils/groceryLabels";
 import { GroceryRow, formatPeso } from "./GroceryRow";
-import { splitGroceryItems } from "./GrocerySection";
-import { useStaplesToBuyStore } from "../store/useStaplesToBuyStore";
+import { groupGroceryItems, inPantry, type GroceryCheckState } from "../utils/groupGroceryItems";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 
 const EASE = Easing.out(Easing.cubic);
@@ -55,6 +54,9 @@ export type GroceryListTab = {
   items: GroceryItem[];
   total: number;
   isChecked: (item: GroceryItem) => boolean;
+  /** Ticked now, at an older quantity, or not (see useGroceryChecks).
+   *  Without it, a tick is checked or not. */
+  stateOf?: (item: GroceryItem) => GroceryCheckState;
   onToggle: (item: GroceryItem) => void;
   /** Shown when the list has no items. */
   emptyText: string;
@@ -77,9 +79,9 @@ type FullGroceryListSheetProps = {
   pantry: PantryIngredient[];
 };
 
-// Items already in the pantry get checked once when the sheet opens (per
-// item, per app session), so unchecking one sticks until the next launch.
-const autoCheckedHave = new Set<string>();
+// The first tick of a session says where ticked items go; after that, ticks
+// are quiet (unticks and "+ To buy" always offer an Undo).
+let tickHintShown = false;
 
 const COUNT_UP_MS = 600;
 
@@ -197,7 +199,7 @@ function SummaryCard({ total, left, picked, count, leftover }: SummaryProps) {
 
 type FoldProps = {
   Icon: LucideIcon;
-  /** Icon tile: green for "Got it", neutral for staples. */
+  /** Icon tile: green for "Got it", neutral for "At home". */
   tone: "green" | "neutral";
   title: string;
   subtitle: string;
@@ -206,7 +208,7 @@ type FoldProps = {
   children: ReactNode;
 };
 
-// A section folded into one line (pantry staples, "Got it"): opens in place,
+// A section folded into one line ("At home", "Got it"): opens in place,
 // the chevron turning as it goes.
 function Fold({ Icon, tone, title, subtitle, open, onToggle, children }: FoldProps) {
   const reduceMotion = useReduceMotion();
@@ -255,48 +257,32 @@ export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initial
     if (visible) setActiveKey(initialTab ?? tabs[0]?.key);
     // Reset to the caller's tab on each open.
   }, [visible]);
-  const moveStaple = useStaplesToBuyStore((s) => s.toggle);
+  const pantryActions = usePantryActions();
   const reduceMotion = useReduceMotion();
   // The row just moved drops in from above; other arrivals just fade.
   const [justMoved, setJustMoved] = useState<string | null>(null);
-  const handleMove = (id: string) => {
-    Haptics.selectionAsync();
-    setJustMoved(id);
-    moveStaple(id);
-  };
   // Just checked: still shown in place (struck through) until it settles.
   const [settling, setSettling] = useState<Set<string>>(new Set());
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
   // Both folds start closed: the list is what's left to buy.
-  const [staplesOpen, setStaplesOpen] = useState(false);
+  const [homeOpen, setHomeOpen] = useState(false);
   const [gotItOpen, setGotItOpen] = useState(false);
   const tab = tabs.find((t) => t.key === activeKey) ?? tabs[0];
-  // What's on screen: the tab, and its scope when it has one (keys, the
-  // total's count-up and the pantry auto-check follow it).
+  // What's on screen: the tab, and its scope when it has one (keys and the
+  // total's count-up follow it).
   const viewKey = tab?.scope ? `${tab.key}:${tab.scope.value}` : (tab?.key ?? "");
-  // "To buy": main ingredients and any staples moved there.
-  const counted = (tab?.items ?? []).filter((item) => item.category === "main");
-  const total = counted.reduce((sum, item) => sum + item.price, 0);
-  // What the meals use of it. Whole packs cost more than what a recipe
-  // uses, and the gap is what's left over in the pantry, which explains why
-  // this total is higher than the meals' own prices.
-  const used = counted.reduce((sum, item) => sum + item.usedPrice, 0);
-  const leftover = Math.round(total) - Math.round(used) >= 1;
-  const shownTotal = useCountUp(total, viewKey, visible);
-  const picked = tab ? counted.filter(tab.isChecked).length : 0;
-  const left = counted.length - picked;
-
-  useEffect(() => {
-    if (!visible || !tab) return;
-    for (const item of tab.items) {
-      const key = `${viewKey}:${item.id}`;
-      if (autoCheckedHave.has(key) || !pantryHas(pantry, item.canonicalName)) continue;
-      autoCheckedHave.add(key);
-      if (!tab.isChecked(item)) tab.onToggle(item);
-    }
-    // Runs when the sheet opens, the tab changes, or the list/pantry loads.
-  }, [visible, viewKey, tab?.items, pantry]);
+  const stateOf = (item: GroceryItem): GroceryCheckState =>
+    tab?.stateOf ? tab.stateOf(item) : tab?.isChecked(item) ? "checked" : "none";
+  const groups = groupGroceryItems(tab?.items ?? [], pantry, stateOf);
+  // Whole packs cost more than what a recipe uses, and the gap is what's
+  // left over in the pantry, which explains why this total is higher than
+  // the meals' own prices.
+  const leftover = Math.round(groups.total) - Math.round(groups.used) >= 1;
+  const shownTotal = useCountUp(groups.total, viewKey, visible);
+  const picked = groups.gotIt.length;
+  const count = groups.toBuy.length + picked;
+  const left = groups.toBuy.length;
 
   // The last item checked off: a success haptic (only on that tap, not when
   // a list opens already done).
@@ -304,50 +290,92 @@ export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initial
   useEffect(() => {
     const prev = lastLeft.current;
     lastLeft.current = { key: viewKey, left };
-    if (visible && prev?.key === viewKey && prev.left > 0 && left === 0 && counted.length > 0) {
+    if (visible && prev?.key === viewKey && prev.left > 0 && left === 0 && count > 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   }, [left, viewKey, visible]);
 
   if (!tab) return null;
-  const { items, isChecked, onToggle } = tab;
+  const { onToggle } = tab;
+  const asPantry = (item: GroceryItem) => (item.ingredientId ? [{ id: item.ingredientId, name: item.canonicalName }] : []);
+  const ids = (item: GroceryItem) => (item.ingredientId ? [item.ingredientId] : []);
+
+  // A tick means bought: it goes in the pantry. An untick means you don't
+  // have it after all: out of the pantry, back to To buy.
   const handleToggle = (item: GroceryItem) => {
     Haptics.selectionAsync();
-    if (isChecked(item)) {
-      // Unchecked (from "Got it"): straight back into the list.
-      setJustMoved(item.id);
-    } else {
-      setSettling((prev) => new Set(prev).add(item.id));
-      timers.current.push(
-        setTimeout(() => {
-          setSettling((prev) => {
-            const next = new Set(prev);
-            next.delete(item.id);
-            return next;
-          });
-        }, CHECK_SETTLE_MS),
-      );
-    }
+    const wasChecked = stateOf(item) === "checked";
+    const wasHome = inPantry(pantry, item);
     onToggle(item);
+    if (wasChecked) {
+      setJustMoved(item.id);
+      pantryActions.removeMany(ids(item));
+      showGlobalToast({
+        tone: "success",
+        message: `${item.name} is back on your list`,
+        action: {
+          label: "Undo",
+          inSheet: true,
+          onPress: () => {
+            onToggle(item);
+            pantryActions.addMany(asPantry(item));
+          },
+        },
+      });
+      return;
+    }
+    pantryActions.addMany(asPantry(item));
+    setSettling((prev) => new Set(prev).add(item.id));
+    timers.current.push(
+      setTimeout(() => {
+        setSettling((prev) => {
+          const next = new Set(prev);
+          next.delete(item.id);
+          return next;
+        });
+      }, CHECK_SETTLE_MS),
+    );
+    if (!tickHintShown && item.ingredientId) {
+      tickHintShown = true;
+      showGlobalToast({
+        tone: "success",
+        message: `${item.name} added to your pantry`,
+        action: {
+          label: "Undo",
+          inSheet: true,
+          onPress: () => {
+            onToggle(item);
+            if (!wasHome) pantryActions.removeMany(ids(item));
+          },
+        },
+      });
+    }
   };
-  const split = splitGroceryItems(items);
-  const mains = split.mains;
-  const staples = split.staples;
+
+  // "+ To buy" on something at home: you've run out.
+  const handleOutOfIt = (item: GroceryItem) => {
+    Haptics.selectionAsync();
+    setJustMoved(item.id);
+    pantryActions.removeMany(ids(item));
+    showGlobalToast({
+      tone: "success",
+      message: `${item.name} moved to To buy`,
+      action: { label: "Undo", inSheet: true, onPress: () => pantryActions.addMany(asPantry(item)) },
+    });
+  };
+
   // Still to pick up (plus anything checked a moment ago, until it settles),
-  // grouped by store section; and what's been checked off.
-  const toBuy = mains.filter((item) => !isChecked(item) || settling.has(item.id));
-  const gotIt = mains.filter((item) => isChecked(item) && !settling.has(item.id));
+  // grouped by store section; what's at home; and what's been checked off.
+  const toBuy = [...groups.toBuy, ...groups.gotIt.filter((item) => settling.has(item.id))];
+  const gotIt = groups.gotIt.filter((item) => !settling.has(item.id));
+  const { atHome } = groups;
   const sections = GROCERY_SECTIONS.map((key) => ({ key, rows: toBuy.filter((item) => item.section === key) })).filter(
     (section) => section.rows.length > 0,
   );
-  // Staples: the ones to check you still have, then the ones the pantry
-  // says are at home.
-  const staplesToCheck = staples.filter((item) => !pantryHas(pantry, item.canonicalName));
-  const staplesAtHome = staples.filter((item) => pantryHas(pantry, item.canonicalName));
 
   // Keyed per tab too, so switching tabs remounts rows instead of sliding
   // ones the two lists share. `stagger`: the row's place in an opened fold.
-  const renderRows = (rows: GroceryItem[], stagger = false) =>
+  const renderRows = (rows: GroceryItem[], stagger = false, home = false) =>
     rows.map((item, index) => (
       <Animated.View
         key={`${viewKey}:${item.id}`}
@@ -366,11 +394,11 @@ export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initial
       >
         <GroceryRow
           item={item}
-          checked={isChecked(item)}
+          checked={!home && stateOf(item) === "checked"}
           onToggle={() => handleToggle(item)}
           wrap
-          have={pantryHas(pantry, item.canonicalName)}
-          onMove={item.category === "pantry" || item.movedFromStaples ? () => handleMove(item.id) : undefined}
+          atHome={home}
+          onOutOfIt={home && item.ingredientId ? () => handleOutOfIt(item) : undefined}
         />
       </Animated.View>
     ));
@@ -380,7 +408,7 @@ export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initial
       <ScrollView contentContainerClassName="px-6 pb-10 pt-10" showsVerticalScrollIndicator={false}>
         <AppText variant="sectionTitle" dot>Grocery list</AppText>
 
-        {counted.length > 0 && <SummaryCard total={shownTotal} left={left} picked={picked} count={counted.length} leftover={leftover} />}
+        {count > 0 && <SummaryCard total={shownTotal} left={left} picked={picked} count={count} leftover={leftover} />}
 
         {tabs.length > 1 && (
           <View className="mt-4 items-start">
@@ -408,7 +436,7 @@ export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initial
             that arrive later (a meal switched on) do. Keyed by the view, so
             a tab switch starts over. */}
         <LayoutAnimationConfig key={viewKey} skipEntering skipExiting>
-          {items.length === 0 && (
+          {tab.items.length === 0 && (
             <Text className="py-8 text-center font-inter-regular text-body text-web-ink-muted">{tab.emptyText}</Text>
           )}
 
@@ -429,35 +457,21 @@ export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initial
             );
           })}
 
-          {(staples.length > 0 || gotIt.length > 0) && <View className="h-3" />}
+          {(atHome.length > 0 || gotIt.length > 0) && <View className="h-3" />}
 
-          {staples.length > 0 && (
+          {/* Already in the pantry: not bought, not in the total. "+ To buy"
+              on a row when you've run out. */}
+          {atHome.length > 0 && (
             <Fold
-              Icon={Milk}
+              Icon={House}
               tone="neutral"
-              title="Pantry staples"
-              subtitle={[
-                `${staples.length} item${staples.length === 1 ? "" : "s"}`,
-                staplesAtHome.length > 0 ? `${staplesAtHome.length} at home` : null,
-                staplesToCheck.length > 0 ? `${staplesToCheck.length} to check` : null,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-              open={staplesOpen}
-              onToggle={() => setStaplesOpen((open) => !open)}
+              title="At home"
+              subtitle={`${atHome.length} item${atHome.length === 1 ? "" : "s"} in your pantry`}
+              open={homeOpen}
+              onToggle={() => setHomeOpen((open) => !open)}
             >
-              {staplesToCheck.length > 0 && (
-                <>
-                  <FoldLabel>Check you have · {staplesToCheck.length}</FoldLabel>
-                  {renderRows(staplesToCheck, true)}
-                </>
-              )}
-              {staplesAtHome.length > 0 && (
-                <>
-                  <FoldLabel>At home · {staplesAtHome.length}</FoldLabel>
-                  {renderRows(staplesAtHome, true)}
-                </>
-              )}
+              <FoldLabel>Tap + To buy if you run out</FoldLabel>
+              {renderRows(atHome, true, true)}
             </Fold>
           )}
 
@@ -468,7 +482,7 @@ export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initial
               Icon={Check}
               tone="green"
               title="Got it"
-              subtitle={`${gotIt.length} picked up`}
+              subtitle={`${gotIt.length} picked up · in your pantry`}
               open={gotItOpen}
               onToggle={() => setGotItOpen((open) => !open)}
             >

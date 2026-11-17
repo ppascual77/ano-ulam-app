@@ -18,7 +18,8 @@ import { EmptyState } from "../EmptyState";
 import { GroceryRow, formatPeso } from "@/frontend/core/grocery/components/GroceryRow";
 import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
 import { GroceryMealPicker } from "@/frontend/core/grocery/components/GroceryMealPicker";
-import { GrocerySectionHeader, splitGroceryItems } from "@/frontend/core/grocery/components/GrocerySection";
+import { GrocerySectionHeader } from "@/frontend/core/grocery/components/GrocerySection";
+import { groupGroceryItems } from "@/frontend/core/grocery/utils/groupGroceryItems";
 
 const PREVIEW_LIMIT = 7;
 
@@ -50,13 +51,15 @@ export function GroceryTab({ userId }: { userId: string | null }) {
   const [fullOpen, setFullOpen] = useState(false);
 
   const { items } = grocery;
-  const { mains, staples } = splitGroceryItems(items);
-  // The preview's first items (mains come first), split the same way. The
-  // headers count the whole list, not just what's previewed.
-  const preview = splitGroceryItems(items.slice(0, PREVIEW_LIMIT));
-  // Only main ingredients count toward the total (pantry staples are
-  // usually on hand).
-  const { total } = grocery;
+  // To buy (and bought), and what's already at home: the same split as the
+  // full list. The preview shows the first few of each; the headers count
+  // the whole list.
+  const groups = groupGroceryItems(items, pantry, grocery.stateOf);
+  const shopping = [...groups.toBuy, ...groups.gotIt];
+  const previewShopping = shopping.slice(0, PREVIEW_LIMIT);
+  const previewHome = groups.atHome.slice(0, Math.max(0, PREVIEW_LIMIT - previewShopping.length));
+  // What this list buys: things already at home aren't counted.
+  const { total } = groups;
   const shownTotal = useCountUp(total);
 
   // Leaving the tab sends any pending checkbox changes.
@@ -131,8 +134,8 @@ export function GroceryTab({ userId }: { userId: string | null }) {
             className="mt-3 gap-4 rounded-2xl border-2 border-dashed border-accent px-3 pb-1 pt-4"
           >
             {[
-              { title: "To buy", rows: preview.mains, count: mains.length },
-              { title: "Pantry staples", rows: preview.staples, count: staples.length },
+              { title: "To buy", rows: previewShopping, count: shopping.length, home: false },
+              { title: "At home", rows: previewHome, count: groups.atHome.length, home: true },
             ]
               .filter((section) => section.rows.length > 0)
               .map((section) => (
@@ -144,6 +147,7 @@ export function GroceryTab({ userId }: { userId: string | null }) {
                       item={item}
                       checked={grocery.isChecked(item)}
                       onToggle={() => grocery.toggle(item)}
+                      atHome={section.home}
                       preview
                     />
                   ))}
@@ -164,11 +168,11 @@ export function GroceryTab({ userId }: { userId: string | null }) {
           <View className="gap-3 rounded-2xl border border-ink-emphasis/10 p-4">
             <View>
               <Text className="font-inter-bold text-heading text-ink-emphasis">₱{formatPeso(total, 0)}</Text>
-              <Text className="font-inter-regular text-small text-ink-subtle">Estimated total for main ingredients</Text>
+              <Text className="font-inter-regular text-small text-ink-subtle">Estimated total, minus what's at home</Text>
             </View>
             <View className="h-px bg-ink-emphasis/5" />
-            <SummaryRow dotClassName="bg-primary" label="To buy" count={mains.length} />
-            <SummaryRow dotClassName="bg-ink-placeholder" label="Pantry staples" count={staples.length} />
+            <SummaryRow dotClassName="bg-primary" label="To buy" count={groups.toBuy.length} />
+            <SummaryRow dotClassName="bg-ink-placeholder" label="At home" count={groups.atHome.length} />
           </View>
           <View className="rounded-2xl bg-notice-bg p-4">
             <View className="flex-row items-center gap-1.5">
@@ -176,8 +180,8 @@ export function GroceryTab({ userId }: { userId: string | null }) {
               <Text className="font-inter-semibold text-body text-ink-emphasis">Tips</Text>
             </View>
             <Text className="mt-1 font-inter-regular text-small text-ink">
-              Prices are estimates based on ingredient quantities used. Actual spend may be higher since some items are sold
-              as whole units.
+              Packaged items are priced as whole packs. Anything you tick goes to your pantry, so it won&apos;t be counted
+              next time.
             </Text>
           </View>
         </View>
@@ -198,6 +202,7 @@ export function GroceryTab({ userId }: { userId: string | null }) {
             items,
             total,
             isChecked: grocery.isChecked,
+            stateOf: grocery.stateOf,
             onToggle: grocery.toggle,
             emptyText:
             grocery.picker.meals.length > 0
@@ -213,6 +218,7 @@ export function GroceryTab({ userId }: { userId: string | null }) {
                   items: planGrocery.items,
                   total: planGrocery.total,
                   isChecked: planGrocery.isChecked,
+                  stateOf: planGrocery.stateOf,
                   onToggle: planGrocery.toggle,
                   emptyText: "Your meal plan's ingredients will show up here.",
                 },

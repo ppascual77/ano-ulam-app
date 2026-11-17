@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { Pressable, View } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
-import { Check, Plus, Undo2 } from "lucide-react-native";
+import { Check, Plus } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
 import type { GroceryItem } from "../utils/buildGroceryList";
 
@@ -22,19 +22,18 @@ type GroceryRowProps = {
   onToggle: () => void;
   /** Full list: names wrap instead of truncating. */
   wrap?: boolean;
-  /** Full list: the item is already in the user's pantry. */
-  have?: boolean;
+  /** Already in the pantry (the "At home" fold): a settled green check, no
+   *  price, and "+ To buy" (onOutOfIt) for when you've run out. */
+  atHome?: boolean;
+  onOutOfIt?: () => void;
   /** A read-only preview (Profile's Grocery tab): faint check boxes and no
    *  tapping a row, since the whole preview opens the full list. */
   preview?: boolean;
-  /** Full list: moves a pantry staple to "To buy" (a "+ To buy" pill),
-   *  or a moved one back (an undo icon under its price). */
-  onMove?: () => void;
 };
 
 // Rounded check box that fills green and pops when checked (only on a tap,
 // not when the row first renders already checked).
-function CheckBox({ checked, faint = false }: { checked: boolean; faint?: boolean }) {
+export function CheckBox({ checked, faint = false }: { checked: boolean; faint?: boolean }) {
   const scale = useSharedValue(1);
   const mounted = useRef(false);
   useEffect(() => {
@@ -64,43 +63,31 @@ function CheckBox({ checked, faint = false }: { checked: boolean; faint?: boolea
 }
 
 // One line per row, the same shape all the way down:
-//   to buy:            check box · name (and "for 2 meals" under it) · amount · price
-//   staple, not home:  dashed ring · name · "+ To buy"
-//   staple, at home:   green check · name, dimmed (no amount: nothing to buy)
+//   to buy / got it:  check box · name (and "for 2 meals" under it) · amount · price
+//   at home:          green check · name, dimmed · "+ To buy"
 // No chips, so no row wraps onto a second line and the columns line up.
 // Checked items fade and get struck through.
-export function GroceryRow({ item, checked, onToggle, wrap = false, have = false, preview = false, onMove }: GroceryRowProps) {
-  // Main ingredients and staples moved to "To buy" are priced and counted.
-  const counted = item.category === "main";
-  const done = counted && checked;
-
-  if (!counted) {
-    // A staple isn't on the shopping run: nothing to check off. At home it
-    // just reads as settled; otherwise "+ To buy" for when you're out.
+export function GroceryRow({ item, checked, onToggle, wrap = false, atHome = false, onOutOfIt, preview = false }: GroceryRowProps) {
+  if (atHome) {
     return (
       <View className="min-h-11 flex-row items-center gap-3 px-2 py-2">
-        {have ? (
-          <View className="h-6 w-6 items-center justify-center rounded-full bg-tinted-bg">
-            <Check color={colors.primary} size={13} strokeWidth={3} />
-          </View>
-        ) : (
-          <View className="h-6 w-6 rounded-full border-2 border-dashed border-web-ink-faint" />
-        )}
-        <Text
-          numberOfLines={wrap ? undefined : 1}
-          className={`flex-1 text-body ${have ? "font-inter-medium text-ink-subtle" : "font-inter-semibold text-ink-emphasis"}`}
-        >
+        <View className="h-6 w-6 items-center justify-center rounded-full bg-tinted-bg">
+          <Check color={colors.primary} size={13} strokeWidth={3} />
+        </View>
+        <Text numberOfLines={wrap ? undefined : 1} className="flex-1 font-inter-medium text-body text-ink-subtle">
           {item.name}
         </Text>
-        {!have && onMove && (
+        {onOutOfIt && !preview && (
           <Pressable
-            onPress={onMove}
+            onPress={onOutOfIt}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel={`Move ${item.name} to To buy`}
-            className="flex-row items-center gap-1 rounded-full bg-tinted-bg px-2.5 py-1.5 active:opacity-70"
+            accessibilityLabel={`Out of ${item.name}: move to To buy`}
+            // Quiet (an outline, not a fill): a whole fold of these
+            // shouldn't shout. It's for the odd thing you've run out of.
+            className="flex-row items-center gap-1 rounded-full border border-primary/20 px-2.5 py-1 active:bg-tinted-bg"
           >
-            <Plus color={colors.primary} size={13} strokeWidth={2.5} />
+            <Plus color={colors.primary} size={12} strokeWidth={2.5} />
             <Text className="font-inter-semibold text-small text-primary">To buy</Text>
           </Pressable>
         )}
@@ -108,6 +95,7 @@ export function GroceryRow({ item, checked, onToggle, wrap = false, have = false
     );
   }
 
+  const done = checked;
   return (
     <Pressable
       onPress={preview ? undefined : onToggle}
@@ -139,17 +127,12 @@ export function GroceryRow({ item, checked, onToggle, wrap = false, have = false
         {item.buy}
       </Text>
 
-      <View style={{ width: PRICE_WIDTH }} className={`items-end gap-1 ${done ? "opacity-40" : ""}`}>
+      <View style={{ width: PRICE_WIDTH }} className={`items-end ${done ? "opacity-40" : ""}`}>
         {item.price > 0 && (
           <Text style={TABULAR} className="font-inter-extrabold text-body text-ink-emphasis">
             {/* "~": no store listing behind it (an AI pack or the used amount). */}
             {item.estimate ? "~" : ""}₱{formatPeso(item.price, 0)}
           </Text>
-        )}
-        {item.movedFromStaples && onMove && (
-          <Pressable onPress={onMove} hitSlop={10} accessibilityLabel={`Move ${item.name} back to pantry staples`}>
-            <Undo2 color={colors.ink.subtle} size={16} strokeWidth={2.25} />
-          </Pressable>
         )}
       </View>
     </Pressable>
