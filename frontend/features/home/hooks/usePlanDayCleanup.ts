@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getMealPlan } from "@/api/mealPlans";
-import { showGlobalToast } from "@/frontend/components/ui";
 import { useSavedMealsForGrocery } from "@/frontend/core/grocery/hooks/useSavedMealsForGrocery";
 import { usePantry, usePantryActions } from "@/frontend/core/pantry/hooks/usePantry";
 import { useLaterPlanNeeds, useMealsWithIngredients } from "@/frontend/core/pantry/hooks/usePlanPantryNeeds";
@@ -47,8 +46,9 @@ function usePastPlanDays(since: string | null, enabled: boolean) {
  * Meal plan days clean up on their own: once a day is over, what its meals
  * surely finished (loose mains, never packs or basics) comes out of the
  * pantry, except anything a planned meal from today on or a saved meal
- * still needs. A note on Home says what went, with Undo for "I didn't
- * actually cook that". Each day once (useNudgeStore's cleanedThrough).
+ * still needs. Home's header line says what went for 12 hours, with Undo
+ * for "I didn't actually cook that" (HomeTicker). Each day once
+ * (useNudgeStore's cleanedThrough).
  */
 export function usePlanDayCleanup(enabled: boolean) {
   const nudge = useNudge();
@@ -81,12 +81,9 @@ export function usePlanDayCleanup(enabled: boolean) {
     pantryActions.removeMany(usedUp.map((item) => item.id));
     const names = usedUp.slice(0, NAMES_SHOWN).map((item) => item.name.toLowerCase());
     const more = usedUp.length - names.length;
-    const list = more > 0 ? `${names.join(", ")} +${more} more` : names.join(" and ");
-    const whose = past.length === 1 ? `${WEEKDAY.format(past[0].date)}'s meals are done` : "Past meal plan days are done";
-    showGlobalToast({
-      tone: "success",
-      message: `${whose}: took ${list} out of your pantry`,
-      action: { label: "Undo", onPress: () => pantryActions.addMany(usedUp) },
-    });
+    const list = more > 0 ? `${names.join(", ")} +${more}` : names.join(" and ");
+    const whose = past.length === 1 ? `${WEEKDAY.format(past[0].date)}'s meals` : "Past plan days";
+    // Home's header line takes it from here (HomeTicker), with its Undo.
+    nudge.setCleanupNote({ text: `${whose}: took out ${list}`, items: usedUp, at: Date.now() });
   }, [active, pantry.isSuccess, saved.isLoading, meals.loading, later.loading]);
 }

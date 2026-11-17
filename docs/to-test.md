@@ -403,9 +403,12 @@ list first).
 
 Make a plan, tick its items on the plan's grocery list, then move the phone's date forward a day.
 
-- [ ] **Home shows a note:** "Monday's meals are done: took chicken and kangkong out of your
-      pantry" (or "+N more"; several days: "Past meal plan days are done"), with Undo that puts
-      them back.
+- [ ] **Home's header line:** under the greeting, a pill "Tuesday's meals: took out chicken and
+      kangkong" (or "chicken, kangkong +2"; several days: "Past plan days: ...") with an **Undo**
+      button. With a price drop too, the two pills take turns every 5 seconds (the cleanup
+      first), a calm fade, only while Home is on screen.
+- [ ] **Undo** puts the items back ("Put back in your pantry") and leaves only the price pill.
+      Without Undo it stays for 12 hours, also after closing and reopening the app.
 - [ ] Only loose mains go. Packs, eggs, basics, anything a later plan day or a saved meal needs
       stay. Nothing to take: no note.
 - [ ] **Once per day passed:** reopening Home the same day, no second note. A plan's **last day**

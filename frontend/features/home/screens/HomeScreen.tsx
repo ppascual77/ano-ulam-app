@@ -4,7 +4,8 @@ import { useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Screen, SegmentedSwitch, usePageIntro, useStatusBarStrip } from "@/frontend/components/ui";
 import { Header } from "@/frontend/features/home/components/Header";
-import { PriceDropLine, useBiggestPriceDrop } from "@/frontend/features/home/components/PriceDropLine";
+import { useBiggestPriceDrop } from "@/frontend/features/home/components/PriceDropLine";
+import { HomeTicker, useCleanupNote } from "@/frontend/features/home/components/HomeTicker";
 import { RandomMealPuller } from "@/frontend/features/home/components/RandomMealPuller";
 import { HomePlanCard } from "@/frontend/features/home/components/HomePlanCard";
 import { PantryNudgeSheet } from "@/frontend/features/home/components/PantryNudgeSheet";
@@ -22,7 +23,7 @@ import { useTabBarStore } from "@/frontend/components/navigation/useTabBarStore"
 
 type Mode = "budget" | "pantry";
 
-// How much further down the green reaches while the price line shows.
+// How much further down the green reaches while the header line shows.
 const PRICE_LINE_SPACE = 84;
 
 // The status bar turns dark once the clock's line (half way down it) reaches
@@ -44,6 +45,9 @@ export default function HomeScreen() {
   const showSurpriseMe = useSurpriseMeStore((s) => s.show);
   // Home's live line: this week's biggest DA price drop, when there is one.
   const priceDrop = useBiggestPriceDrop();
+  // ...taking turns with what a finished plan day took out of the pantry.
+  const cleanupNote = useCleanupNote();
+  const hasLine = !!priceDrop || !!cleanupNote;
   const insets = useSafeAreaInsets();
 
   // The welcome intro plays once, right after onboarding (which lands here
@@ -78,7 +82,7 @@ export default function HomeScreen() {
     forceDark: intro.showing,
     // Clear while the textured green still fills it (no hard line under the
     // clock), fading in as the green's edge passes.
-    clearUntil: homeDarkEdgeTop(insets.top, priceDrop ? PRICE_LINE_SPACE : 0),
+    clearUntil: homeDarkEdgeTop(insets.top, hasLine ? PRICE_LINE_SPACE : 0),
   });
 
   const finishIntro = () => {
@@ -106,8 +110,8 @@ export default function HomeScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        <HomeBackdrop top={statusBar.top} extra={priceDrop ? PRICE_LINE_SPACE : 0} />
-        <Header name={firstName}>{priceDrop && <PriceDropLine item={priceDrop} />}</Header>
+        <HomeBackdrop top={statusBar.top} extra={hasLine ? PRICE_LINE_SPACE : 0} />
+        <Header name={firstName}>{hasLine && <HomeTicker priceDrop={priceDrop} />}</Header>
 
         <View className="mt-5" onLayout={(e) => setCardBottom(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
           <HomePlanCard />
