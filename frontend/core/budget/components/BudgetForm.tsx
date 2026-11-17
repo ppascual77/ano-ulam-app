@@ -13,17 +13,15 @@ type BudgetFormProps = {
   /** Checked before suggesting (e.g. the daily limit): false skips the
    *  "thinking" and the suggestion, and the caller shows why. */
   beforeSuggest?: (params: SuggestParams) => Promise<boolean>;
-  /** Filled in to start with (onboarding's budget for tonight). */
-  initial?: SuggestParams;
 };
 
 // Forced "thinking" time before suggestions show, so the button's wave
 // loading state actually gets seen (the suggestion itself is instant).
 const SUGGEST_DELAY_MS = 2000;
 
-export function BudgetForm({ onSuggestMeals, beforeSuggest, initial }: BudgetFormProps) {
-  const [budget, setBudget] = useState(initial?.budget ?? "");
-  const [servings, setServings] = useState(initial?.servings ?? DEFAULT_SERVINGS);
+export function BudgetForm({ onSuggestMeals, beforeSuggest }: BudgetFormProps) {
+  const [budget, setBudget] = useState("");
+  const [servings, setServings] = useState(DEFAULT_SERVINGS);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const reduceMotion = useReduceMotion();
   const timeout = useRef<ReturnType<typeof setTimeout>>(undefined);
