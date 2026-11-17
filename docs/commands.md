@@ -8,7 +8,7 @@ Run everything from the project folder (`ano-ulam-mobile`).
 | --- | --- |
 | `npx expo start --dev-client` | Starts the dev server for your dev build. Open AnoUlam on the phone and it loads from your Mac. JS changes reload in seconds. |
 | `npx expo start --dev-client --no-dev --minify` | Same, but runs the JavaScript in production mode: closer to real speed. No Fast Refresh or error overlay. Use it to judge sluggishness. |
-| `npm run tunnel` | Dev server over a tunnel instead of Wi-Fi, for when the phone can't reach your Mac on the network. |
+| `npx expo start --dev-client --tunnel` | Dev server over a tunnel instead of Wi-Fi, for when the phone can't reach your Mac on the network. Scan the QR with the iPhone Camera; the terminal prints `iOS Bundled` once the dev build loads. (`npm run tunnel` is the same without `--dev-client`.) |
 | `npx tsc --noEmit -p .` | Type-checks the whole app. No output means no errors. |
 
 ## Builds (EAS, in the cloud)
@@ -19,8 +19,11 @@ Run everything from the project folder (`ano-ulam-mobile`).
 | `eas build --profile production --platform ios` | **Production build**: the real App Store app (fast, no dev tools). Build number goes up automatically. |
 | `eas submit --platform ios --latest` | Uploads the newest build to App Store Connect, where it shows up in TestFlight after processing (5 to 30 min). |
 | `eas build:list` | Lists your builds and their status. |
+| `npx eas-cli build:list --platform ios --buildProfile development --status finished --limit 1 --non-interactive` | Shows the newest finished iOS **dev build**. Open its "Logs" link in Safari on the phone and tap **Install** to (re)install it. |
 
 A TestFlight build is a fixed snapshot: every code change needs a new production build and submit. Keep coding in the dev build; use TestFlight at checkpoints.
+
+The dev build and TestFlight share one app ID (`com.anoulam.app`), so installing one replaces the other. If scanning the QR opens AnoUlam but the terminal never prints `iOS Bundled` (and the icon has TestFlight's orange dot), you're on the TestFlight build: delete it and reinstall the dev build with the command above. Deleting the app also clears first-run data (onboarding, guest pantry), handy for walking through onboarding again.
 
 ## EAS environment variables
 
