@@ -188,6 +188,10 @@ type CookModeProps = {
 // sheet), so the meal is right where it was on close.
 const KEEP_AWAKE_TAG = "cook-mode";
 
+// Done sooner than this after opening means the recipe was being read, not
+// cooked: no "Anything used up?" (the morning nudge asks if it was cooked).
+const MIN_COOK_MS = 3 * 60 * 1000;
+
 export function CookMode({ mealId, mealName, steps, ingredients, servings, onClose }: CookModeProps) {
   // The screen stays on while cooking. Loaded lazily: expo-keep-awake throws
   // on import in a build without it (see nativeFeatures.ts).
@@ -208,6 +212,7 @@ export function CookMode({ mealId, mealName, steps, ingredients, servings, onClo
   // Done on the last step: "Anything used up?" when the meal used anything
   // in the pantry, then out. Later plans load once the last step is near.
   const [usedUpOpen, setUsedUpOpen] = useState(false);
+  const openedAt = useRef(Date.now());
   // BottomSheet reports "closed" once on mount too; only a real close leaves.
   const usedUpShown = useRef(false);
   // Frozen when it opens, so rows don't vanish as the pantry updates.
@@ -218,10 +223,14 @@ export function CookMode({ mealId, mealName, steps, ingredients, servings, onClo
     () => buildUsedUpGroups([{ key: mealName, name: shortMealName(mealName), ingredients }], pantry, needs),
     [mealName, ingredients, pantry, needs],
   );
+  // Only a real cook asks: Done on the last step, after long enough to have
+  // cooked (X, or flipping through to the end, never does). The meal counts
+  // as cooked only once the sheet is answered with Update pantry or Keep
+  // everything; Skip leaves it for the morning nudge to ask about.
   const finish = () => {
-    if (mealId) useCookedStore.getState().markCooked(mealId);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    if (usedUpGroups.length > 0) {
+    const cookedLongEnough = Date.now() - openedAt.current >= MIN_COOK_MS;
+    if (cookedLongEnough && usedUpGroups.length > 0) {
       usedUpShown.current = true;
       setUsedUpRows(usedUpGroups);
       setUsedUpOpen(true);
@@ -412,7 +421,16 @@ export function CookMode({ mealId, mealName, steps, ingredients, servings, onClo
         </View>
       </BottomSheet>
 
-      <UsedUpSheet visible={usedUpOpen} onClose={() => setUsedUpOpen(false)} onClosed={() => usedUpShown.current && onClose()} groups={usedUpRows} presentation="inline" />
+      <UsedUpSheet
+        visible={usedUpOpen}
+        onClose={(updated) => {
+          if (updated && mealId) useCookedStore.getState().markCooked(mealId);
+          setUsedUpOpen(false);
+        }}
+        onClosed={() => usedUpShown.current && onClose()}
+        groups={usedUpRows}
+        presentation="inline"
+      />
     </Animated.View>
   );
 }
