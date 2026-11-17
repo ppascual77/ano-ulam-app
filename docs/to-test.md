@@ -447,16 +447,25 @@ Make a plan, tick its items on the plan's grocery list, then move the phone's da
 
 Delete the app's data (or reinstall) to see it as a new user. Expo Go works.
 
-- [ ] **Budget slide** before the account pitch: "Tonight's ulam", ₱100 / **₱150** / ₱250 / ₱400
-      (one always picked), a people stepper (starts at 2), and the line under it follows the
-      picks. Settings' "Take the tour again" doesn't show it.
+- [ ] **Pantry slide, "In your kitchen":** three shelf cards (Sauces & oil, Seasonings,
+      Aromatics) with their art and a "2/5" count each; check chips (green with a check = have
+      it, plain with a plus = out of it); "8 of 11 at home" rolls as you tick; Tick all / Untick
+      all.
+- [ ] **Budget slide, "Your ulam budget":** the amount is big and rolls up or down as you pick
+      ₱100 / **₱150** / ₱250 / ₱400 ("≈ ₱75 each" beside it); "Cooking for" draws a figure per
+      person (up to 6, then "+N") next to the stepper (starts at 2); the card at the bottom shows
+      3 meal photos and "N meals fit", both changing with the picks ("Try a bit more" at 0).
+      Settings' "Take the tour again" doesn't show it.
 - [ ] **Home after onboarding** (guest and signed in): "Magkano budget?" already has the budget
       and people, and the matching meals show below, as if Suggest was tapped. It counts as one
       of the day's 3 budget suggestions.
-- [ ] **Start here card** in the plan card's place: "Tonight's ulam for about ₱150." with 3
-      home-cooked meal photos (allergens, dietary focus and avoided ingredients respected).
-      Tapping one opens it; about a second later, once: "Like it? Save it and its ingredients go
-      on your grocery list."
+- [ ] **Start here card** in the plan card's place: the title follows the time of day ("Today's
+      ulam for ₱150." before 10am, "Lunch for ₱150." until 3pm, "Tonight's ulam for ₱150."
+      after), picking meals tagged for that meal time when there are 3. One big "Best match"
+      tile and two small ones, and a line: "Save the one you like. Its ingredients go straight
+      to your grocery list." Allergens, dietary focus and avoided ingredients respected.
+- [ ] Tapping a meal opens it; about a second later, once: "Tap the bookmark to save it. Its
+      ingredients go on your grocery list."
 - [ ] After closing that meal, the card gives way to the plan card for good. Same after opening
       any other meal, saving one, or making a plan first. No matches for the budget: the plan
       card shows from the start.
