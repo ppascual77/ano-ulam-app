@@ -47,17 +47,31 @@ function BoardRow({ item, row, active, onPress }: { item: PriceItem; row: number
   );
 }
 
-// First slide of "This week's fresh picks": a market-board summary of the
-// top picks, each price rolling from last week's to today's whenever the
-// board becomes the active slide.
-// Tapping a row opens that item, same as its own card.
-type FreshPicksBoardProps = { items: PriceItem[]; width: number; active: boolean; onSelect: (item: PriceItem) => void };
+// The two boards: what dropped (the fresh picks, dark green) and what went
+// up (a heads-up, red-orange), same layout.
+const TONES = {
+  drop: { bg: "bg-brand-green-dark", label: "DROPPED · NCR TODAY" },
+  rise: { bg: "bg-price-rise", label: "WENT UP · NCR TODAY" },
+} as const;
 
-export function FreshPicksBoard({ items, width, active, onSelect }: FreshPicksBoardProps) {
+// The first slides of "This week's fresh picks": a market-board summary of
+// the top drops, then of the top rises, each price rolling from last week's
+// to today's whenever its board becomes the active slide.
+// Tapping a row opens that item, same as its own card.
+type FreshPicksBoardProps = {
+  items: PriceItem[];
+  width: number;
+  active: boolean;
+  onSelect: (item: PriceItem) => void;
+  tone?: keyof typeof TONES;
+};
+
+export function FreshPicksBoard({ items, width, active, onSelect, tone = "drop" }: FreshPicksBoardProps) {
+  const { bg, label } = TONES[tone];
   return (
-    <View style={{ width, height: FRESH_PICK_CARD_HEIGHT, borderRadius: 24 }} className="overflow-hidden bg-brand-green-dark px-4 pb-1.5 pt-3.5">
+    <View style={{ width, height: FRESH_PICK_CARD_HEIGHT, borderRadius: 24 }} className={`overflow-hidden ${bg} px-4 pb-1.5 pt-3.5`}>
       <View className="mb-2 flex-row justify-between">
-        <Text className="font-inter-bold text-sub tracking-widest text-white/50">NCR · TODAY</Text>
+        <Text className="font-inter-bold text-sub tracking-widest text-white/50">{label}</Text>
         <Text className="font-inter-bold text-sub tracking-widest text-white/50">VS LAST WEEK</Text>
       </View>
       {items.slice(0, BOARD_ROWS).map((item, row) => (

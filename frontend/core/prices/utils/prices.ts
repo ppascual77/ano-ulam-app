@@ -123,6 +123,24 @@ export function pickFreshPicks(items: PriceItem[], limit: number): PriceItem[] {
   return picks.slice(0, limit);
 }
 
+// The biggest price rises, up to `limit`, spread across the groups the same
+// way (one per group first, then each group's next), biggest rise first:
+// Price Watch's "went up" board, so a heads-up isn't all one kind of food.
+export function pickPriceRises(items: PriceItem[], limit: number): PriceItem[] {
+  const byGroup = HERO_GROUPS.map((group) =>
+    items
+      .filter((i) => group.includes(i.category) && i.pctChange != null && i.pctChange > 0)
+      .sort((a, b) => b.pctChange! - a.pctChange!),
+  );
+  const rises: PriceItem[] = [];
+  for (let round = 0; rises.length < limit; round++) {
+    const next = byGroup.flatMap((list) => (list[round] ? [list[round]] : []));
+    if (next.length === 0) break;
+    rises.push(...next.sort((a, b) => b.pctChange! - a.pctChange!));
+  }
+  return rises.slice(0, limit);
+}
+
 // Whole pesos for meal prices (not commodity prices: formatPeso keeps
 // centavos there) ("₱130", "₱1,240"), and a range when there's a
 // buffer ("₱130–150"). Centavos read like a receipt; meals are estimates.

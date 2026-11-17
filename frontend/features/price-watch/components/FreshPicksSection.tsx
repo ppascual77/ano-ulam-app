@@ -71,6 +71,8 @@ function PagedCard({
 
 type FreshPicksSectionProps = {
   picks: PriceItem[];
+  /** The top price rises: their own board, right after the drops. */
+  rises: PriceItem[];
   loading: boolean;
   onSelect: (item: PriceItem) => void;
   /** Price Watch is on screen (focused, past its intro): the shown slide's
@@ -84,17 +86,21 @@ type FreshPicksSectionProps = {
 // on the cards come for free. A custom pan here (two attempts, see
 // fix/fresh-picks-swipe) never swiped on the phone: the touch went to the
 // card's tap instead. The tilt still comes from the scroll position.
-function FreshPicksSectionInner({ picks, loading, onSelect, visible }: FreshPicksSectionProps) {
+function FreshPicksSectionInner({ picks, rises, loading, onSelect, visible }: FreshPicksSectionProps) {
   const { width: windowWidth } = useWindowDimensions();
   const cardWidth = windowWidth - SCREEN_PADDING;
   const step = cardWidth + CARD_GAP;
   const [index, setIndex] = useState(0);
-  // Page 0 is the market board with the top picks; the rest each get a card.
-  // Every pick has a week-ago price (its % change needs one) to roll from.
+  // Page 0 is the market board with the top drops, then one with the top
+  // rises; the rest of the drops each get a card. Every item has a week-ago
+  // price (its % change needs one) to roll from.
   const boardItems = picks.slice(0, BOARD_ROWS);
+  const riseItems = rises.slice(0, BOARD_ROWS);
   const cardItems = picks.slice(BOARD_ROWS, BOARD_ROWS + PICK_CARDS);
   const hasBoard = boardItems.length > 0;
-  const firstCard = hasBoard ? 1 : 0;
+  const hasRises = riseItems.length > 0;
+  const risesPage = hasBoard ? 1 : 0;
+  const firstCard = risesPage + (hasRises ? 1 : 0);
   const count = cardItems.length + firstCard;
   const current = Math.min(index, Math.max(count - 1, 0));
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
@@ -117,7 +123,8 @@ function FreshPicksSectionInner({ picks, loading, onSelect, visible }: FreshPick
         <AppText variant="sectionTitle" dot>
           This week&apos;s fresh picks
         </AppText>
-        <AppText variant="caption">Biggest price drops this week</AppText>
+        {/* Says what the shown board is: the rises board has its own line. */}
+        <AppText variant="caption">{hasRises && current === risesPage ? "Prices that went up this week" : "Biggest price drops this week"}</AppText>
       </View>
 
       {loading ? (
@@ -152,6 +159,17 @@ function FreshPicksSectionInner({ picks, loading, onSelect, visible }: FreshPick
               {hasBoard && (
                 <PagedCard i={0} pos={pos} scrollX={scrollX} step={step}>
                   <FreshPicksBoard items={boardItems} width={cardWidth} active={visible && current === 0} onSelect={onSelect} />
+                </PagedCard>
+              )}
+              {hasRises && (
+                <PagedCard i={risesPage} pos={pos} scrollX={scrollX} step={step}>
+                  <FreshPicksBoard
+                    items={riseItems}
+                    tone="rise"
+                    width={cardWidth}
+                    active={visible && current === risesPage}
+                    onSelect={onSelect}
+                  />
                 </PagedCard>
               )}
               {cardItems.map((item, i) => (
