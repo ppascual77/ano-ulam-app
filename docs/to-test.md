@@ -451,11 +451,11 @@ Delete the app's data (or reinstall) to see it as a new user. Expo Go works.
       (Sauces & oil, Seasonings, Aromatics), two columns of check boxes (filled green with a
       check, or a plain outline), hairlines between groups, "8 of 11 selected" with Select all /
       Clear all above it. No illustrations or pulses.
-- [ ] **Budget slide, "Your ulam budget":** the amount is big and rolls up or down as you pick
-      ₱100 / **₱150** / ₱250 / ₱400 ("≈ ₱75 each" beside it); "Cooking for" draws a figure per
-      person (up to 6, then "+N") next to the stepper (starts at 2); the card at the bottom shows
-      3 meal photos and "N meals fit", both changing with the picks ("Try a bit more" at 0).
-      Settings' "Take the tour again" doesn't show it.
+- [ ] **Budget slide, "Your ulam budget":** one bordered panel like the kitchen slide: "Budget
+      per meal" as four even options (₱100 / **₱150** / ₱250 / ₱400, the picked one green), then
+      "Cooking for 2 people · about ₱75 each" with the stepper, then 3 small meal photos and
+      "14 meals fit, ready on Home" (the count rolls, the photos fade as you change things;
+      "Try a little more" at 0). Settings' "Take the tour again" doesn't show it.
 - [ ] **Home after onboarding** (guest and signed in): "Magkano budget?" already has the budget
       and people, and the matching meals show below, as if Suggest was tapped. It counts as one
       of the day's 3 budget suggestions.
