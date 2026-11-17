@@ -5,7 +5,6 @@ import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 import { scaleMeal } from "@/frontend/core/meals/utils/scaleMeal";
 import { buildGroceryList, type GroceryItem } from "../utils/buildGroceryList";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
-import { useGroceryChecks } from "./useGroceryChecks";
 
 // Just what the list needs from a meal plan (the Meal Planner's MealPlan
 // fits), so core doesn't depend on the feature.
@@ -18,9 +17,9 @@ const hasId = (id: string | undefined): id is string => !!id;
 // real ingredients scaled to the people
 // being cooked for, merged with the same builder as Profile's Grocery tab.
 // Ingredients come from fetching each real meal once (the plan's meals come
-// from the bulk list, which has none). Ticks are the account's "plan" list
-// (useGroceryChecks), shared across screens.
-export function usePlanGroceryList(plan: GroceryPlan | null, dayIndexes: number[], enabled: boolean, userId: string | null) {
+// from the bulk list, which has none). What's at home comes from the pantry
+// (see groupGroceryItems).
+export function usePlanGroceryList(plan: GroceryPlan | null, dayIndexes: number[], enabled: boolean) {
   const days = useMemo(() => (plan ? dayIndexes.map((i) => plan.days[i]).filter(Boolean) : []), [plan, dayIndexes]);
   const ids = useMemo(() => [...new Set(days.flatMap((d) => d.meals.map((m) => m.meal.id)).filter(hasId))], [days]);
 
@@ -51,8 +50,6 @@ export function usePlanGroceryList(plan: GroceryPlan | null, dayIndexes: number[
     return buildGroceryList(cooked);
   }, [days, fullById, plan]);
 
-  const checks = useGroceryChecks("plan", userId);
-
   const total = items.reduce((sum, item) => (item.category === "main" ? sum + item.price : sum), 0);
-  return { items, total, loading, isChecked: checks.isChecked, stateOf: checks.stateOf, toggle: checks.toggle, flush: checks.flush, reset: checks.reset };
+  return { items, total, loading };
 }

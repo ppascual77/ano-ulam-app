@@ -1,5 +1,5 @@
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { router } from "expo-router";
@@ -19,7 +19,7 @@ import { GroceryRow, formatPeso } from "@/frontend/core/grocery/components/Groce
 import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
 import { GroceryMealPicker } from "@/frontend/core/grocery/components/GroceryMealPicker";
 import { GrocerySectionHeader } from "@/frontend/core/grocery/components/GrocerySection";
-import { groupGroceryItems } from "@/frontend/core/grocery/utils/groupGroceryItems";
+import { coveringName, groupGroceryItems } from "@/frontend/core/grocery/utils/groupGroceryItems";
 
 const PREVIEW_LIMIT = 7;
 
@@ -37,8 +37,8 @@ function SummaryRow({ dotClassName, label, count }: { dotClassName: string; labe
 
 // Owner-only: one shopping list built from every saved home-cooked meal,
 // a preview of up to 7 items (rest in a sheet), and a summary.
-export function GroceryTab({ userId }: { userId: string | null }) {
-  const grocery = useSavedGroceryList(userId);
+export function GroceryTab() {
+  const grocery = useSavedGroceryList();
   // Loads the account's saved plan, so its tab shows here without opening
   // the planner first.
   useSavedMealPlan();
@@ -46,32 +46,21 @@ export function GroceryTab({ userId }: { userId: string | null }) {
   const isPremium = useIsPro();
   const length = plan?.days.length ?? 0;
   const planDays = useMemo(() => (isPremium ? Array.from({ length }, (_, i) => i) : [0]), [isPremium, length]);
-  const planGrocery = usePlanGroceryList(plan, planDays, !!plan, userId);
+  const planGrocery = usePlanGroceryList(plan, planDays, !!plan);
   const { data: pantry = [] } = usePantry();
   const [fullOpen, setFullOpen] = useState(false);
 
   const { items } = grocery;
-  // To buy (and bought), and what's already at home: the same split as the
-  // full list. The preview shows the first few of each; the headers count
-  // the whole list.
-  const groups = groupGroceryItems(items, pantry, grocery.stateOf);
-  const shopping = [...groups.toBuy, ...groups.gotIt];
+  // To buy, and what's already at home: the same split as the full list.
+  // The preview shows the first few of each; the headers count the whole
+  // list.
+  const groups = groupGroceryItems(items, pantry);
+  const shopping = groups.toBuy;
   const previewShopping = shopping.slice(0, PREVIEW_LIMIT);
   const previewHome = groups.atHome.slice(0, Math.max(0, PREVIEW_LIMIT - previewShopping.length));
   // What this list buys: things already at home aren't counted.
   const { total } = groups;
   const shownTotal = useCountUp(total);
-
-  // Leaving the tab sends any pending checkbox changes.
-  const { flush } = grocery;
-  const { flush: flushPlan } = planGrocery;
-  useEffect(
-    () => () => {
-      void flush();
-      void flushPlan();
-    },
-    [flush, flushPlan],
-  );
 
   return (
     <View className="gap-4 pb-6">
@@ -99,22 +88,6 @@ export function GroceryTab({ userId }: { userId: string | null }) {
           <View className="items-center py-10">
             <Spinner size={20} color={colors.primary} trackColor={colors.webDivider} />
           </View>
-        ) : items.length === 0 && grocery.picker.meals.length > 0 ? (
-          // Saved meals, but none switched on: pick some in the full list.
-          <Pressable
-            onPress={() => setFullOpen(true)}
-            accessibilityRole="button"
-            className="mt-3 items-center gap-1 rounded-2xl border-2 border-dashed border-accent px-4 py-6 active:opacity-70"
-          >
-            <Text className="font-inter-semibold text-body text-ink-emphasis">No meals on your list</Text>
-            <Text className="text-center font-inter-regular text-small text-ink-subtle">
-              Pick the saved meals you&apos;re cooking and their ingredients show up here.
-            </Text>
-            <View className="mt-2 flex-row items-center gap-1">
-              <Text className="font-inter-medium text-small text-primary">Pick meals</Text>
-              <ChevronRight color={colors.primary} size={15} />
-            </View>
-          </Pressable>
         ) : items.length === 0 ? (
           // The same empty state as the other profile tabs.
           <EmptyState
@@ -135,7 +108,7 @@ export function GroceryTab({ userId }: { userId: string | null }) {
           >
             {[
               { title: "To buy", rows: previewShopping, count: shopping.length, home: false },
-              { title: "At home", rows: previewHome, count: groups.atHome.length, home: true },
+              { title: "In your pantry", rows: previewHome, count: groups.atHome.length, home: true },
             ]
               .filter((section) => section.rows.length > 0)
               .map((section) => (
@@ -145,9 +118,10 @@ export function GroceryTab({ userId }: { userId: string | null }) {
                     <GroceryRow
                       key={item.id}
                       item={item}
-                      checked={grocery.isChecked(item)}
-                      onToggle={() => grocery.toggle(item)}
+                      checked={false}
+                      onToggle={() => setFullOpen(true)}
                       atHome={section.home}
+                      usingName={section.home ? coveringName(pantry, item) : undefined}
                       preview
                     />
                   ))}
@@ -168,11 +142,11 @@ export function GroceryTab({ userId }: { userId: string | null }) {
           <View className="gap-3 rounded-2xl border border-ink-emphasis/10 p-4">
             <View>
               <Text className="font-inter-bold text-heading text-ink-emphasis">₱{formatPeso(total, 0)}</Text>
-              <Text className="font-inter-regular text-small text-ink-subtle">Estimated total, minus what's at home</Text>
+              <Text className="font-inter-regular text-small text-ink-subtle">Estimated total, minus what's in your pantry</Text>
             </View>
             <View className="h-px bg-ink-emphasis/5" />
             <SummaryRow dotClassName="bg-primary" label="To buy" count={groups.toBuy.length} />
-            <SummaryRow dotClassName="bg-ink-placeholder" label="At home" count={groups.atHome.length} />
+            <SummaryRow dotClassName="bg-ink-placeholder" label="In your pantry" count={groups.atHome.length} />
           </View>
           <View className="rounded-2xl bg-notice-bg p-4">
             <View className="flex-row items-center gap-1.5">
@@ -181,7 +155,7 @@ export function GroceryTab({ userId }: { userId: string | null }) {
             </View>
             <Text className="mt-1 font-inter-regular text-small text-ink">
               Packaged items are priced as whole packs. Anything you tick goes to your pantry, so it won&apos;t be counted
-              next time.
+              next time. Cooked a meal? We&apos;ll ask on Home and take it off your list.
             </Text>
           </View>
         </View>
@@ -189,11 +163,7 @@ export function GroceryTab({ userId }: { userId: string | null }) {
 
       <FullGroceryListSheet
         visible={fullOpen}
-        onClose={() => {
-          setFullOpen(false);
-          void grocery.flush();
-          void planGrocery.flush();
-        }}
+        onClose={() => setFullOpen(false)}
         initialTab="saved"
         tabs={[
           {
@@ -201,14 +171,8 @@ export function GroceryTab({ userId }: { userId: string | null }) {
             label: "Saved meals",
             items,
             total,
-            isChecked: grocery.isChecked,
-            stateOf: grocery.stateOf,
-            onToggle: grocery.toggle,
-            emptyText:
-            grocery.picker.meals.length > 0
-              ? "Pick the meals you're cooking above and their ingredients show up here."
-              : "Save home-cooked meals and their ingredients will show up here.",
-          header: <GroceryMealPicker picker={grocery.picker} />,
+            emptyText: "Save home-cooked meals and their ingredients will show up here.",
+            header: <GroceryMealPicker picker={grocery.picker} />,
           },
           ...(plan
             ? [
@@ -217,9 +181,6 @@ export function GroceryTab({ userId }: { userId: string | null }) {
                   label: "Meal plan",
                   items: planGrocery.items,
                   total: planGrocery.total,
-                  isChecked: planGrocery.isChecked,
-                  stateOf: planGrocery.stateOf,
-                  onToggle: planGrocery.toggle,
                   emptyText: "Your meal plan's ingredients will show up here.",
                 },
               ]

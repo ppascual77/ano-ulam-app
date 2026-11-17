@@ -8,6 +8,7 @@ import { PriceDropLine, useBiggestPriceDrop } from "@/frontend/features/home/com
 import { RandomMealPuller } from "@/frontend/features/home/components/RandomMealPuller";
 import { HomePlanCard } from "@/frontend/features/home/components/HomePlanCard";
 import { PantryNudgeSheet } from "@/frontend/features/home/components/PantryNudgeSheet";
+import { usePlanDayCleanup } from "@/frontend/features/home/hooks/usePlanDayCleanup";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HomeBackdrop, homeDarkEdgeTop } from "@/frontend/features/home/components/HomeBackdrop";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
@@ -58,6 +59,9 @@ export default function HomeScreen() {
   useEffect(() => {
     useTabBarStore.getState().setHidden(intro.showing);
   }, [intro.showing]);
+  // Meal plan days that have ended tidy the pantry (a note with Undo), once
+  // Home is past its welcome intro.
+  usePlanDayCleanup(!introPending && !intro.showing);
   const entry =
     params.dotX && params.dotY ? { x: Number(params.dotX), y: Number(params.dotY) } : undefined;
   // Stable, so the memoized BudgetSection skips Home's other re-renders.

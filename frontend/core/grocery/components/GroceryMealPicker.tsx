@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import Animated, { Easing, FadeIn, ZoomIn, ZoomOut, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, FadeOut, useAnimatedProps, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 import { Image } from "expo-image";
-import * as Haptics from "expo-haptics";
 import { Check } from "lucide-react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { colors } from "@/frontend/constants/theme";
@@ -12,18 +11,15 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 import type { SavedMeal } from "@/frontend/core/saved/types";
 
 export type GroceryMealPickerData = {
-  /** Every cookable saved meal, on the list or not. */
+  /** Every cookable saved meal: all of them are on the list. */
   meals: SavedMeal[];
-  /** saved_ids switched off the list. */
-  off: Set<string>;
-  /** Per meal on the list: share of its "To buy" items picked up (null:
-   *  needs nothing from the store). */
+  /** Per meal: share of its main ingredients in the pantry (null: needs
+   *  nothing from the store). */
   progress: Map<string, number | null>;
-  onToggle: (savedId: string) => void;
 };
 
 // The photo ring: a light track and a green arc that fills as the meal's
-// ingredients are checked off. The photo sits inside with a white gap.
+// ingredients reach the pantry. The photo sits inside with a white gap.
 const BOX = 64;
 const STROKE = 3;
 const RADIUS = (BOX - STROKE) / 2;
@@ -35,37 +31,27 @@ const ROW_LIMIT = 4;
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-function MealBubble({ meal, on, progress, onToggle }: { meal: SavedMeal; on: boolean; progress: number | null; onToggle: () => void }) {
+function MealBubble({ meal, progress }: { meal: SavedMeal; progress: number | null }) {
   const reduceMotion = useReduceMotion();
-  const ready = on && progress === 1;
-  const shownOn = useSharedValue(on ? 1 : 0);
-  const fill = useSharedValue(on ? (progress ?? 0) : 0);
+  const ready = progress === 1;
+  const fill = useSharedValue(progress ?? 0);
   useEffect(() => {
-    shownOn.value = withTiming(on ? 1 : 0, { duration: reduceMotion ? 0 : 220, easing: EASE });
-    fill.value = withTiming(on ? (progress ?? 0) : 0, { duration: reduceMotion ? 0 : 420, easing: EASE });
-  }, [on, progress, reduceMotion]);
+    fill.value = withTiming(progress ?? 0, { duration: reduceMotion ? 0 : 420, easing: EASE });
+  }, [progress, reduceMotion]);
 
-  const photoStyle = useAnimatedStyle(() => ({ opacity: 0.45 + 0.55 * shownOn.value }));
-  const trackStyle = useAnimatedStyle(() => ({ opacity: shownOn.value }));
   const arcProps = useAnimatedProps(() => ({ strokeDashoffset: CIRCUMFERENCE * (1 - fill.value) }));
 
-  const state = !on ? "not on your list" : ready ? "on your list, all picked up" : "on your list";
   return (
-    <Pressable
-      onPress={() => {
-        Haptics.selectionAsync();
-        onToggle();
-      }}
-      accessibilityRole="button"
-      accessibilityState={{ selected: on }}
-      accessibilityLabel={`${meal.name}, ${state}`}
-      className="items-center gap-1.5 active:opacity-70"
+    <View
+      accessible
+      accessibilityLabel={`${meal.name}, ${ready ? "everything's in your pantry" : "still shopping"}`}
+      className="items-center gap-1.5"
       style={{ width: BOX + 6 }}
     >
       <View style={{ width: BOX, height: BOX }}>
         {/* Plain style on the Animated nodes, className inside: NativeWind
             can knock out Reanimated's animated values. */}
-        <Animated.View style={[{ position: "absolute", top: 0, left: 0 }, trackStyle]}>
+        <View style={{ position: "absolute", top: 0, left: 0 }}>
           <Svg width={BOX} height={BOX}>
             <Circle cx={BOX / 2} cy={BOX / 2} r={RADIUS} stroke={colors.primary} strokeOpacity={0.15} strokeWidth={STROKE} fill="none" />
             <AnimatedCircle
@@ -82,20 +68,20 @@ function MealBubble({ meal, on, progress, onToggle }: { meal: SavedMeal; on: boo
               transform={`rotate(-90 ${BOX / 2} ${BOX / 2})`}
             />
           </Svg>
-        </Animated.View>
-        <Animated.View style={[{ position: "absolute", top: (BOX - PHOTO) / 2, left: (BOX - PHOTO) / 2 }, photoStyle]}>
+        </View>
+        <View style={{ position: "absolute", top: (BOX - PHOTO) / 2, left: (BOX - PHOTO) / 2 }}>
           <Image
             source={resolveMealImage(meal)}
             style={{ width: PHOTO, height: PHOTO, borderRadius: PHOTO / 2 }}
             contentFit="cover"
           />
-        </Animated.View>
-        {/* Everything it needs is picked up. It stays on the list until
-            switched off by hand. */}
+        </View>
+        {/* Everything it needs is at home. It stays on the list until the
+            morning nudge hears it was cooked (that unsaves it). */}
         {ready && (
           <Animated.View
-            entering={reduceMotion ? undefined : ZoomIn.springify().damping(11)}
-            exiting={reduceMotion ? undefined : ZoomOut.duration(150)}
+            entering={reduceMotion ? undefined : FadeIn.duration(220)}
+            exiting={reduceMotion ? undefined : FadeOut.duration(150)}
             style={{ position: "absolute", right: -2, bottom: -2 }}
           >
             <View className="h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-primary">
@@ -106,39 +92,30 @@ function MealBubble({ meal, on, progress, onToggle }: { meal: SavedMeal; on: boo
       </View>
       <Text
         numberOfLines={1}
-        className={`text-center text-small ${on ? (ready ? "font-inter-semibold text-primary" : "font-inter-semibold text-ink-emphasis") : "font-inter-medium text-ink-placeholder"}`}
+        className={`text-center font-inter-semibold text-small ${ready ? "text-primary" : "text-ink-emphasis"}`}
         style={{ width: BOX + 6 }}
       >
         {meal.name}
       </Text>
-    </Pressable>
+    </View>
   );
 }
 
-// "Cooking 3 of 13": which saved meals the list adds up. A row of meal
-// photos to switch on and off (on: full color with a progress ring; off:
-// faded); "See all" opens them as a grid.
+// "Cooking 5": the saved meals the list adds up (saved means cooking it).
+// A row of meal photos, each ring filling as its ingredients reach the
+// pantry; "See all" opens them as a grid.
 export function GroceryMealPicker({ picker }: { picker: GroceryMealPickerData }) {
-  const { meals, off, progress, onToggle } = picker;
+  const { meals, progress } = picker;
   const [expanded, setExpanded] = useState(false);
   const reduceMotion = useReduceMotion();
   if (meals.length === 0) return null;
-  const onCount = meals.filter((meal) => !off.has(meal.saved_id)).length;
-  const bubbles = meals.map((meal) => (
-    <MealBubble
-      key={meal.saved_id}
-      meal={meal}
-      on={!off.has(meal.saved_id)}
-      progress={progress.get(meal.saved_id) ?? null}
-      onToggle={() => onToggle(meal.saved_id)}
-    />
-  ));
+  const bubbles = meals.map((meal) => <MealBubble key={meal.saved_id} meal={meal} progress={progress.get(meal.saved_id) ?? null} />);
 
   return (
     <View className="mt-5">
       <View className="flex-row items-baseline justify-between px-1">
         <Text className="font-inter-bold text-body-lg text-ink-emphasis">
-          Cooking <Text className="font-inter-semibold text-body text-ink-placeholder">{onCount} of {meals.length}</Text>
+          Cooking <Text className="font-inter-semibold text-body text-ink-placeholder">{meals.length}</Text>
         </Text>
         {meals.length > ROW_LIMIT && (
           <Pressable onPress={() => setExpanded((v) => !v)} hitSlop={10} accessibilityRole="button" className="active:opacity-60">

@@ -396,7 +396,7 @@ export default function ProfileScreen() {
               onToast={showToast}
             />
           )}
-          {tab === "grocery" && <GroceryTab userId={me.id} />}
+          {tab === "grocery" && <GroceryTab />}
           {tab === "pantry" && <PantryTab />}
         </ProfileScaffold>
       )}

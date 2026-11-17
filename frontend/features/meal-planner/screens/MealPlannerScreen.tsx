@@ -11,13 +11,11 @@ import { AppText, Button, ConfirmSheet, LandingTitle, LoadingState, Screen, Toas
 import { colors } from "@/frontend/constants/theme";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
-import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { useDisplayName } from "@/frontend/features/auth/hooks/useDisplayName";
 import { usePlannerStore } from "../store/usePlannerStore";
 import { usePlannerPool } from "../hooks/usePlannerPool";
 import { useSavedMealPlan } from "../hooks/useSavedMealPlan";
 import { usePlanGroceryList } from "@/frontend/core/grocery/hooks/usePlanGroceryList";
-import type { GroceryItem } from "@/frontend/core/grocery/utils/buildGroceryList";
 import { useSavedGroceryList } from "@/frontend/core/grocery/hooks/useSavedGroceryList";
 import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
 import { GroceryMealPicker } from "@/frontend/core/grocery/components/GroceryMealPicker";
@@ -65,7 +63,6 @@ export default function MealPlannerScreen() {
   const isPro = useProStore((s) => s.isPro);
   const { pool, isLoading: poolLoading } = usePlannerPool();
   const savedPlan = useSavedMealPlan();
-  const { session } = useAuth();
   // "Hello, <first name>!", or just "Hello!" for a guest.
   const { firstName } = useDisplayName();
   // The intro's dot lands as the period of "Let's plan your week.".
@@ -135,30 +132,13 @@ export default function MealPlannerScreen() {
   // when the sheet opens.
   const shownDays = plan?.days.length ?? planLength;
   const groceryDays = useMemo(() => Array.from({ length: shownDays }, (_, i) => i), [shownDays]);
-  const grocery = usePlanGroceryList(plan, groceryDays, store.stage === "plan" && isPro, session?.user.id ?? null);
-  // Day ticks live in the same "plan" list (one tick store for both, under
-  // day-prefixed keys); an item ticked on the whole plan counts as ticked
-  // for the day too, while a day's tick leaves the whole plan's bigger
-  // amount unticked (still more to buy).
+  const grocery = usePlanGroceryList(plan, groceryDays, store.stage === "plan" && isPro);
+  // What's at home comes from the pantry, so the day and the whole plan
+  // agree without ticks of their own.
   const [groceryScope, setGroceryScope] = useState<"day" | "all">("day");
   const groceryDay = plan ? Math.min(selectedDay, plan.days.length - 1) : 0;
   const groceryDayIndexes = useMemo(() => [groceryDay], [groceryDay]);
-  const dayGrocery = usePlanGroceryList(plan, groceryDayIndexes, store.stage === "plan", session?.user.id ?? null);
-  const wholeById = useMemo(() => new Map(grocery.items.map((item) => [item.id, item])), [grocery.items]);
-  const dayKeyed = (item: GroceryItem): GroceryItem => ({ ...item, id: `day${groceryDay}:${item.id}` });
-  const dayIsChecked = (item: GroceryItem) => {
-    const whole = wholeById.get(item.id);
-    return (!!whole && grocery.isChecked(whole)) || grocery.isChecked(dayKeyed(item));
-  };
-  const dayToggle = (item: GroceryItem) => {
-    const whole = wholeById.get(item.id);
-    if (whole && grocery.isChecked(whole)) {
-      grocery.toggle(whole);
-      if (grocery.isChecked(dayKeyed(item))) grocery.toggle(dayKeyed(item));
-    } else {
-      grocery.toggle(dayKeyed(item));
-    }
-  };
+  const dayGrocery = usePlanGroceryList(plan, groceryDayIndexes, store.stage === "plan");
   const showDayList = groceryScope === "day" || !isPro;
   // Free, tapping anything locked: straight to the full Pro page, titled for
   // what was tapped (no quick sheet in between).
@@ -173,7 +153,7 @@ export default function MealPlannerScreen() {
     setGroceryOpen(true);
   };
   // The sheet's other tab: the saved-meals list (same as Profile's).
-  const savedGrocery = useSavedGroceryList(session?.user.id ?? null);
+  const savedGrocery = useSavedGroceryList();
   const { data: pantry = [] } = usePantry();
 
   // Saves the plan as it now is in the store (after any change). If that
@@ -191,11 +171,7 @@ export default function MealPlannerScreen() {
     store.setPlan(next);
     selectDay(0);
     store.setStage("generating");
-    if (next) {
-      // A new plan starts with a fresh grocery list.
-      void grocery.reset();
-      void persist(next);
-    }
+    if (next) void persist(next);
   };
 
   const viewRecipe = (meal: MealPlan["days"][number]["meals"][number]["meal"]) => detail.open(meal);
@@ -468,11 +444,7 @@ export default function MealPlannerScreen() {
 
       <FullGroceryListSheet
         visible={groceryOpen}
-        onClose={() => {
-          setGroceryOpen(false);
-          void savedGrocery.flush();
-          void grocery.flush();
-        }}
+        onClose={() => setGroceryOpen(false)}
         initialTab="plan"
         tabs={[
           {
@@ -480,9 +452,6 @@ export default function MealPlannerScreen() {
             label: "Meal plan",
             items: showDayList ? dayGrocery.items : grocery.items,
             total: showDayList ? dayGrocery.total : grocery.total,
-            isChecked: showDayList ? dayIsChecked : grocery.isChecked,
-            stateOf: showDayList ? undefined : grocery.stateOf,
-            onToggle: showDayList ? dayToggle : grocery.toggle,
             emptyText: "Your meal plan's ingredients will show up here.",
           },
           {
@@ -490,14 +459,8 @@ export default function MealPlannerScreen() {
             label: "Saved meals",
             items: savedGrocery.items,
             total: savedGrocery.total,
-            isChecked: savedGrocery.isChecked,
-            stateOf: savedGrocery.stateOf,
-            onToggle: savedGrocery.toggle,
-            emptyText:
-            savedGrocery.picker.meals.length > 0
-              ? "Pick the meals you're cooking above and their ingredients show up here."
-              : "Save home-cooked meals and their ingredients will show up here.",
-          header: <GroceryMealPicker picker={savedGrocery.picker} />,
+            emptyText: "Save home-cooked meals and their ingredients will show up here.",
+            header: <GroceryMealPicker picker={savedGrocery.picker} />,
           },
         ]}
         pantry={pantry}
