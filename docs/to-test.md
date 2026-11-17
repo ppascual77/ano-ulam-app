@@ -443,6 +443,28 @@ Make a plan, tick its items on the plan's grocery list, then move the phone's da
       slide don't clip; long meal names cut off on one line.
 - [ ] **Reduce motion:** row fade-ins and the nudge's sideways step become plain fades or none.
 
+## First run (2026-11-18)
+
+Delete the app's data (or reinstall) to see it as a new user. Expo Go works.
+
+- [ ] **Budget slide** before the account pitch: "Tonight's ulam", ₱100 / **₱150** / ₱250 / ₱400
+      (one always picked), a people stepper (starts at 2), and the line under it follows the
+      picks. Settings' "Take the tour again" doesn't show it.
+- [ ] **Home after onboarding** (guest and signed in): "Magkano budget?" already has the budget
+      and people, and the matching meals show below, as if Suggest was tapped. It counts as one
+      of the day's 3 budget suggestions.
+- [ ] **Start here card** in the plan card's place: "Tonight's ulam for about ₱150." with 3
+      home-cooked meal photos (allergens, dietary focus and avoided ingredients respected).
+      Tapping one opens it; about a second later, once: "Like it? Save it and its ingredients go
+      on your grocery list."
+- [ ] After closing that meal, the card gives way to the plan card for good. Same after opening
+      any other meal, saving one, or making a plan first. No matches for the budget: the plan
+      card shows from the start.
+- [ ] **Grocery list hint:** until the first tick ever, a yellow line under the summary: "Tick
+      items as you shop. They move to your pantry, and we'll ask once you've cooked." Gone after
+      a tick, also on reopening.
+- [ ] Bigger / Largest text: the budget slide and the Start here card don't clip.
+
 ## Store setup (no device needed)
 
 - [ ] EU countries still off (148 countries) on the app and both subscriptions.

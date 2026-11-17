@@ -8,6 +8,8 @@ import { useBiggestPriceDrop } from "@/frontend/features/home/components/PriceDr
 import { HomeTicker, useCleanupNote } from "@/frontend/features/home/components/HomeTicker";
 import { RandomMealPuller } from "@/frontend/features/home/components/RandomMealPuller";
 import { HomePlanCard } from "@/frontend/features/home/components/HomePlanCard";
+import { TonightCard } from "@/frontend/features/home/components/TonightCard";
+import { useFirstRun } from "@/frontend/core/preferences/store/useFirstRunStore";
 import { PantryNudgeSheet } from "@/frontend/features/home/components/PantryNudgeSheet";
 import { usePlanDayCleanup } from "@/frontend/features/home/hooks/usePlanDayCleanup";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -48,6 +50,11 @@ export default function HomeScreen() {
   // ...taking turns with what a finished plan day took out of the pantry.
   const cleanupNote = useCleanupNote();
   const hasLine = !!priceDrop || !!cleanupNote;
+  // Someone new (fresh from onboarding, no meal opened, saved or planned
+  // yet) gets "Tonight's ulam" in the plan card's place: one first thing to
+  // tap. Kept while its meal sheet is open, so it isn't swapped out under it.
+  const firstRun = useFirstRun();
+  const showTonight = firstRun.loaded && !!firstRun.tonight && (!firstRun.done || firstRun.tonightSheetOpen);
   const insets = useSafeAreaInsets();
 
   // The welcome intro plays once, right after onboarding (which lands here
@@ -114,7 +121,7 @@ export default function HomeScreen() {
         <Header name={firstName}>{hasLine && <HomeTicker priceDrop={priceDrop} />}</Header>
 
         <View className="mt-5" onLayout={(e) => setCardBottom(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
-          <HomePlanCard />
+          {showTonight && firstRun.tonight ? <TonightCard tonight={firstRun.tonight} fallback={<HomePlanCard />} /> : <HomePlanCard />}
         </View>
 
         <View className="mt-6 mb-4">

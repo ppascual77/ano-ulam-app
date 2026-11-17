@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFirstRunStore } from "@/frontend/core/preferences/store/useFirstRunStore";
 import type { ViewInstance } from "react-native";
 import type { View } from "react-native";
 import { router } from "expo-router";
@@ -145,6 +146,8 @@ function groceryToast(meal: MealType) {
 // ---- the events ---------------------------------------------------------------
 
 export async function announceSaved(meal: MealType) {
+  // A save is a new user's first real step too (see useFirstRunStore).
+  useFirstRunStore.getState().markDone();
   const state = useSaveFeedbackStore.getState();
   useSaveFeedbackStore.setState({ lastSavedKey: savedKeyOf(meal) });
   const learning = !state.learned && state.hintsShown < HINT_LIMIT;

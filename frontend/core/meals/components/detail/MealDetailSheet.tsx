@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useState } from "react";
+import { useFirstRunStore } from "@/frontend/core/preferences/store/useFirstRunStore";
 import { View } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { StatusBar } from "expo-status-bar";
@@ -108,6 +109,12 @@ export function MealDetailSheet({
   // full one mustn't restart the wait.
   const [slidUp, setSlidUp] = useState(false);
   const isOpen = !!meal;
+  // Opening any meal is a new user's first real step: Home's "Tonight's
+  // ulam" card gives way to the plan card (see useFirstRunStore).
+  useEffect(() => {
+    if (meal) useFirstRunStore.getState().markDone();
+  }, [!!meal]);
+
   useEffect(() => {
     if (!isOpen) {
       setSlidUp(false);

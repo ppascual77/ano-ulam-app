@@ -2,11 +2,13 @@ import type { LucideIcon } from "lucide-react-native";
 import { Wallet, Drumstick, Leaf, Refrigerator, TrendingUp, Brain } from "lucide-react-native";
 import type { ChipOption } from "@/frontend/components/ui";
 
-// Four slide shapes so far — "content" (icon/eyebrow/hero/description),
+// Six slide shapes so far: "content" (icon/eyebrow/hero/description),
 // "preferences" (a title + a checkable options list), "preferenceGroups"
-// (a title/subtitle + grouped chip-select sections), and "accountPitch"
-// (the closing signup pitch). Each renders via its own component
-// (ContentSlide / PreferencesSlide / PreferenceGroupsSlide /
+// (a title/subtitle + grouped chip-select sections), "pantryBasics" (the
+// pantry's starting basics), "budget" (tonight's budget, so Home opens with
+// meals ready) and "accountPitch" (the closing signup pitch). Each renders
+// via its own component (ContentSlide / PreferencesSlide /
+// PreferenceGroupsSlide / PantryBasicsSlide / BudgetSlide /
 // AccountPitchSlide); OnboardingScreen picks which one based on `type`.
 // Add a new type here + a new component rather than branching inside an
 // existing slide component as slide shapes grow.
@@ -72,6 +74,18 @@ export type PantryBasicsSlideData = {
   unticked: string[];
 };
 
+export type BudgetSlideData = {
+  id: string;
+  type: "budget";
+  title: string;
+  /** Wrap key phrases in **double asterisks** to highlight them. */
+  subtitle: string;
+  /** Budget chips, in pesos. */
+  budgets: number[];
+  /** Picked to start with. */
+  defaultBudget: number;
+};
+
 export type AccountPitchSlideData = {
   id: string;
   type: "accountPitch";
@@ -87,6 +101,7 @@ export type OnboardingSlideData =
   | PreferencesSlideData
   | PreferenceGroupsSlideData
   | PantryBasicsSlideData
+  | BudgetSlideData
   | AccountPitchSlideData;
 
 export const onboardingSlides: OnboardingSlideData[] = [
@@ -202,6 +217,14 @@ export const onboardingSlides: OnboardingSlideData[] = [
   },
   {
     id: "8",
+    type: "budget",
+    title: "Tonight's ulam",
+    subtitle: "Pick a **budget for tonight**. We'll have meals ready for you on Home.",
+    budgets: [100, 150, 250, 400],
+    defaultBudget: 150,
+  },
+  {
+    id: "9",
     type: "accountPitch",
     hero: [
       { text: "Make " },
