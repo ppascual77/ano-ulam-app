@@ -1015,6 +1015,7 @@ export function MealDetailContent({
 
       {!preview && cooking && meal.procedure && meal.procedure.length > 0 && (
         <CookMode
+          mealId={meal.id}
           mealName={meal.name}
           steps={meal.procedure}
           ingredients={cookIngredients}

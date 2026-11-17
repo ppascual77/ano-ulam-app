@@ -56,6 +56,7 @@ function GroceryListSheet({ visible, onClosed }: { visible: boolean; onClosed: (
           items: grocery.items,
           total: grocery.total,
           isChecked: grocery.isChecked,
+          stateOf: grocery.stateOf,
           onToggle: grocery.toggle,
           emptyText:
             grocery.picker.meals.length > 0
@@ -71,6 +72,7 @@ function GroceryListSheet({ visible, onClosed }: { visible: boolean; onClosed: (
                 items: planGrocery.items,
                 total: planGrocery.total,
                 isChecked: planGrocery.isChecked,
+                stateOf: planGrocery.stateOf,
                 onToggle: planGrocery.toggle,
                 emptyText: "Your meal plan's ingredients will show up here.",
               },

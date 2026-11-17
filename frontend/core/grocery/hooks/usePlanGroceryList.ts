@@ -5,7 +5,6 @@ import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 import { scaleMeal } from "@/frontend/core/meals/utils/scaleMeal";
 import { buildGroceryList, type GroceryItem } from "../utils/buildGroceryList";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
-import { applyStaplesToBuy, useStaplesToBuy } from "../store/useStaplesToBuyStore";
 import { useGroceryChecks } from "./useGroceryChecks";
 
 // Just what the list needs from a meal plan (the Meal Planner's MealPlan
@@ -44,17 +43,16 @@ export function usePlanGroceryList(plan: GroceryPlan | null, dayIndexes: number[
     // Re-derive when any fetch lands.
   }, [ids, queries.map((q) => q.dataUpdatedAt).join(",")]);
 
-  const staplesToBuy = useStaplesToBuy();
   const items: GroceryItem[] = useMemo(() => {
     if (!plan) return [];
     const cooked = days.flatMap((day) =>
       day.meals.map(({ meal }) => scaleMeal(fullById.get(meal.id as string) ?? meal, plan.servings)),
     );
-    return applyStaplesToBuy(buildGroceryList(cooked), staplesToBuy);
-  }, [days, fullById, plan, staplesToBuy]);
+    return buildGroceryList(cooked);
+  }, [days, fullById, plan]);
 
   const checks = useGroceryChecks("plan", userId);
 
   const total = items.reduce((sum, item) => (item.category === "main" ? sum + item.price : sum), 0);
-  return { items, total, loading, isChecked: checks.isChecked, toggle: checks.toggle, flush: checks.flush, reset: checks.reset };
+  return { items, total, loading, isChecked: checks.isChecked, stateOf: checks.stateOf, toggle: checks.toggle, flush: checks.flush, reset: checks.reset };
 }

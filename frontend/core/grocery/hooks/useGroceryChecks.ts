@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { applyGroceryChecks, clearGroceryChecks, listGroceryChecks, type GroceryListKind } from "@/api/groceryChecks";
 import type { GroceryItem } from "../utils/buildGroceryList";
+import type { GroceryCheckState } from "../utils/groupGroceryItems";
 
 export const groceryChecksKey = (list: GroceryListKind, userId: string | null) =>
   ["grocery", "checks", list, userId ?? "guest"] as const;
@@ -50,8 +51,22 @@ export function useGroceryChecks(list: GroceryListKind, userId: string | null) {
     [pending, checks.data],
   );
 
+  // Ticked at today's quantity, at an older one (more to buy now), or not.
+  const stateOf = useCallback(
+    (item: GroceryItem): GroceryCheckState => {
+      const value = item.id in pending ? pending[item.id] : checks.data?.[item.id];
+      if (value == null) return "none";
+      return value === item.qty ? "checked" : "stale";
+    },
+    [pending, checks.data],
+  );
+
+  // Read fresh (not from this render), so an Undo made seconds later still
+  // flips the box the right way.
   const toggle = (item: GroceryItem) => {
-    const next = { ...pendingRef.current, [item.id]: isChecked(item) ? null : item.qty };
+    const current =
+      item.id in pendingRef.current ? pendingRef.current[item.id] : queryClient.getQueryData<Record<string, string>>(key)?.[item.id];
+    const next = { ...pendingRef.current, [item.id]: current === item.qty ? null : item.qty };
     setBoth(next);
     AsyncStorage.setItem(storageKey, JSON.stringify(next)).catch(() => {});
   };
@@ -92,5 +107,5 @@ export function useGroceryChecks(list: GroceryListKind, userId: string | null) {
     return () => subscription.remove();
   }, [flush]);
 
-  return { isChecked, toggle, flush, reset, loading: checks.isLoading };
+  return { isChecked, stateOf, toggle, flush, reset, loading: checks.isLoading };
 }

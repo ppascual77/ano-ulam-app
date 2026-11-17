@@ -481,6 +481,7 @@ export default function MealPlannerScreen() {
             items: showDayList ? dayGrocery.items : grocery.items,
             total: showDayList ? dayGrocery.total : grocery.total,
             isChecked: showDayList ? dayIsChecked : grocery.isChecked,
+            stateOf: showDayList ? undefined : grocery.stateOf,
             onToggle: showDayList ? dayToggle : grocery.toggle,
             emptyText: "Your meal plan's ingredients will show up here.",
           },
@@ -490,6 +491,7 @@ export default function MealPlannerScreen() {
             items: savedGrocery.items,
             total: savedGrocery.total,
             isChecked: savedGrocery.isChecked,
+            stateOf: savedGrocery.stateOf,
             onToggle: savedGrocery.toggle,
             emptyText:
             savedGrocery.picker.meals.length > 0

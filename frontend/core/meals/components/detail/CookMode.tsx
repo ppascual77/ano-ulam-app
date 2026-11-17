@@ -24,6 +24,11 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 import { capitalize } from "../../utils/dietary";
 import { cookIngredientGroups, findMentions, shortMealName, splitStep, type StepSegment } from "../../utils/cookStep";
 import type { IngredientType } from "../../mealTypes";
+import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
+import { useLaterPlanNeeds } from "@/frontend/core/pantry/hooks/usePlanPantryNeeds";
+import { useCookedStore } from "@/frontend/core/pantry/store/useCookedStore";
+import { buildUsedUpGroups, type UsedUpGroup } from "@/frontend/core/pantry/usedUp";
+import { UsedUpSheet } from "@/frontend/core/pantry/components/UsedUpSheet";
 
 const EASE = Easing.out(Easing.cubic);
 
@@ -166,6 +171,9 @@ function StepPage({ page, number, active, width, reduceMotion }: { page: Page; n
 }
 
 type CookModeProps = {
+  /** The catalog meal: marks it cooked (Home's nudge skips it) and leaves
+   *  out its own spot when checking what later planned meals need. */
+  mealId?: string;
   mealName: string;
   steps: string[];
   /** Already scaled to `servings` (see scaleIngredient). */
@@ -180,7 +188,7 @@ type CookModeProps = {
 // sheet), so the meal is right where it was on close.
 const KEEP_AWAKE_TAG = "cook-mode";
 
-export function CookMode({ mealName, steps, ingredients, servings, onClose }: CookModeProps) {
+export function CookMode({ mealId, mealName, steps, ingredients, servings, onClose }: CookModeProps) {
   // The screen stays on while cooking. Loaded lazily: expo-keep-awake throws
   // on import in a build without it (see nativeFeatures.ts).
   useEffect(() => {
@@ -196,6 +204,30 @@ export function CookMode({ mealName, steps, ingredients, servings, onClose }: Co
   const [listOpen, setListOpen] = useState(false);
   const list = useRef<FlatListInstance>(null);
   const last = index === steps.length - 1;
+
+  // Done on the last step: "Anything used up?" when the meal used anything
+  // in the pantry, then out. Later plans load once the last step is near.
+  const [usedUpOpen, setUsedUpOpen] = useState(false);
+  // BottomSheet reports "closed" once on mount too; only a real close leaves.
+  const usedUpShown = useRef(false);
+  // Frozen when it opens, so rows don't vanish as the pantry updates.
+  const [usedUpRows, setUsedUpRows] = useState<UsedUpGroup[]>([]);
+  const { data: pantry = [] } = usePantry();
+  const { needs } = useLaterPlanNeeds(mealId, index >= steps.length - 2);
+  const usedUpGroups = useMemo(
+    () => buildUsedUpGroups([{ key: mealName, name: shortMealName(mealName), ingredients }], pantry, needs),
+    [mealName, ingredients, pantry, needs],
+  );
+  const finish = () => {
+    if (mealId) useCookedStore.getState().markCooked(mealId);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (usedUpGroups.length > 0) {
+      usedUpShown.current = true;
+      setUsedUpRows(usedUpGroups);
+      setUsedUpOpen(true);
+    }
+    else onClose();
+  };
 
   // Each step split into its headline and the rest, with the ingredient
   // words found once up front.
@@ -315,7 +347,7 @@ export function CookMode({ mealName, steps, ingredients, servings, onClose }: Co
               label={last ? "Done" : "Next step"}
               icon={last ? undefined : <ChevronRight color={colors.white} size={18} />}
               iconPosition="right"
-              onPress={() => (last ? onClose() : goTo(index + 1))}
+              onPress={() => (last ? finish() : goTo(index + 1))}
             />
           </View>
         </View>
@@ -379,6 +411,8 @@ export function CookMode({ mealName, steps, ingredients, servings, onClose }: Co
           </View>
         </View>
       </BottomSheet>
+
+      <UsedUpSheet visible={usedUpOpen} onClose={() => setUsedUpOpen(false)} onClosed={() => usedUpShown.current && onClose()} groups={usedUpRows} presentation="inline" />
     </Animated.View>
   );
 }

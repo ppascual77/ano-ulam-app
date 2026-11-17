@@ -2,16 +2,6 @@ import type { ReactNode } from "react";
 import { View } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { AppText } from "@/frontend/components/ui";
-import type { GroceryItem } from "../utils/buildGroceryList";
-
-// A grocery list splits into what to buy (main ingredients) and pantry
-// staples (oil, salt and the like, usually already on hand).
-export function splitGroceryItems(items: GroceryItem[]) {
-  return {
-    mains: items.filter((item) => item.category === "main"),
-    staples: items.filter((item) => item.category === "pantry"),
-  };
-}
 
 type GrocerySectionHeaderProps = {
   title: string;

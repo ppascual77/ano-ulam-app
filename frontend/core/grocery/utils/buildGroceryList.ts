@@ -37,9 +37,11 @@ export type GroceryItem = {
    *  typical pack's, or just the amount the meals use when it has none, so
    *  it's an estimate of the spend ("~"). */
   estimate?: boolean;
+  /** "pantry": a basic (oil, salt, laurel) a recipe needs a little of. */
   category: "main" | "pantry";
-  /** A pantry staple the user moved to "To buy" (see useStaplesToBuyStore). */
-  movedFromStaples?: boolean;
+  /** The catalog ingredient's id: what the pantry stores. Undefined for
+   *  mock meals (they can't go in the pantry). */
+  ingredientId?: string;
   /** How many of the meals use it (the list's "N meals" tag when > 1). */
   meals: number;
 };
@@ -255,6 +257,7 @@ export function buildGroceryList(meals: Pick<MealType, "category" | "ingredients
         ...(pack ? { pack } : {}),
         ...(estimate ? { estimate: true } : {}),
         category: group.main ? "main" : "pantry",
+        ...(group.ingredient.ingredientId ? { ingredientId: group.ingredient.ingredientId } : {}),
         meals: group.meals.size,
       };
     })

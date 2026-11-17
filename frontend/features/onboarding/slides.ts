@@ -62,6 +62,16 @@ export type PreferenceGroupsSlideData = {
   groups: PreferenceGroup[];
 };
 
+export type PantryBasicsSlideData = {
+  id: string;
+  type: "pantryBasics";
+  title: string;
+  /** Wrap key phrases in **double asterisks** to highlight them. */
+  subtitle: string;
+  /** Basics (PANTRY_STAPLES labels) that start unticked: less common ones. */
+  unticked: string[];
+};
+
 export type AccountPitchSlideData = {
   id: string;
   type: "accountPitch";
@@ -76,6 +86,7 @@ export type OnboardingSlideData =
   | ContentSlideData
   | PreferencesSlideData
   | PreferenceGroupsSlideData
+  | PantryBasicsSlideData
   | AccountPitchSlideData;
 
 export const onboardingSlides: OnboardingSlideData[] = [
@@ -184,6 +195,13 @@ export const onboardingSlides: OnboardingSlideData[] = [
   },
   {
     id: "7",
+    type: "pantryBasics",
+    title: "Your pantry",
+    subtitle: "We ticked the **usual basics**. Untick what you're **out of**, and we'll leave the rest off your grocery list.",
+    unticked: ["Oyster sauce"],
+  },
+  {
+    id: "8",
     type: "accountPitch",
     hero: [
       { text: "Make " },

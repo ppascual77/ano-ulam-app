@@ -7,6 +7,7 @@ import { Header } from "@/frontend/features/home/components/Header";
 import { PriceDropLine, useBiggestPriceDrop } from "@/frontend/features/home/components/PriceDropLine";
 import { RandomMealPuller } from "@/frontend/features/home/components/RandomMealPuller";
 import { HomePlanCard } from "@/frontend/features/home/components/HomePlanCard";
+import { PantryNudgeCard } from "@/frontend/features/home/components/PantryNudgeCard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HomeBackdrop, homeDarkEdgeTop } from "@/frontend/features/home/components/HomeBackdrop";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
@@ -107,6 +108,10 @@ export default function HomeScreen() {
         <View className="mt-5" onLayout={(e) => setCardBottom(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
           <HomePlanCard />
         </View>
+
+        {/* Yesterday's planned meals: "Cooked any of these?" (only when
+            there's something to ask, once a day). */}
+        <PantryNudgeCard />
 
         <View className="mt-6 mb-4">
           {/* The shadow sits on a wrapper: the switch's own overflow-hidden

@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { useGroceryMealsStore } from "../store/useGroceryMealsStore";
 import { buildGroceryList } from "../utils/buildGroceryList";
-import { applyStaplesToBuy, useStaplesToBuy } from "../store/useStaplesToBuyStore";
 import { useGroceryChecks } from "./useGroceryChecks";
 import { useSavedMealsForGrocery } from "./useSavedMealsForGrocery";
 import type { GroceryMealPickerData } from "../components/GroceryMealPicker";
@@ -14,8 +13,7 @@ import type { GroceryMealPickerData } from "../components/GroceryMealPicker";
 export function useSavedGroceryList(userId: string | null) {
   const saved = useSavedMealsForGrocery(userId);
   const checks = useGroceryChecks("saved", userId);
-  const staplesToBuy = useStaplesToBuy();
-  const items = useMemo(() => applyStaplesToBuy(buildGroceryList(saved.onList), staplesToBuy), [saved.onList, staplesToBuy]);
+  const items = useMemo(() => buildGroceryList(saved.onList), [saved.onList]);
 
   const total = items.reduce((sum, item) => (item.category === "main" ? sum + item.price : sum), 0);
 
@@ -47,6 +45,7 @@ export function useSavedGroceryList(userId: string | null) {
     total,
     loading: saved.isLoading || checks.loading,
     isChecked,
+    stateOf: checks.stateOf,
     toggle: checks.toggle,
     flush: checks.flush,
     picker,
