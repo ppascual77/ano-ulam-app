@@ -35,13 +35,16 @@ export type ToastState = {
   image?: ImageProps["source"];
   /** A text button on the right (e.g. "View" -> Profile). `inSheet`: it's
    *  safe to show over a modal sheet too (e.g. Undo), unlike one that
-   *  navigates away under the sheet (see GlobalToast's withActions). */
+   *  navigates away under the sheet (see GlobalToast's layer). */
   action?: { label: string; onPress: () => void; inSheet?: boolean };
 };
 
 type ToastProps = {
   toast: ToastState | null;
   onHide: () => void;
+  /** Already on screen in another layer (GlobalToast): show it in place,
+   *  no slide-in. */
+  skipEnter?: boolean;
 };
 
 // Short-lived message floating near the top of the screen: a white pill
@@ -49,7 +52,7 @@ type ToastProps = {
 // the thumbnail). Hides itself after 3.5s, or swipe it up. Pass a new `id`
 // to restart the timer for a repeated message. Render it last inside a
 // screen so it sits above everything else. The action also hides it.
-export function Toast({ toast, onHide }: ToastProps) {
+export function Toast({ toast, onHide, skipEnter = false }: ToastProps) {
   const insets = useSafeAreaInsets();
   const dragY = useSharedValue(0);
   const shown = useSharedValue(0);
@@ -57,6 +60,10 @@ export function Toast({ toast, onHide }: ToastProps) {
   // Before paint, so a new toast never shows a frame at full opacity.
   useLayoutEffect(() => {
     dragY.value = 0;
+    if (toast && skipEnter) {
+      shown.value = 1;
+      return;
+    }
     shown.value = 0;
     if (toast) shown.value = withTiming(1, { duration: ENTER_MS, easing: Easing.out(Easing.cubic) });
   }, [toast?.id]);

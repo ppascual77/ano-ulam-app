@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Dimensions, Modal, Pressable, ScrollView, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -18,9 +18,26 @@ const DISMISS_THRESHOLD = 0.25;
 const DISMISS_VELOCITY = 800;
 
 // How many modal sheets are on screen right now. While any is, it covers
-// the bottom nav (e.g. save feedback can't fly into the Profile tab).
+// the bottom nav (e.g. save feedback can't fly into the Profile tab), and
+// the app root's toast stays hidden (the sheet shows its own copy).
 let openModalSheets = 0;
+const modalListeners = new Set<() => void>();
+const setOpenModalSheets = (n: number) => {
+  openModalSheets = n;
+  modalListeners.forEach((listener) => listener());
+};
 export const isModalSheetOpen = () => openModalSheets > 0;
+/** isModalSheetOpen as a hook: re-renders when a modal sheet opens or its
+ *  Modal goes away. */
+export function useModalSheetOpen(): boolean {
+  return useSyncExternalStore(
+    (listener) => {
+      modalListeners.add(listener);
+      return () => modalListeners.delete(listener);
+    },
+    isModalSheetOpen,
+  );
+}
 
 type BottomSheetProps = {
   visible: boolean;
@@ -143,10 +160,8 @@ export function BottomSheet({
   const countsAsModal = modalVisible && presentation === "modal";
   useEffect(() => {
     if (!countsAsModal) return;
-    openModalSheets += 1;
-    return () => {
-      openModalSheets -= 1;
-    };
+    setOpenModalSheets(openModalSheets + 1);
+    return () => setOpenModalSheets(openModalSheets - 1);
   }, [countsAsModal]);
 
   const startY = useSharedValue(0);
@@ -230,7 +245,7 @@ export function BottomSheet({
 
       {/* The app-wide toast, above this Modal (it would be hidden under it
           at the root). An inline sheet's parent already has one. */}
-      {presentation === "modal" && <GlobalToast withActions={false} />}
+      {presentation === "modal" && <GlobalToast layer="sheet" />}
     </View>
   );
 

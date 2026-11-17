@@ -11,7 +11,7 @@ export { SearchBar } from "./SearchBar";
 export { Stepper } from "./Stepper";
 export { Chips } from "./Chips";
 export { Carousel } from "./Carousel";
-export { BottomSheet, isModalSheetOpen } from "./BottomSheet";
+export { BottomSheet, isModalSheetOpen, useModalSheetOpen } from "./BottomSheet";
 export { ConfirmSheet } from "./ConfirmSheet";
 export { Toggle } from "./Toggle";
 export { SegmentedSwitch } from "./SegmentedSwitch";
