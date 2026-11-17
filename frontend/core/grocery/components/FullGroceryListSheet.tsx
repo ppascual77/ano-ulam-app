@@ -13,7 +13,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { Carrot, Check, ChevronDown, Drumstick, House, Info, Package, type LucideIcon } from "lucide-react-native";
+import { Carrot, Check, ChevronDown, Drumstick, House, Info, Package, ShoppingCart, type LucideIcon } from "lucide-react-native";
 import { AppText, BottomSheet, RollingText, SegmentedSwitch, showGlobalToast } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { usePantryActions } from "@/frontend/core/pantry/hooks/usePantry";
@@ -194,48 +194,58 @@ function SummaryCard({ total, left, picked, count, leftover }: SummaryProps) {
 
 type FoldProps = {
   Icon: LucideIcon;
-  /** Icon tile: green for the cart, neutral for the pantry. */
+  /** Green for the cart (this trip), neutral for the pantry. */
   tone: "green" | "neutral";
   title: string;
   subtitle: string;
+  count: number;
   open: boolean;
   onToggle: () => void;
   children: ReactNode;
 };
 
-// A section folded into one line ("At home", "Got it"): opens in place,
-// the chevron turning as it goes.
-function Fold({ Icon, tone, title, subtitle, open, onToggle, children }: FoldProps) {
+// A section folded into one line ("In your cart", "In your pantry"): a
+// filled card with a big icon and a count, so it reads as part of the list
+// rather than a footnote. Opens in place, the chevron turning as it goes.
+function Fold({ Icon, tone, title, subtitle, count, open, onToggle, children }: FoldProps) {
   const reduceMotion = useReduceMotion();
   const turn = useSharedValue(open ? 1 : 0);
   useEffect(() => {
     turn.value = withTiming(open ? 1 : 0, { duration: reduceMotion ? 0 : 220, easing: EASE });
   }, [open, reduceMotion]);
   const chevronStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.value * 180}deg` }] }));
+  const green = tone === "green";
 
   return (
-    <Animated.View layout={reduceMotion ? undefined : MOVE_LAYOUT} className="mt-3 overflow-hidden rounded-2xl border border-ink-emphasis/10">
+    <Animated.View
+      layout={reduceMotion ? undefined : MOVE_LAYOUT}
+      className={`mt-4 overflow-hidden rounded-2xl border ${green ? "border-primary/20 bg-tinted-bg/60" : "border-ink-emphasis/10 bg-mood-bg"}`}
+    >
       <Pressable
         onPress={() => {
           Haptics.selectionAsync();
           onToggle();
         }}
         accessibilityRole="button"
+        accessibilityLabel={`${title}, ${count}. ${subtitle}`}
         accessibilityState={{ expanded: open }}
-        className="flex-row items-center gap-3 px-4 py-3.5 active:opacity-70"
+        className="flex-row items-center gap-3 px-4 py-4 active:opacity-70"
       >
-        <View className={`h-8 w-8 items-center justify-center rounded-xl ${tone === "green" ? "bg-tinted-bg" : "bg-web-divider"}`}>
-          <Icon color={tone === "green" ? colors.primary : colors.ink.subtle} size={16} strokeWidth={tone === "green" ? 2.5 : 2} />
+        <View className={`h-10 w-10 items-center justify-center rounded-xl ${green ? "bg-primary" : "bg-white"}`}>
+          <Icon color={green ? colors.white : colors.primary} size={20} strokeWidth={2.25} />
         </View>
         <View className="flex-1">
           <Text className="font-inter-bold text-body-lg text-ink-emphasis">{title}</Text>
           <Text className="font-inter-regular text-small text-ink-subtle">{subtitle}</Text>
         </View>
+        <View className={`min-w-7 items-center rounded-full px-2 py-0.5 ${green ? "bg-primary" : "bg-white"}`}>
+          <Text className={`font-inter-bold text-small ${green ? "text-white" : "text-ink-emphasis"}`}>{count}</Text>
+        </View>
         <Animated.View style={chevronStyle}>
-          <ChevronDown color={colors.ink.subtle} size={18} />
+          <ChevronDown color={colors.ink.emphasis} size={20} />
         </Animated.View>
       </Pressable>
-      {open && <View className="border-t border-ink-emphasis/5 px-2 pb-2 pt-1">{children}</View>}
+      {open && <View className="border-t border-ink-emphasis/5 bg-white px-2 pb-2 pt-1">{children}</View>}
     </Animated.View>
   );
 }
@@ -457,6 +467,22 @@ export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initial
 
           {(atHome.length > 0 || gotIt.length > 0) && <View className="h-3" />}
 
+          {/* Checked off on this visit, folded away: the list above keeps
+              getting shorter as you shop. Next time they're In your pantry. */}
+          {gotIt.length > 0 && (
+            <Fold
+              Icon={ShoppingCart}
+              tone="green"
+              title="In your cart"
+              subtitle="Picked up this trip · go to your pantry when you close"
+              count={gotIt.length}
+              open={gotItOpen}
+              onToggle={() => setGotItOpen((open) => !open)}
+            >
+              {renderRows(gotIt, true)}
+            </Fold>
+          )}
+
           {/* Already in the pantry: not bought, not in the total. "+ To buy"
               on a row when you've run out. */}
           {atHome.length > 0 && (
@@ -464,27 +490,13 @@ export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initial
               Icon={House}
               tone="neutral"
               title="In your pantry"
-              subtitle={`${atHome.length} item${atHome.length === 1 ? "" : "s"} you already have`}
+              subtitle="Already at home, not in the total"
+              count={atHome.length}
               open={homeOpen}
               onToggle={() => setHomeOpen((open) => !open)}
             >
               <FoldLabel>Tap + To buy if you run out</FoldLabel>
               {renderRows(atHome, true, true)}
-            </Fold>
-          )}
-
-          {/* Checked off on this visit, folded away: the list above keeps
-              getting shorter as you shop. Next time they're In your pantry. */}
-          {gotIt.length > 0 && (
-            <Fold
-              Icon={Check}
-              tone="green"
-              title="In your cart"
-              subtitle={`${gotIt.length} picked up · go to your pantry when you close the list`}
-              open={gotItOpen}
-              onToggle={() => setGotItOpen((open) => !open)}
-            >
-              {renderRows(gotIt, true)}
             </Fold>
           )}
         </LayoutAnimationConfig>
