@@ -3,7 +3,7 @@ import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { FullWindowOverlay } from "react-native-screens";
 import { create } from "zustand";
-import { useModalSheetOpen } from "./BottomSheet";
+import { isModalSheetOpen, useModalSheetOpen } from "./BottomSheet";
 import { Toast, type ToastState } from "./Toast";
 
 // One app-wide toast for messages that don't belong to a single screen
@@ -15,8 +15,12 @@ import { Toast, type ToastState } from "./Toast";
 
 const useGlobalToastStore = create<{ toast: ToastState | null }>(() => ({ toast: null }));
 
+// Fired while a sheet is open: no button unless it's marked `inSheet` (e.g.
+// Undo), since e.g. "View" would navigate under the sheet. Decided once,
+// here, so the toast keeps its shape when the sheet closes under it.
 export function showGlobalToast(toast: Omit<ToastState, "id">) {
-  useGlobalToastStore.setState({ toast: { ...toast, id: Date.now() } });
+  const action = toast.action && (toast.action.inSheet || !isModalSheetOpen()) ? toast.action : undefined;
+  useGlobalToastStore.setState({ toast: { ...toast, action, id: Date.now() } });
 }
 
 export function hideGlobalToast(id?: number) {
@@ -34,9 +38,7 @@ const OVERLAY_LINGER_MS = 400;
 const presented = new Set<number>();
 
 /** `layer`: the app root, or inside a modal sheet (Android only; see
- *  BottomSheet). While a sheet is open the toast's button is dropped
- *  (navigating would happen under the sheet) unless it's marked `inSheet`
- *  (e.g. Undo). */
+ *  BottomSheet). Whether it has a button is settled in showGlobalToast. */
 export function GlobalToast({ layer = "root" }: { layer?: "root" | "sheet" }) {
   const toast = useGlobalToastStore((s) => s.toast);
   const sheetOpen = useModalSheetOpen();
@@ -56,9 +58,7 @@ export function GlobalToast({ layer = "root" }: { layer?: "root" | "sheet" }) {
     return () => clearTimeout(timer);
   }, [!!toast]);
   if (hidden) return null;
-  const overSheet = layer === "sheet" || sheetOpen;
-  const shown = toast && overSheet && !toast.action?.inSheet ? { ...toast, action: undefined } : toast;
-  const view = <Toast toast={shown} skipEnter={skipEnter} onHide={() => hideGlobalToast(toast?.id)} />;
+  const view = <Toast toast={toast} skipEnter={skipEnter} onHide={() => hideGlobalToast(toast?.id)} />;
   if (!TOAST_ABOVE_SHEETS || layer === "sheet") return view;
   if (!toast && !overlayUp) return null;
   // Its own window: the swipe-to-dismiss gesture needs a gesture root there.
