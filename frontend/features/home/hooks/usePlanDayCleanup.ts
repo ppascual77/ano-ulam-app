@@ -15,8 +15,6 @@ const DAY_MS = 86_400_000;
 // doesn't empty the pantry the day this ships.
 const LOOK_BACK_DAYS = 2;
 const WEEKDAY = new Intl.DateTimeFormat("en-PH", { weekday: "long" });
-// Names in the note before "+N more".
-const NAMES_SHOWN = 2;
 
 /** The saved plan's days that have ended since the last cleanup, with their
  *  meal ids. Read from the saved row, not the planner, which drops a plan
@@ -79,11 +77,7 @@ export function usePlanDayCleanup(enabled: boolean) {
     nudge.markCleaned(lastDay);
     if (usedUp.length === 0) return;
     pantryActions.removeMany(usedUp.map((item) => item.id));
-    const names = usedUp.slice(0, NAMES_SHOWN).map((item) => item.name.toLowerCase());
-    const more = usedUp.length - names.length;
-    const list = more > 0 ? `${names.join(", ")} +${more}` : names.join(" and ");
-    const whose = past.length === 1 ? `${WEEKDAY.format(past[0].date)}'s meals` : "Past plan days";
-    // Home's header line takes it from here (HomeTicker), with its Undo.
-    nudge.setCleanupNote({ text: `${whose}: took out ${list}`, items: usedUp, at: Date.now() });
+    const when = past.length === 1 ? `${WEEKDAY.format(past[0].date)}'s plan` : "Your past plan days";
+    nudge.setCleanupNote({ when, items: usedUp, at: Date.now() });
   }, [active, pantry.isSuccess, saved.isLoading, meals.loading, later.loading]);
 }

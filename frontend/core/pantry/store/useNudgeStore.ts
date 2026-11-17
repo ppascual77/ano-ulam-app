@@ -14,8 +14,9 @@ export const dayKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
 /** What a plan day's cleanup took out, for Home's header line and its
- *  Undo. Shown for 12 hours (CLEANUP_NOTE_MS) unless undone first. */
-export type CleanupNote = { text: string; items: PantryIngredient[]; at: number };
+ *  Undo. Shown for 12 hours (CLEANUP_NOTE_MS) unless undone first.
+ *  `when`: "Tuesday's plan", or "Your past plan days" for several. */
+export type CleanupNote = { when: string; items: PantryIngredient[]; at: number };
 export const CLEANUP_NOTE_MS = 12 * 60 * 60 * 1000;
 
 /** Whole days from one day key to another. */
@@ -42,7 +43,7 @@ type NudgeState = Saved & {
 const EMPTY: Saved = { answeredDay: null, skipStreak: 0, cleanedThrough: null, cleanupNote: null };
 
 const isNote = (v: unknown): v is CleanupNote =>
-  !!v && typeof v === "object" && typeof (v as CleanupNote).text === "string" && typeof (v as CleanupNote).at === "number" && Array.isArray((v as CleanupNote).items);
+  !!v && typeof v === "object" && typeof (v as CleanupNote).when === "string" && typeof (v as CleanupNote).at === "number" && Array.isArray((v as CleanupNote).items);
 
 export const useNudgeStore = create<NudgeState>((set, get) => {
   const save = () => {

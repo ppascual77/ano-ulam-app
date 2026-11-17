@@ -403,10 +403,13 @@ list first).
 
 Make a plan, tick its items on the plan's grocery list, then move the phone's date forward a day.
 
-- [ ] **Home's header line:** under the greeting, a pill "Tuesday's meals: took out chicken and
-      kangkong" (or "chicken, kangkong +2"; several days: "Past plan days: ...") with an **Undo**
-      button. With a price drop too, the two pills take turns every 5 seconds (the cleanup
-      first), a calm fade, only while Home is on screen.
+- [ ] **Home's header line:** under the greeting, a pill "Tuesday's plan is done, so we took
+      **chicken and kangkong** out of your pantry" (names in yellow; past 3 names "and N more";
+      several days: "Your past plan days are done, ...") with an **Undo** button. Too long for
+      the pill: the text glides sideways to the end and back (Reduce motion: cut off with "…").
+- [ ] With a price drop too, the two pills take turns **every 10 seconds**, rolling up like a
+      reel (one line up and out, the next up from below, no bounce), the cleanup first, only
+      while Home is on screen. Reduce motion: they swap in place.
 - [ ] **Undo** puts the items back ("Put back in your pantry") and leaves only the price pill.
       Without Undo it stays for 12 hours, also after closing and reopening the app.
 - [ ] Only loose mains go. Packs, eggs, basics, anything a later plan day or a saved meal needs
