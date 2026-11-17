@@ -447,10 +447,10 @@ Make a plan, tick its items on the plan's grocery list, then move the phone's da
 
 Delete the app's data (or reinstall) to see it as a new user. Expo Go works.
 
-- [ ] **Pantry slide, "In your kitchen":** three shelf cards (Sauces & oil, Seasonings,
-      Aromatics) with their art and a "2/5" count each; check chips (green with a check = have
-      it, plain with a plus = out of it); "8 of 11 at home" rolls as you tick; Tick all / Untick
-      all.
+- [ ] **Pantry slide, "In your kitchen":** one bordered panel with three small uppercase groups
+      (Sauces & oil, Seasonings, Aromatics), two columns of check boxes (filled green with a
+      check, or a plain outline), hairlines between groups, "8 of 11 selected" with Select all /
+      Clear all above it. No illustrations or pulses.
 - [ ] **Budget slide, "Your ulam budget":** the amount is big and rolls up or down as you pick
       ₱100 / **₱150** / ₱250 / ₱400 ("≈ ₱75 each" beside it); "Cooking for" draws a figure per
       person (up to 6, then "+N") next to the stepper (starts at 2); the card at the bottom shows
