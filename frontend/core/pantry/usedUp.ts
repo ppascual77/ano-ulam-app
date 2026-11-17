@@ -22,10 +22,15 @@ export type UsedUpGroup = { title: string; rows: UsedUpRow[] };
 
 const WATER = /^water\b/i;
 
+// Eggs come by the tray (a recipe uses 2 of 6 or 12), so they count as a
+// pack here even though the grocery list prices them loose.
+const PACK_LIKE = new Set(["egg", "eggs"]);
+
 // Some left: a pack bigger than what the meal used (a 1 L bottle for 2
 // tbsp). Loose market buys (meat, vegetables) are bought to the amount, so
 // they're used up. Same pack math as the grocery list.
 function leavesSome(ingredient: IngredientType): boolean {
+  if (PACK_LIKE.has((ingredient.category ?? "").trim().toLowerCase())) return true;
   const [item] = buildGroceryList([{ category: "home", ingredients: [ingredient] }]);
   return !!item?.pack && item.price - item.usedPrice >= 1;
 }
