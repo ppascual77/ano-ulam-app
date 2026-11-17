@@ -40,6 +40,7 @@ export const colors = {
   },
   // tailwind.config.js's tinted-bg, for animated fills (Price Watch's
   // category highlight).
+  priceRise: "#B8431D", // tailwind price-rise: Price Watch's "went up" board
   tintedBg: "#DFF3E3",
   like: "#EF4444",
   // Same as tailwind.config.js's trend (icons take a color prop, not a class).

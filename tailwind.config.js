@@ -60,6 +60,9 @@ module.exports = {
         // Price change direction (Price Watch rows, chips, change lines).
         // Cheaper is good, so green; never stock-ticker colors.
         trend: { down: "#16A34A", up: "#EF4444", flat: "#EAB308" },
+        // Price Watch's "went up" board: the accent orange pushed toward red,
+        // dark enough for white text (the drops board's twin of brand-green.dark).
+        "price-rise": "#B8431D",
         // Liked-heart red (MealCard). Not a general-purpose brand color.
         // soft: destructive icon tile behind a red icon (Delete Recipe confirm).
         like: { DEFAULT: "#EF4444", soft: "#FEE2E2" },

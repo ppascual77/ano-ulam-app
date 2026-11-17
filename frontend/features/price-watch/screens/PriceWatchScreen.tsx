@@ -23,8 +23,9 @@ import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { usePriceItems } from "@/frontend/core/prices/hooks/usePriceItems";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
-import { pickFreshPicks, type PriceCategory, type PriceItem } from "@/frontend/core/prices/utils/prices";
+import { pickFreshPicks, pickPriceRises, type PriceCategory, type PriceItem } from "@/frontend/core/prices/utils/prices";
 import { FRESH_PICKS_COUNT, FreshPicksSection } from "../components/FreshPicksSection";
+import { BOARD_ROWS } from "../components/FreshPicksBoard";
 import { CategorySection } from "../components/CategorySection";
 import { PriceListSheet } from "../components/PriceListSheet";
 import { PriceWatchIntro } from "../components/PriceWatchIntro";
@@ -77,6 +78,7 @@ export default function PriceWatchScreen() {
 
   const all = items.data ?? [];
   const picks = useMemo(() => pickFreshPicks(all, FRESH_PICKS_COUNT), [all]);
+  const rises = useMemo(() => pickPriceRises(all, BOARD_ROWS), [all]);
   // Latest DA publish date across all commodities, for the source chip.
   const asOf = useMemo(() => all.reduce<string | undefined>((max, i) => (!max || i.latestDate > max ? i.latestDate : max), undefined), [all]);
 
@@ -146,7 +148,7 @@ export default function PriceWatchScreen() {
         </View>
 
         <View className="mt-6">
-          <FreshPicksSection picks={picks} loading={items.isLoading} onSelect={setSelected} visible={focused && !intro.showing} />
+          <FreshPicksSection picks={picks} rises={rises} loading={items.isLoading} onSelect={setSelected} visible={focused && !intro.showing} />
         </View>
 
         <View className="mt-6">
