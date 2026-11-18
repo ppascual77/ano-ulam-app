@@ -103,7 +103,13 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
   const editAfterLive = useRef(false);
   const liveName = useLastDefined(confirmLive?.name);
   const deleteTarget = useLastDefined(confirmDelete);
-  const deleteStake = rewardAtStake("recipe", deleteTarget?.meal.id);
+  // Checked fresh before the recipe confirm opens, so its warning is there
+  // from the start (kept while it closes).
+  const [deleteStake, setDeleteStake] = useState<{ days: number } | null>(null);
+  const askDeleteRecipe = async (meal: MealType, fromDetails: boolean) => {
+    setDeleteStake(await rewardAtStake("recipe", meal.id));
+    setConfirmDelete({ meal, fromDetails });
+  };
 
   const edit = (meal: MealType) => {
     if (meal.status === "approved") setConfirmLive(meal);
@@ -164,7 +170,7 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
                       <OwnerMenu
                         status={meal.status}
                         onEdit={() => edit(meal)}
-                        onDelete={() => setConfirmDelete({ meal, fromDetails: false })}
+                        onDelete={() => void askDeleteRecipe(meal, false)}
                       />
                     }
                   />
@@ -195,11 +201,12 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
                   onShare={() => void share(post)}
                   onOpenPhoto={(uri) => setLightbox({ uri })}
                   onEdit={() => onEditPost(post)}
-                  onDelete={() => {
-                    const stake = rewardAtStake("photo_post", post.id);
-                    if (stake) setConfirmRewardPost({ post, days: stake.days });
-                    else removePost(post);
-                  }}
+                  onDelete={() =>
+                    void rewardAtStake("photo_post", post.id).then((stake) => {
+                      if (stake) setConfirmRewardPost({ post, days: stake.days });
+                      else removePost(post);
+                    })
+                  }
                 />
               ))}
               {posts.loadingMore && <PostSkeleton />}
@@ -215,7 +222,7 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
         onClosed={() => {
           const meal = deleteAfterDetails.current;
           deleteAfterDetails.current = null;
-          if (meal) setConfirmDelete({ meal, fromDetails: true });
+          if (meal) void askDeleteRecipe(meal, true);
         }}
         onNotify={onToast}
         recipeOwner={

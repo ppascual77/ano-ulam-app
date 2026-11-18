@@ -316,7 +316,7 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
   const submit = async (photoRemovalConfirmed = false) => {
     if (!canPost) return;
     if (!photoRemovalConfirmed && editPost?.image_url && attachment?.kind !== "photo") {
-      const stake = rewardAtStake("photo_post", editPost.id);
+      const stake = await rewardAtStake("photo_post", editPost.id);
       if (stake) {
         Keyboard.dismiss();
         return setConfirmPhotoRemoval(stake);

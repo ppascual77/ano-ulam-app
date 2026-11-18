@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import type { QueryClient } from "@tanstack/react-query";
-import type { ProReward } from "@/api/proRewards";
+import { getRewardAtStake, type ProReward } from "@/api/proRewards";
 import { useProStore } from "../store/useProStore";
 import { proKeys } from "../queryKeys";
 import { useProRewards } from "./useProRewardProgress";
@@ -11,20 +11,34 @@ import { useProRewards } from "./useProRewardProgress";
 // change something: the reward's days are still running and there's no
 // subscription carrying Pro anyway.
 
-/** A function telling whether removing this post or recipe would take Pro
- *  days back: the reward's days, or null when nothing would change. */
+type Stake = { days: number } | null;
+
+/** An async check: would removing this post or recipe take Pro days back?
+ *  The reward's days, or null when nothing would change. Asks the database
+ *  at that moment (cached rewards can lag a just-earned reward: a post
+ *  deleted seconds after posting slipped through). Offline, it falls back
+ *  to the cached rewards. */
 export function useRewardAtStake() {
   const { data: rewards } = useProRewards();
-  const subscription = useProStore((s) => s.subscription);
   const earnedUntil = useProStore((s) => s.earnedUntil);
-  return useCallback(
-    (kind: ProReward["kind"], sourceId: string | null | undefined): { days: number } | null => {
-      if (!sourceId || subscription) return null;
+  const cached = useCallback(
+    (kind: ProReward["kind"], sourceId: string): Stake => {
       if (!earnedUntil || new Date(earnedUntil).getTime() <= Date.now()) return null;
       const reward = rewards?.find((r) => r.kind === kind && r.sourceId === sourceId && !r.revokedAt);
       return reward ? { days: reward.days } : null;
     },
-    [rewards, subscription, earnedUntil],
+    [rewards, earnedUntil],
+  );
+  return useCallback(
+    async (kind: ProReward["kind"], sourceId: string | null | undefined): Promise<Stake> => {
+      if (!sourceId || useProStore.getState().subscription) return null;
+      try {
+        return await getRewardAtStake(kind, sourceId);
+      } catch {
+        return cached(kind, sourceId);
+      }
+    },
+    [cached],
   );
 }
 

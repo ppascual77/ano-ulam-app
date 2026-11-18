@@ -47,8 +47,8 @@ export function CommunityFeed({
   // post that earned Pro days says deleting takes them back.
   const rewardAtStake = useRewardAtStake();
   const [confirmBody, setConfirmBody] = useState("This cannot be undone.");
-  const askDelete = (post: FoodPost) => {
-    const stake = rewardAtStake("photo_post", post.id);
+  const askDelete = async (post: FoodPost) => {
+    const stake = await rewardAtStake("photo_post", post.id);
     setConfirmBody(stake ? rewardLossLine("post", stake.days) : "This cannot be undone.");
     setConfirmPost(post);
   };
@@ -129,7 +129,7 @@ export function CommunityFeed({
               onShare={() => share(`/community/post/${post.id}`)}
               onOpenPhoto={(uri) => setLightbox({ uri })}
               onEdit={isOwn ? () => onEditPost(post) : undefined}
-              onDelete={isOwn ? () => askDelete(post) : undefined}
+              onDelete={isOwn ? () => void askDelete(post) : undefined}
               {...moderation.actionsFor(post)}
               onPressAuthor={() => openProfile(post.user_id, currentUserId)}
             />
