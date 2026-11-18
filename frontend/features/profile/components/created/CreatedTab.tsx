@@ -23,6 +23,7 @@ import { MealGrid } from "../MealGrid";
 import { MealGridSkeleton } from "../MealGridSkeleton";
 import { EmptyState } from "../EmptyState";
 import { RecipeStatusBadge } from "../CardOverlays";
+import { rewardLossLine, useRewardAtStake } from "@/frontend/core/pro/hooks/useRewardAtStake";
 
 type CreatedTabProps = {
   posterId: string | null;
@@ -75,6 +76,15 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
   // Saving a post reloads this list too (useSavePost).
   const posts = usePostList({ userId: posterId ?? "", enabled: !!posterId, pageSize: 10 });
   const [lightbox, setLightbox] = useState<{ uri: string } | null>(null);
+  // The post or recipe that earned Pro days: deleting it takes them back,
+  // so the confirm says so (a post has no confirm otherwise).
+  const rewardAtStake = useRewardAtStake();
+  const [confirmRewardPost, setConfirmRewardPost] = useState<{ post: FoodPost; days: number } | null>(null);
+  const rewardPostTarget = useLastDefined(confirmRewardPost);
+  const removePost = (post: FoodPost) =>
+    void posts.remove(post).then((ok) => {
+      if (!ok) onToast("Couldn't delete your post. Please try again.", "error");
+    });
 
   useEffect(() => {
     if (loadMoreSignal > 0) void posts.loadMore();
@@ -93,6 +103,7 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
   const editAfterLive = useRef(false);
   const liveName = useLastDefined(confirmLive?.name);
   const deleteTarget = useLastDefined(confirmDelete);
+  const deleteStake = rewardAtStake("recipe", deleteTarget?.meal.id);
 
   const edit = (meal: MealType) => {
     if (meal.status === "approved") setConfirmLive(meal);
@@ -184,11 +195,11 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
                   onShare={() => void share(post)}
                   onOpenPhoto={(uri) => setLightbox({ uri })}
                   onEdit={() => onEditPost(post)}
-                  onDelete={() =>
-                    void posts.remove(post).then((ok) => {
-                      if (!ok) onToast("Couldn't delete your post. Please try again.", "error");
-                    })
-                  }
+                  onDelete={() => {
+                    const stake = rewardAtStake("photo_post", post.id);
+                    if (stake) setConfirmRewardPost({ post, days: stake.days });
+                    else removePost(post);
+                  }}
                 />
               ))}
               {posts.loadingMore && <PostSkeleton />}
@@ -260,12 +271,25 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
           <Text className="mt-1 text-center font-inter-regular text-body text-ink-subtle">
             <Text className="font-inter-medium text-ink">{deleteTarget?.meal.name}</Text> will be permanently
             removed. This cannot be undone.
+            {deleteStake ? `\n\n${rewardLossLine("recipe", deleteStake.days)}` : ""}
           </Text>
         }
         confirmLabel={deleteRecipe.isPending ? "Deleting…" : "Delete"}
         busy={deleteRecipe.isPending}
         onCancel={() => setConfirmDelete(null)}
         onConfirm={runDelete}
+      />
+
+      <ConfirmSheet
+        visible={!!confirmRewardPost}
+        title="Delete this post?"
+        body={rewardPostTarget ? rewardLossLine("post", rewardPostTarget.days) : undefined}
+        confirmLabel="Delete"
+        onCancel={() => setConfirmRewardPost(null)}
+        onConfirm={() => {
+          if (confirmRewardPost) removePost(confirmRewardPost.post);
+          setConfirmRewardPost(null);
+        }}
       />
 
       <ImageLightbox source={lightbox} onClose={() => setLightbox(null)} />

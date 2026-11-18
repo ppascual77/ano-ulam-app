@@ -125,26 +125,37 @@ const SKIP_AFTER_MS = 5000;
 // skips. Until it's full, a tap does nothing (and the sheet can't be
 // dragged or tapped away). Reduce motion keeps the fill: it's the
 // countdown, not decoration.
+// Neutral, not green: green is the main action (Get Pro's color family),
+// and Skip isn't one. "Skip (5)" counts down with the fill.
 function SkipButton({ open, onReady, onSkip }: { open: boolean; onReady: () => void; onSkip: () => void }) {
   const fill = useSharedValue(0);
-  const [ready, setReady] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(SKIP_AFTER_MS / 1000);
+  const ready = secondsLeft === 0;
   useEffect(() => {
     if (!open) return;
-    setReady(false);
+    setSecondsLeft(SKIP_AFTER_MS / 1000);
     fill.value = 0;
     fill.value = withTiming(1, { duration: SKIP_AFTER_MS, easing: Easing.linear });
-    const timer = setTimeout(() => {
-      setReady(true);
-      onReady();
-    }, SKIP_AFTER_MS);
-    return () => clearTimeout(timer);
+    const started = Date.now();
+    const tick = setInterval(() => {
+      const left = Math.max(0, Math.ceil((SKIP_AFTER_MS - (Date.now() - started)) / 1000));
+      setSecondsLeft(left);
+      if (left === 0) {
+        clearInterval(tick);
+        onReady();
+      }
+    }, 250);
+    return () => clearInterval(tick);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
   return (
     <Button
-      variant="outline"
-      label="Skip"
+      variant="muted"
+      label={ready ? "Skip" : `Skip (${secondsLeft})`}
       fill={fill}
+      fillTone="neutral"
+      // Disabled-looking text while it counts down, normal once it can skip.
+      labelClassName={ready ? undefined : "text-ink-placeholder"}
       onPress={ready ? onSkip : undefined}
       accessibilityState={{ disabled: !ready }}
       accessibilityHint={ready ? undefined : "You can skip in a few seconds"}
@@ -214,7 +225,13 @@ export function ProFeatureSheet({ feature, onClose, presentation, onOpenPro, sec
       {f && (
         // The sheet already pads for the home indicator: only a little more
         // below Not now on such phones (it read as an empty band).
-        <View className="gap-5 px-6 pt-3" style={{ paddingBottom: insets.bottom > 0 ? 4 : 24 }}>
+        <View className={`gap-5 px-6 ${ad ? "pt-9" : "pt-3"}`} style={{ paddingBottom: insets.bottom > 0 ? 4 : 24 }}>
+          {/* The ad says it's an ad: level with the handle, top right. */}
+          {ad && (
+            <Text className="absolute right-6 top-3 font-inter-semibold text-small text-ink-subtle" accessibilityLabel="Advertisement">
+              Ad
+            </Text>
+          )}
           {f.Reel ? (
             <Animated.View entering={reduceMotion ? FadeIn.duration(160) : FadeIn.duration(260)}>
               <f.Reel key={shown} active={open} reduceMotion={reduceMotion} />
@@ -225,12 +242,15 @@ export function ProFeatureSheet({ feature, onClose, presentation, onOpenPro, sec
           )}
 
           <Animated.View entering={fade(140)} className="gap-2">
+            {/* The PRO pill rides on the title's line, not a row of its own. */}
             <View className="flex-row items-center gap-2">
+              <View className="shrink">
+                <AppText variant="sectionTitle" dot>
+                  {f.title}
+                </AppText>
+              </View>
               <ProBadge />
             </View>
-            <AppText variant="sectionTitle" dot>
-              {f.title}
-            </AppText>
             <Text className="font-inter-regular text-body text-ink-subtle">{f.body}</Text>
           </Animated.View>
 

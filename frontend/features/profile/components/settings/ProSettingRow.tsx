@@ -26,9 +26,11 @@ type ProSettingRowProps = {
   toggle?: { value: boolean; onChange: (value: boolean) => void };
 };
 
-// One row in Settings > Pro: name with the PRO badge, a line under it, and a
-// chevron (or a lock without Pro); an on/off setting has a switch instead. When Pro turns on or off, the lock and
-// chevron crossfade, one row after another.
+// One row in Settings > Pro: the PRO badge then the name, a line under it,
+// and a chevron (or a lock without Pro); an on/off setting has a switch
+// instead. The badge leads the name so the badges line up down the list
+// (after each name they zigzagged with its length). When Pro turns on or
+// off, the lock and chevron crossfade, one row after another.
 export function ProSettingRow({ label, description, locked, onPress, index = 0, toggle, detail, control }: ProSettingRowProps) {
   const reduceMotion = useReduceMotion();
   const enter = reduceMotion ? undefined : FadeIn.delay(index * 60).duration(220);
@@ -37,8 +39,10 @@ export function ProSettingRow({ label, description, locked, onPress, index = 0, 
     <Pressable onPress={onPress} accessibilityRole="button" className="flex-row items-center gap-3 active:opacity-60">
       <View className="flex-1">
         <View className="flex-row items-center gap-2">
-          <SettingsRowLabel>{label}</SettingsRowLabel>
           <ProBadge />
+          <View className="shrink">
+            <SettingsRowLabel>{label}</SettingsRowLabel>
+          </View>
         </View>
         {detail ?? <SettingsRowDescription>{description}</SettingsRowDescription>}
       </View>

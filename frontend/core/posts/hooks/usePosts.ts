@@ -19,6 +19,7 @@ import { postKeys } from "../queryKeys";
 import { proKeys } from "@/frontend/core/pro/queryKeys";
 import { blockUser } from "@/api/blocks";
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
+import { refreshProRewards } from "@/frontend/core/pro/hooks/useRewardAtStake";
 
 type Pages = InfiniteData<FoodPost[], number>;
 
@@ -105,6 +106,8 @@ export function usePostList({ userId, enabled = true, pageSize, refreshKey = 0 }
     try {
       await deletePost(post);
       void queryClient.invalidateQueries({ queryKey: postKeys.count(post.user_id) });
+      // If this post earned a Pro reward, the database just took it back.
+      refreshProRewards(queryClient);
       return true;
     } catch {
       void queryClient.invalidateQueries({ queryKey: postKeys.all(viewerId) });
@@ -187,6 +190,8 @@ export function useSavePost() {
       void queryClient.invalidateQueries({ queryKey: proKeys.all });
       useProStore.getState().refresh();
     }
+    // The photo edited out of the post that earned it: the reward is gone.
+    if (editing?.image_url && !input.image_uri) refreshProRewards(queryClient);
   };
 }
 

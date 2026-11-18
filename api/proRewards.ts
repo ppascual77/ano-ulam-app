@@ -6,6 +6,11 @@ export type ProReward = {
   kind: "recipe" | "photo_post";
   days: number;
   grantedAt: string;
+  /** The approved recipe, or the Food Post, that earned it. */
+  sourceId: string;
+  /** Taken back (that post or recipe was deleted, or lost its photo, or
+   *  was removed): still claimed, so it isn't earned again. */
+  revokedAt: string | null;
 };
 
 /** This user's granted Pro rewards, oldest first (own rows only). The days
@@ -13,11 +18,18 @@ export type ProReward = {
 export async function getProRewards(userId: string): Promise<ProReward[]> {
   const { data, error } = await supabase
     .from("pro_rewards")
-    .select("id, kind, days, granted_at")
+    .select("id, kind, days, granted_at, source_id, revoked_at")
     .eq("user_id", userId)
     .order("granted_at");
   if (error) throw error;
-  return (data ?? []).map((row) => ({ id: row.id, kind: row.kind as ProReward["kind"], days: row.days, grantedAt: row.granted_at }));
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    kind: row.kind as ProReward["kind"],
+    days: row.days,
+    grantedAt: row.granted_at,
+    sourceId: row.source_id,
+    revokedAt: row.revoked_at,
+  }));
 }
 
 /** Which Pro rewards this user has claimed, from the reward log itself,

@@ -13,6 +13,7 @@ import { ImageLightbox } from "@/frontend/core/posts/components/ImageLightbox";
 import { PostSkeleton } from "@/frontend/core/posts/components/PostSkeleton";
 import { openProfile } from "@/frontend/core/users/openProfile";
 import { SignInButtons } from "@/frontend/features/auth/components/SignInButtons";
+import { rewardLossLine, useRewardAtStake } from "@/frontend/core/pro/hooks/useRewardAtStake";
 import type { SignInProvider } from "@/frontend/features/auth/hooks/useAuth";
 
 type CommunityFeedProps = {
@@ -42,6 +43,15 @@ export function CommunityFeed({
 }: CommunityFeedProps) {
   const feed = usePostList({ userId: null, enabled: !isGuest, pageSize: 5, refreshKey });
   const [confirmPost, setConfirmPost] = useState<FoodPost | null>(null);
+  // The confirm's line, set as it opens (kept while it slides away): the
+  // post that earned Pro days says deleting takes them back.
+  const rewardAtStake = useRewardAtStake();
+  const [confirmBody, setConfirmBody] = useState("This cannot be undone.");
+  const askDelete = (post: FoodPost) => {
+    const stake = rewardAtStake("photo_post", post.id);
+    setConfirmBody(stake ? rewardLossLine("post", stake.days) : "This cannot be undone.");
+    setConfirmPost(post);
+  };
   // Report (others' posts) and admin Remove, in each card's menu.
   const moderation = usePostModeration(feed, currentUserId, (message, tone) => onToast(message, tone));
   const [lightbox, setLightbox] = useState<{ uri: string } | number | null>(null);
@@ -119,7 +129,7 @@ export function CommunityFeed({
               onShare={() => share(`/community/post/${post.id}`)}
               onOpenPhoto={(uri) => setLightbox({ uri })}
               onEdit={isOwn ? () => onEditPost(post) : undefined}
-              onDelete={isOwn ? () => setConfirmPost(post) : undefined}
+              onDelete={isOwn ? () => askDelete(post) : undefined}
               {...moderation.actionsFor(post)}
               onPressAuthor={() => openProfile(post.user_id, currentUserId)}
             />
@@ -156,7 +166,7 @@ export function CommunityFeed({
       <ConfirmSheet
         visible={!!confirmPost}
         title="Delete this post?"
-        body="This cannot be undone."
+        body={confirmBody}
         confirmLabel="Delete"
         onCancel={() => setConfirmPost(null)}
         onConfirm={() => {

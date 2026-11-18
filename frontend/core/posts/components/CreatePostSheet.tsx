@@ -17,11 +17,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { Check, Gift, ImageIcon, X } from "lucide-react-native";
-import { Avatar, BottomSheet, Spinner } from "@/frontend/components/ui";
+import { Avatar, BottomSheet, ConfirmSheet, Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { usePaysForPro } from "@/frontend/core/pro/store/useProStore";
 import { useProRewardProgress } from "@/frontend/core/pro/hooks/useProRewardProgress";
+import { rewardLossLine, useRewardAtStake } from "@/frontend/core/pro/hooks/useRewardAtStake";
 import { POST_REWARD_DAYS } from "@/frontend/core/pro/proContent";
 import { fetchLinkPreview, type FoodPost, type LinkFields, type PostInput } from "@/api/posts";
 import type { KlipyKind } from "@/api/klipy";
@@ -125,9 +126,12 @@ function PhotoRewardBar({ hasPhoto, onAddPhoto }: { hasPhoto: boolean; onAddPhot
             <View className="h-6 w-6 items-center justify-center rounded-full bg-accent">
               <PoppingCheck reduceMotion={reduceMotion} />
             </View>
-            <Text className="flex-1 font-inter-semibold text-small text-accent">
-              Nice! This post earns you {POST_REWARD_DAYS} days of Pro
-            </Text>
+            {/* Said up front: deleting this post later takes the days back
+                (the pro_reward_revoke migration). */}
+            <View className="flex-1">
+              <Text className="font-inter-semibold text-small text-accent">Nice! This post earns you {POST_REWARD_DAYS} days of Pro</Text>
+              <Text className="font-inter-regular text-sub text-ink-subtle">Keep the post up to keep them.</Text>
+            </View>
           </View>
         </Animated.View>
       ) : (
@@ -208,6 +212,10 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
   const paying = usePaysForPro();
   const { data: rewardProgress } = useProRewardProgress();
   const photoRewardOpen = !editPost && !paying && !!rewardProgress && !rewardProgress.hasPhotoPost;
+  // Editing the post that earned the photo reward: taking its photo out
+  // takes the Pro days back, so it asks first.
+  const rewardAtStake = useRewardAtStake();
+  const [confirmPhotoRemoval, setConfirmPhotoRemoval] = useState<{ days: number } | null>(null);
 
   // Space under the toolbar that tracks the keyboard, so the Photo /
   // GIF / STK row rides right on top of it (like Facebook's composer).
@@ -305,8 +313,15 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
     setPicker((open) => (open === kind ? null : kind));
   };
 
-  const submit = async () => {
+  const submit = async (photoRemovalConfirmed = false) => {
     if (!canPost) return;
+    if (!photoRemovalConfirmed && editPost?.image_url && attachment?.kind !== "photo") {
+      const stake = rewardAtStake("photo_post", editPost.id);
+      if (stake) {
+        Keyboard.dismiss();
+        return setConfirmPhotoRemoval(stake);
+      }
+    }
     Keyboard.dismiss();
     setPicker(null);
     // A link typed last, with no space after it, still becomes the preview.
@@ -420,7 +435,25 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
 
   return (
     // Can't be closed mid-save (the post would still go up, unseen).
-    <BottomSheet visible={visible} onClose={posting ? () => {} : onClose} heightPercent={0.9}>
+    <BottomSheet
+      visible={visible}
+      onClose={posting ? () => {} : onClose}
+      heightPercent={0.9}
+      overlay={
+        <ConfirmSheet
+          presentation="inline"
+          visible={!!confirmPhotoRemoval}
+          title="Remove the photo?"
+          body={confirmPhotoRemoval ? rewardLossLine("post", confirmPhotoRemoval.days, "Removing its photo") : undefined}
+          confirmLabel="Remove and save"
+          onCancel={() => setConfirmPhotoRemoval(null)}
+          onConfirm={() => {
+            setConfirmPhotoRemoval(null);
+            void submit(true);
+          }}
+        />
+      }
+    >
       <View className="flex-1 px-5 pt-10">
         <View className="flex-row items-center justify-between">
           <Pressable
@@ -434,7 +467,7 @@ export function CreatePostSheet({ visible, onClose, editPost, author, onSubmit }
           <Text className="font-inter-bold text-body text-web-ink">{editPost ? "Edit Post" : "New Post"}</Text>
           {/* Dimmed only when there's nothing to post: while saving, the
               spinner stays at full strength. */}
-          <Pressable onPress={submit} disabled={!canPost} className={canPost || posting ? "" : "opacity-40"}>
+          <Pressable onPress={() => void submit()} disabled={!canPost} className={canPost || posting ? "" : "opacity-40"}>
             {posting ? (
               <Spinner variant="wave" size={16} color={colors.accent} />
             ) : (
