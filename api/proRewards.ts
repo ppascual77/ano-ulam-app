@@ -47,6 +47,24 @@ export const progressOf = (rewards: ProReward[]): ProRewardProgress => ({
   hasPhotoPost: rewards.some((r) => r.kind === "photo_post"),
 });
 
+/** Whether removing this post or recipe would take Pro days back right now:
+ *  the reward it earned is still standing and earned Pro is still running.
+ *  Read fresh at the moment of deleting, not from cached rewards (a post
+ *  deleted seconds after it earned Pro is exactly the case to catch). */
+export async function getRewardAtStake(kind: ProReward["kind"], sourceId: string): Promise<{ days: number } | null> {
+  const { data, error } = await supabase
+    .from("pro_rewards")
+    .select("days, user_id")
+    .eq("kind", kind)
+    .eq("source_id", sourceId)
+    .is("revoked_at", null)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const until = await getEarnedProUntil(data.user_id);
+  return until && new Date(until).getTime() > Date.now() ? { days: data.days } : null;
+}
+
 /** When this user's earned Pro (Pro rewards) runs out: ISO, or null if
  *  they've never earned any. Set only by the database. */
 export async function getEarnedProUntil(userId: string): Promise<string | null> {
