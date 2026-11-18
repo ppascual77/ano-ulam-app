@@ -18,12 +18,15 @@ import { PreferencesSlide } from "../components/PreferencesSlide";
 import { PreferenceGroupsSlide } from "../components/PreferenceGroupsSlide";
 import { AccountPitchSlide } from "../components/AccountPitchSlide";
 import { PantryBasicsSlide } from "../components/PantryBasicsSlide";
+import { BudgetSlide } from "../components/BudgetSlide";
+import { useFirstRunStore } from "@/frontend/core/preferences/store/useFirstRunStore";
+import { DEFAULT_SERVINGS } from "@/frontend/core/budget/utils/budgetMatch";
 import { NumbersExplainerSheet } from "../components/NumbersExplainerSheet";
 import { FlyingDot, PeriodDot, type DotPoint } from "../components/NumbersDot";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { RotatingBlob, type RotatingBlobHandle } from "../components/RotatingBlob";
 import { setDotRevealTarget, useDotRevealArriving } from "../components/DotReveal";
-import { onboardingSlides, type OnboardingSlideData, type PantryBasicsSlideData, type PreferencesSlideData } from "../slides";
+import { onboardingSlides, type BudgetSlideData, type OnboardingSlideData, type PantryBasicsSlideData, type PreferencesSlideData } from "../slides";
 import { PANTRY_STAPLES } from "@/frontend/core/pantry/staples";
 import { usePantryStaples } from "@/frontend/core/pantry/hooks/usePantryStaples";
 import { addToGuestPantry } from "@/frontend/core/pantry/hooks/usePantry";
@@ -42,6 +45,7 @@ const defaultGoals = new Set(
   preferencesSlide?.options.filter((o) => o.defaultSelected).map((o) => o.id) ?? [],
 );
 const basicsSlide = onboardingSlides.find((s) => s.type === "pantryBasics") as PantryBasicsSlideData | undefined;
+const budgetSlide = onboardingSlides.find((s) => s.type === "budget") as BudgetSlideData | undefined;
 const defaultBasics = PANTRY_STAPLES.map((s) => s.label).filter((label) => !basicsSlide?.unticked.includes(label));
 
 type SlideCallbacks = {
@@ -51,6 +55,10 @@ type SlideCallbacks = {
   onGroupChange: (groupId: string, value: string[]) => void;
   basics: string[];
   onBasicsChange: (value: string[]) => void;
+  budget: number;
+  onBudgetChange: (budget: number) => void;
+  servings: number;
+  onServingsChange: (servings: number) => void;
   onSignIn: (provider: SignInProvider) => void;
   onContinueWithoutAccount: () => void;
   isSigningIn: boolean;
@@ -86,6 +94,18 @@ function renderSlide(slide: OnboardingSlideData, width: number, callbacks: Slide
     case "pantryBasics":
       return (
         <PantryBasicsSlide key={slide.id} slide={slide} width={width} selected={callbacks.basics} onChange={callbacks.onBasicsChange} />
+      );
+    case "budget":
+      return (
+        <BudgetSlide
+          key={slide.id}
+          slide={slide}
+          width={width}
+          budget={callbacks.budget}
+          servings={callbacks.servings}
+          onBudgetChange={callbacks.onBudgetChange}
+          onServingsChange={callbacks.onServingsChange}
+        />
       );
     case "accountPitch":
       return (
@@ -135,6 +155,9 @@ export default function OnboardingScreen({ tour = false }: OnboardingScreenProps
   const [goals, setGoals] = useState<Set<string>>(() => new Set(defaultGoals));
   const [groupSelections, setGroupSelections] = useState<Record<string, string[]>>({});
   const [basics, setBasics] = useState<string[]>(defaultBasics);
+  // Tonight's budget: Home opens with meals for it suggested.
+  const [budget, setBudget] = useState(budgetSlide?.defaultBudget ?? 150);
+  const [servings, setServings] = useState(DEFAULT_SERVINGS);
   // The basics as real catalog rows (loads while the slides are swiped).
   const { staples: resolvedStaples } = usePantryStaples();
   // Slide 4's "Where do our numbers come from?" sheet.
@@ -222,6 +245,12 @@ export default function OnboardingScreen({ tour = false }: OnboardingScreenProps
     }
   };
 
+  // Not in Settings' tour (it has no budget slide): a returning user's Home
+  // stays as it is.
+  const saveTonight = () => {
+    if (!tour && budgetSlide) useFirstRunStore.getState().setTonight({ budget: String(budget), servings });
+  };
+
   // "Continue without an account": the picks are kept on the phone for the
   // guest (and go to the account if they sign in later, see usePreferences).
   const continueAsGuest = () => {
@@ -231,12 +260,14 @@ export default function OnboardingScreen({ tour = false }: OnboardingScreenProps
       goals: Array.from(goals),
     });
     void saveBasics();
+    saveTonight();
     goHome();
   };
 
   const handleSignIn = async (provider: SignInProvider) => {
     try {
       await saveBasics();
+      saveTonight();
       const session = await signIn.mutateAsync(provider);
       if (!session) return; // user cancelled the browser flow
       await updateProfile.mutateAsync({
@@ -315,6 +346,10 @@ export default function OnboardingScreen({ tour = false }: OnboardingScreenProps
               onGroupChange: handleGroupChange,
               basics,
               onBasicsChange: setBasics,
+              budget,
+              onBudgetChange: setBudget,
+              servings,
+              onServingsChange: setServings,
               onSignIn: handleSignIn,
               onContinueWithoutAccount: continueAsGuest,
               isSigningIn: signIn.isPending,

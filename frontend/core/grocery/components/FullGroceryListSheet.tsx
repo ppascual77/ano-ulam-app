@@ -13,7 +13,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { Carrot, Check, ChevronDown, Drumstick, House, Info, Package, ShoppingCart, type LucideIcon } from "lucide-react-native";
+import { Carrot, Check, ChevronDown, Drumstick, House, Info, Lightbulb, Package, ShoppingCart, type LucideIcon } from "lucide-react-native";
+import { useFirstRun, useFirstRunStore } from "@/frontend/core/preferences/store/useFirstRunStore";
 import { AppText, BottomSheet, RollingText, SegmentedSwitch, showGlobalToast } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { usePantryActions } from "@/frontend/core/pantry/hooks/usePantry";
@@ -277,6 +278,7 @@ export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initial
     });
   const pantryActions = usePantryActions();
   const reduceMotion = useReduceMotion();
+  const firstRun = useFirstRun();
   // The row just moved drops in from above; other arrivals just fade.
   const [justMoved, setJustMoved] = useState<string | null>(null);
   // Just checked: still shown in place (struck through) until it settles.
@@ -315,6 +317,7 @@ export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initial
   const asPantry = (item: GroceryItem) => (item.ingredientId ? [{ id: item.ingredientId, name: item.canonicalName }] : []);
   const ids = (item: GroceryItem) => (item.ingredientId ? [item.ingredientId] : []);
   const tick = (item: GroceryItem) => {
+    useFirstRunStore.getState().markTickLearned();
     setTicked(item.id, true);
     pantryActions.addMany(asPantry(item));
   };
@@ -417,6 +420,16 @@ export function FullGroceryListSheet({ visible, onClose, onClosed, tabs, initial
         <AppText variant="sectionTitle" dot>Grocery list</AppText>
 
         {count > 0 && <SummaryCard total={shownTotal} left={left} picked={picked} count={count} leftover={leftover} />}
+
+        {/* Until the first tick ever: how the list works, in one line. */}
+        {count > 0 && firstRun.loaded && !firstRun.tickLearned && (
+          <View className="mt-3 flex-row items-start gap-2.5 rounded-2xl bg-notice-bg px-4 py-3">
+            <Lightbulb color={colors.notice.icon} size={16} />
+            <Text className="flex-1 font-inter-regular text-small text-ink">
+              Tick items as you shop. They move to your pantry, and we&apos;ll ask once you&apos;ve cooked.
+            </Text>
+          </View>
+        )}
 
         {tabs.length > 1 && (
           <View className="mt-4 items-start">

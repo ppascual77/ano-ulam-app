@@ -21,7 +21,10 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
   loaded: false,
   load: async () => {
     try {
-      set({ done: (await AsyncStorage.getItem(STORAGE_KEY)) === "1", loaded: true });
+      // TEMP force onboarding for device testing: ignore the saved flag. Revert before committing.
+      void STORAGE_KEY;
+      set({ done: false, loaded: true });
+      // set({ done: (await AsyncStorage.getItem(STORAGE_KEY)) === "1", loaded: true });
     } catch {
       // Unreadable: show onboarding (the safe default for a first run).
       set({ loaded: true });

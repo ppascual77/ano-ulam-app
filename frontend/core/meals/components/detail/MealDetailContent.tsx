@@ -826,8 +826,8 @@ export function MealDetailContent({
           <View className="my-3">
             <NoticeBanner icon={<Info color={colors.notice.icon} size={15} />}>
               <AppText variant="caption" className="text-notice-text">
-                Prices shown are for the exact quantities used in this recipe. Some items may only be available
-                as a whole unit, so your actual spend may be higher.
+                Each price is the share this recipe uses, so a spoonful of flour costs less than ₱1. Your grocery
+                list shows the full price of each pack you&apos;d buy.
               </AppText>
             </NoticeBanner>
           </View>
