@@ -12,7 +12,7 @@ import { LoginGateSheet } from "@/frontend/features/auth/components/LoginGateShe
 import { ProBadge } from "./ProBadge";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useProStore, useProSubscription } from "../store/useProStore";
-import { nextLine, planName } from "../subscriptionCopy";
+import { STORE, nextLine, planName } from "../subscriptionCopy";
 import { ProUnlockOverlay } from "./ProUnlockOverlay";
 import { CompareTable } from "./ProCompareTable";
 import { openPrivacyPolicy, openTerms } from "@/frontend/core/app/legalLinks";
@@ -113,7 +113,7 @@ export function ProPage({ onClose, onStarted, allowLinks = true, onManage, title
       showGlobalToast(
         found
           ? { message: "Pro is back on.", tone: "success" }
-          : { message: "No Pro subscription found for this Apple ID.", tone: "error" },
+          : { message: `No Pro subscription found for this ${STORE.account}.`, tone: "error" },
       );
     } catch {
       showGlobalToast({ message: "Couldn't restore. Check your connection.", tone: "error" });
@@ -166,7 +166,7 @@ export function ProPage({ onClose, onStarted, allowLinks = true, onManage, title
         ) : (
           <>
             <Text className="text-center font-inter-regular text-small text-ink-subtle">
-              {hasTrial ? `${TRIAL_DAYS} days free, then ${price}/${chosen.per}.` : `${price}/${chosen.per}.`} Cancel anytime in the App Store.
+              {hasTrial ? `${TRIAL_DAYS} days free, then ${price}/${chosen.per}.` : `${price}/${chosen.per}.`} Cancel anytime in {STORE.name}.
             </Text>
             <Button
               label={hasTrial ? `Start ${TRIAL_DAYS}-day free trial` : `Subscribe for ${price}/${chosen.per}`}

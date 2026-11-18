@@ -4,7 +4,7 @@ import { Text } from "@/frontend/components/ui/Text";
 import { AppText, BottomSheet, Button, showGlobalToast } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { manageSubscription, useProSubscription, type ProSubscription } from "@/frontend/core/pro/store/useProStore";
-import { STATUS_LABEL, formatPlanDate, planName, priceLine, timeLeft } from "@/frontend/core/pro/subscriptionCopy";
+import { STATUS_LABEL, STORE, formatPlanDate, planName, priceLine, timeLeft } from "@/frontend/core/pro/subscriptionCopy";
 import { STATUS_CHIP } from "./ProPlanCard";
 
 // The one thing to know right now, as a headline and a line under it.
@@ -16,15 +16,15 @@ function summaryOf(sub: ProSubscription): { title: string; body: string } {
       body: `Then ${priceLine(sub.plan)}, starting ${date}.`,
     };
   }
-  if (sub.status === "active") return { title: `Renews ${date}`, body: `${priceLine(sub.plan)}, through your Apple ID.` };
+  if (sub.status === "active") return { title: `Renews ${date}`, body: `${priceLine(sub.plan)}, ${STORE.through}.` };
   return { title: `Pro until ${date}`, body: "Your subscription is cancelled. You won't be charged." };
 }
 
 // Settings' "Manage your plan": the plan, its status and the one thing to
 // know (days left, next charge, or when Pro ends). Switching plans,
-// cancelling and resuming happen in Apple's own subscription screen (Apple
-// owns the subscription), which the button opens; coming back, Settings
-// re-reads Pro.
+// cancelling and resuming happen in the store's own subscription screen
+// (Apple or Google Play owns the subscription), which the button opens;
+// coming back, Settings re-reads Pro.
 export function ManagePlanSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   // The last plan seen, so the sheet keeps its content while closing after
   // Pro ends.
@@ -37,11 +37,11 @@ export function ManagePlanSheet({ visible, onClose }: { visible: boolean; onClos
   const summary = summaryOf(subscription);
   const chip = STATUS_CHIP[subscription.status];
 
-  const openAppStore = async () => {
+  const openStore = async () => {
     try {
       await manageSubscription();
     } catch {
-      showGlobalToast({ message: "Couldn't open your subscriptions. Try Settings > Apple ID > Subscriptions.", tone: "error" });
+      showGlobalToast({ message: `Couldn't open your subscriptions. Try ${STORE.settingsPath}.`, tone: "error" });
     }
   };
 
@@ -72,13 +72,13 @@ export function ManagePlanSheet({ visible, onClose }: { visible: boolean; onClos
         <View className="mt-5 h-px bg-ink-emphasis/10" />
 
         <Text className="mt-5 font-inter-regular text-small text-ink-subtle">
-          Your subscription is with Apple. Switch between Monthly and Yearly, cancel, or turn it back on in the App Store.
+          Your subscription is with {STORE.owner}. Switch between Monthly and Yearly, cancel, or turn it back on in {STORE.name}.
         </Text>
         <View className="mt-4">
           <Button
-            label={subscription.status === "cancelled" ? "Resume in the App Store" : "Manage in the App Store"}
+            label={subscription.status === "cancelled" ? `Resume in ${STORE.name}` : `Manage in ${STORE.name}`}
             variant="muted"
-            onPress={() => void openAppStore()}
+            onPress={() => void openStore()}
           />
         </View>
       </View>

@@ -21,7 +21,7 @@ import { AppText, Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useProSubscription } from "../store/useProStore";
-import { formatPlanDate, planName } from "../subscriptionCopy";
+import { STORE, formatPlanDate, planName } from "../subscriptionCopy";
 import { TRIAL_DAYS } from "../proContent";
 import { CompareTable } from "./ProCompareTable";
 import { COMPARE_ROWS } from "../proContent";
@@ -175,16 +175,16 @@ function Padlock({ open: isOpen, reduceMotion }: { open: boolean; reduceMotion: 
   );
 }
 
-// Under the closed lock while confirming, by where the purchase is: Apple's
-// sheet still opening, open (the app goes inactive under it), then back
-// with us while RevenueCat confirms the receipt.
+// Under the closed lock while confirming, by where the purchase is: the
+// store's sheet still opening, open (the app goes inactive under it), then
+// back with us while RevenueCat confirms the purchase.
 type ConfirmStep = "opening" | "inSheet" | "confirming";
 const CONFIRM_CAPTION: Record<ConfirmStep, string> = {
-  opening: "Opening the App Store...",
-  inSheet: "Finish up in the App Store",
-  confirming: "Confirming with Apple...",
+  opening: `Opening ${STORE.name}...`,
+  inSheet: `Finish up in ${STORE.name}`,
+  confirming: `Confirming with ${STORE.owner}...`,
 };
-// If the app never goes inactive (Apple's sheet doesn't always do that),
+// If the app never goes inactive (the store's sheet doesn't always do that),
 // move on from "Opening" anyway.
 const OPENING_FALLBACK_MS = 2500;
 

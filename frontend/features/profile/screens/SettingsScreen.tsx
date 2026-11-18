@@ -148,6 +148,8 @@ export default function SettingsScreen() {
   // the phone (banners, or quiet: on by default from sign-in). Turning it on
   // asks iOS for banners, or opens iOS Settings once it's been refused there.
   const push = usePushPermission();
+  // Where the system notification switch lives, named per platform.
+  const systemSettings = Platform.OS === "android" ? "your phone's Settings" : "iOS Settings";
   const pushOn = (settings.data?.push_enabled ?? true) && canReceivePush(push.permission);
   const setPushOn = async (on: boolean) => {
     if (!on) return settingsActions.setPushEnabled(false);
@@ -155,7 +157,7 @@ export default function SettingsScreen() {
     if (push.permission === "denied") return void Linking.openSettings();
     const allowed = await enablePush("settings").catch(() => false);
     push.refresh();
-    if (!allowed) setToast({ id: Date.now(), message: "Notifications are off for AnoUlam. Turn them on in iOS Settings.", tone: "error" });
+    if (!allowed) setToast({ id: Date.now(), message: `Notifications are off for AnoUlam. Turn them on in ${systemSettings}.`, tone: "error" });
   };
   const showBanners = async () => {
     await enablePush("settings").catch(() => false);
@@ -422,7 +424,7 @@ export default function SettingsScreen() {
                   label="Push notifications"
                   description={
                     push.permission === "denied"
-                      ? "Off in iOS Settings. Turn on to open them."
+                      ? `Off in ${systemSettings}. Turn on to open them.`
                       : push.permission === "quiet" && pushOn
                         ? "Arriving quietly, no banner or sound."
                         : "Recipe approvals and price news."
