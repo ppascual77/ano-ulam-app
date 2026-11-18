@@ -12,8 +12,9 @@ import { AvoidReel } from "./featureReels/AvoidReel";
 import { GoalsReel } from "./featureReels/GoalsReel";
 import { PlanWeekReel } from "./featureReels/PlanWeekReel";
 import { PriceAlertReel } from "./featureReels/PriceAlertReel";
+import { NarrationReel } from "./featureReels/NarrationReel";
 
-export type ProFeatureKey = "alerts" | "planLength" | "avoid" | "goals";
+export type ProFeatureKey = "alerts" | "planLength" | "avoid" | "goals" | "narration";
 
 type Feature = {
   title: string;
@@ -41,6 +42,12 @@ const FEATURES: Record<ProFeatureKey, Feature> = {
     body: "Not a fan of ampalaya? Hide every meal that uses it, everywhere in AnoUlam, with one tap.",
     Reel: AvoidReel,
     pro: { title: "Never see it", highlight: "again", subtitle: "Hide meals with any ingredient you don't eat." },
+  },
+  narration: {
+    title: "Cook mode, read aloud",
+    body: "Hands in the pan? Every step is read out loud, and the next one comes up on its own when it's done. Free accounts get 1 meal a day.",
+    Reel: NarrationReel,
+    pro: { title: "Cook with your hands", highlight: "free", subtitle: "Every meal read aloud, step by step, with Pro." },
   },
   goals: {
     title: "Nutrition goals",

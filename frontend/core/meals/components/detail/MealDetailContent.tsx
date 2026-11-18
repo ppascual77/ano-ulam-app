@@ -1018,6 +1018,8 @@ export function MealDetailContent({
       {!preview && meal.procedure && meal.procedure.length > 0 && (
         <CookModeHost
           ref={cookMode}
+          mealId={meal.id}
+          onOpenPro={onLockedPro}
           mealName={meal.name}
           steps={meal.procedure}
           stepAudio={meal.procedure_audio}

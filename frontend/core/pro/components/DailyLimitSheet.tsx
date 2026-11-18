@@ -10,7 +10,7 @@ import { track } from "@/frontend/core/analytics/analytics";
 type DailyLimitSheetProps = {
   visible: boolean;
   /** Which limit, for analytics (limit_sheet_shown). */
-  kind: "search" | "budget" | "pantry" | "saved_meals";
+  kind: "search" | "budget" | "pantry" | "saved_meals" | "narration";
   /** Plural, lowercase: "searches", "budget suggestions". */
   what: string;
   /** Today's limit for this user. */

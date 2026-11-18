@@ -1,5 +1,5 @@
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
-import { FlatList, Pressable, ScrollView, View, useWindowDimensions, type FlatListInstance, type ViewInstance } from "react-native";
+import { FlatList, Pressable, ScrollView, View, useWindowDimensions, type FlatListInstance, type LayoutChangeEvent, type ViewInstance } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { StatusBar } from "expo-status-bar";
 import { canKeepAwake } from "../../nativeFeatures";
@@ -20,10 +20,16 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from "react-native-reanimated";
-import { ChevronLeft, ChevronRight, ChevronUp, Hand, RotateCcw, ShoppingBasket, Volume2, VolumeX, X } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, ChevronUp, Hand, Lock, RotateCcw, ShoppingBasket, VolumeX, X } from "lucide-react-native";
+import { router } from "expo-router";
+import { useIsPro } from "@/frontend/core/pro/store/useProStore";
+import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
+import { useDailyLimit } from "@/frontend/core/pro/dailyLimits";
+import { FREE_DAILY_NARRATIONS, GUEST_DAILY_NARRATIONS, dailyLimitFor } from "@/frontend/core/pro/proContent";
+import { DailyLimitSheet } from "@/frontend/core/pro/components/DailyLimitSheet";
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { useNarration } from "@/frontend/core/preferences/store/useNarrationStore";
-import { AppText, BottomSheet, Button, DotLabel, Spinner } from "@/frontend/components/ui";
+import { AppText, BottomSheet, Button, DotLabel, SpeakingIcon, Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { capitalize } from "../../utils/dietary";
@@ -232,6 +238,9 @@ function StepText({
 // from its loader size to the period's, then a small squash as it lands (no
 // bounce) before the real period takes over.
 const FLY_DOT = 7;
+// The wave's straighten-and-squeeze takes about 0.4s; if it hasn't handed
+// over well after that, the step shows anyway.
+const WAVE_HANDOFF_GIVE_UP_MS = 900;
 const FLIGHT_MS = 560;
 const FLIGHT_ARC = 70;
 const LAND_SQUASH_MS = 90;
@@ -289,9 +298,21 @@ const segmentsLength = (segments: StepSegment[] | null) => (segments ?? []).redu
 // replaced shimmering skeleton bars). Once the voice starts it straightens
 // and squeezes into a dot that hops onto the headline's period (FlyingDot);
 // with Reduce motion, or no period to land on, it just fades.
-function StepWave({ done, onDone, dot, waveRef }: { done: boolean; onDone: () => void; dot: boolean; waveRef: Ref<ViewInstance> }) {
+function StepWave({
+  done,
+  onDone,
+  dot,
+  waveRef,
+  onLayout,
+}: {
+  done: boolean;
+  onDone: () => void;
+  dot: boolean;
+  waveRef: Ref<ViewInstance>;
+  onLayout: (e: LayoutChangeEvent) => void;
+}) {
   return (
-    <View ref={waveRef} collapsable={false} accessible accessibilityLabel="Loading this step" className="mt-8" style={{ width: "85%" }}>
+    <View ref={waveRef} collapsable={false} onLayout={onLayout} accessible accessibilityLabel="Loading this step" className="mt-8" style={{ width: "85%" }}>
       <Spinner variant="wave" size={14} color={colors.accent} done={done} outro={dot ? "dot" : "fade"} dotSize={FLY_DOT} onDone={onDone} />
     </View>
   );
@@ -332,30 +353,29 @@ function StepPage({
   const waveRef = useRef<ViewInstance>(null);
   const periodRef = useRef<ViewInstance>(null);
   const [flight, setFlight] = useState<{ from: Point; to: Point | null; size: number } | null>(null);
-  // A spot's center, relative to this page's content (where the dot flies).
-  const measureCenter = (ref: { current: ViewInstance | null }, then: (p: Point) => void, otherwise: () => void) => {
-    const root = rootRef.current;
-    const node = ref.current;
-    if (!root || !node) return otherwise();
-    root.measureInWindow((rx, ry) => node.measureInWindow((x, y, w, h) => then({ x: x - rx + w / 2, y: y - ry + h / 2 })));
-  };
   const skipFlight = () => {
     setFlight(null);
     setPhase("shown");
   };
+  // Where the wave sits within this page's content, from its own layout
+  // (it's a direct child of the root): the squeezed dot is at its middle.
+  const waveCenter = useRef<Point | null>(null);
   // The wave has become a dot: it takes off from there (held in place until
-  // the period below has been laid out and measured).
+  // the period below has been laid out and measured). Without a known spot
+  // the text just shows.
   const onWaveDone = () => {
-    if (!flies) return skipFlight();
-    measureCenter(
-      waveRef,
-      (from) => {
-        setFlight({ from, to: null, size: FLY_DOT });
-        setPhase("flight");
-      },
-      skipFlight,
-    );
+    if (phase !== "loading") return;
+    if (!flies || !waveCenter.current) return skipFlight();
+    setFlight({ from: waveCenter.current, to: null, size: FLY_DOT });
+    setPhase("flight");
   };
+  // Safety net: the reading has started but the wave never handed over
+  // (its outro didn't report back): show the step anyway.
+  useEffect(() => {
+    if (loading || phase !== "loading") return;
+    const timer = setTimeout(onWaveDone, WAVE_HANDOFF_GIVE_UP_MS);
+    return () => clearTimeout(timer);
+  }, [loading, phase]);
   // Never left hanging: no period measured soon after take-off, the dot
   // just goes and the period shows.
   useEffect(() => {
@@ -389,7 +409,16 @@ function StepPage({
       <View ref={rootRef} collapsable={false}>
         <DotLabel>{`Step ${number}`}</DotLabel>
         {phase === "loading" ? (
-          <StepWave done={!loading} onDone={onWaveDone} dot={flies} waveRef={waveRef} />
+          <StepWave
+          done={!loading}
+          onDone={onWaveDone}
+          dot={flies}
+          waveRef={waveRef}
+          onLayout={(e) => {
+            const { x, y, width, height } = e.nativeEvent.layout;
+            waveCenter.current = { x: x + width / 2, y: y + height / 2 };
+          }}
+        />
         ) : (
           // The first sentence as the headline, read from arm's length; the
           // rest a size down. Fades in as the loader's dot takes off.
@@ -442,6 +471,11 @@ type CookModeProps = {
   /** Already scaled to `servings` (see scaleIngredient). */
   ingredients: IngredientType[];
   servings: number;
+  /** For the daily narration limit: the same meal again that day is free. */
+  mealId?: string;
+  /** Unlock Pro from the narration limit sheet: cook mode closes first,
+   *  then this opens the Pro page (meal details' own, see onLockedPro). */
+  onOpenPro?: () => void;
   onClose: () => void;
 };
 
@@ -475,12 +509,13 @@ const PRESS_UP_MS = 220;
 // reading has ended, for the Replay / Next step split and moving on by
 // itself. With the speaker off, `read` sits at 1 (plain text).
 // `ready`: cook mode has finished opening; the first step isn't read during
-// the slide-up.
-function useStepNarration(urls: string[] | null, index: number, ready: boolean) {
-  const { on, setOn } = useNarration();
+// the slide-up. `allowed`: today's narrated meal is this one, or Pro (see
+// CookMode's daily limit).
+function useStepNarration(urls: string[] | null, index: number, ready: boolean, allowed: boolean) {
+  const { on } = useNarration();
   const player = useAudioPlayer(null);
   const status = useAudioPlayerStatus(player);
-  const active = on && !!urls;
+  const active = on && !!urls && allowed;
   const read = useSharedValue(active ? 0 : 1);
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
   // The step whose recording has started playing: until then it's still
@@ -529,9 +564,14 @@ function useStepNarration(urls: string[] | null, index: number, ready: boolean) 
   // hold where they are if it stalls (loading, an interruption).
   useEffect(() => {
     if (!active) return;
-    if (status.playing && status.duration > 0) {
+    // The voice counts as started the moment it plays, whether or not the
+    // recording's length is known yet (a streamed MP3 can report it late,
+    // which kept the loader up while the voice was already talking).
+    if (status.playing) {
       startedRef.current = true;
       setStartedAt(indexRef.current);
+    }
+    if (status.playing && status.duration > 0) {
       const left = Math.max(status.duration - status.currentTime, 0);
       read.value = withTiming(1, { duration: left * 1000, easing: Easing.linear });
     } else {
@@ -560,7 +600,8 @@ function useStepNarration(urls: string[] | null, index: number, ready: boolean) 
   return {
     available: !!urls,
     on: active,
-    toggle: () => setOn(!on),
+    // The voice is actually going (for the speaker's sound bars).
+    speaking: active && status.playing,
     read,
     finished: active && finishedAt === index,
     // Downloading this step's recording (the skeleton shows instead of
@@ -581,7 +622,7 @@ export function CookModeHost({ ref, ...props }: Omit<CookModeProps, "onClose"> &
   return open ? <CookMode {...props} onClose={() => setOpen(false)} /> : null;
 }
 
-export function CookMode({ mealName, steps, stepAudio, ingredients, servings, onClose }: CookModeProps) {
+export function CookMode({ mealName, steps, stepAudio, ingredients, servings, mealId, onOpenPro, onClose }: CookModeProps) {
   // The screen stays on while cooking. Loaded lazily: expo-keep-awake throws
   // on import in a build without it (see nativeFeatures.ts).
   useEffect(() => {
@@ -605,10 +646,39 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, on
   const [listOpen, setListOpen] = useState(false);
   const list = useRef<FlatListInstance>(null);
   const last = index === steps.length - 1;
-  const narration = useStepNarration(stepAudio && stepAudio.length === steps.length ? stepAudio : null, index, ready);
+  const urls = stepAudio && stepAudio.length === steps.length ? stepAudio : null;
+
+  // Narration is Pro, with a daily taste: free accounts and guests get 1
+  // narrated meal a day (the same meal again that day is free), counted the
+  // moment it would start reading (the speaker setting already on, or
+  // tapped on). After that, cook mode still opens and the steps read as
+  // plain text; the speaker shows a lock and opens the daily limit sheet.
+  const isPro = useIsPro();
+  const { isSignedIn } = useAuth();
+  const daily = useDailyLimit("narration", dailyLimitFor({ isPro, isGuest: !isSignedIn }, GUEST_DAILY_NARRATIONS, FREE_DAILY_NARRATIONS));
+  const { on: narrateSetting, setOn: setNarrateSetting } = useNarration();
+  // null: not asked yet for this meal.
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [limitOpen, setLimitOpen] = useState(false);
+  const askAllowance = async () => {
+    const ok = await daily.use(mealId ?? mealName);
+    setAllowed(ok);
+    return ok;
+  };
+  useEffect(() => {
+    if (!urls || !narrateSetting || allowed !== null) return;
+    void askAllowance();
+  }, [narrateSetting, !!urls]);
+  // Asking (only a moment): the loader shows instead of plain text.
+  const checkingAllowance = !!urls && narrateSetting && allowed === null;
+  const narrationLocked = !!urls && allowed === false;
+  const narration = useStepNarration(urls, index, ready, allowed === true);
   const toggleNarration = () => {
     void Haptics.selectionAsync();
-    narration.toggle();
+    if (narrationLocked) return setLimitOpen(true);
+    if (narrateSetting) return setNarrateSetting(false);
+    if (allowed) return setNarrateSetting(true);
+    void askAllowance().then((ok) => (ok ? setNarrateSetting(true) : setLimitOpen(true)));
   };
   // The pages not on screen: faint while narrating (they'll be read when
   // reached), plain otherwise.
@@ -752,10 +822,23 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, on
             hitSlop={10}
             accessibilityRole="switch"
             accessibilityState={{ checked: narration.on }}
-            accessibilityLabel="Read steps aloud"
+            accessibilityLabel={narrationLocked ? "Read steps aloud, a Pro feature. Today's free narrated meal is used." : "Read steps aloud"}
             className={`h-10 w-10 items-center justify-center rounded-full ${narration.on ? "bg-primary" : "bg-ink-emphasis/5"}`}
           >
-            {narration.on ? <Volume2 color={colors.white} size={20} /> : <VolumeX color={colors.ink.emphasis} size={20} />}
+            {/* On: the volume icon, morphing into sound bars while a step
+                is being spoken (the same as the Pro feature reel). */}
+            {narration.on ? (
+              <SpeakingIcon speaking={narration.speaking && !reduceMotion} size={20} color={colors.white} />
+            ) : (
+              <VolumeX color={colors.ink.emphasis} size={20} />
+            )}
+            {/* Today's free narrated meal is used: a small lock on the
+                speaker, tap for the daily limit sheet. */}
+            {narrationLocked && (
+              <View className="absolute -right-0.5 -top-0.5 h-4 w-4 items-center justify-center rounded-full bg-accent">
+                <Lock color={colors.white} size={9} strokeWidth={2.75} />
+              </View>
+            )}
           </Pressable>
         )}
       </View>
@@ -775,7 +858,7 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, on
         getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
         onMomentumScrollEnd={(e) => changeStep(Math.round(e.nativeEvent.contentOffset.x / width))}
         className="flex-1"
-        extraData={`${index}:${narration.on}:${narration.loading}:${ready}`}
+        extraData={`${index}:${narration.on}:${narration.loading}:${ready}:${checkingAllowance}`}
         // Only the step on screen and its neighbours are built.
         initialNumToRender={1}
         maxToRenderPerBatch={1}
@@ -788,7 +871,7 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, on
             width={width}
             reduceMotion={reduceMotion}
             read={i === index ? narration.read : narration.on ? unread : plain}
-            loading={!ready || (i === index && narration.loading)}
+            loading={!ready || (i === index && (narration.loading || checkingAllowance))}
           />
         )}
       />
@@ -873,6 +956,22 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, on
       {/* The full list in recipe order, nothing moved or filtered out.
           Lines the step's text names share its highlight; that says what
           the text names, not everything the step needs. */}
+      <DailyLimitSheet
+        kind="narration"
+        visible={limitOpen}
+        what="narrated meals"
+        limit={daily.limit}
+        title="You've used today's narrated meal"
+        body={`Free accounts get ${daily.limit ?? FREE_DAILY_NARRATIONS} meal a day read aloud, and it resets at midnight. Pro reads every meal. You can still cook from the steps on screen.`}
+        presentation="inline"
+        onClose={() => setLimitOpen(false)}
+        onOpenPro={() => {
+          onClose();
+          if (onOpenPro) onOpenPro();
+          else router.push({ pathname: "/pro", params: { source: "limit_sheet" } });
+        }}
+      />
+
       <BottomSheet visible={listOpen} onClose={() => setListOpen(false)} presentation="inline" fitContent heightPercent={0.8}>
         <View className="px-6 pb-4 pt-10">
           <View className="flex-row items-start justify-between">
