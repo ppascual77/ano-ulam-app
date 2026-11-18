@@ -37,6 +37,7 @@
       "bundler": "metro"
     },
     "plugins": [
+      "./plugins/withOptionalPortrait",
       [
         "expo-router",
         {
