@@ -189,7 +189,7 @@ export function RewardCelebration() {
     return () => sub.remove();
   }, [queryClient]);
 
-  const next = rewards?.find((reward) => celebrated && !celebrated.has(reward.id)) ?? null;
+  const next = rewards?.find((reward) => celebrated && !reward.revokedAt && !celebrated.has(reward.id)) ?? null;
   useEffect(() => {
     if (!next || showing || busy) return;
     timer.current = setTimeout(() => {

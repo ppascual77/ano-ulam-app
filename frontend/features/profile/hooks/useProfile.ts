@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { refreshProRewards } from "@/frontend/core/pro/hooks/useRewardAtStake";
 import { deleteMeal } from "@/api/meals";
 import { getPublicProfile } from "@/api/profiles";
 import { listApprovedRecipesByPoster, listMyRecipes } from "@/api/recipes";
@@ -92,7 +93,11 @@ export function useDeleteRecipe(posterId: string | null) {
   return useMutation({
     mutationFn: deleteMeal,
     // Also refreshes Add a Recipe's limit count (same "recipes, mine" prefix).
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["recipes", "mine"] }),
+    onSettled: () => {
+      // If this recipe earned a Pro reward, the database just took it back.
+      refreshProRewards(queryClient);
+      return queryClient.invalidateQueries({ queryKey: ["recipes", "mine"] });
+    },
     onMutate: async (id) => {
       const key = profileKeys.myRecipes(posterId);
       await queryClient.cancelQueries({ queryKey: key });

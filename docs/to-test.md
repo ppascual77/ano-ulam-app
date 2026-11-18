@@ -410,6 +410,26 @@ To test sooner: in `useProAdStore.ts` set `GRACE_MS` to 0 and `AD_TAP_SLOTS` to 
 - [ ] **Holds off** for an hour after any other Pro sheet (a daily limit, a locked feature).
 - [ ] **Never for Pro** (including earned Pro), and the Pro page's compare table shows "No ads".
 
+## Pro rewards taken back (migration 20261118020000_pro_reward_revoke)
+
+Needs an account that hasn't claimed the photo reward yet (reset in Supabase: delete its
+`pro_rewards` rows and clear `users.pro_reward_until`).
+
+- [ ] **Composer:** with a photo in a first post, under "Nice! This post earns you 7 days of Pro":
+      "Keep the post up to keep them."
+- [ ] **Delete that post** (Profile > Created, or Discover): the confirm says it earned 7 days of
+      Pro and deleting takes them back. Confirm: Pro ends (Settings shows Free) and the "earn Pro
+      with a photo post" pitch doesn't come back. Any other post deletes as before (Profile: no
+      confirm; Discover: "This cannot be undone.").
+- [ ] **Edit out the photo** of that post and Save: "Remove the photo?" with the same line.
+      Cancel keeps editing; "Remove and save" saves and Pro ends. Swapping in a new photo asks nothing.
+- [ ] **Recipe:** deleting the approved recipe that earned 7 days adds the line to "Delete this
+      recipe?"; Pro ends after. Editing it back to review doesn't take anything.
+- [ ] **Both rewards:** with the recipe's days and the post's days stacked, deleting the post
+      leaves the recipe's days (Settings' earned Pro end moves back 7 days, not to now).
+- [ ] **Subscribed, or the days already over:** no warning anywhere; deletes as normal.
+- [ ] **Moderation:** an admin hiding the rewarded post ends its days too.
+
 ## Onboarding and preferences
 
 - [ ] **Onboarding:** no goals preselected, no "None" chips, Clear appears once something is

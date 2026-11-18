@@ -736,6 +736,7 @@ export type Database = {
           granted_at: string
           id: string
           kind: string
+          revoked_at: string | null
           source_id: string
           user_id: string
         }
@@ -744,6 +745,7 @@ export type Database = {
           granted_at?: string
           id?: string
           kind: string
+          revoked_at?: string | null
           source_id: string
           user_id: string
         }
@@ -752,6 +754,7 @@ export type Database = {
           granted_at?: string
           id?: string
           kind?: string
+          revoked_at?: string | null
           source_id?: string
           user_id?: string
         }
@@ -1042,6 +1045,10 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_pro: { Args: { p_user: string }; Returns: boolean }
       price_alert_min_drop: { Args: never; Returns: number }
+      recompute_pro_reward_until: {
+        Args: { p_user: string }
+        Returns: undefined
+      }
       register_push_token: {
         Args: { p_platform: string; p_token: string }
         Returns: undefined
@@ -1049,6 +1056,10 @@ export type Database = {
       remove_post: { Args: { p_post: string }; Returns: undefined }
       report_post: {
         Args: { p_note?: string; p_post: string; p_reason: string }
+        Returns: undefined
+      }
+      revoke_pro_reward: {
+        Args: { p_kind: string; p_source: string }
         Returns: undefined
       }
       send_daily_price_alert: { Args: never; Returns: string }
@@ -1188,3 +1199,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
