@@ -3,14 +3,16 @@ import { View } from "react-native";
 import Animated, {
   Easing,
   cancelAnimation,
+  interpolate,
   useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
   withSequence,
   withTiming,
+  type SharedValue,
 } from "react-native-reanimated";
-import Svg, { Path } from "react-native-svg";
+import Svg, { Circle, Path } from "react-native-svg";
 import { Volume2 } from "lucide-react-native";
 
 // A speaker that shows it's talking, in the app's hand-drawn way: the volume
@@ -22,6 +24,7 @@ import { Volume2 } from "lucide-react-native";
 // draws the glyph. Reduce motion: pass speaking={false} for the plain icon.
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const MORPH_MS = 240;
 // One full drift of the loops (seamless: it comes back to where it began).
@@ -41,6 +44,8 @@ const DRIFT_SPEEDS = [1, -1, 2, -2, 3, -3];
 // The voice: a stream of syllables, each a quick thump up that drops below
 // rest and recovers, with random strength and length (some brief, some
 // long), and now and then a longer pause between words where it settles.
+// Twice-as-fast timings were tried and read worse than these (Patrick,
+// 2026-11-18).
 const THUMP_UP_MS = [60, 110] as const;
 const THUMP_DOWN_MS = [110, 320] as const;
 const THUMP_PEAK = [1.1, 1.32] as const;
@@ -76,7 +81,28 @@ function randomTangle(): Term[] {
   return terms.map((t) => ({ ...t, ax: t.ax / sx, ay: t.ay / sy }));
 }
 
-function Tangle({ speaking, radius, color }: { speaking: boolean; radius: number; color: string }) {
+function Tangle({
+  speaking,
+  radius,
+  color,
+  stroke = STROKE,
+  draw,
+  points = POINTS,
+  bulge = 1,
+}: {
+  speaking: boolean;
+  radius: number;
+  color: string;
+  stroke?: number;
+  /** 0..1: how much of the line is drawn, like a pen going round it. The whole line if left out. */
+  draw?: SharedValue<number>;
+  /** Points along the line (more for a bigger tangle, so the loops stay smooth). */
+  points?: number;
+  /** Below 1 pushes the line out toward the rim, the way a ball of yarn's
+   * threads pile up at its edge, so it reads as a sphere rather than a flat
+   * doodle (1: flat, as summed). */
+  bulge?: number;
+}) {
   // A fresh tangle each time it starts speaking (kept while it fades back
   // to the icon, so the shape doesn't jump mid-fade).
   const startCount = useRef(0);
@@ -124,13 +150,16 @@ function Tangle({ speaking, radius, color }: { speaking: boolean; radius: number
     turn.value = withRepeat(withTiming(1, { duration: TURN_MS, easing: Easing.linear }), -1, false);
   }, [speaking]);
 
-  const box = radius * 2 + STROKE * 2;
+  const box = radius * 2 + stroke * 2;
   const c = box / 2;
   const pathProps = useAnimatedProps(() => {
     const phase = drift.value * Math.PI * 2;
+    const drawn = draw ? Math.min(1, Math.max(0, draw.value)) : 1;
+    const count = Math.ceil(drawn * points);
+    if (count < 2) return { d: "" };
     let d = "";
-    for (let i = 0; i < POINTS; i++) {
-      const t = (i / POINTS) * Math.PI * 2;
+    for (let i = 0; i < count; i++) {
+      const t = (i / points) * Math.PI * 2;
       let x = 0;
       let y = 0;
       for (let k = 0; k < terms.length; k++) {
@@ -138,16 +167,25 @@ function Tangle({ speaking, radius, color }: { speaking: boolean; radius: number
         x += term.ax * Math.sin(term.fx * t + term.px + term.drift * phase);
         y += term.ay * Math.cos(term.fy * t + term.py - term.drift * phase);
       }
+      if (bulge !== 1) {
+        const r = Math.sqrt(x * x + y * y);
+        if (r > 0) {
+          // Kept inside the circle.
+          const f = Math.min(Math.pow(r, bulge), 1) / r;
+          x *= f;
+          y *= f;
+        }
+      }
       d += `${i === 0 ? "M" : " L"}${(c + x * radius).toFixed(2)} ${(c + y * radius).toFixed(2)}`;
     }
-    return { d: `${d} Z` };
-  }, [terms, radius]);
+    return { d: count >= points ? `${d} Z` : d };
+  }, [terms, radius, stroke, draw, points, bulge]);
   const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.value * 360}deg` }, { scale: voice.value }] }));
 
   return (
     <Animated.View style={[{ width: box, height: box }, style]}>
       <Svg width={box} height={box}>
-        <AnimatedPath animatedProps={pathProps} fill="none" stroke={color} strokeWidth={STROKE} strokeLinejoin="round" strokeLinecap="round" />
+        <AnimatedPath animatedProps={pathProps} fill="none" stroke={color} strokeWidth={stroke} strokeLinejoin="round" strokeLinecap="round" />
       </Svg>
     </Animated.View>
   );
@@ -173,6 +211,68 @@ export function SpeakingIcon({ speaking, size = 16, color }: { speaking: boolean
       <Animated.View style={[{ position: "absolute" }, tangleStyle]}>
         <Tangle speaking={speaking} radius={radius} color={color} />
       </Animated.View>
+    </View>
+  );
+}
+
+// The voice orb (cook mode, under the step): a resting dot that, when the
+// voice starts, quickly draws itself out into the same scribbled tangle as
+// the speaker icon (one pen stroke) while a circle draws itself round it,
+// then keeps the icon's motion:
+// re-forming loops, a slow turn, a thump with each syllable. When the voice
+// stops, the line and circle wind back up and the dot returns. Reduce motion: pass
+// speaking={false} and it stays a dot.
+const DRAW_IN_MS = 520;
+const DRAW_OUT_MS = 320;
+const ORB_DOT = 14;
+const ORB_STROKE = 1.6;
+// A rounder, fuller tangle than the icon's, so the orb reads as a sphere.
+const ORB_POINTS = 420;
+const ORB_BULGE = 0.55;
+
+export function VoiceOrb({ speaking, size = 100, color }: { speaking: boolean; /** Across, with room for the thumps. */ size?: number; color: string }) {
+  // The circle at the edge; the tangle inside it, with room for its loudest
+  // thump plus a little air before the circle.
+  const ring = size / 2 - ORB_STROKE;
+  const radius = (ring * 0.85) / THUMP_PEAK[1];
+  const circumference = 2 * Math.PI * ring;
+  const draw = useSharedValue(speaking ? 1 : 0);
+  useEffect(() => {
+    draw.value = withTiming(speaking ? 1 : 0, {
+      duration: speaking ? DRAW_IN_MS : DRAW_OUT_MS,
+      easing: speaking ? Easing.out(Easing.cubic) : Easing.inOut(Easing.cubic),
+    });
+  }, [speaking]);
+  // The dot gives way as the pen starts, and comes back as the line winds up.
+  const dotStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(draw.value, [0, 0.25], [1, 0], "clamp"),
+    transform: [{ scale: interpolate(draw.value, [0, 0.25], [1, 0.4], "clamp") }],
+  }));
+  // The circle draws round from the top, alongside the tangle.
+  const ringProps = useAnimatedProps(() => ({
+    strokeDashoffset: circumference * (1 - Math.min(1, Math.max(0, draw.value))),
+    // Hidden at rest: a round cap on an empty stroke would still show a speck.
+    strokeOpacity: draw.value > 0.01 ? 1 : 0,
+  }));
+  return (
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+      <Svg width={size} height={size} style={{ position: "absolute", transform: [{ rotate: "-90deg" }] }}>
+        <AnimatedCircle
+          cx={size / 2}
+          cy={size / 2}
+          r={ring}
+          fill="none"
+          stroke={color}
+          strokeWidth={ORB_STROKE}
+          strokeLinecap="round"
+          strokeDasharray={[circumference, circumference]}
+          animatedProps={ringProps}
+        />
+      </Svg>
+      <Animated.View style={[{ position: "absolute", width: ORB_DOT, height: ORB_DOT, borderRadius: ORB_DOT / 2, backgroundColor: color }, dotStyle]} />
+      <View style={{ position: "absolute" }}>
+        <Tangle speaking={speaking} radius={radius} color={color} stroke={ORB_STROKE} draw={draw} points={ORB_POINTS} bulge={ORB_BULGE} />
+      </View>
     </View>
   );
 }
