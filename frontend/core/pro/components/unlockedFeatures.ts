@@ -1,4 +1,4 @@
-import { BellRing, Bookmark, CalendarDays, Ban, Leaf, PiggyBank, Search, Target, type LucideIcon } from "lucide-react-native";
+import { BellRing, Bookmark, CalendarDays, Ban, EyeOff, Leaf, Search, Target, type LucideIcon } from "lucide-react-native";
 
 // What Pro includes, as the unlock screen lists it: one line each on what
 // it does for you.
@@ -22,12 +22,6 @@ export const UNLOCKED_FEATURES: UnlockedFeature[] = [
     Icon: BellRing,
     title: "Price drop alerts",
     detail: "A push the day an ingredient drops 5% or more at NCR markets.",
-  },
-  {
-    key: "savings",
-    Icon: PiggyBank,
-    title: "Weekly savings, in pesos",
-    detail: "Saturday's best buys: the week's 3 biggest drops, in pesos.",
   },
   {
     key: "avoid",
@@ -58,5 +52,11 @@ export const UNLOCKED_FEATURES: UnlockedFeature[] = [
     Icon: Leaf,
     title: "Fiber, sugar and sodium",
     detail: "For every meal and ingredient, in Meal Details.",
+  },
+  {
+    key: "noAds",
+    Icon: EyeOff,
+    title: "No ads",
+    detail: "Nothing pops up between you and your ulam.",
   },
 ];

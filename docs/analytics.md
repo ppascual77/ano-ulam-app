@@ -42,7 +42,8 @@ matters), and, if built, whether a blurred preview of the locked meals lifts tap
 | --- | --- | --- |
 | `pro_wall_shown` | The "See every match with Pro" card appears (once per wall) | `screen` (browse, mood, budget, pantry, see_all), `hidden_count` |
 | `limit_sheet_shown` | A daily limit sheet or the saved-meals limit sheet opens | `kind` (search, budget, pantry, saved_meals, narration) |
-| `pro_page_opened` | The Pro page opens | `source` (results_wall, limit_sheet, saved_limit, settings, locked_day, feature, micros, other) |
+| `pro_ad_shown` | The Pro ad comes up (20th and 50th tap of the day, see `useProAdStore`) | `feature` (planLength, avoid, goals, alerts, narration, saves, micronutrients, limits) |
+| `pro_page_opened` | The Pro page opens | `source` (results_wall, limit_sheet, saved_limit, settings, locked_day, feature, ad, micros, other) |
 | `trial_started` / `purchase_completed` | Apple's purchase goes through | `plan`, `source` (the `pro_page_opened` source it came from) |
 | `app_opened` | The app starts or comes to the front | (the common ones below) |
 | `push_permission` | Notification permission changes (quiet at sign-in, banners via "Notify me" or Settings, refused) | `state` (quiet, granted, denied), `source` (sign_in, recipe_submitted, settings) |

@@ -29,21 +29,27 @@ export const dailyLimitFor = (tier: { isPro: boolean; isGuest: boolean }, guest:
   tier.isPro ? null : tier.isGuest ? guest : free;
 
 // Free first, so the page shows how much stays free before what Pro adds.
+// Then Pro's rows by how much they're worth to someone deciding what to
+// cook on a budget: the week planned, then no limits on finding meals,
+// then the rest.
+// (Saturday's best buys push stays as it is, Pro getting the top 3 drops,
+// but isn't pitched: not worth a row.)
 export const COMPARE_ROWS: { label: string; free: CompareCell; pro: CompareCell }[] = [
   { label: "Meal ideas, prices, macros, allergens", free: true, pro: true },
-  { label: "Saved meals", free: String(SAVED_MEALS_LIMIT), pro: "Unlimited" },
-  { label: "Meal searches", free: `${FREE_DAILY_SEARCHES} a day`, pro: "Unlimited" },
-  { label: "Suggest by budget", free: `${FREE_DAILY_SUGGESTIONS} a day`, pro: "Unlimited" },
-  { label: "Suggest by pantry", free: `${FREE_DAILY_SUGGESTIONS} a day`, pro: "Unlimited" },
   { label: "Meal plan", free: "1 day", pro: "Up to 7 days" },
   { label: "Grocery list", free: "1 day", pro: "Whole week" },
-  { label: "Cook mode, read aloud", free: `${FREE_DAILY_NARRATIONS} meal a day`, pro: "Every meal" },
-  { label: "Swap meals", free: false, pro: true },
+  { label: "Suggest by budget", free: `${FREE_DAILY_SUGGESTIONS} a day`, pro: "Unlimited" },
+  { label: "Meal searches", free: `${FREE_DAILY_SEARCHES} a day`, pro: "Unlimited" },
+  { label: "Suggest by pantry", free: `${FREE_DAILY_SUGGESTIONS} a day`, pro: "Unlimited" },
+  { label: "Saved meals", free: String(SAVED_MEALS_LIMIT), pro: "Unlimited" },
   { label: "Price drop alerts", free: false, pro: true },
-  { label: "Weekly savings, in pesos", free: false, pro: true },
+  { label: "Swap meals", free: false, pro: true },
   { label: "Ingredients to avoid", free: false, pro: true },
+  { label: "Cook mode, read aloud", free: `${FREE_DAILY_NARRATIONS} meal a day`, pro: "Every meal" },
   { label: "Nutrition goals", free: false, pro: true },
   { label: "Fiber, sugar and sodium", free: false, pro: true },
+  // The Pro ad (ProAdHost) is the only ad: Pro never sees it.
+  { label: "No ads", free: false, pro: true },
 ];
 
 // The App Store prices for the Philippines (set 2026-11-08 in App Store

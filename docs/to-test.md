@@ -393,6 +393,23 @@ Database rules checked live on 2026-11-14 (faked counts reset, outside image/ava
       what's set) open the preferences sheet; the account card shows PRO / Free / Guest only; the
       Earned Pro card has the days-left bar and the 2×2 "what's included" checklist.
 
+## Pro ad (free account or guest)
+
+To test sooner: in `useProAdStore.ts` set `GRACE_MS` to 0 and `AD_TAP_SLOTS` to `[5, 10]`
+(revert before committing).
+
+- [ ] **Never when the app opens**, and not on the first day after install. It comes up a beat
+      after the 20th tap of the day, then the 50th. Scrolls and drags don't count as taps.
+- [ ] **Waits for a calm moment:** not over a sheet (meal details, cook mode), not with the keyboard
+      up, not on onboarding, the Pro page or Add recipe. A slot that couldn't show tries again on
+      later taps.
+- [ ] **Skip** fills up over 5 seconds. Until it's full: tapping it, dragging the handle, tapping
+      the backdrop and Android back all do nothing. Get Pro and See all work right away.
+- [ ] **Rotation:** each of the 8 (7 reels plus the text-only "No daily limits") comes up once before
+      any repeats.
+- [ ] **Holds off** for an hour after any other Pro sheet (a daily limit, a locked feature).
+- [ ] **Never for Pro** (including earned Pro), and the Pro page's compare table shows "No ads".
+
 ## Onboarding and preferences
 
 - [ ] **Onboarding:** no goals preselected, no "None" chips, Clear appears once something is
@@ -548,6 +565,6 @@ Delete the app's data (or reinstall) to see it as a new user. Expo Go works.
 - [ ] Each subscription has its review screenshot, and the first group goes to review with an app
       version.
 - [ ] Small Business Program approved (Apple's email).
-- [ ] Paywall promises match what's built (price drop alerts and weekly savings are pushes now:
-      check the Pro page and unlock screen wording against them).
+- [ ] Paywall promises match what's built (price drop alerts is a push; "Weekly savings" is off
+      the paywall since 2026-11-18): check the Pro page, upgrade sheet and unlock screen wording.
 - [ ] BIR registration before Apple's first payout (`docs/compliance.md`).

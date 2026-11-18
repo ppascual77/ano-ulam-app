@@ -33,6 +33,8 @@ import { DotHandoffOverlay, GlobalToast } from "@/frontend/components/ui";
 import { AuthActivityOverlay } from "@/frontend/features/auth/components/AuthActivityOverlay";
 import { GlobalLoginGate, PendingSaveReplay } from "@/frontend/features/auth/components/GlobalLoginGate";
 import { RewardCelebration } from "@/frontend/core/pro/components/RewardCelebration";
+import { ProAdHost } from "@/frontend/core/pro/components/ProAdHost";
+import { adTouchEnd, adTouchStart } from "@/frontend/core/pro/store/useProAdStore";
 import { usePushTokenSync } from "@/frontend/core/notifications/hooks/usePushPermission";
 import { PushTapRouter } from "@/frontend/core/notifications/components/PushTapRouter";
 import { identifyUser, resetUser, track } from "@/frontend/core/analytics/analytics";
@@ -180,9 +182,17 @@ export default function RootLayout() {
     // iPhone only (app.json supportsTablet: false): iPad runs it as an
     // iPhone app, scaled by iOS, so no letterbox here.
     <View style={{ flex: 1 }}>
-      {/* onTouchStart sees every tap on its way down (it doesn't take the
-          touch): a save flies from the tap that triggered it. */}
-      <View style={{ flex: 1 }} onTouchStart={(e) => noteTouch(e.nativeEvent.pageX, e.nativeEvent.pageY)}>
+      {/* onTouchStart/End see every touch on its way through (they don't
+          take it): a save flies from the tap that triggered it, and taps
+          are counted for the Pro ad (useProAdStore). */}
+      <View
+        style={{ flex: 1 }}
+        onTouchStart={(e) => {
+          noteTouch(e.nativeEvent.pageX, e.nativeEvent.pageY);
+          adTouchStart(e.nativeEvent.pageX, e.nativeEvent.pageY);
+        }}
+        onTouchEnd={(e) => adTouchEnd(e.nativeEvent.pageX, e.nativeEvent.pageY)}
+      >
         <GestureHandlerRootView style={{ flex: 1 }}>
           {/* Reanimated never blanket-skips animations, even with the
               phone's reduce motion on: that froze everything (fades, skeleton
@@ -230,6 +240,8 @@ export default function RootLayout() {
               <PendingSaveReplay />
               {/* A Pro reward landing (first photo post, first approved recipe). */}
               <RewardCelebration />
+              {/* Now and then, for free users: one Pro feature. */}
+              <ProAdHost />
               {/* A tapped price push opens Price Watch. */}
               <PushTapRouter />
               <AuthActivityOverlay />
