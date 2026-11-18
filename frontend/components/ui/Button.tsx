@@ -96,21 +96,43 @@ type ButtonProps = Omit<PressableProps, "style"> & {
   fill?: SharedValue<number>;
   /** The icon as drawn over the fill (white), when `fill` is set. */
   fillIcon?: ReactNode;
+  /** "neutral": a faint gray fill with the label staying dark, for a
+   *  countdown on a button that isn't the main action (the Pro ad's Skip).
+   *  Defaults to "brand" (green, white label). */
+  fillTone?: "brand" | "neutral";
+  /** Overrides the variant's label color, e.g. "text-ink-placeholder" for
+   *  a label that reads as not ready yet while the button stays full
+   *  strength (the Pro ad's Skip counting down). */
+  labelClassName?: string;
 };
 
 // Variants drawn with a 1px border.
 const BORDERED: ReadonlySet<Variant> = new Set(["outline", "social", "muted"]);
 
-// The fill, and on it a white copy of the label clipped to the fill's
-// width, laid exactly over the green one: the label reads wherever the
-// edge is.
-function ButtonFill({ fill, size, content }: { fill: SharedValue<number>; size: { w: number; h: number }; content: ReactNode }) {
+// The fill, and on it a copy of the label clipped to the fill's width,
+// laid exactly over the one underneath: the label reads wherever the edge
+// is. Brand: green with a white label. Neutral: ink at the same faint
+// strength as the muted border (ink-emphasis/10), the label unchanged.
+function ButtonFill({
+  fill,
+  size,
+  content,
+  tone,
+}: {
+  fill: SharedValue<number>;
+  size: { w: number; h: number };
+  content: ReactNode;
+  tone: "brand" | "neutral";
+}) {
   const style = useAnimatedStyle(() => ({ width: Math.min(Math.max(fill.value, 0), 1) * size.w }));
   return (
-    <Animated.View
-      pointerEvents="none"
-      style={[{ position: "absolute", left: 0, top: 0, bottom: 0, overflow: "hidden", backgroundColor: colors.primary }, style]}
-    >
+    <Animated.View pointerEvents="none" style={[{ position: "absolute", left: 0, top: 0, bottom: 0, overflow: "hidden" }, style]}>
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          tone === "brand" ? { backgroundColor: colors.primary } : { backgroundColor: colors.ink.emphasis, opacity: 0.1 },
+        ]}
+      />
       <View style={{ width: size.w, height: size.h, alignItems: "center", justifyContent: "center" }}>{content}</View>
     </Animated.View>
   );
@@ -129,14 +151,17 @@ export function Button({
   loader = "wave",
   fill,
   fillIcon,
+  fillTone = "brand",
+  labelClassName,
   ...props
 }: ButtonProps) {
+  const labelColor = labelClassName ?? labelClasses[variant];
   const [fillSize, setFillSize] = useState<{ w: number; h: number } | null>(null);
   // "fullPill" (currently only the "tinted" View Details button) centers its
   // label regardless of the icon, and pins the icon to the button's far edge.
   const isFullPill = shape === "fullPill";
   const labelNode = label && (
-    <AppText variant="title" className={labelClasses[variant]}>
+    <AppText variant="title" className={labelColor}>
       {label}
     </AppText>
   );
@@ -207,11 +232,12 @@ export function Button({
         <ButtonFill
           fill={fill}
           size={fillSize}
+          tone={fillTone}
           content={
             <View className="flex-row items-center gap-2">
               {iconPosition === "left" && fillIcon}
               {label && (
-                <AppText variant="title" className="text-white">
+                <AppText variant="title" className={fillTone === "brand" ? "text-white" : labelColor}>
                   {label}
                 </AppText>
               )}
