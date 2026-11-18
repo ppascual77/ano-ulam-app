@@ -13,6 +13,7 @@ import { MealDetailSkeleton } from "./MealDetailSkeleton";
 import { ProPage } from "@/frontend/core/pro/components/ProPage";
 import { GlobalLoginGate } from "@/frontend/features/auth/components/GlobalLoginGate";
 import { SaveLimitSheet } from "@/frontend/core/saved/components/SaveLimitSheet";
+import { ProFeatureSheet, type ProFeatureKey } from "@/frontend/core/pro/components/ProFeatureSheet";
 import { useLoginGateStore } from "@/frontend/features/auth/store/useLoginGateStore";
 import type { IngredientType, MealType } from "../../mealTypes";
 import { trackProPageOpened } from "@/frontend/core/analytics/analytics";
@@ -126,6 +127,9 @@ export function MealDetailSheet({
   // the full Pro page straight away: in this sheet's overlay, since a /pro
   // screen would open behind it.
   const [proPageOpen, setProPageOpen] = useState(false);
+  // A locked Pro feature tapped here (fiber, sugar and sodium): its feature
+  // sheet first, whose Get Pro opens the Pro page in this sheet.
+  const [featureSheet, setFeatureSheet] = useState<ProFeatureKey | null>(null);
   useEffect(() => {
     if (proPageOpen) trackProPageOpened("micros");
   }, [proPageOpen]);
@@ -221,7 +225,7 @@ export function MealDetailSheet({
             ingredient={selectedIngredient}
             onClose={() => setSelectedIngredient(null)}
             maxHeightPercent={INGREDIENT_SHEET_HEIGHT_PERCENT}
-            onLockedPro={() => setProPageOpen(true)}
+            onLockedPro={() => setFeatureSheet("micronutrients")}
           />
           <ConfirmSheet
             presentation="inline"
@@ -250,6 +254,7 @@ export function MealDetailSheet({
           {/* Saving past the free cap from here: the Pro pitch inside this
               sheet, and its Unlock Pro opens the Pro page in this sheet too. */}
           {meal && <SaveLimitSheet presentation="inline" onOpenPro={() => setProPageOpen(true)} />}
+          <ProFeatureSheet feature={featureSheet} presentation="inline" onClose={() => setFeatureSheet(null)} onOpenPro={() => setProPageOpen(true)} />
           {/* Above the ingredient sheet, which can open it too. */}
           <BottomSheet visible={proPageOpen} onClose={() => setProPageOpen(false)} presentation="inline" fullScreen>
             {/* No Settings link: it would navigate under this sheet. */}
@@ -303,7 +308,8 @@ export function MealDetailSheet({
                 onArchive={onArchive}
                 onDelete={onDelete}
                 onSelectIngredient={setSelectedIngredient}
-                onLockedPro={() => setProPageOpen(true)}
+                onLockedPro={() => setFeatureSheet("micronutrients")}
+                onOpenProPage={() => setProPageOpen(true)}
                 review={review}
               />
             </Animated.View>

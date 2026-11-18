@@ -33,6 +33,7 @@ import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMoti
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
 import { DateSelector, GroceryCard, HeroCarousel, RegenerateDayButton, SummaryRow, useMeasuredWidth } from "../components/PlanParts";
 import { SwapMealSheet } from "../components/PlannerSheets";
+import { ProFeatureSheet, type ProFeatureKey } from "@/frontend/core/pro/components/ProFeatureSheet";
 
 // Meal Planner: setup (budget, people, optional macro goal) -> a short
 // timed "Planning your week" checklist -> a 5-day plan from today, from the
@@ -76,6 +77,7 @@ export default function MealPlannerScreen() {
   });
 
   const [macroSheetOpen, setMacroSheetOpen] = useState(false);
+  const [featureSheet, setFeatureSheet] = useState<ProFeatureKey | null>(null);
   // Pro: the nutrition goals from Settings, offered as the macro goal.
   const nutritionGoals = useNutritionGoals();
   // Pro: 5 or 7 days per new plan (Settings); everyone else 5.
@@ -377,7 +379,9 @@ export default function MealPlannerScreen() {
           </Animated.View>
 
           <View className="pt-3">
-            <DateSelector plan={plan} selected={selectedDay} isPremium={isPro} onSelect={selectDay} onLocked={() => openPro()} />
+            {/* A locked day (day 2 on, free): the plan-your-week feature sheet,
+                its reel showing a whole week planned. */}
+            <DateSelector plan={plan} selected={selectedDay} isPremium={isPro} onSelect={selectDay} onLocked={() => setFeatureSheet("planLength")} />
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="gap-4 px-5 pb-10 pt-4">
@@ -554,6 +558,16 @@ export default function MealPlannerScreen() {
           reuseOnClose.current = false;
           reusePrevious();
         }}
+      />
+
+      <ProFeatureSheet
+        feature={featureSheet}
+        onClose={() => setFeatureSheet(null)}
+        // Get Pro: the Pro page titled for this plan's locked days; See them
+        // all: the plain Pro page.
+        onOpenPro={(copy) =>
+          router.push({ pathname: "/pro", params: copy ? { ...LOCKED_DAYS_COPY(shownDays - 1), source: "locked_day" } : { source: "locked_day" } })
+        }
       />
 
       <Toast toast={toast} onHide={() => setToast(null)} />

@@ -26,7 +26,9 @@ import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { useDailyLimit } from "@/frontend/core/pro/dailyLimits";
 import { FREE_DAILY_NARRATIONS, GUEST_DAILY_NARRATIONS, dailyLimitFor } from "@/frontend/core/pro/proContent";
-import { DailyLimitSheet } from "@/frontend/core/pro/components/DailyLimitSheet";
+import { ProFeatureSheet } from "@/frontend/core/pro/components/ProFeatureSheet";
+import { track } from "@/frontend/core/analytics/analytics";
+import { getMealNarration } from "@/api/meals";
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { useNarration } from "@/frontend/core/preferences/store/useNarrationStore";
 import { AppText, BottomSheet, Button, DotLabel, SpeakingIcon, Spinner } from "@/frontend/components/ui";
@@ -619,7 +621,27 @@ export type CookModeHandle = { open: () => void };
 export function CookModeHost({ ref, ...props }: Omit<CookModeProps, "onClose"> & { ref: Ref<CookModeHandle> }) {
   const [open, setOpen] = useState(false);
   useImperativeHandle(ref, () => ({ open: () => setOpen(true) }), []);
-  return open ? <CookMode {...props} onClose={() => setOpen(false)} /> : null;
+  // A meal opened from an older snapshot (a saved meal from before
+  // narration) has no audio: use the meal's current narration, but only if
+  // it was made for these same steps.
+  const [liveAudio, setLiveAudio] = useState<string[] | null>(null);
+  const needsLookup = open && !props.stepAudio?.length && !!props.mealId;
+  useEffect(() => {
+    if (!needsLookup) return;
+    let cancelled = false;
+    getMealNarration(props.mealId!)
+      .then((live) => {
+        if (cancelled || !live?.procedure_audio) return;
+        const same = JSON.stringify(live.procedure.map((s) => s.trim())) === JSON.stringify(props.steps.map((s) => s.trim()));
+        if (same) setLiveAudio(live.procedure_audio);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [needsLookup, props.mealId]);
+  if (!open) return null;
+  return <CookMode {...props} stepAudio={props.stepAudio?.length ? props.stepAudio : liveAudio} onClose={() => setOpen(false)} />;
 }
 
 export function CookMode({ mealName, steps, stepAudio, ingredients, servings, mealId, onOpenPro, onClose }: CookModeProps) {
@@ -652,7 +674,8 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, me
   // narrated meal a day (the same meal again that day is free), counted the
   // moment it would start reading (the speaker setting already on, or
   // tapped on). After that, cook mode still opens and the steps read as
-  // plain text; the speaker shows a lock and opens the daily limit sheet.
+  // plain text; a "Read aloud · PRO" chip takes the speaker's place and
+  // opens the narration feature sheet.
   const isPro = useIsPro();
   const { isSignedIn } = useAuth();
   const daily = useDailyLimit("narration", dailyLimitFor({ isPro, isGuest: !isSignedIn }, GUEST_DAILY_NARRATIONS, FREE_DAILY_NARRATIONS));
@@ -660,6 +683,9 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, me
   // null: not asked yet for this meal.
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [limitOpen, setLimitOpen] = useState(false);
+  useEffect(() => {
+    if (limitOpen) track("limit_sheet_shown", { kind: "narration" });
+  }, [limitOpen]);
   const askAllowance = async () => {
     const ok = await daily.use(mealId ?? mealName);
     setAllowed(ok);
@@ -816,13 +842,33 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, me
             </Pressable>
           </Animated.View>
         )}
-        {narration.available && (
+        {narrationLocked && (
+          // Today's free narrated meal is used: a "Read aloud" chip with the
+          // Pro lock, opening the narration feature sheet.
+          <Animated.View entering={FadeIn.duration(200)}>
+            <Pressable
+              onPress={toggleNarration}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Read aloud, a Pro feature. Today's free narrated meal is used."
+              className="h-10 flex-row items-center gap-2 rounded-full border border-ink-emphasis/10 bg-white pl-3 pr-1.5 active:bg-ink-emphasis/5"
+            >
+              <VolumeX color={colors.ink.subtle} size={16} />
+              <Text className="font-inter-semibold text-small text-ink-emphasis">Read aloud</Text>
+              <View className="h-6 flex-row items-center gap-1 rounded-full bg-accent px-2">
+                <Lock color={colors.white} size={10} strokeWidth={2.75} />
+                <Text className="font-inter-bold text-sub text-white">PRO</Text>
+              </View>
+            </Pressable>
+          </Animated.View>
+        )}
+        {narration.available && !narrationLocked && (
           <Pressable
             onPress={toggleNarration}
             hitSlop={10}
             accessibilityRole="switch"
             accessibilityState={{ checked: narration.on }}
-            accessibilityLabel={narrationLocked ? "Read steps aloud, a Pro feature. Today's free narrated meal is used." : "Read steps aloud"}
+            accessibilityLabel="Read steps aloud"
             className={`h-10 w-10 items-center justify-center rounded-full ${narration.on ? "bg-primary" : "bg-ink-emphasis/5"}`}
           >
             {/* On: the volume icon, morphing into sound bars while a step
@@ -831,13 +877,6 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, me
               <SpeakingIcon speaking={narration.speaking && !reduceMotion} size={20} color={colors.white} />
             ) : (
               <VolumeX color={colors.ink.emphasis} size={20} />
-            )}
-            {/* Today's free narrated meal is used: a small lock on the
-                speaker, tap for the daily limit sheet. */}
-            {narrationLocked && (
-              <View className="absolute -right-0.5 -top-0.5 h-4 w-4 items-center justify-center rounded-full bg-accent">
-                <Lock color={colors.white} size={9} strokeWidth={2.75} />
-              </View>
             )}
           </Pressable>
         )}
@@ -956,19 +995,17 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, me
       {/* The full list in recipe order, nothing moved or filtered out.
           Lines the step's text names share its highlight; that says what
           the text names, not everything the step needs. */}
-      <DailyLimitSheet
-        kind="narration"
-        visible={limitOpen}
-        what="narrated meals"
-        limit={daily.limit}
-        title="You've used today's narrated meal"
-        body={`Free accounts get ${daily.limit ?? FREE_DAILY_NARRATIONS} meal a day read aloud, and it resets at midnight. Pro reads every meal. You can still cook from the steps on screen.`}
+      {/* Out of today's free narration: the narration feature sheet (the
+          same reel as Settings > Pro features); Get Pro closes cook mode and
+          opens the Pro page. */}
+      <ProFeatureSheet
+        feature={limitOpen ? "narration" : null}
         presentation="inline"
         onClose={() => setLimitOpen(false)}
-        onOpenPro={() => {
+        onOpenPro={(copy) => {
           onClose();
           if (onOpenPro) onOpenPro();
-          else router.push({ pathname: "/pro", params: { source: "limit_sheet" } });
+          else router.push({ pathname: "/pro", params: copy ? { ...copy, source: "feature" } : { source: "feature" } });
         }}
       />
 

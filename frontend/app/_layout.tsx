@@ -125,7 +125,13 @@ export default function RootLayout() {
     if (authLoading) return;
     track("app_opened", {});
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") track("app_opened", {});
+      if (state !== "active") return;
+      track("app_opened", {});
+      // Pro can change while the app is away (earned days ending or
+      // cleared, a subscription bought or cancelled in Apple's screen):
+      // re-check on every return, not just in Settings, so no Pro gate runs
+      // on a stale answer.
+      useProStore.getState().refresh();
     });
     return () => sub.remove();
     // Only after the first session check.
