@@ -115,6 +115,10 @@ Supabase project config don't get tangled with UI code.
   `createClient<Database>(...)` instance), `database.types.ts` (generated wholesale by
   `supabase gen types typescript`, regenerated on every schema change), `queryClient.ts` (shared
   TanStack Query client config).
+- `plugins/`: local Expo config plugins, listed in `app.json`'s `plugins` (build-time native
+  config only, no app code). `withOptionalPortrait.js` marks the portrait screen as an optional
+  Android feature, since Play refuses to review a release that requires it. Changing a plugin
+  means a new build.
 - `@/*` path alias resolves to the project root (see `tsconfig.json`) — prefer
   `@/frontend/features/home/screens/HomeScreen` (or `@/api/meals`, `@/lib/supabase`) over
   relative `../../` imports for anything outside the current file's own folder.
