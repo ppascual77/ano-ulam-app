@@ -1,4 +1,4 @@
-import { Platform } from "react-native";
+import { Linking, Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import Purchases, {
   INTRO_ELIGIBILITY_STATUS,
@@ -325,8 +325,17 @@ export const useProStore = create<ProStore>((set, get) => {
   };
 });
 
-/** Apple's own subscription screen (switch plan, cancel). */
+/** The store's own subscription screen (switch plan, cancel). */
 export const manageSubscription = async () => {
+  if (Platform.OS === "android") {
+    // showManageSubscriptions is iOS only. Android opens Google Play's
+    // subscriptions page (RevenueCat's link for this subscriber, or the
+    // app's own page as a fallback) and leaves the app; RevenueCat's
+    // listener re-reads Pro when it comes back to the foreground.
+    const info = await Purchases.getCustomerInfo().catch(() => null);
+    await Linking.openURL(info?.managementURL ?? "https://play.google.com/store/account/subscriptions?package=com.anoulam.app");
+    return;
+  }
   await Purchases.showManageSubscriptions();
   // It opens over the app (Settings never loses focus), so re-read once
   // it's closed. Syncing first makes RevenueCat re-check the subscription

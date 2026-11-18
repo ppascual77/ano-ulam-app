@@ -1,8 +1,34 @@
+import { Platform } from "react-native";
 import { PLANS, type PlanKey } from "./proContent";
 import type { ProSubscription } from "./store/useProStore";
 
 // Wording for the subscription, shared by the Pro page,
 // the unlock screen and Settings' plan card, so they never disagree.
+
+/** The store that owns the subscription, named the way each platform's
+ *  users know it. Every line that mentions where Pro is bought, managed or
+ *  restored goes through this, so Android never reads "Apple". */
+export const STORE =
+  Platform.OS === "android"
+    ? {
+        /** "Opening Google Play...", "Cancel anytime in Google Play." */
+        name: "Google Play",
+        /** "Your subscription is with Google Play." */
+        owner: "Google Play",
+        /** "No Pro subscription found for this Google account." */
+        account: "Google account",
+        /** "₱99/month, through Google Play." */
+        through: "through Google Play",
+        /** Where to manage it by hand if the app can't open it. */
+        settingsPath: "Play Store > Payments & subscriptions > Subscriptions",
+      }
+    : {
+        name: "the App Store",
+        owner: "Apple",
+        account: "Apple ID",
+        through: "through your Apple ID",
+        settingsPath: "Settings > Apple ID > Subscriptions",
+      };
 
 /** "Nov 4, 2026": always with the year, so a yearly plan's renewal never
  *  reads like it's days away. */
