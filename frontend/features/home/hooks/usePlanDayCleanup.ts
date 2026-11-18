@@ -22,7 +22,7 @@ const WEEKDAY = new Intl.DateTimeFormat("en-PH", { weekday: "long" });
 function usePastPlanDays(since: string | null, enabled: boolean) {
   const userId = useAuth().session?.user.id ?? null;
   const saved = useQuery({ queryKey: planKey(userId), queryFn: getMealPlan, enabled: !!userId && enabled });
-  return useMemo(() => {
+  const days = useMemo(() => {
     const row = saved.data;
     if (!row || !Array.isArray(row.days)) return [];
     const today = dayKey(new Date());
@@ -38,6 +38,7 @@ function usePastPlanDays(since: string | null, enabled: boolean) {
       return [{ day, date: dates[i], ids }];
     });
   }, [saved.data, since]);
+  return { days, planStart: saved.data?.start_date ?? null };
 }
 
 /**
@@ -53,7 +54,7 @@ export function usePlanDayCleanup(enabled: boolean) {
   const pantry = usePantry();
   const pantryActions = usePantryActions();
   const saved = useSavedMealsForGrocery();
-  const past = usePastPlanDays(nudge.cleanedThrough, enabled && nudge.loaded);
+  const { days: past, planStart } = usePastPlanDays(nudge.cleanedThrough, enabled && nudge.loaded);
   const ids = useMemo(() => [...new Set(past.flatMap((d) => d.ids))], [past]);
   const active = enabled && nudge.loaded && ids.length > 0;
   const meals = useMealsWithIngredients(ids, active);
@@ -78,6 +79,6 @@ export function usePlanDayCleanup(enabled: boolean) {
     if (usedUp.length === 0) return;
     pantryActions.removeMany(usedUp.map((item) => item.id));
     const when = past.length === 1 ? `${WEEKDAY.format(past[0].date)}'s plan` : "Your past plan days";
-    nudge.setCleanupNote({ when, items: usedUp, at: Date.now() });
+    nudge.setCleanupNote({ when, items: usedUp, at: Date.now(), planStart: planStart ?? undefined });
   }, [active, pantry.isSuccess, saved.isLoading, meals.loading, later.loading]);
 }

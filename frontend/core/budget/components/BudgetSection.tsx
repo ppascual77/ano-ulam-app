@@ -1,5 +1,4 @@
-import { memo, useEffect, useState, useTransition } from "react";
-import { useFirstRun } from "@/frontend/core/preferences/store/useFirstRunStore";
+import { memo, useState, useTransition } from "react";
 import { View } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
@@ -40,7 +39,6 @@ function BudgetSectionInner({ categoriesLanding }: BudgetSectionProps) {
   const [formRun, setFormRun] = useState(0);
   const clearBudget = () => {
     setSuggestion(null);
-    setInitial(undefined);
     setFormRun((n) => n + 1);
     // Home's Categories row comes back with nothing picked: match it.
     setHomeCategory(null);
@@ -53,21 +51,6 @@ function BudgetSectionInner({ categoriesLanding }: BudgetSectionProps) {
   const daily = useDailyLimit("budget", dailyLimitFor({ isPro, isGuest: !isSignedIn }, GUEST_DAILY_SUGGESTIONS, FREE_DAILY_SUGGESTIONS));
   const [limitSheetOpen, setLimitSheetOpen] = useState(false);
 
-  // Fresh from onboarding: its budget for tonight, already in the form and
-  // suggested (it counts like a Suggest tap), so Home opens on an answer.
-  const firstRun = useFirstRun();
-  const [initial, setInitial] = useState<{ budget: string; servings: number } | undefined>(undefined);
-  useEffect(() => {
-    if (!firstRun.loaded || !firstRun.prefillPending || !firstRun.tonight) return;
-    const tonight = firstRun.tonight;
-    firstRun.clearPrefill();
-    void daily.use(JSON.stringify([tonight.budget.trim(), tonight.servings])).then((ok) => {
-      if (!ok) return;
-      setInitial(tonight);
-      setFormRun((n) => n + 1);
-      setSuggestion(tonight);
-    });
-  }, [firstRun.loaded, firstRun.prefillPending]);
   const beforeSuggest = async ({ budget, servings }: { budget: string; servings: number }) => {
     const ok = await daily.use(JSON.stringify([budget.trim(), servings]));
     if (!ok) setLimitSheetOpen(true);
@@ -76,7 +59,7 @@ function BudgetSectionInner({ categoriesLanding }: BudgetSectionProps) {
 
   return (
     <View className="gap-6 mb-10">
-      <BudgetForm key={formRun} onSuggestMeals={setSuggestion} beforeSuggest={beforeSuggest} initial={initial} />
+      <BudgetForm key={formRun} onSuggestMeals={setSuggestion} beforeSuggest={beforeSuggest} />
 
       {suggestion ? (
         // Keyed by the ask, so a new budget or servings starts with the

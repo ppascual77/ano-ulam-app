@@ -11,6 +11,7 @@ import { AppText, Button, ConfirmSheet, LandingTitle, LoadingState, Screen, Toas
 import { colors } from "@/frontend/constants/theme";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
+import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import { useDisplayName } from "@/frontend/features/auth/hooks/useDisplayName";
 import { usePlannerStore } from "../store/usePlannerStore";
 import { usePlannerPool } from "../hooks/usePlannerPool";
@@ -182,6 +183,40 @@ export default function MealPlannerScreen() {
     : plan.days[groceryDay].date.toDateString() === new Date().toDateString()
       ? "today"
       : `${dayLabel(plan.days[groceryDay].date, 1)}, ${monthDay(plan.days[groceryDay].date)}`;
+
+  // "Loved your last plan?": opening the planner with no plan running but a
+  // past one whose meals are all still in the catalog. Use it again lays the
+  // same meals out from today; Make a new plan (or swiping it away) leaves
+  // the setup, budget and people already filled in. Asked once per visit,
+  // after the intro.
+  const previous = savedPlan.previous;
+  const [offerAnswered, setOfferAnswered] = useState(false);
+  const reuseOnClose = useRef(false);
+  const offerVisible = store.stage === "setup" && !savedPlan.loading && !!previous && !offerAnswered && !intro.showing;
+  const previousThumbs = useMemo(() => {
+    if (!previous) return [];
+    const seen = new Set<string>();
+    return previous.days
+      .flatMap((day) => day.meals.map((m) => m.meal))
+      .filter((meal) => {
+        const key = meal.id ?? meal.name;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 4);
+  }, [previous]);
+  const reusePrevious = () => {
+    const again = usePlannerStore.getState().plan ? null : savedPlan.previous;
+    if (!again) return;
+    store.setBudget(String(again.budget));
+    store.setServings(again.servings);
+    store.setPlan(again);
+    selectDay(0);
+    store.setStage("plan");
+    void persist(again);
+    showToast("Your last plan, starting today");
+  };
 
   const regenerate = () => {
     if (!plan) return;
@@ -483,6 +518,43 @@ export default function MealPlannerScreen() {
 
       {/* Opens at the plan's people, like the plan's cards. */}
       <MealDetailSheet meal={detail.meal} loading={detail.loading} onClose={detail.close} initialServings={plan?.servings} />
+
+      <ConfirmSheet
+        visible={offerVisible}
+        tone="primary"
+        title="Loved your last plan?"
+        icon={
+          previousThumbs.length > 0 ? (
+            <View className="flex-row">
+              {previousThumbs.map((meal, i) => (
+                <View
+                  key={meal.id ?? meal.name}
+                  className={`h-14 w-14 overflow-hidden rounded-full border-2 border-white bg-ink-emphasis/5 ${i > 0 ? "-ml-3" : ""}`}
+                >
+                  <Image source={resolveMealImage(meal)} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+                </View>
+              ))}
+            </View>
+          ) : undefined
+        }
+        body={
+          previous
+            ? `Cook the same ${previous.days.length} days again, starting today: ${formatPeso(previous.budget)} for ${previous.servings} ${previous.servings === 1 ? "person" : "people"}, at today's prices.`
+            : undefined
+        }
+        confirmLabel="Use it again"
+        cancelLabel="Make a new plan"
+        onConfirm={() => {
+          reuseOnClose.current = true;
+          setOfferAnswered(true);
+        }}
+        onCancel={() => setOfferAnswered(true)}
+        onClosed={() => {
+          if (!reuseOnClose.current) return;
+          reuseOnClose.current = false;
+          reusePrevious();
+        }}
+      />
 
       <Toast toast={toast} onHide={() => setToast(null)} />
       {intro.showing && <MealPlannerIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={intro.finish} />}

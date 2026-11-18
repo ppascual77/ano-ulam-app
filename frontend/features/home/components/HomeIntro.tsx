@@ -28,8 +28,10 @@ import { colors } from "@/frontend/constants/theme";
 //   3.6s   "Tara, kain!" (handwritten) pops in
 //   4.2s   everything collapses into the "!"'s dot, which settles, then at
 //   4.92s  arcs up and
-//          lands as the period of "Categories." (see PageIntro), with a
-//          success haptic (HomeScreen)
+//          lands in the middle of the By Budget / By Pantry switch (see
+//          PageIntro), with a success haptic; the switch takes it in with
+//          a swell, an orange wash and a lap of its border
+//          (ModeSwitchLanding, HomeScreen)
 const ENTRY_MS = 500;
 const ENTRY_ARC = 140;
 const WAVE_STEP_MS = 110;

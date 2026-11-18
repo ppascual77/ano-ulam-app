@@ -609,6 +609,23 @@ async function cmdMealTimes(mealId: string | undefined, times: string | undefine
   out(`${updated.name}: tags ${JSON.stringify(updated.tags)}`);
 }
 
+// Way of cooking on an already-saved meal (soupy, grilled, fried: Browse's
+// Soup chip and Home's Lunch / Dinner order read them), every other tag
+// kept, then the same pill-tag refresh as meal-times.
+const COOKING_METHOD_IDS: ReadonlySet<string> = new Set(["soupy", "grilled", "fried"]);
+async function cmdCookingMethod(mealId: string | undefined, methods: string | undefined) {
+  if (!mealId || methods === undefined) fail("Usage: cooking-method <meal-id> <soupy,grilled,fried | none>");
+  const list = methods === "none" ? [] : methods!.split(",").map((t) => t.trim());
+  const bad = list.filter((t) => !COOKING_METHOD_IDS.has(t));
+  if (bad.length) fail(`Cooking methods must be soupy, grilled or fried (got ${bad.join(", ")})`);
+  const { data: meal, error } = await supabase.from("meals").select("*").eq("id", mealId!).single();
+  if (error || !meal) fail(`No meal ${mealId}`);
+  const tagged = { ...meal!, tags: [...meal!.tags.filter((t: string) => !COOKING_METHOD_IDS.has(t)), ...list] };
+  const tags = syncedPillTags(tagged) ?? tagged.tags;
+  const updated = await updateMeal(mealId!, { tags });
+  out(`${updated.name}: tags ${JSON.stringify(updated.tags)}`);
+}
+
 function copyRuns(session: Session) {
   if (session.sourceText == null) return null;
   return findCopiedRuns(
@@ -795,6 +812,9 @@ async function saveBlockers(session: Session) {
   const blockers = [
     !session.form.name.trim() && "meal has no name",
     items.length === 0 && "no ingredient lines",
+    // Without one the meal never shows under Home's Breakfast / Lunch /
+    // Dinner, and the planner can't put it in any slot.
+    mealTimesOf(session.form.tags).length === 0 && 'no meal time set (set-meal \'{"mealTimes":[...]}\')',
     unlinked.length > 0 && `${unlinked.length} line(s) not linked`,
     items.some((i) => !session.approved.includes(i.key)) && "not every line is approved",
     calc && calc.errorCount > 0 && `calculation check has ${calc.errorCount} error(s)`,
@@ -1244,6 +1264,7 @@ const commands: Record<string, (...a: string[]) => Promise<void>> = {
   "set-copy": cmdSetCopy,
   "set-meal": cmdSetMeal,
   "meal-times": cmdMealTimes,
+  "cooking-method": cmdCookingMethod,
   "copy-check": cmdCopyCheck,
   source: cmdSource,
   "approve-copy": cmdApproveCopy,

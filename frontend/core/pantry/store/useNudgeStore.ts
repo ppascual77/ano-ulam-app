@@ -15,8 +15,10 @@ export const dayKey = (date: Date) =>
 
 /** What a plan day's cleanup took out, for Home's header line and its
  *  Undo. Shown for 12 hours (CLEANUP_NOTE_MS) unless undone first.
- *  `when`: "Tuesday's plan", or "Your past plan days" for several. */
-export type CleanupNote = { when: string; items: PantryIngredient[]; at: number };
+ *  `when`: "Tuesday's plan", or "Your past plan days" for several.
+ *  `planStart`: the start date of the plan it came from, so a new plan
+ *  doesn't show the old one's note (missing on notes from before this). */
+export type CleanupNote = { when: string; items: PantryIngredient[]; at: number; planStart?: string };
 export const CLEANUP_NOTE_MS = 12 * 60 * 60 * 1000;
 
 /** Whole days from one day key to another. */

@@ -37,6 +37,7 @@ Every step goes through one command (allow it once):
 | `table` | The review table: every line with counted amount, line ₱, macros source (FNRI / USDA / AI est.) and price source (DA / Landers / SM / estimate), ✓ verified, ⚠ flags. Use it for every lines review |
 | `source` | The source page's own description + steps (for the copy check, never to copy from) |
 | `meal-times <meal-id> <breakfast,lunch,dinner \| none>` | Set meal times on an already-saved meal (and refresh its pill tags) |
+| `cooking-method <meal-id> <soupy,grilled,fried \| none>` | Set the way of cooking on an already-saved meal (other tags kept) |
 | `set-meal <json>` | Meal fields: `mealTimes` (breakfast, lunch, dinner; stored in tags, other tags kept), `servingSize`, `prepTime`, `totalTime`, `difficulty` (array), `proteinType`, `budgetRange`, `dietaryTags`, `tags`, `allergens` (nuts, gluten, dairy, egg, shellfish, fish, soy, coconut, sesame) |
 | `set-copy <json>` / `copy-check` / `approve-copy` | Replace description/steps, run the 8-word copy check, record approval |
 | `preview` | The meal as a user sees it (input for the review) |
@@ -127,7 +128,7 @@ For each line, investigate:
 
 **Changing a shared ingredient** (`update-ingredient`, `apply-prices`, `da-link`, `create-ingredient`) affects every meal using it: run `ingredient <id>` first and tell Patrick which meals will be recomputed. A verified field only changes if the patch also re-stamps its lock (e.g. `{"grams_per_piece": 110, "piece_verified_at": "<now ISO>"}`), and only after Patrick explicitly approved changing a verified value.
 
-Put your proposed **meal time** (breakfast, lunch, dinner; any that fit, most ulam are lunch + dinner) in the same lines preview, and set it with `set-meal '{"mealTimes":[...]}'` once approved. It drives Home's Breakfast / Lunch / Dinner categories.
+Put your proposed **meal time** (breakfast, lunch, dinner; any that fit, most ulam are lunch + dinner) in the same lines preview, and set it with `set-meal '{"mealTimes":[...]}'` once approved. It drives Home's Breakfast / Lunch / Dinner categories and which planner slots the meal can fill, so `save` refuses a meal without one.
 
 ### 5. Calculation check
 Run `calc` once every line is linked. Errors block saving: fix their cause (with Patrick) instead of adjusting a quantity to make it pass. Read the per-line kcal and ₱ for anything odd (salt being the priciest line, a vegetable at 1 kg for 4 servings) and raise it.

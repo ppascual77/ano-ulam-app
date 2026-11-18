@@ -451,28 +451,18 @@ Delete the app's data (or reinstall) to see it as a new user. Expo Go works.
       (Sauces & oil, Seasonings, Aromatics), two columns of check boxes (filled green with a
       check, or a plain outline), hairlines between groups, "8 of 11 selected" with Select all /
       Clear all above it. No illustrations or pulses.
-- [ ] **Budget slide, "Your ulam budget":** one bordered panel like the kitchen slide: "Budget
-      per meal" as four even options (₱100 / **₱150** / ₱250 / ₱400, the picked one green), then
-      "Cooking for 2 people · about ₱75 each" with the stepper, then 3 small meal photos and
-      "14 meals fit, ready on Home" (the count rolls, the photos fade as you change things;
-      "Try a little more" at 0). Settings' "Take the tour again" doesn't show it.
-- [ ] **Home after onboarding** (guest and signed in): "Magkano budget?" already has the budget
-      and people, and the matching meals show below, as if Suggest was tapped. It counts as one
-      of the day's 3 budget suggestions.
-- [ ] **Start here card** in the plan card's place: the title follows the time of day ("Today's
-      ulam for ₱150." before 10am, "Lunch for ₱150." until 3pm, "Tonight's ulam for ₱150."
-      after), picking meals tagged for that meal time when there are 3. One big "Best match"
-      tile and two small ones, and a line: "Save the one you like. Its ingredients go straight
-      to your grocery list." Allergens, dietary focus and avoided ingredients respected.
-- [ ] Tapping a meal opens it; about a second later, once: "Tap the bookmark to save it. Its
-      ingredients go on your grocery list."
-- [ ] After closing that meal, the card gives way to the plan card for good. Same after opening
-      any other meal, saving one, or making a plan first. No matches for the budget: the plan
-      card shows from the start.
+- [ ] **No budget slide:** after "In your kitchen" comes the account pitch. Home opens in full
+      (empty "Magkano budget?", Categories, Recommendations), nothing suggested, no daily
+      suggestion used.
+- [ ] **Welcome intro landing:** the dot flies into the middle of the By Budget / By Pantry
+      switch; the switch swells a little with an orange wash, then an orange line runs once
+      round its border (starting top center) and fades. "Categories." keeps its period
+      throughout. Check on a small phone with the price line showing: the switch is on screen.
+- [ ] About 2 seconds later, the "Two ways to find your ulam" spotlight on the switch, once.
 - [ ] **Grocery list hint:** until the first tick ever, a yellow line under the summary: "Tick
       items as you shop. They move to your pantry, and we'll ask once you've cooked." Gone after
       a tick, also on reopening.
-- [ ] Bigger / Largest text: the budget slide and the Start here card don't clip.
+- [ ] Bigger / Largest text: the kitchen slide and the spotlight card don't clip.
 
 ## Store setup (no device needed)
 
