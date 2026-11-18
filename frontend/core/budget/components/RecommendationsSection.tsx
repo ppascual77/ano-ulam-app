@@ -7,7 +7,7 @@ import { DEFAULT_SERVINGS } from "../utils/budgetMatch";
 
 // Unlike CommunityFavoritesSection (still mock), this is linked to real,
 // already-seeded meals (see useRecommendedMeals): 10 random picks, or with a
-// Categories tile picked (`category`), every meal in that category. Shown 5
+// Categories tile picked (`category`), 10 from that category. Shown 5
 // at a time with a Show More card, and no See All (the Show More card is the
 // way through them; Browse is the way to everything). Shows skeleton cards while the fetch is in flight (not a mock
 // fallback), so it never flashes mock content that then gets swapped for

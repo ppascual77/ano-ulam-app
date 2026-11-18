@@ -41,12 +41,14 @@ export type ProSource =
   | "macro_goal"
   | "micros"
   | "feature"
+  | "ad"
   | "other";
 
 type Events = {
   pro_wall_shown: { screen: "browse" | "mood" | "budget" | "pantry" | "see_all"; hidden_count: number };
   limit_sheet_shown: { kind: "search" | "budget" | "pantry" | "saved_meals" | "narration" };
   pro_page_opened: { source: ProSource };
+  pro_ad_shown: { feature: string };
   trial_started: { plan: string; source: ProSource };
   purchase_completed: { plan: string; source: ProSource };
   app_opened: Record<string, never>;

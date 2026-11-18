@@ -415,6 +415,14 @@ export async function uploadMealImage(localUri: string, mealId: string): Promise
 // draft only; the caller shows a preview and uploads it via uploadMealImage
 // (through the same compression pipeline as a manually-picked photo) only
 // once the admin accepts it — nothing is written to Storage here.
+/** A meal's current narration and the steps it was made for, for a meal
+ *  opened from an older snapshot (a saved meal from before narration). */
+export async function getMealNarration(mealId: string): Promise<{ procedure: string[]; procedure_audio: string[] | null } | null> {
+  const { data, error } = await supabase.from("meals").select("procedure, procedure_audio").eq("id", mealId).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 /** Cook mode's narration: reads the meal's steps aloud once (Google TTS, in
  *  the narrate-meal edge function) and saves each step's audio URL on the
  *  meal. Admins only. */

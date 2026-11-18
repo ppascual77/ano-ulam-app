@@ -434,7 +434,7 @@ export default function SettingsScreen() {
               {pushOn && (
                 <SettingsToggle
                   label="Weekly best buys"
-                  description={isPro ? "Saturdays: the week's 3 biggest drops." : "Saturdays: the week's biggest drop."}
+                  description="Saturdays: the week's biggest price drops."
                   value={settings.data?.push_weekly_digest ?? true}
                   onChange={settingsActions.setWeeklyDigest}
                 />

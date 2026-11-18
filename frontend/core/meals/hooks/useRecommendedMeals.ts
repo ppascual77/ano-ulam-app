@@ -11,8 +11,8 @@ import { useAvoidFilter } from "@/frontend/core/preferences/hooks/useAvoidFilter
 const RECOMMENDATION_COUNT = 10;
 
 // Home's Recommendations carousel: a random sample of 10 real, already-seeded
-// meals; with a Categories tile picked, every meal in that category instead
-// (shuffled). Only meals that fit the user's preferences (no allergens,
+// meals; with a Categories tile picked, 10 from that category (Lunch and
+// Dinner: the best fits first). Only meals that fit the user's preferences (no allergens,
 // their dietary focus), same as Suggest by Budget.
 // Straight from useRealMeals' bulk list (no ingredients): a tapped card's
 // Meal Details fetches the full meal (useFullMeal in MealCarouselSection).
@@ -36,10 +36,11 @@ export function useRecommendedMeals(category: CategoryId | null = null): { meals
   // suit it best first (mealTimeFit), shuffled within the same fit, so the
   // two tiles open on different meals. The sort is stable, so the shuffle
   // still decides ties.
+  // Never more than 10, with or without a category (a category used to
+  // show every meal in it).
   const meals = useMemo(() => {
-    if (!category) return shuffled.slice(0, RECOMMENDATION_COUNT);
-    if (category !== "lunch" && category !== "dinner") return shuffled;
-    return [...shuffled].sort((a, b) => mealTimeFit(b, category) - mealTimeFit(a, category));
+    if (category !== "lunch" && category !== "dinner") return shuffled.slice(0, RECOMMENDATION_COUNT);
+    return [...shuffled].sort((a, b) => mealTimeFit(b, category) - mealTimeFit(a, category)).slice(0, RECOMMENDATION_COUNT);
   }, [shuffled, category]);
   return { meals, isLoading, isError };
 }

@@ -62,6 +62,9 @@ type ProStore = {
   /** The running subscription (trial, active or cancelled-but-running). */
   subscription: ProSubscription | null;
   isPro: boolean;
+  /** RevenueCat has answered at least once on this launch, so a false
+   *  `isPro` is real (the Pro ad waits for it: never pitch a subscriber). */
+  checked: boolean;
   /** Not Pro, but Pro ended within the last LAPSED_DAYS: Settings shows it
    *  as Expired with a way back. Its renewsAt is when Pro ended. */
   lapsed: ProSubscription | null;
@@ -186,7 +189,7 @@ export const useProStore = create<ProStore>((set, get) => {
       lapsed = asLapsed(subscription);
       subscription = null;
     }
-    set({ subscription, lapsed });
+    set({ subscription, lapsed, checked: true });
     publishPro();
 
     if (expiryTimer) clearTimeout(expiryTimer);
@@ -247,6 +250,7 @@ export const useProStore = create<ProStore>((set, get) => {
   return {
     subscription: null,
     isPro: false,
+    checked: false,
     lapsed: null,
     earnedUntil: null,
     prices: {},

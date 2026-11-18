@@ -6,6 +6,7 @@ import { AppText, BottomSheet, Button } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { ProBadge } from "./ProBadge";
 import { track } from "@/frontend/core/analytics/analytics";
+import { noteProSheetShown } from "../store/useProAdStore";
 
 type DailyLimitSheetProps = {
   visible: boolean;
@@ -35,7 +36,10 @@ type DailyLimitSheetProps = {
 // "See all Pro features" line, and Unlock Pro.
 export function DailyLimitSheet({ visible, kind, what, limit, onClose, onOpenPro, title, body, secondary, presentation }: DailyLimitSheetProps) {
   useEffect(() => {
-    if (visible) track("limit_sheet_shown", { kind });
+    if (!visible) return;
+    track("limit_sheet_shown", { kind });
+    // A Pro pitch just showed: the Pro ad holds off for a while.
+    noteProSheetShown();
   }, [visible, kind]);
   const openProPending = useRef(false);
   const secondaryPending = useRef(false);

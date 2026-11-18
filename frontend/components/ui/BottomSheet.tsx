@@ -82,6 +82,10 @@ type BottomSheetProps = {
    *  dismiss) and no backdrop. Children run under the status bar, so they
    *  handle the top safe area themselves and give the user a way to close. */
   fullScreen?: boolean;
+  /** false: nothing closes the sheet from outside (handle drag, backdrop
+   *  tap, Android back) until it turns true again, e.g. the Pro ad's Skip
+   *  countdown. The handle still shows. */
+  dismissible?: boolean;
 };
 
 // Generic slide-up sheet — drag the handle down (or tap the backdrop) to
@@ -97,7 +101,12 @@ export function BottomSheet({
   presentation = "modal",
   fitContent = false,
   fullScreen = false,
+  dismissible = true,
 }: BottomSheetProps) {
+  // Outside closes (backdrop, Android back) go through this.
+  const closeFromOutside = () => {
+    if (dismissible) onClose();
+  };
   const { height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   // A full-screen sheet fills its Modal (flex: 1) instead of taking the
@@ -166,6 +175,7 @@ export function BottomSheet({
 
   const startY = useSharedValue(0);
   const dragGesture = Gesture.Pan()
+    .enabled(dismissible)
     .onStart(() => {
       startY.value = translateY.value;
     })
@@ -193,7 +203,7 @@ export function BottomSheet({
   const sheet = (
     <View className={presentation === "inline" ? "absolute inset-0 justify-end" : "flex-1 justify-end"}>
       <Animated.View style={backdropStyle} className="absolute inset-0 bg-ink-emphasis/60">
-        <Pressable className="flex-1" onPress={onClose} />
+        <Pressable className="flex-1" onPress={closeFromOutside} />
       </Animated.View>
 
       <Animated.View
@@ -259,7 +269,7 @@ export function BottomSheet({
       animationType="none"
       statusBarTranslucent
       navigationBarTranslucent
-      onRequestClose={onClose}
+      onRequestClose={closeFromOutside}
       onShow={onShow}
     >
       {sheet}

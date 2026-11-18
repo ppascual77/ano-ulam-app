@@ -15,6 +15,7 @@ import { AppText, CarouselIndicator } from "@/frontend/components/ui";
 import type { PriceItem } from "@/frontend/core/prices/utils/prices";
 import { FRESH_PICK_CARD_HEIGHT, FreshPickCard } from "./FreshPickCard";
 import { BOARD_ROWS, FreshPicksBoard } from "./FreshPicksBoard";
+import { PriceAlertBell } from "./PriceAlertBell";
 
 // Card slides after the board: picks #4 to #7.
 const PICK_CARDS = 4;
@@ -126,12 +127,16 @@ function FreshPicksSectionInner({ picks, rises, loading, onSelect, visible }: Fr
 
   return (
     <View className="gap-3">
-      <View>
-        <AppText variant="sectionTitle" dot>
-          This week&apos;s fresh picks
-        </AppText>
-        {/* Says what the shown board is: the rises board has its own line. */}
-        <AppText variant="caption">{hasRises && current === risesPage ? "Prices that went up this week" : "Biggest price drops this week"}</AppText>
+      <View className="flex-row items-start gap-3">
+        <View className="flex-1">
+          <AppText variant="sectionTitle" dot>
+            This week&apos;s fresh picks
+          </AppText>
+          {/* Says what the shown board is: the rises board has its own line. */}
+          <AppText variant="caption">{hasRises && current === risesPage ? "Prices that went up this week" : "Biggest price drops this week"}</AppText>
+        </View>
+        {/* Price drop alerts: Pro's on/off, or the feature sheet. */}
+        <PriceAlertBell />
       </View>
 
       {loading ? (

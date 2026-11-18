@@ -52,7 +52,7 @@ const GROUPS: { label: string; doodle: Doodle; benefits: { title: string; detail
     doodle: GROUP_DOODLES.money,
     benefits: [
       { title: "Price drop alerts", detail: "Know when what you buy gets cheaper" },
-      { title: "See your savings", detail: "What you save each week, in pesos" },
+      { title: "Unlimited budget suggestions", detail: "Meals that fit your budget, as often as you like" },
     ],
   },
   {

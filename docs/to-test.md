@@ -304,10 +304,14 @@ build: `expo-audio` is already in it.
 - [ ] **No narration:** a user-submitted recipe (pending or approved) shows no speaker button.
 - [ ] **Steps edited** in Edit Meal: within a minute the new steps play, never the old ones.
 - [ ] **Daily limit (free account / guest):** first meal of the day with the speaker on reads as
-      usual. Close, reopen the same meal: still reads. A different meal: cook mode opens with plain
-      text, no reading, an orange lock on the speaker; tap it: "You've used today's narrated meal"
-      with Unlock Pro (cook mode closes, the Pro page opens). Speaker off at the start: nothing is
-      used until you tap it on. Next day (Philippine midnight; guests: phone midnight): reads again.
+      usual. Close, reopen the same meal: still reads. A different meal: plain text, no reading, and
+      a "Read aloud · PRO" chip where the speaker was; tap it: the narration feature sheet (reel,
+      "This is one of N things Pro unlocks. See them all"); Get Pro closes cook mode and opens the
+      Pro page. Speaker off at the start: nothing is used until you tap it on. Next day: reads again.
+- [ ] **Saved meals (Profile > Saved):** Start cooking on a meal saved before narration reads too
+      (its audio is looked up live, only when the steps still match).
+- [ ] **Pro changes catch up:** clear earned Pro in the database, background the app, come back:
+      it's Free (no Settings visit needed).
 - [ ] **Pro:** every meal reads, no lock. The Pro page lists "Cook mode, read aloud: 1 meal a day /
       Every meal".
 - [ ] **Settings > Pro features:** a "Cook mode, read aloud" row (PRO badge) after Price drop alerts,
@@ -317,6 +321,25 @@ build: `expo-audio` is already in it.
       that is the speaker's remembered setting (turn it off here: cook mode opens silent).
 - [ ] **Free vs Pro** (Pro page and the unlock screen's list): the "Cook mode, read aloud" row.
 - [ ] **Android:** the same on the emulator dev build.
+
+## Pro feature sheets where you run into Pro (2026-11-18)
+
+Each shows the animated feature sheet (reel, what it is, "This is one of N things Pro unlocks.
+See them all", Get Pro / Not now) instead of going straight to the Pro page. Free account.
+
+- [ ] **Cook mode:** out of today's narration, the "Read aloud · PRO" chip opens the narration reel.
+- [ ] **Meal details:** tap the locked fiber, sugar and sodium section, and the same lock in an
+      ingredient's sheet: the new nutrients reel (rows locked, then each % bar fills). Get Pro
+      opens the Pro page inside the meal sheet.
+- [ ] **Price Watch:** a bell right of "This week's fresh picks" with a small lock: the price
+      alerts reel. Pro: a green ringing bell (alerts on) or a crossed-out one (off); a tap toggles
+      with a toast; with notifications off it says to turn them on in Settings.
+- [ ] **Meal Planner:** tap a locked day (day 2 on): the plan-your-week reel; Get Pro opens the
+      Pro page titled for the locked days.
+- [ ] **Saved meals cap:** saving past 10 (from a card and from Meal details): the new saves reel
+      (counter climbs to 10 / 10, the cap slides away, "and counting", 11, 12...). "Manage saved
+      meals" under Not now (not inside Meal details).
+- [ ] **See them all** opens the plain Pro page from each.
 
 ## Photo uploads and the RLS audit (2026-11-13)
 
@@ -369,6 +392,23 @@ Database rules checked live on 2026-11-14 (faked counts reset, outside image/ava
 - [ ] **Settings is otherwise unchanged:** Meal preferences rows (Dietary focus / Food allergies with
       what's set) open the preferences sheet; the account card shows PRO / Free / Guest only; the
       Earned Pro card has the days-left bar and the 2×2 "what's included" checklist.
+
+## Pro ad (free account or guest)
+
+To test sooner: in `useProAdStore.ts` set `GRACE_MS` to 0 and `AD_TAP_SLOTS` to `[5, 10]`
+(revert before committing).
+
+- [ ] **Never when the app opens**, and not on the first day after install. It comes up a beat
+      after the 20th tap of the day, then the 50th. Scrolls and drags don't count as taps.
+- [ ] **Waits for a calm moment:** not over a sheet (meal details, cook mode), not with the keyboard
+      up, not on onboarding, the Pro page or Add recipe. A slot that couldn't show tries again on
+      later taps.
+- [ ] **Skip** fills up over 5 seconds. Until it's full: tapping it, dragging the handle, tapping
+      the backdrop and Android back all do nothing. Get Pro and See all work right away.
+- [ ] **Rotation:** each of the 8 (7 reels plus the text-only "No daily limits") comes up once before
+      any repeats.
+- [ ] **Holds off** for an hour after any other Pro sheet (a daily limit, a locked feature).
+- [ ] **Never for Pro** (including earned Pro), and the Pro page's compare table shows "No ads".
 
 ## Onboarding and preferences
 
@@ -525,6 +565,6 @@ Delete the app's data (or reinstall) to see it as a new user. Expo Go works.
 - [ ] Each subscription has its review screenshot, and the first group goes to review with an app
       version.
 - [ ] Small Business Program approved (Apple's email).
-- [ ] Paywall promises match what's built (price drop alerts and weekly savings are pushes now:
-      check the Pro page and unlock screen wording against them).
+- [ ] Paywall promises match what's built (price drop alerts is a push; "Weekly savings" is off
+      the paywall since 2026-11-18): check the Pro page, upgrade sheet and unlock screen wording.
 - [ ] BIR registration before Apple's first payout (`docs/compliance.md`).

@@ -256,6 +256,8 @@ type MealDetailContentProps = {
   /** A free user tapping locked micronutrients (they're Pro): open the
    *  upsell. MealDetailSheet shows the full Pro page. */
   onLockedPro?: () => void;
+  /** Straight to the Pro page (e.g. from cook mode's own feature sheet). */
+  onOpenProPage?: () => void;
   /** Embedded preview (Add a Recipe's Preview step): no own ScrollView
    *  (it sits inside the form's), no Save footer, no related meals. The
    *  rest (servings, tappable ingredients) works as normal. */
@@ -376,6 +378,7 @@ export function MealDetailContent({
   onDelete,
   onSelectIngredient,
   onLockedPro,
+  onOpenProPage,
   preview = false,
   review,
   pantryIds,
@@ -1019,7 +1022,7 @@ export function MealDetailContent({
         <CookModeHost
           ref={cookMode}
           mealId={meal.id}
-          onOpenPro={onLockedPro}
+          onOpenPro={onOpenProPage ?? onLockedPro}
           mealName={meal.name}
           steps={meal.procedure}
           stepAudio={meal.procedure_audio}
