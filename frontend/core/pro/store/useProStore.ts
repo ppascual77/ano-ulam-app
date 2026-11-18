@@ -217,7 +217,7 @@ export const useProStore = create<ProStore>((set, get) => {
   };
 
   // Prices from the current offering, then whether each plan's trial is
-  // still open to this Apple ID.
+  // still open to this Apple ID or Google account.
   const loadOffering = async () => {
     const offerings = await Purchases.getOfferings();
     const current = offerings.current;
@@ -232,6 +232,17 @@ export const useProStore = create<ProStore>((set, get) => {
 
   const loadTrialEligibility = async () => {
     if (hadPro) return set({ trialEligible: NO_TRIAL });
+    if (Platform.OS === "android") {
+      // RevenueCat's eligibility check is iOS only (always "unknown" here).
+      // Google Play only hands the app the offers this Google account can
+      // still use, and defaultOption is the one purchasePackage buys, so a
+      // free phase on it means the purchase really starts with the trial.
+      const trialEligible: Partial<Record<PlanKey, boolean>> = {};
+      for (const [plan, pkg] of Object.entries(packages) as [PlanKey, PurchasesPackage | undefined][]) {
+        if (pkg) trialEligible[plan] = !!pkg.product.defaultOption?.freePhase;
+      }
+      return set({ trialEligible: hadPro ? NO_TRIAL : trialEligible });
+    }
     const ids = Object.values(packages)
       .filter((pkg): pkg is PurchasesPackage => !!pkg)
       .map((pkg) => pkg.product.identifier);
