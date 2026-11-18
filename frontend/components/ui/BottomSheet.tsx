@@ -10,7 +10,7 @@ import Animated, {
   Extrapolation,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { GlobalToast } from "./GlobalToast";
+import { GlobalToast, TOAST_ABOVE_SHEETS } from "./GlobalToast";
 
 // Past this fraction of the sheet's height (or a fast enough flick), a drag
 // commits to closing instead of springing back open.
@@ -243,9 +243,10 @@ export function BottomSheet({
         </View>
       )}
 
-      {/* The app-wide toast, above this Modal (it would be hidden under it
-          at the root). An inline sheet's parent already has one. */}
-      {presentation === "modal" && <GlobalToast layer="sheet" />}
+      {/* Android: the app-wide toast, above this Modal (it would be hidden
+          under it at the root). iOS shows it above every Modal from the
+          root instead (GlobalToast). An inline sheet's parent has one. */}
+      {presentation === "modal" && !TOAST_ABOVE_SHEETS && <GlobalToast layer="sheet" />}
     </View>
   );
 
