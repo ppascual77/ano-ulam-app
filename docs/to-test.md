@@ -263,6 +263,21 @@ New native packages: `react-native-view-shot`, `expo-sharing`, `expo-keep-awake`
       Share to Messages/IG; cancel the share sheet: nothing else happens. Airplane mode with an
       uncached photo: the card still shares after ~2.5s.
 
+## Cook mode narration (2026-11-18, JS only, migration 20261118000000 live)
+
+Every approved meal is narrated (`narrate-meal`, Google TTS, voice en-US-Chirp3-HD-Charon). No new
+build: `expo-audio` is already in it.
+
+- [ ] **Speaker button** beside the meal name in cook mode, off (crossed-out speaker) at first.
+      Tap: it turns green and the current step is read aloud. Swipe or Next: the old step stops
+      and the new one plays. Tap again: it stops. Close cook mode mid-step: the voice stops.
+- [ ] **Remembered:** turn it on, close, open another meal's cook mode: it starts reading at once.
+- [ ] **Silent switch on:** it still plays (you turned it on). Music playing: it gets quieter
+      during a step instead of stopping. The Surprise me slot sound still follows the silent switch.
+- [ ] **No narration:** a user-submitted recipe (pending or approved) shows no speaker button.
+- [ ] **Steps edited** in Edit Meal: within a minute the new steps play, never the old ones.
+- [ ] **Android:** the same on the emulator dev build.
+
 ## Photo uploads and the RLS audit (2026-11-13)
 
 - [x] **Post photos upload as images** (2026-11-13: 294 KB, image/jpeg; buckets are image-only now).

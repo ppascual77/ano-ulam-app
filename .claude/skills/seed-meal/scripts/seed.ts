@@ -19,6 +19,7 @@ import {
   matchIngredientCandidates,
   parseQuantityText,
   recomputeMealTotals,
+  narrateMeal,
   recomputeMealsUsingIngredient,
   replaceMealIngredients,
   updateMeal,
@@ -853,6 +854,7 @@ async function cmdSave() {
   session.savedMealId = meal.id;
   save(session);
   out(`Saved "${meal.name}" as meal ${meal.id} (approved, in the catalog).`);
+  await narrateQuietly(meal.id);
 }
 
 // A fix to a meal this session already saved (e.g. Tosilog's ready-made
@@ -872,6 +874,47 @@ async function cmdUpdateSaved() {
   const tags = syncedPillTags(recomputed);
   if (tags) await updateMeal(mealId, { tags });
   out(`Updated saved meal "${session.form.name}" (${mealId}): ${items.length} lines, steps and details replaced.`);
+  await narrateQuietly(mealId);
+}
+
+// Cook mode's narration after a save: never fails the save, just says so.
+async function narrateQuietly(mealId: string) {
+  try {
+    const { urls, characters } = await narrateMeal(mealId);
+    out(`Narrated ${urls.length} step(s) for cook mode (${characters} characters).`);
+  } catch (err) {
+    out(`Warning: narration failed: ${err instanceof Error ? err.message : err}. Run \`narrate ${mealId}\` later.`);
+  }
+}
+
+// Narrate one meal (optionally in another voice, to try voices out), or
+// every approved meal without narration yet ("missing"), or all of them.
+async function cmdNarrate(target: string | undefined, voice: string | undefined) {
+  if (!target) fail("Usage: narrate <meal-id | missing | all> [voice]");
+  if (target !== "missing" && target !== "all") {
+    const { urls, characters } = await narrateMeal(target!, voice);
+    out(`Narrated ${urls.length} step(s), ${characters} characters${voice ? `, voice ${voice}` : ""}:`);
+    for (const url of urls) out(`  ${url}`);
+    return;
+  }
+  // Catalog meals only: user-submitted recipes are never narrated.
+  let query = supabase.from("meals").select("id, name").eq("status", "approved").is("poster_id", null).order("name");
+  if (target === "missing") query = query.is("procedure_audio", null);
+  const { data: meals, error } = await query;
+  if (error) fail(error.message);
+  let total = 0;
+  const failed: string[] = [];
+  for (const [i, meal] of (meals ?? []).entries()) {
+    try {
+      const { urls, characters } = await narrateMeal(meal.id, voice);
+      total += characters;
+      out(`[${i + 1}/${meals!.length}] ${meal.name}: ${urls.length} step(s), ${characters} chars`);
+    } catch (err) {
+      failed.push(meal.name);
+      out(`[${i + 1}/${meals!.length}] ${meal.name}: FAILED ${err instanceof Error ? err.message : err}`);
+    }
+  }
+  out(`Done: ${(meals?.length ?? 0) - failed.length} narrated, ${total} characters${failed.length ? `, failed: ${failed.join(", ")}` : ""}.`);
 }
 
 async function cmdUse(path: string | undefined) {
@@ -1265,6 +1308,7 @@ const commands: Record<string, (...a: string[]) => Promise<void>> = {
   "set-meal": cmdSetMeal,
   "meal-times": cmdMealTimes,
   "cooking-method": cmdCookingMethod,
+  narrate: cmdNarrate,
   "copy-check": cmdCopyCheck,
   source: cmdSource,
   "approve-copy": cmdApproveCopy,

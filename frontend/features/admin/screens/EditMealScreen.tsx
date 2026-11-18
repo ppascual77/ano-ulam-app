@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { router, useLocalSearchParams } from "expo-router";
 import { AppText, Button, ErrorState, LoadingState, Screen } from "@/frontend/components/ui";
-import type { MealWithIngredients, QuantityUnit } from "@/api/meals";
+import { narrateMealInBackground, type MealWithIngredients, type QuantityUnit } from "@/api/meals";
 import {
   useIngredientsForMatching,
   useMeal,
@@ -125,6 +125,14 @@ export default function EditMealScreen() {
     });
 
     await recomputeMealTotals.mutateAsync(meal.id);
+    // A catalog meal with new steps (their old audio was just cleared) or
+    // never narrated: read them aloud for cook mode, in the background.
+    // User-submitted recipes are never narrated.
+    const steps = form.procedure.map((s) => s.trim()).filter(Boolean);
+    const changed = JSON.stringify(steps) !== JSON.stringify(meal.procedure);
+    if (!meal.poster_id && steps.length > 0 && (changed || !meal.procedure_audio?.length)) {
+      narrateMealInBackground(meal.id);
+    }
     router.back();
   };
 

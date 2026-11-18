@@ -415,6 +415,19 @@ export async function uploadMealImage(localUri: string, mealId: string): Promise
 // draft only; the caller shows a preview and uploads it via uploadMealImage
 // (through the same compression pipeline as a manually-picked photo) only
 // once the admin accepts it — nothing is written to Storage here.
+/** Cook mode's narration: reads the meal's steps aloud once (Google TTS, in
+ *  the narrate-meal edge function) and saves each step's audio URL on the
+ *  meal. Admins only. */
+export async function narrateMeal(mealId: string, voice?: string): Promise<{ urls: string[]; characters: number }> {
+  return invokeEdgeFunction<{ urls: string[]; characters: number }>("narrate-meal", voice ? { mealId, voice } : { mealId });
+}
+
+/** narrateMeal after a save, without holding the save up or failing it: a
+ *  meal without narration just has no speaker button in cook mode. */
+export function narrateMealInBackground(mealId: string) {
+  void narrateMeal(mealId).catch((err) => console.warn(`Narration failed for ${mealId}`, err));
+}
+
 export async function generateMealImage(input: {
   name: string;
   description: string | null;

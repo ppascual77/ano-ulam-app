@@ -6,7 +6,7 @@ import { router } from "expo-router";
 import { ClipboardCheck, Link2 } from "lucide-react-native";
 import { AppText, Button, ErrorState, LoadingState, Screen, TextField } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import type { ImportedMealDraft } from "@/api/meals";
+import { narrateMealInBackground, type ImportedMealDraft } from "@/api/meals";
 import {
   useAddMealIngredient,
   useCreateMeal,
@@ -97,6 +97,8 @@ export default function SeedMealScreen() {
     }
 
     await recomputeMealTotals.mutateAsync(meal.id);
+    // Cook mode's narration, in the background (the save is done either way).
+    narrateMealInBackground(meal.id);
     router.back();
   };
 

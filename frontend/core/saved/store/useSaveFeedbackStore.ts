@@ -62,10 +62,7 @@ export const useSaveFeedbackStore = create<SaveFeedbackState>((set) => ({
   limitOpen: false,
   load: async () => {
     try {
-      // TEMP first-time user for device testing: ignore what's saved. Revert before committing.
-      const stored = null as string | null;
-      void AsyncStorage;
-      // const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) set(JSON.parse(stored) as Persisted);
     } catch {
       // Unreadable: start fresh (worst case, a few extra hint toasts).

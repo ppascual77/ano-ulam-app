@@ -37,6 +37,7 @@ Every step goes through one command (allow it once):
 | `table` | The review table: every line with counted amount, line ₱, macros source (FNRI / USDA / AI est.) and price source (DA / Landers / SM / estimate), ✓ verified, ⚠ flags. Use it for every lines review |
 | `source` | The source page's own description + steps (for the copy check, never to copy from) |
 | `meal-times <meal-id> <breakfast,lunch,dinner \| none>` | Set meal times on an already-saved meal (and refresh its pill tags) |
+| `narrate <meal-id \| missing \| all> [voice]` | Cook mode's narration (Google TTS via `narrate-meal`): one meal (prints the audio URLs, a voice name tries that voice), every approved catalog meal without it, or all. Never user-submitted recipes. `save` / `update-saved` narrate on their own |
 | `cooking-method <meal-id> <soupy,grilled,fried \| none>` | Set the way of cooking on an already-saved meal (other tags kept) |
 | `set-meal <json>` | Meal fields: `mealTimes` (breakfast, lunch, dinner; stored in tags, other tags kept), `servingSize`, `prepTime`, `totalTime`, `difficulty` (array), `proteinType`, `budgetRange`, `dietaryTags`, `tags`, `allergens` (nuts, gluten, dairy, egg, shellfish, fish, soy, coconut, sesame) |
 | `set-copy <json>` / `copy-check` / `approve-copy` | Replace description/steps, run the 8-word copy check, record approval |
@@ -149,7 +150,7 @@ When it answers, sort its concerns yourself (`lines` shows the armour): concerns
 Ask whether to generate an image. If yes, run `image` and show it to him with the Read tool. Regenerate on request. Skipping is fine (he can add one in Edit Meal).
 
 ### 9. Save
-Run `status`, summarize what's about to be saved (name, lines, per-serving kcal and ₱), ask for a final OK, then `save`. It goes straight into the catalog as approved, records the source link privately (`meal_sources`), and uploads the image if there is one.
+Run `status`, summarize what's about to be saved (name, lines, per-serving kcal and ₱), ask for a final OK, then `save`. It goes straight into the catalog as approved, records the source link privately (`meal_sources`), uploads the image if there is one, and narrates the steps for cook mode (`update-saved` narrates again). A narration warning never undoes the save: mention it in your summary and suggest `narrate <meal-id>` later.
 
 ## Rules that always apply
 - Only link to ingredient ids that exist. Never invent an id, a USDA record, a price or a listing.

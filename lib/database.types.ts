@@ -518,6 +518,7 @@ export type Database = {
           prep_time: number | null
           price: number | null
           procedure: string[]
+          procedure_audio: string[] | null
           protein: number | null
           protein_type: string | null
           published_at: string | null
@@ -555,6 +556,7 @@ export type Database = {
           prep_time?: number | null
           price?: number | null
           procedure?: string[]
+          procedure_audio?: string[] | null
           protein?: number | null
           protein_type?: string | null
           published_at?: string | null
@@ -592,6 +594,7 @@ export type Database = {
           prep_time?: number | null
           price?: number | null
           procedure?: string[]
+          procedure_audio?: string[] | null
           protein?: number | null
           protein_type?: string | null
           published_at?: string | null
