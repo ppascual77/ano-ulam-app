@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "540897812759",
+    "project_id": "anoulam-70457",
+    "storage_bucket": "anoulam-70457.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:540897812759:android:ff1f72c559eb8d59955752",
+        "android_client_info": {
+          "package_name": "com.anoulam.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD_KKq3dTwUcaQ7FnSihIv-7GCPZ3-E61Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
