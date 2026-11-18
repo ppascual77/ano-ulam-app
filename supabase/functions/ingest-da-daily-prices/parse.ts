@@ -263,7 +263,11 @@ function dateFromFilename(url: string): string | null {
 // per day, newest first.
 export function listDailyPdfs(html: string, limit: number): ListedPdf[] {
   const byDate = new Map<string, ListedPdf>();
-  for (const [, url] of html.matchAll(/href="([^"]+\.pdf)"/gi)) {
+  for (const [, href] of html.matchAll(/href="([^"]+\.pdf)"/gi)) {
+    // DA sometimes pastes the full URL after the folder prefix
+    // (".../uploads/2026/11/https://www.da.gov.ph/.../x.pdf", 403s). Keep
+    // the last absolute URL in the link.
+    const url = href.slice(Math.max(0, href.lastIndexOf("http://"), href.lastIndexOf("https://")));
     if (!url.startsWith(DA_UPLOADS_PREFIX) || !/daily-price-index|dpi/i.test(url)) continue;
     const date = dateFromFilename(url);
     if (!date) continue;
