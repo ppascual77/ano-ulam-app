@@ -1017,6 +1017,7 @@ export function MealDetailContent({
         <CookMode
           mealName={meal.name}
           steps={meal.procedure}
+          stepAudio={meal.procedure_audio}
           ingredients={cookIngredients}
           servings={servings}
           onClose={() => setCooking(false)}

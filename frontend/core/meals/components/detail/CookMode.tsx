@@ -17,7 +17,9 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from "react-native-reanimated";
-import { ChevronLeft, ChevronRight, ChevronUp, ShoppingBasket, X } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, ChevronUp, ShoppingBasket, Volume2, VolumeX, X } from "lucide-react-native";
+import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
+import { useNarration } from "@/frontend/core/preferences/store/useNarrationStore";
 import { AppText, BottomSheet, Button, DotLabel } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
@@ -168,6 +170,9 @@ function StepPage({ page, number, active, width, reduceMotion }: { page: Page; n
 type CookModeProps = {
   mealName: string;
   steps: string[];
+  /** Each step read aloud, in step order (narrate-meal). The speaker button
+   *  shows only when every step has one. */
+  stepAudio?: string[] | null;
   /** Already scaled to `servings` (see scaleIngredient). */
   ingredients: IngredientType[];
   servings: number;
@@ -180,7 +185,40 @@ type CookModeProps = {
 // sheet), so the meal is right where it was on close.
 const KEEP_AWAKE_TAG = "cook-mode";
 
-export function CookMode({ mealName, steps, ingredients, servings, onClose }: CookModeProps) {
+// Narration: with the speaker on, each step is read aloud as it comes into
+// view (and the current one at once when it's turned on). Moving to another
+// step stops the one playing; closing cook mode stops it too. It plays with
+// the phone on silent (someone turned it on, so they want to hear it) and
+// lowers any music rather than stopping it.
+function useStepNarration(urls: string[] | null, index: number) {
+  const { on, setOn } = useNarration();
+  const player = useAudioPlayer(null);
+  const active = on && !!urls;
+
+  useEffect(() => {
+    if (!active) return;
+    void setAudioModeAsync({ playsInSilentMode: true, interruptionMode: "duckOthers", shouldPlayInBackground: false }).catch(() => {});
+    return () => {
+      // Back to the app's usual: UI sounds follow the silent switch.
+      void setAudioModeAsync({ playsInSilentMode: false, interruptionMode: "mixWithOthers", shouldPlayInBackground: false }).catch(() => {});
+    };
+  }, [active]);
+
+  useEffect(() => {
+    if (!active) {
+      player.pause();
+      return;
+    }
+    const url = urls![index];
+    if (!url) return;
+    player.replace({ uri: url });
+    player.play();
+  }, [active, index]);
+
+  return { available: !!urls, on: active, toggle: () => setOn(!on) };
+}
+
+export function CookMode({ mealName, steps, stepAudio, ingredients, servings, onClose }: CookModeProps) {
   // The screen stays on while cooking. Loaded lazily: expo-keep-awake throws
   // on import in a build without it (see nativeFeatures.ts).
   useEffect(() => {
@@ -196,6 +234,11 @@ export function CookMode({ mealName, steps, ingredients, servings, onClose }: Co
   const [listOpen, setListOpen] = useState(false);
   const list = useRef<FlatListInstance>(null);
   const last = index === steps.length - 1;
+  const narration = useStepNarration(stepAudio && stepAudio.length === steps.length ? stepAudio : null, index);
+  const toggleNarration = () => {
+    void Haptics.selectionAsync();
+    narration.toggle();
+  };
 
   // Each step split into its headline and the rest, with the ingredient
   // words found once up front.
@@ -258,6 +301,18 @@ export function CookMode({ mealName, steps, ingredients, servings, onClose }: Co
             Step {index + 1} of {steps.length}
           </Text>
         </View>
+        {narration.available && (
+          <Pressable
+            onPress={toggleNarration}
+            hitSlop={10}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: narration.on }}
+            accessibilityLabel="Read steps aloud"
+            className={`h-10 w-10 items-center justify-center rounded-full ${narration.on ? "bg-primary" : "bg-ink-emphasis/5"}`}
+          >
+            {narration.on ? <Volume2 color={colors.white} size={20} /> : <VolumeX color={colors.ink.emphasis} size={20} />}
+          </Pressable>
+        )}
       </View>
       <View className="mt-4 flex-row gap-1.5 px-5">
         {steps.map((_, i) => (

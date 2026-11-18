@@ -126,6 +126,9 @@ export type MealType = {
   protein_type?: string;
   ingredients?: IngredientType[];
   procedure?: string[];
+  /** Each step read aloud (narrate-meal), in step order; cook mode's
+   *  speaker button. Missing until the meal is narrated. */
+  procedure_audio?: string[] | null;
   restaurant?: string | null;
   source?: string | null;
   source_type?: "official" | "estimated" | "ai_estimated" | null;

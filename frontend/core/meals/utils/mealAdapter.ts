@@ -54,6 +54,7 @@ export function mealRowToMealType(meal: MealRow, mealIngredients?: MealWithIngre
     protein_type: meal.protein_type ?? undefined,
     ingredients: mealIngredients ? mealIngredients.map(mealIngredientToIngredientType).sort((a, b) => a.sortOrder - b.sortOrder).map(({ sortOrder: _sortOrder, ...rest }) => rest) : undefined,
     procedure: meal.procedure ?? [],
+    procedure_audio: meal.procedure_audio ?? null,
     restaurant: meal.restaurant,
     source: meal.source,
     source_type: meal.source_type as MealType["source_type"],
