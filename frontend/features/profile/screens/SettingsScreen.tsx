@@ -42,6 +42,7 @@ import { DEFAULT_NUTRITION_GOALS } from "@/api/auth";
 import { ProSettingRow } from "../components/settings/ProSettingRow";
 import { PreferencesSheet } from "@/frontend/core/budget/components/PreferencesSheet";
 import { ProFeatureSheet, type ProFeatureKey } from "@/frontend/core/pro/components/ProFeatureSheet";
+import { useNarration } from "@/frontend/core/preferences/store/useNarrationStore";
 import { canReceivePush, enablePush } from "@/frontend/core/notifications/push";
 import { openPrivacyPolicy, openTerms } from "@/frontend/core/app/legalLinks";
 import { BlockedAccountsSheet } from "../components/settings/BlockedAccountsSheet";
@@ -179,6 +180,7 @@ export default function SettingsScreen() {
   const [prefsOpen, setPrefsOpen] = useState(false);
   // A locked Pro feature, tapped: its reel and the way in.
   const [featureSheet, setFeatureSheet] = useState<ProFeatureKey | null>(null);
+  const narration = useNarration();
   const [proSheet, setProSheet] = useState<ProSettingKey | null>(null);
   const closeProSheet = () => setProSheet(null);
   const [manageOpen, setManageOpen] = useState(false);
@@ -376,6 +378,17 @@ export default function SettingsScreen() {
                     : setFeatureSheet("alerts")
                 }
                 toggle={pushOn ? { value: settings.data?.push_price_alerts ?? true, onChange: settingsActions.setPriceAlerts } : undefined}
+              />
+              {/* Free accounts get 1 narrated meal a day (cook mode counts
+                  it); Pro reads every meal. The switch is the speaker's
+                  remembered setting, the same as cook mode's button. */}
+              <ProSettingRow
+                index={5}
+                label="Cook mode, read aloud"
+                description={isPro ? "Steps read out loud when you start cooking." : "1 meal a day free. Pro reads every meal."}
+                locked={!isPro}
+                onPress={() => (isPro ? narration.setOn(!narration.on) : setFeatureSheet("narration"))}
+                toggle={{ value: narration.on, onChange: narration.setOn }}
               />
             </SettingsSection>
           </Animated.View>

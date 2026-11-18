@@ -45,7 +45,7 @@ export type ProSource =
 
 type Events = {
   pro_wall_shown: { screen: "browse" | "mood" | "budget" | "pantry" | "see_all"; hidden_count: number };
-  limit_sheet_shown: { kind: "search" | "budget" | "pantry" | "saved_meals" };
+  limit_sheet_shown: { kind: "search" | "budget" | "pantry" | "saved_meals" | "narration" };
   pro_page_opened: { source: ProSource };
   trial_started: { plan: string; source: ProSource };
   purchase_completed: { plan: string; source: ProSource };

@@ -28,6 +28,7 @@ export { GlobalToast, showGlobalToast, hideGlobalToast } from "./GlobalToast";
 export { Confetti, useBurstOnActivate } from "./Confetti";
 export { Medallion } from "./Medallion";
 export { Spinner } from "./Spinner";
+export { SpeakingIcon } from "./SpeakingIcon";
 export { SoftShade } from "./SoftShade";
 export { SelectField } from "./SelectField";
 export { OutsideLabel, useFieldErrorAnimation } from "./TextField";

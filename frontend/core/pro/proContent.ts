@@ -19,6 +19,10 @@ export const FREE_DAILY_SEARCHES = 10;
 export const FREE_RESULTS_CAP = 10;
 export const GUEST_DAILY_SUGGESTIONS = 3;
 export const FREE_DAILY_SUGGESTIONS = 3;
+// Cook mode's narration: meals read aloud a day (the same meal again that
+// day is free). The rest of cook mode stays free.
+export const GUEST_DAILY_NARRATIONS = 1;
+export const FREE_DAILY_NARRATIONS = 1;
 
 /** A free user's daily limit for this tier, null for Pro. */
 export const dailyLimitFor = (tier: { isPro: boolean; isGuest: boolean }, guest: number, free: number) =>
@@ -33,6 +37,7 @@ export const COMPARE_ROWS: { label: string; free: CompareCell; pro: CompareCell 
   { label: "Suggest by pantry", free: `${FREE_DAILY_SUGGESTIONS} a day`, pro: "Unlimited" },
   { label: "Meal plan", free: "1 day", pro: "Up to 7 days" },
   { label: "Grocery list", free: "1 day", pro: "Whole week" },
+  { label: "Cook mode, read aloud", free: `${FREE_DAILY_NARRATIONS} meal a day`, pro: "Every meal" },
   { label: "Swap meals", free: false, pro: true },
   { label: "Price drop alerts", free: false, pro: true },
   { label: "Weekly savings, in pesos", free: false, pro: true },

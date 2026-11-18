@@ -272,6 +272,10 @@ build: `expo-audio` is already in it.
       Tap: it turns green and the current step is read aloud. Swipe or Next: the old step stops
       and the new one plays. Tap again: it stops. Close cook mode mid-step: the voice stops.
 - [ ] **Remembered:** turn it on, close, open another meal's cook mode: it starts reading at once.
+- [ ] **Speaker animates:** while a step is spoken, the green speaker's icon morphs into a thin
+      white scribbled tangle that keeps re-forming, slowly turns and gently breathes (a different
+      tangle each time); while loading, after a step ends, or on Replay's pause it's the volume icon
+      again. Reduce motion: always the icon. Speaker off: the crossed-out speaker.
 - [ ] **Read-along:** while a step is read, its words start faint and darken left to right, roughly
       with the voice, all dark when it ends. Speaker off: the text is plain dark as before.
 - [ ] **Opens at once:** tap Start cooking on a long recipe: cook mode starts sliding up on the
@@ -299,6 +303,19 @@ build: `expo-audio` is already in it.
       during a step instead of stopping. The Surprise me slot sound still follows the silent switch.
 - [ ] **No narration:** a user-submitted recipe (pending or approved) shows no speaker button.
 - [ ] **Steps edited** in Edit Meal: within a minute the new steps play, never the old ones.
+- [ ] **Daily limit (free account / guest):** first meal of the day with the speaker on reads as
+      usual. Close, reopen the same meal: still reads. A different meal: cook mode opens with plain
+      text, no reading, an orange lock on the speaker; tap it: "You've used today's narrated meal"
+      with Unlock Pro (cook mode closes, the Pro page opens). Speaker off at the start: nothing is
+      used until you tap it on. Next day (Philippine midnight; guests: phone midnight): reads again.
+- [ ] **Pro:** every meal reads, no lock. The Pro page lists "Cook mode, read aloud: 1 meal a day /
+      Every meal".
+- [ ] **Settings > Pro features:** a "Cook mode, read aloud" row (PRO badge) after Price drop alerts,
+      fading in with the others. Free: a lock, "1 meal a day free…"; tap: the feature sheet with a
+      mini cook mode reel (words darken one by one, Next step fills green, presses itself, next
+      step), then Unlock Pro opens the Pro page titled "Cook with your hands free". Pro: a switch
+      that is the speaker's remembered setting (turn it off here: cook mode opens silent).
+- [ ] **Free vs Pro** (Pro page and the unlock screen's list): the "Cook mode, read aloud" row.
 - [ ] **Android:** the same on the emulator dev build.
 
 ## Photo uploads and the RLS audit (2026-11-13)

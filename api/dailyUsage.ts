@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 // Pro). Guests have no account; their count stays on the phone
 // (frontend/core/pro/dailyLimits.ts).
 
-export type LimitKind = "search" | "budget" | "pantry";
+export type LimitKind = "search" | "budget" | "pantry" | "narration";
 
 /** The last counted use's signature (the latest day's), for the app's
  *  "only refines the last one" check. */
