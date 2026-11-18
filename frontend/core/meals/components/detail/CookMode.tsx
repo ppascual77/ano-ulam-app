@@ -20,7 +20,7 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from "react-native-reanimated";
-import { ChevronLeft, ChevronRight, ChevronUp, Hand, Lock, RotateCcw, ShoppingBasket, VolumeX, X } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, ChevronUp, Hand, Lock, RotateCcw, ShoppingBasket, Volume2, VolumeX, X } from "lucide-react-native";
 import { router } from "expo-router";
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
@@ -31,7 +31,7 @@ import { track } from "@/frontend/core/analytics/analytics";
 import { getMealNarration } from "@/api/meals";
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { useNarration } from "@/frontend/core/preferences/store/useNarrationStore";
-import { AppText, BottomSheet, Button, DotLabel, SpeakingIcon, Spinner } from "@/frontend/components/ui";
+import { AppText, BottomSheet, Button, DotLabel, Spinner, VoiceOrb } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { capitalize } from "../../utils/dietary";
@@ -329,6 +329,7 @@ function StepPage({
   reduceMotion,
   read,
   loading,
+  orbSpace,
 }: {
   page: Page;
   number: number;
@@ -339,6 +340,9 @@ function StepPage({
   read: SharedValue<number>;
   /** Its recording is still downloading: the skeleton shows. */
   loading: boolean;
+  /** The voice orb is showing under the step: room at the bottom so a long
+   * step scrolls clear of it instead of running under it. */
+  orbSpace: boolean;
 }) {
   const leadLength = segmentsLength(page.lead);
   const total = Math.max(leadLength + segmentsLength(page.detail), 1);
@@ -407,7 +411,7 @@ function StepPage({
     // Sits high rather than centered, so a short step doesn't float in empty
     // space; scrolls if a long one at the largest text size runs past the
     // footer.
-    <ScrollView style={{ width }} contentContainerClassName="px-7 pb-8 pt-10" showsVerticalScrollIndicator={false}>
+    <ScrollView style={{ width }} contentContainerClassName={`px-7 pt-10 ${orbSpace ? "pb-36" : "pb-8"}`} showsVerticalScrollIndicator={false}>
       <View ref={rootRef} collapsable={false}>
         <DotLabel>{`Step ${number}`}</DotLabel>
         {phase === "loading" ? (
@@ -871,10 +875,10 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, me
             accessibilityLabel="Read steps aloud"
             className={`h-10 w-10 items-center justify-center rounded-full ${narration.on ? "bg-primary" : "bg-ink-emphasis/5"}`}
           >
-            {/* On: the volume icon, morphing into sound bars while a step
-                is being spoken (the same as the Pro feature reel). */}
+            {/* Just on or off: the voice orb under the step shows the
+                speaking. */}
             {narration.on ? (
-              <SpeakingIcon speaking={narration.speaking && !reduceMotion} size={20} color={colors.white} />
+              <Volume2 color={colors.white} size={20} />
             ) : (
               <VolumeX color={colors.ink.emphasis} size={20} />
             )}
@@ -887,33 +891,51 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, me
         ))}
       </View>
 
-      <FlatList
-        ref={list}
-        data={pages}
-        keyExtractor={(_, i) => String(i)}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
-        onMomentumScrollEnd={(e) => changeStep(Math.round(e.nativeEvent.contentOffset.x / width))}
-        className="flex-1"
-        extraData={`${index}:${narration.on}:${narration.loading}:${ready}:${checkingAllowance}`}
-        // Only the step on screen and its neighbours are built.
-        initialNumToRender={1}
-        maxToRenderPerBatch={1}
-        windowSize={3}
-        renderItem={({ item, index: i }) => (
-          <StepPage
-            page={item}
-            number={i + 1}
-            active={i === index}
-            width={width}
-            reduceMotion={reduceMotion}
-            read={i === index ? narration.read : narration.on ? unread : plain}
-            loading={!ready || (i === index && (narration.loading || checkingAllowance))}
-          />
+      <View className="flex-1">
+        <FlatList
+          ref={list}
+          data={pages}
+          keyExtractor={(_, i) => String(i)}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
+          onMomentumScrollEnd={(e) => changeStep(Math.round(e.nativeEvent.contentOffset.x / width))}
+          className="flex-1"
+          extraData={`${index}:${narration.on}:${narration.loading}:${ready}:${checkingAllowance}`}
+          // Only the step on screen and its neighbours are built.
+          initialNumToRender={1}
+          maxToRenderPerBatch={1}
+          windowSize={3}
+          renderItem={({ item, index: i }) => (
+            <StepPage
+              page={item}
+              number={i + 1}
+              active={i === index}
+              width={width}
+              reduceMotion={reduceMotion}
+              read={i === index ? narration.read : narration.on ? unread : plain}
+              loading={!ready || (i === index && (narration.loading || checkingAllowance))}
+              orbSpace={narration.on}
+            />
+          )}
+        />
+        {/* The voice, in the empty space under the step: a dot at rest that
+            scribbles itself out while a step is read. Only there while the
+            steps are read aloud (narration.on: the meal has narration, the
+            speaker is on, and Pro or today's free narrated meal), and fades
+            out when the speaker is turned off. The steps leave room for it
+            (orbSpace). */}
+        {narration.on && (
+          <Animated.View
+            entering={FadeIn.duration(220).easing(EASE)}
+            exiting={FadeOut.duration(260).easing(EASE)}
+            className="pointer-events-none absolute bottom-6 left-0 right-0 items-center"
+          >
+            <VoiceOrb speaking={narration.speaking && !reduceMotion} color={colors.accent} />
+          </Animated.View>
         )}
-      />
+      </View>
 
       <View className="gap-3 px-5 pt-2">
         {itemCount > 0 && (

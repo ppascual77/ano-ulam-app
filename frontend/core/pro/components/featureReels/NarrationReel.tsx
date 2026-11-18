@@ -21,8 +21,9 @@ const FILL_BEATS = 5;
 const TAIL_BEATS = 3;
 const FAINT = 0.28;
 
-// The speaker: the volume icon at the start of each step, sound bars while
-// it's read (SpeakingIcon, the same as cook mode's).
+// The speaker: the volume icon at the start of each step, the scribbled
+// tangle while it's read (SpeakingIcon; cook mode shows the same tangle as
+// the bigger VoiceOrb under the step).
 function Speaker({ playing }: { playing: boolean }) {
   return (
     <View className="h-8 w-8 items-center justify-center rounded-full bg-primary">
