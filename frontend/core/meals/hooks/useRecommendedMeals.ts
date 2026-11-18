@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useRealMeals } from "./useRealMeals";
 import { useStableShuffle } from "./useStableShuffle";
 import type { MealType } from "../mealTypes";
-import { inCategory, type CategoryId } from "@/frontend/core/budget/utils/categories";
+import { inCategory, mealTimeFit, type CategoryId } from "@/frontend/core/budget/utils/categories";
 import { fitsPreferences } from "@/frontend/core/budget/utils/budgetMatch";
 import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
 import { useAvoidFilter } from "@/frontend/core/preferences/hooks/useAvoidFilter";
@@ -32,6 +32,14 @@ export function useRecommendedMeals(category: CategoryId | null = null): { meals
     [allMeals, category, allergens, dietary_focus, isAvoided],
   );
   const shuffled = useStableShuffle(fitting, category);
-  const meals = useMemo(() => (category ? shuffled : shuffled.slice(0, RECOMMENDATION_COUNT)), [shuffled, category]);
+  // Lunch and Dinner hold mostly the same meals: each puts the ones that
+  // suit it best first (mealTimeFit), shuffled within the same fit, so the
+  // two tiles open on different meals. The sort is stable, so the shuffle
+  // still decides ties.
+  const meals = useMemo(() => {
+    if (!category) return shuffled.slice(0, RECOMMENDATION_COUNT);
+    if (category !== "lunch" && category !== "dinner") return shuffled;
+    return [...shuffled].sort((a, b) => mealTimeFit(b, category) - mealTimeFit(a, category));
+  }, [shuffled, category]);
   return { meals, isLoading, isError };
 }

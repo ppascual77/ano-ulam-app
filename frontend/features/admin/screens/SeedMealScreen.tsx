@@ -18,6 +18,7 @@ import { MealFormFields, type MealFormState } from "../components/MealFormFields
 import { MealVerifyPanel } from "../components/MealVerifyPanel";
 import { CopyCheckPanel } from "../components/CopyCheckPanel";
 import type { PendingMealIngredient } from "../components/SeedMealIngredientsEditor";
+import { mealTimesOf } from "@/frontend/core/meals/utils/mealTimes";
 import { AdminHeader } from "../components/AdminHeader";
 import { Checklist, InlineError } from "../components/AdminUi";
 import { buildMealCalculation } from "../utils/mealCalculation";
@@ -81,8 +82,11 @@ export default function SeedMealScreen() {
     [form?.description, form?.procedure, sourceText],
   );
   const copyCheckPasses = copiedRuns !== null && copiedRuns.length === 0;
+  // Without one the meal never shows under Home's Breakfast / Lunch /
+  // Dinner, and the planner can't put it in any slot.
+  const hasMealTime = !!form && mealTimesOf(form.tags).length > 0;
   const canSave =
-    !!draft && !!form && form.name.trim() !== "" && allResolved && calculationPasses && copyCheckPasses && !createMeal.isPending;
+    !!draft && !!form && form.name.trim() !== "" && hasMealTime && allResolved && calculationPasses && copyCheckPasses && !createMeal.isPending;
 
   const handleSave = async () => {
     if (!draft || !form) return;
@@ -179,6 +183,11 @@ export default function SeedMealScreen() {
                   label: "Every ingredient is linked",
                   done: allResolved,
                   detail: `${trimmedIngredients.filter((i) => i.ingredientId).length} of ${trimmedIngredients.length} linked to a real ingredient record`,
+                },
+                {
+                  label: "Meal time is set",
+                  done: hasMealTime,
+                  detail: hasMealTime ? undefined : "Pick Breakfast, Lunch or Dinner under Tags & dietary (most ulam are Lunch and Dinner).",
                 },
                 {
                   label: "Calculation check passes",

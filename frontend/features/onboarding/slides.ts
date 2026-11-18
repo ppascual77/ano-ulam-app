@@ -2,14 +2,13 @@ import type { LucideIcon } from "lucide-react-native";
 import { Wallet, Drumstick, Leaf, Refrigerator, TrendingUp, Brain } from "lucide-react-native";
 import type { ChipOption } from "@/frontend/components/ui";
 
-// Six slide shapes so far: "content" (icon/eyebrow/hero/description),
+// Five slide shapes so far: "content" (icon/eyebrow/hero/description),
 // "preferences" (a title + a checkable options list), "preferenceGroups"
 // (a title/subtitle + grouped chip-select sections), "pantryBasics" (the
-// pantry's starting basics), "budget" (tonight's budget, so Home opens with
-// meals ready) and "accountPitch" (the closing signup pitch). Each renders
-// via its own component (ContentSlide / PreferencesSlide /
-// PreferenceGroupsSlide / PantryBasicsSlide / BudgetSlide /
-// AccountPitchSlide); OnboardingScreen picks which one based on `type`.
+// pantry's starting basics) and "accountPitch" (the closing signup pitch).
+// Each renders via its own component (ContentSlide / PreferencesSlide /
+// PreferenceGroupsSlide / PantryBasicsSlide / AccountPitchSlide);
+// OnboardingScreen picks which one based on `type`.
 // Add a new type here + a new component rather than branching inside an
 // existing slide component as slide shapes grow.
 
@@ -74,18 +73,6 @@ export type PantryBasicsSlideData = {
   unticked: string[];
 };
 
-export type BudgetSlideData = {
-  id: string;
-  type: "budget";
-  title: string;
-  /** Wrap key phrases in **double asterisks** to highlight them. */
-  subtitle: string;
-  /** Budget chips, in pesos. */
-  budgets: number[];
-  /** Picked to start with. */
-  defaultBudget: number;
-};
-
 export type AccountPitchSlideData = {
   id: string;
   type: "accountPitch";
@@ -101,7 +88,6 @@ export type OnboardingSlideData =
   | PreferencesSlideData
   | PreferenceGroupsSlideData
   | PantryBasicsSlideData
-  | BudgetSlideData
   | AccountPitchSlideData;
 
 export const onboardingSlides: OnboardingSlideData[] = [
@@ -214,14 +200,6 @@ export const onboardingSlides: OnboardingSlideData[] = [
     title: "In your kitchen",
     subtitle: "We ticked the **usual basics**. Untick what you're **out of**, so we don't ask you to buy what you already have.",
     unticked: ["Oyster sauce"],
-  },
-  {
-    id: "8",
-    type: "budget",
-    title: "Your ulam budget",
-    subtitle: "For **one meal**. We'll line up what you can cook with it, ready on Home.",
-    budgets: [100, 150, 250, 400],
-    defaultBudget: 150,
   },
   {
     id: "9",

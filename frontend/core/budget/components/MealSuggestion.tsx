@@ -8,7 +8,7 @@ import { goalDistance } from "@/frontend/core/nutrition/goalFit";
 import { colors } from "@/frontend/constants/theme";
 import { MealCarouselSection } from "./MealCarouselSection";
 import { CategoriesSection } from "./CategoriesSection";
-import { CATEGORY_NOUNS, inCategory, type CategoryId } from "../utils/categories";
+import { CATEGORY_NOUNS, inCategory, mealTimeFit, type CategoryId } from "../utils/categories";
 import { BudgetEmptyState } from "./BudgetEmptyState";
 import { PreferencesBanner } from "./PreferencesBanner";
 import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
@@ -72,10 +72,16 @@ export function MealSuggestion({ budget, servings, onClear }: MealSuggestionProp
   const goals = useNutritionGoals();
   const [byGoals, setByGoals] = useState(false);
   const ordered = useMemo(() => {
-    const meals = inView.map((m) => m.meal);
+    // Lunch and Dinner hold mostly the same meals: each puts the ones that
+    // suit it best first (mealTimeFit). The sort is stable, so closeness to
+    // the budget still decides within the same fit.
+    const meals =
+      category === "lunch" || category === "dinner"
+        ? inView.map((m) => m.meal).sort((a, b) => mealTimeFit(b, category) - mealTimeFit(a, category))
+        : inView.map((m) => m.meal);
     if (!byGoals || !goals) return meals;
     return [...meals].sort((a, b) => (goalDistance(a, goals) ?? 0) - (goalDistance(b, goals) ?? 0));
-  }, [inView, byGoals, goals]);
+  }, [inView, byGoals, goals, category]);
   const homeCooked = ordered.filter((meal) => meal.category !== "fast_food");
   const fastFood = ordered.filter((meal) => meal.category === "fast_food");
 

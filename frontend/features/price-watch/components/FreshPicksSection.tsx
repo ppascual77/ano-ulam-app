@@ -3,12 +3,14 @@ import { useWindowDimensions, View } from "react-native";
 import { ScrollView as GestureScrollView } from "react-native-gesture-handler";
 import Animated, {
   type SharedValue,
+  useAnimatedReaction,
   useAnimatedRef,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import { AppText, CarouselIndicator } from "@/frontend/components/ui";
 import type { PriceItem } from "@/frontend/core/prices/utils/prices";
 import { FRESH_PICK_CARD_HEIGHT, FreshPickCard } from "./FreshPickCard";
@@ -111,11 +113,16 @@ function FreshPicksSectionInner({ picks, rises, loading, onSelect, visible }: Fr
     scrollX.value = e.contentOffset.x;
   });
 
-
-
-  // The page settles: which card is shown (for the dots and the
-  // shown card's own animations).
-  const settle = (x: number) => setIndex(Math.max(0, Math.min(count - 1, Math.round(x / step))));
+  // Which card is shown (for the dots and the shown card's own animations):
+  // switches as soon as the next card is more than halfway in, not once the
+  // scroll has come to rest, so the dots move with the swipe.
+  useAnimatedReaction(
+    () => Math.max(0, Math.min(count - 1, Math.round(pos.value))),
+    (page, prev) => {
+      if (prev !== null && page !== prev) scheduleOnRN(setIndex, page);
+    },
+    [count],
+  );
 
   return (
     <View className="gap-3">
@@ -146,11 +153,6 @@ function FreshPicksSectionInner({ picks, rises, loading, onSelect, visible }: Fr
               disableIntervalMomentum
               onScroll={onScroll}
               scrollEventThrottle={16}
-              onMomentumScrollEnd={(e) => settle(e.nativeEvent.contentOffset.x)}
-              onScrollEndDrag={(e) => {
-                // A slow drag that lands exactly on a card has no momentum.
-                if (Math.abs((e.nativeEvent.velocity?.x ?? 0)) < 0.01) settle(e.nativeEvent.contentOffset.x);
-              }}
               // The cards are drawn on the fixed stage (PagedCard), so they
               // can tilt past the edges without being clipped.
               style={{ width: cardWidth, height: CARD_HEIGHT, overflow: "visible" }}

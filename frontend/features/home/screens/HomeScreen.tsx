@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScrollView, View, useWindowDimensions, type ScrollViewInstance, type ViewInstance } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Screen, SegmentedSwitch, isModalSheetOpen, usePageIntro, useStatusBarStrip } from "@/frontend/components/ui";
 import { ModeSpotlight, type SpotlightRect } from "@/frontend/features/home/components/ModeSpotlight";
+import { ModeSwitchLanding } from "@/frontend/features/home/components/ModeSwitchLanding";
 import { Header } from "@/frontend/features/home/components/Header";
 import { useBiggestPriceDrop } from "@/frontend/features/home/components/PriceDropLine";
 import { HomeTicker, useCleanupNote } from "@/frontend/features/home/components/HomeTicker";
@@ -25,8 +26,10 @@ import { useTabBarStore } from "@/frontend/components/navigation/useTabBarStore"
 
 type Mode = "budget" | "pantry";
 
-// After the welcome intro's dot lands, before the mode spotlight.
-const SPOTLIGHT_DELAY_MS = 600;
+// After the welcome intro's dot lands: the switch's highlight, then (once
+// its lap has run and faded) the mode spotlight.
+const HIGHLIGHT_AFTER_INTRO_MS = 350;
+const SPOTLIGHT_DELAY_MS = 2000;
 
 // How much further down the green reaches while the header line shows.
 const PRICE_LINE_SPACE = 84;
@@ -60,8 +63,9 @@ export default function HomeScreen() {
 
   // The welcome intro plays once, right after onboarding (which lands here
   // with ?intro=1 and where its page indicator's dot was), not on every
-  // visit like the other tabs' intros. Its dot lands as the period of
-  // "Categories." (no confetti: that's kept for likes and saves).
+  // visit like the other tabs' intros. Its dot lands in the middle of the
+  // By Budget / By Pantry switch (no confetti: that's kept for likes and
+  // saves).
   const params = useLocalSearchParams<{ intro?: string; dotX?: string; dotY?: string }>();
   const [introPending, setIntroPending] = useState(params.intro === "1");
   const reduceMotion = useReduceMotion();
@@ -76,8 +80,6 @@ export default function HomeScreen() {
   usePlanDayCleanup(!introPending && !intro.showing);
   const entry =
     params.dotX && params.dotY ? { x: Number(params.dotX), y: Number(params.dotY) } : undefined;
-  // Stable, so the memoized BudgetSection skips Home's other re-renders.
-  const categoriesLanding = useMemo(() => ({ dotRef: intro.targetRef, showDot: intro.landed }), [intro.targetRef, intro.landed]);
   // Where the plan card ends, for where the status bar turns white.
   const [cardBottom, setCardBottom] = useState<number | null>(null);
 
@@ -102,7 +104,7 @@ export default function HomeScreen() {
   const { height: screenHeight } = useWindowDimensions();
   const [spotlight, setSpotlight] = useState<SpotlightRect | null>(null);
   const spotlightAsked = useRef(false);
-  const spotlightDue = !introPending && !intro.showing && firstRun.loaded && !!firstRun.tonight && !firstRun.modeTourShown;
+  const spotlightDue = !introPending && !intro.showing && firstRun.loaded && firstRun.onboarded && !firstRun.modeTourShown;
   useEffect(() => {
     if (!spotlightDue || spotlightAsked.current) return;
     let timer: ReturnType<typeof setTimeout>;
@@ -132,10 +134,15 @@ export default function HomeScreen() {
     firstRun.markModeTourShown();
   };
 
+  // The switch takes in the intro's dot: a swell with an orange wash, then a
+  // lap of its border (ModeSwitchLanding), like Discover's Create button.
+  const [switchHighlight, setSwitchHighlight] = useState(0);
   const finishIntro = () => {
     intro.finish();
     setIntroPending(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // A beat after the intro's layer has gone, so it plays in the open.
+    setTimeout(() => setSwitchHighlight((n) => n + 1), HIGHLIGHT_AFTER_INTRO_MS);
   };
 
   return (
@@ -169,11 +176,13 @@ export default function HomeScreen() {
           {/* The shadow sits on a wrapper: the switch's own overflow-hidden
               would clip it on iOS. */}
           <View ref={switchRef} collapsable={false} className="self-start rounded-full bg-white shadow-sm">
-            <SegmentedSwitch size="lg" options={MODE_OPTIONS} value={mode} onChange={setMode} />
+            <ModeSwitchLanding landingRef={intro.targetRef} highlightId={switchHighlight}>
+              <SegmentedSwitch size="lg" options={MODE_OPTIONS} value={mode} onChange={setMode} />
+            </ModeSwitchLanding>
           </View>
         </View>
         {mode === "budget" ? (
-          <BudgetSection categoriesLanding={categoriesLanding} />
+          <BudgetSection />
         ) : (
           // Room above the bottom nav so the last ingredients aren't tucked
           // against it (Home only; Profile's Pantry tab has its own).

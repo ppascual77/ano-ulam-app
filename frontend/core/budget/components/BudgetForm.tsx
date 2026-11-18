@@ -13,7 +13,7 @@ type BudgetFormProps = {
   /** Checked before suggesting (e.g. the daily limit): false skips the
    *  "thinking" and the suggestion, and the caller shows why. */
   beforeSuggest?: (params: SuggestParams) => Promise<boolean>;
-  /** Filled in to start with (onboarding's budget for tonight). */
+  /** Filled in to start with (nothing passes one right now). */
   initial?: SuggestParams;
 };
 
