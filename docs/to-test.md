@@ -272,6 +272,29 @@ build: `expo-audio` is already in it.
       Tap: it turns green and the current step is read aloud. Swipe or Next: the old step stops
       and the new one plays. Tap again: it stops. Close cook mode mid-step: the voice stops.
 - [ ] **Remembered:** turn it on, close, open another meal's cook mode: it starts reading at once.
+- [ ] **Read-along:** while a step is read, its words start faint and darken left to right, roughly
+      with the voice, all dark when it ends. Speaker off: the text is plain dark as before.
+- [ ] **Opens at once:** tap Start cooking on a long recipe: cook mode starts sliding up on the
+      tap (no pause), with the wave loader where the step goes; the text appears as the slide ends.
+- [ ] **Loader while loading:** on opening and on reaching a step (speaker on), Suggest's orange
+      rolling wave shows where the text goes. When the voice starts it straightens, squeezes into
+      an orange dot, the faint text fades in, and the dot hops up and falls (gravity, no bounce,
+      a small squash on landing) onto the end of the first sentence as its orange period. First
+      sentence ending in ! or ?, or Reduce motion: the wave straightens and fades instead. Slow connection: after 2.5s the text shows anyway. Replay: no
+      loader.
+- [ ] **Orange period:** each step's first sentence ends in an orange "." (also with the speaker
+      off): on the baseline like a period, not centered like a bullet, at every text size. The
+      flying dot lands exactly on it (no jump when the real period takes over).
+- [ ] **No leftover fill:** when hands-free moves on, the next step's Next step starts empty (no
+      flash of green).
+- [ ] **Bordered Next step** while a step is read. When the reading ends, Replay slides in beside
+      it (smooth, no bounce) and Next step fills with solid green over 5s (the label turns white as the fill passes), presses itself (dips and comes back) with a light tap when full, then 1s later
+      moves on by itself and the next step is read. Last step: Replay + Done, never closes alone.
+- [ ] **Replay** reads the step again (words go faint again) and stops the countdown until it ends.
+- [ ] **Hands-free** pill beside the speaker (only with the speaker on), on every time cook mode
+      opens. Off: no fill, no moving on, Replay and Next step still split. Close and reopen: on.
+- [ ] Tapping Next, Back or swiping during the countdown cancels it cleanly (no double jump).
+- [ ] 360pt-wide phone and Largest text: the header (close, name, Hands-free, speaker) fits.
 - [ ] **Silent switch on:** it still plays (you turned it on). Music playing: it gets quieter
       during a step instead of stopping. The Surprise me slot sound still follows the silent switch.
 - [ ] **No narration:** a user-submitted recipe (pending or approved) shows no speaker button.

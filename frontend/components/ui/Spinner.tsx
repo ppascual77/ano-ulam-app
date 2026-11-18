@@ -37,6 +37,14 @@ type SpinnerProps = {
   /** Wave only: called once the snapped halves have faded, so the parent
    *  can take the spinner away. */
   onDone?: () => void;
+  /** Wave only: how `done` ends it. "snap" (default): pulled taut and
+   *  snapped (Button's). "fade": straightened, then a quick fade, no snap.
+   *  "dot": straightened, then both ends pull into the middle while it
+   *  thickens into a round dot `dotSize` across (cook mode's step loader,
+   *  whose dot then flies off). */
+  outro?: "snap" | "fade" | "dot";
+  /** Wave only, outro "dot": the dot's diameter. */
+  dotSize?: number;
 };
 
 function useSpin(durationMs: number) {
@@ -121,6 +129,10 @@ const SNAP_MS = 240;
 const PULL_PX = 6;
 // The stroke at full tension, thinner than WAVE_STROKE_WIDTH.
 const TAUT_STROKE_WIDTH = 1.3;
+// The "fade" outro: straighten (STRAIGHTEN_MS), then fade out this fast.
+const FADE_OUT_MS = 160;
+// The "dot" outro: straighten, then squeeze into a dot this fast.
+const SQUEEZE_MS = 200;
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
@@ -128,7 +140,7 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 // across. Drawn point by point every frame (not a fixed path slid sideways)
 // so it can change shape: phase loops 0 -> 1 and the sine makes the restart
 // seamless. When `done` flips on: calm, pull taut, snap (see STRAIGHTEN_MS).
-function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone, onSnap }: SpinnerProps) {
+function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone, onSnap, outro = "snap", dotSize = 10 }: SpinnerProps) {
   const [width, setWidth] = useState(0);
   // The worklets below read width from this, not the state: a worklet keeps
   // the JS values it was first created with, so `width` there stays 0 and
@@ -138,7 +150,9 @@ function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone, onSna
   const calm = useSharedValue(0);
   const pull = useSharedValue(0);
   const snap = useSharedValue(0);
-  const boxHeight = size;
+  const fade = useSharedValue(0);
+  const squeeze = useSharedValue(0);
+  const boxHeight = Math.max(size, outro === "dot" ? dotSize : 0);
   // Refs so new inline callbacks each parent render don't restart the timers.
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
@@ -154,9 +168,21 @@ function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone, onSna
       calm.value = 0;
       pull.value = 0;
       snap.value = 0;
+      fade.value = 0;
+      squeeze.value = 0;
       return;
     }
     calm.value = withTiming(1, { duration: STRAIGHTEN_MS, easing: Easing.out(Easing.cubic) });
+    if (outro === "dot") {
+      squeeze.value = withDelay(STRAIGHTEN_MS, withTiming(1, { duration: SQUEEZE_MS, easing: Easing.in(Easing.cubic) }));
+      const timer = setTimeout(() => onDoneRef.current?.(), STRAIGHTEN_MS + SQUEEZE_MS);
+      return () => clearTimeout(timer);
+    }
+    if (outro === "fade") {
+      fade.value = withDelay(STRAIGHTEN_MS, withTiming(1, { duration: FADE_OUT_MS, easing: Easing.out(Easing.quad) }));
+      const timer = setTimeout(() => onDoneRef.current?.(), STRAIGHTEN_MS + FADE_OUT_MS);
+      return () => clearTimeout(timer);
+    }
     pull.value = withDelay(STRAIGHTEN_MS, withTiming(1, { duration: PULL_MS, easing: Easing.in(Easing.quad) }));
     snap.value = withDelay(STRAIGHTEN_MS + PULL_MS, withTiming(1, { duration: SNAP_MS, easing: Easing.out(Easing.cubic) }));
     const timers = [
@@ -164,7 +190,7 @@ function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone, onSna
       setTimeout(() => onDoneRef.current?.(), STRAIGHTEN_MS + PULL_MS + SNAP_MS),
     ];
     return () => timers.forEach(clearTimeout);
-  }, [done, calm, pull, snap]);
+  }, [done, calm, pull, snap, fade, squeeze]);
 
   const pathProps = useAnimatedProps(() => {
     const width = widthSV.value;
@@ -176,8 +202,11 @@ function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone, onSna
     const waveLength = width / WAVE_COUNT;
     // The ends: PULL_PX in from the sides, pulled out to the sides.
     const reach = pad + PULL_PX * (1 - pull.value);
-    const left = reach;
-    const right = width - reach;
+    // Squeezing into a dot: both ends close in on the middle (a hair apart,
+    // so the round caps draw one dot).
+    const q = squeeze.value;
+    const left = reach + (center - 0.5 - reach) * q;
+    const right = width - reach - (width - reach - (center + 0.5)) * q;
     // After the snap each half's broken end whips back to its own side.
     const s = snap.value;
     let d = "";
@@ -195,10 +224,10 @@ function WaveSpinner({ size = 12, color = "#FFFFFF", done = false, onDone, onSna
     }
     return {
       d,
-      strokeWidth: WAVE_STROKE_WIDTH + (TAUT_STROKE_WIDTH - WAVE_STROKE_WIDTH) * pull.value * (1 - s),
-      strokeOpacity: 1 - s,
+      strokeWidth: WAVE_STROKE_WIDTH + (TAUT_STROKE_WIDTH - WAVE_STROKE_WIDTH) * pull.value * (1 - s) + (dotSize - WAVE_STROKE_WIDTH) * q,
+      strokeOpacity: (1 - s) * (1 - fade.value),
     };
-  }, [size, boxHeight]);
+  }, [size, boxHeight, dotSize]);
 
   return (
     <View

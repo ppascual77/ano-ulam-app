@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { View, Platform, Pressable, PressableProps, StyleProp, StyleSheet, ViewStyle } from "react-native";
 import { BlurView } from "expo-blur";
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
-import Animated, { FadeOut, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { FadeOut, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from "react-native-reanimated";
 import { colors } from "@/frontend/constants/theme";
 import { AppText } from "./AppText";
 import { Confetti } from "./Confetti";
@@ -90,7 +90,31 @@ type ButtonProps = Omit<PressableProps, "style"> & {
   /** "spiral": the twirling spiral instead of the wave, with no snap or
    *  confetti when it ends (the label just comes back). For Reduce motion. */
   loader?: "wave" | "spiral";
+  /** 0 -> 1: a solid brand-green fill sweeping across from the left (e.g.
+   *  cook mode's Next step counting down to moving on by itself). For
+   *  "outline": where the fill has reached, the label turns white. */
+  fill?: SharedValue<number>;
+  /** The icon as drawn over the fill (white), when `fill` is set. */
+  fillIcon?: ReactNode;
 };
+
+// Variants drawn with a 1px border.
+const BORDERED: ReadonlySet<Variant> = new Set(["outline", "social", "muted"]);
+
+// The fill, and on it a white copy of the label clipped to the fill's
+// width, laid exactly over the green one: the label reads wherever the
+// edge is.
+function ButtonFill({ fill, size, content }: { fill: SharedValue<number>; size: { w: number; h: number }; content: ReactNode }) {
+  const style = useAnimatedStyle(() => ({ width: Math.min(Math.max(fill.value, 0), 1) * size.w }));
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[{ position: "absolute", left: 0, top: 0, bottom: 0, overflow: "hidden", backgroundColor: colors.primary }, style]}
+    >
+      <View style={{ width: size.w, height: size.h, alignItems: "center", justifyContent: "center" }}>{content}</View>
+    </Animated.View>
+  );
+}
 
 export function Button({
   label,
@@ -103,8 +127,11 @@ export function Button({
   loading = false,
   celebrate = true,
   loader = "wave",
+  fill,
+  fillIcon,
   ...props
 }: ButtonProps) {
+  const [fillSize, setFillSize] = useState<{ w: number; h: number } | null>(null);
   // "fullPill" (currently only the "tinted" View Details button) centers its
   // label regardless of the icon, and pins the icon to the button's far edge.
   const isFullPill = shape === "fullPill";
@@ -135,10 +162,20 @@ export function Button({
 
   return (
     <Pressable
-      className={`items-center justify-center ${containerClasses[variant]} ${shapeClasses[shape]} ${disabled ? "opacity-30" : ""}`}
+      className={`items-center justify-center ${containerClasses[variant]} ${shapeClasses[shape]} ${fill ? "overflow-hidden" : ""} ${disabled ? "opacity-30" : ""}`}
       style={[shapeStyles[shape], variant === "glass" && CAPSULE, style]}
       disabled={disabled || busy}
       accessibilityState={{ disabled: disabled || busy, busy }}
+      // Inside the 1px border (the fill and its label sit within it, so
+      // the white label lands exactly on the green one).
+      onLayout={
+        fill
+          ? (e) => {
+              const border = BORDERED.has(variant) ? 2 : 0;
+              setFillSize({ w: e.nativeEvent.layout.width - border, h: e.nativeEvent.layout.height - border });
+            }
+          : undefined
+      }
       {...props}
     >
       {variant === "glass" && LIQUID_GLASS && (
@@ -166,6 +203,23 @@ export function Button({
           </View>
         )}
       </Animated.View>
+      {fill && fillSize && (
+        <ButtonFill
+          fill={fill}
+          size={fillSize}
+          content={
+            <View className="flex-row items-center gap-2">
+              {iconPosition === "left" && fillIcon}
+              {label && (
+                <AppText variant="title" className="text-white">
+                  {label}
+                </AppText>
+              )}
+              {iconPosition === "right" && fillIcon}
+            </View>
+          }
+        />
+      )}
       {busy && (
         <Animated.View
           exiting={FadeOut.duration(CONTENT_FADE_MS)}

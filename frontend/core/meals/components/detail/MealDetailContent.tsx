@@ -53,7 +53,7 @@ import {
   showGlobalToast,
   useBurstOnActivate,
 } from "@/frontend/components/ui";
-import { CookMode } from "./CookMode";
+import { CookModeHost, type CookModeHandle } from "./CookMode";
 import { MealShareCapture } from "./MealShareCard";
 import { canShareImages } from "../../nativeFeatures";
 import { colors } from "@/frontend/constants/theme";
@@ -425,7 +425,9 @@ export function MealDetailContent({
   }));
   const [servings, setServings] = useState(initialServings ?? meal.serving_size ?? 1);
   // Cook mode over the page, and the share card being captured.
-  const [cooking, setCooking] = useState(false);
+  // Cook mode keeps its own open state (CookModeHost), so Start cooking
+  // doesn't re-render this whole page before it can slide up.
+  const cookMode = useRef<CookModeHandle>(null);
   const [sharing, setSharing] = useState(false);
   const canShare = canShareImages && !preview && !isAdmin && meal.status !== "pending" && meal.status !== "rejected" && meal.status !== "draft";
   // The photo's bookmark: the same save as the footer button, wherever it
@@ -863,7 +865,7 @@ export function MealDetailContent({
             <SectionTitle>Steps</SectionTitle>
             {!preview && (
               <Pressable
-                onPress={() => setCooking(true)}
+                onPress={() => cookMode.current?.open()}
                 accessibilityRole="button"
                 className="flex-row items-center gap-1.5 rounded-full bg-primary px-3.5 py-2 active:opacity-80"
               >
@@ -1013,14 +1015,14 @@ export function MealDetailContent({
         </View>
       )}
 
-      {!preview && cooking && meal.procedure && meal.procedure.length > 0 && (
-        <CookMode
+      {!preview && meal.procedure && meal.procedure.length > 0 && (
+        <CookModeHost
+          ref={cookMode}
           mealName={meal.name}
           steps={meal.procedure}
           stepAudio={meal.procedure_audio}
           ingredients={cookIngredients}
           servings={servings}
-          onClose={() => setCooking(false)}
         />
       )}
       {sharing && (

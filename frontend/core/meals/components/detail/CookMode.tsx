@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Pressable, ScrollView, View, useWindowDimensions, type FlatListInstance } from "react-native";
+import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
+import { FlatList, Pressable, ScrollView, View, useWindowDimensions, type FlatListInstance, type ViewInstance } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { StatusBar } from "expo-status-bar";
 import { canKeepAwake } from "../../nativeFeatures";
@@ -9,18 +9,21 @@ import Animated, {
   Easing,
   FadeIn,
   FadeOut,
+  LinearTransition,
   SlideInDown,
   SlideOutDown,
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withSequence,
   withTiming,
   type SharedValue,
 } from "react-native-reanimated";
-import { ChevronLeft, ChevronRight, ChevronUp, ShoppingBasket, Volume2, VolumeX, X } from "lucide-react-native";
-import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
+import { ChevronLeft, ChevronRight, ChevronUp, Hand, RotateCcw, ShoppingBasket, Volume2, VolumeX, X } from "lucide-react-native";
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { useNarration } from "@/frontend/core/preferences/store/useNarrationStore";
-import { AppText, BottomSheet, Button, DotLabel } from "@/frontend/components/ui";
+import { AppText, BottomSheet, Button, DotLabel, Spinner } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { capitalize } from "../../utils/dietary";
@@ -107,43 +110,270 @@ function Highlight({ progress, reduceMotion }: { progress: SharedValue<number>; 
   );
 }
 
+// Read-along: while a step is narrated, its words start faint and darken one
+// by one at the voice's pace, as if being read out (`read` is 0 -> 1 over the
+// recording; each word darkens as the share of the step's letters before it
+// is reached). A rough match to the voice, not word-perfect timing.
+const FAINT = 0.28;
+
+function ReadWord({ read, start, end, children }: { read: SharedValue<number>; start: number; end: number; children: React.ReactNode }) {
+  const style = useAnimatedStyle(() => {
+    const t = Math.min(Math.max((read.value - start) / Math.max(end - start, 0.0001), 0), 1);
+    return { opacity: FAINT + (1 - FAINT) * t };
+  });
+  // Row direction in style: NativeWind classes don't reach an animated view.
+  return <Animated.View style={[{ flexDirection: "row" }, style]}>{children}</Animated.View>;
+}
+
+// The headline's period: a real "." in orange (the app's dotted-title
+// style), the same font and size as the headline, so it sits on the
+// baseline like any period at every text size. The loader's dot lands on it.
+// How big the glyph's dot is, as a share of the line's font height (ascender
+// + descender), for landing the flying dot exactly on it.
+const PERIOD_DOT_SHARE = 0.13;
+
+/** Where the headline's period glyph is drawn, in its own box: its dot's
+ *  center height and size (from the line's font metrics; React Native
+ *  centers the font inside the line height). */
+type PeriodGlyph = { centerY: number; size: number };
+
+type TextLine = { y: number; height: number; ascender: number; descender: number };
+
+function periodGlyphOf(line: TextLine): PeriodGlyph {
+  const font = line.ascender + line.descender;
+  const baseline = line.y + (line.height - font) / 2 + line.ascender;
+  const size = font * PERIOD_DOT_SHARE;
+  return { centerY: baseline - size / 2, size };
+}
+
+/** Whether the headline ends with a period the orange dot can stand in for. */
+const endsWithPeriod = (segments: StepSegment[]) => /\.\s*$/.test(segments.map((s) => s.text).join(""));
+
 function StepText({
   segments,
   textClass,
   progress,
   reduceMotion,
+  read,
+  from,
+  total,
+  period,
 }: {
   segments: StepSegment[];
   textClass: string;
   progress: SharedValue<number>;
   reduceMotion: boolean;
+  read: SharedValue<number>;
+  /** Where this text starts within the whole step, in letters (the lead
+   *  comes first, then the detail). */
+  from: number;
+  /** The whole step's length in letters. */
+  total: number;
+  /** The headline: its final "." drawn as the orange dot, shown when
+   *  `show` (hidden while the loader's dot is on its way to it). */
+  period?: { ref: Ref<ViewInstance>; show: boolean; onGlyph: (glyph: PeriodGlyph) => void };
 }) {
   const units = toUnits(segments);
+  // The final "." comes off the last word; the dot is drawn after it.
+  if (period && units.length > 0) {
+    const lastUnit = units[units.length - 1];
+    const lastPiece = lastUnit[lastUnit.length - 1];
+    lastUnit[lastUnit.length - 1] = { ...lastPiece, text: lastPiece.text.replace(/\.\s*$/, "") };
+  }
+  let at = from;
   return (
     <View className="mt-4 flex-row flex-wrap" accessible accessibilityLabel={segments.map((s) => s.text).join("")}>
-      {units.map((unit, u) => (
-        <View key={u} className="flex-row">
-          {unit.map((piece, p) =>
-            piece.highlighted ? (
-              <View key={p}>
-                <Highlight progress={progress} reduceMotion={reduceMotion} />
-                <Text className={`${textClass} text-ink-emphasis`}>{piece.text}</Text>
-              </View>
-            ) : (
-              <Text key={p} className={textClass}>
-                {piece.text}
+      {units.map((unit, u) => {
+        const length = unit.reduce((n, piece) => n + piece.text.length, 0);
+        const start = at / total;
+        at += length;
+        const word = (
+          <ReadWord key={u} read={read} start={start} end={at / total}>
+            {unit.map((piece, p) =>
+              piece.highlighted ? (
+                <View key={p}>
+                  <Highlight progress={progress} reduceMotion={reduceMotion} />
+                  <Text className={`${textClass} text-ink-emphasis`}>{piece.text}</Text>
+                </View>
+              ) : (
+                <Text key={p} className={textClass}>
+                  {piece.text}
+                </Text>
+              ),
+            )}
+          </ReadWord>
+        );
+        if (!period || u !== units.length - 1) return word;
+        // The last word and its dot wrap together. The dot sits outside the
+        // read-along's fade: it's full orange from the moment it lands.
+        return (
+          <View key={u} style={{ flexDirection: "row" }}>
+            {word}
+            <View ref={period.ref} collapsable={false} style={{ opacity: period.show ? 1 : 0 }}>
+              <Text
+                className={`${textClass} text-accent`}
+                onTextLayout={(e) => {
+                  const line = e.nativeEvent.lines[0];
+                  if (line) period.onGlyph(periodGlyphOf(line));
+                }}
+              >
+                .
               </Text>
-            ),
-          )}
-        </View>
-      ))}
+            </View>
+          </View>
+        );
+      })}
     </View>
+  );
+}
+
+// The loader's dot flying to the headline's period: thrown up and falling
+// under gravity (steady sideways speed, a parabola up and down), shrinking
+// from its loader size to the period's, then a small squash as it lands (no
+// bounce) before the real period takes over.
+const FLY_DOT = 7;
+const FLIGHT_MS = 560;
+const FLIGHT_ARC = 70;
+const LAND_SQUASH_MS = 90;
+const LAND_SETTLE_MS = 150;
+
+type Point = { x: number; y: number };
+
+function FlyingDot({ from, to, landSize, onLanded }: { from: Point; to: Point | null; landSize: number; onLanded: () => void }) {
+  const t = useSharedValue(0);
+  const squash = useSharedValue(0);
+  const landedRef = useRef(onLanded);
+  landedRef.current = onLanded;
+  useEffect(() => {
+    if (!to) return;
+    t.value = withTiming(1, { duration: FLIGHT_MS, easing: Easing.linear });
+    squash.value = withDelay(
+      FLIGHT_MS,
+      withSequence(withTiming(1, { duration: LAND_SQUASH_MS, easing: Easing.out(Easing.quad) }), withTiming(0, { duration: LAND_SETTLE_MS, easing: Easing.inOut(Easing.quad) })),
+    );
+    const timer = setTimeout(() => landedRef.current(), FLIGHT_MS + LAND_SQUASH_MS + LAND_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [to]);
+  const style = useAnimatedStyle(() => {
+    const target = to ?? from;
+    const p = t.value;
+    const x = from.x + (target.x - from.x) * p;
+    // Gravity: a parabola in time, up from the start and down onto the dot.
+    const y = from.y + (target.y - from.y) * p - FLIGHT_ARC * 4 * p * (1 - p);
+    const scale = 1 + (landSize / FLY_DOT - 1) * p;
+    const s = squash.value;
+    return {
+      transform: [
+        { translateX: x - FLY_DOT / 2 },
+        // Squashed flat onto the line it landed on, then round again.
+        { translateY: y - FLY_DOT / 2 + (FLY_DOT * scale * 0.2 * s) / 2 },
+        { scaleX: scale * (1 + 0.3 * s) },
+        { scaleY: scale * (1 - 0.3 * s) },
+      ],
+    };
+  }, [from, to, landSize]);
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[{ position: "absolute", left: 0, top: 0, width: FLY_DOT, height: FLY_DOT, borderRadius: FLY_DOT / 2, backgroundColor: colors.accent }, style]}
+    />
   );
 }
 
 type Page = { lead: StepSegment[]; detail: StepSegment[] | null };
 
-function StepPage({ page, number, active, width, reduceMotion }: { page: Page; number: number; active: boolean; width: number; reduceMotion: boolean }) {
+const segmentsLength = (segments: StepSegment[] | null) => (segments ?? []).reduce((n, s) => n + s.text.length, 0);
+
+// While a step's recording downloads: the same rolling squiggle as Suggest
+// meals' button (Patrick, 2026-11-18: it keeps the app's character; it
+// replaced shimmering skeleton bars). Once the voice starts it straightens
+// and squeezes into a dot that hops onto the headline's period (FlyingDot);
+// with Reduce motion, or no period to land on, it just fades.
+function StepWave({ done, onDone, dot, waveRef }: { done: boolean; onDone: () => void; dot: boolean; waveRef: Ref<ViewInstance> }) {
+  return (
+    <View ref={waveRef} collapsable={false} accessible accessibilityLabel="Loading this step" className="mt-8" style={{ width: "85%" }}>
+      <Spinner variant="wave" size={14} color={colors.accent} done={done} outro={dot ? "dot" : "fade"} dotSize={FLY_DOT} onDone={onDone} />
+    </View>
+  );
+}
+
+
+function StepPage({
+  page,
+  number,
+  active,
+  width,
+  reduceMotion,
+  read,
+  loading,
+}: {
+  page: Page;
+  number: number;
+  active: boolean;
+  width: number;
+  reduceMotion: boolean;
+  /** The read-along's progress for this page (see ReadWord). */
+  read: SharedValue<number>;
+  /** Its recording is still downloading: the skeleton shows. */
+  loading: boolean;
+}) {
+  const leadLength = segmentsLength(page.lead);
+  const total = Math.max(leadLength + segmentsLength(page.detail), 1);
+  const hasPeriod = endsWithPeriod(page.lead);
+  const flies = hasPeriod && !reduceMotion;
+  // "loading": the wave rolls (and, once loading ends, straightens and
+  // squeezes into a dot). "flight": the text is in and the dot hops onto the
+  // headline's period. "shown": done. The wave outlives `loading`, so this
+  // is set during render (like Button's wave, there on loading's first
+  // frame).
+  const [phase, setPhase] = useState<"loading" | "flight" | "shown">(loading ? "loading" : "shown");
+  if (loading && phase !== "loading") setPhase("loading");
+  const rootRef = useRef<ViewInstance>(null);
+  const waveRef = useRef<ViewInstance>(null);
+  const periodRef = useRef<ViewInstance>(null);
+  const [flight, setFlight] = useState<{ from: Point; to: Point | null; size: number } | null>(null);
+  // A spot's center, relative to this page's content (where the dot flies).
+  const measureCenter = (ref: { current: ViewInstance | null }, then: (p: Point) => void, otherwise: () => void) => {
+    const root = rootRef.current;
+    const node = ref.current;
+    if (!root || !node) return otherwise();
+    root.measureInWindow((rx, ry) => node.measureInWindow((x, y, w, h) => then({ x: x - rx + w / 2, y: y - ry + h / 2 })));
+  };
+  const skipFlight = () => {
+    setFlight(null);
+    setPhase("shown");
+  };
+  // The wave has become a dot: it takes off from there (held in place until
+  // the period below has been laid out and measured).
+  const onWaveDone = () => {
+    if (!flies) return skipFlight();
+    measureCenter(
+      waveRef,
+      (from) => {
+        setFlight({ from, to: null, size: FLY_DOT });
+        setPhase("flight");
+      },
+      skipFlight,
+    );
+  };
+  // Never left hanging: no period measured soon after take-off, the dot
+  // just goes and the period shows.
+  useEffect(() => {
+    if (phase !== "flight" || flight?.to) return;
+    const timer = setTimeout(skipFlight, 600);
+    return () => clearTimeout(timer);
+  }, [phase, flight?.to]);
+  // The period glyph has been laid out: aim for its dot (its box's middle
+  // across, the glyph's own height down), landing at the glyph's size.
+  const onPeriodGlyph = (glyph: PeriodGlyph) => {
+    if (phase !== "flight" || !flight || flight.to) return;
+    const root = rootRef.current;
+    const node = periodRef.current;
+    if (!root || !node) return skipFlight();
+    root.measureInWindow((rx, ry) =>
+      node.measureInWindow((x, y, w) => setFlight((f) => (f ? { ...f, to: { x: x - rx + w / 2, y: y - ry + glyph.centerY }, size: glyph.size } : f))),
+    );
+  };
   // 0 -> 1 each time this step comes into view; back to 0 once it's left.
   const progress = useSharedValue(0);
   useEffect(() => {
@@ -156,13 +386,49 @@ function StepPage({ page, number, active, width, reduceMotion }: { page: Page; n
     // space; scrolls if a long one at the largest text size runs past the
     // footer.
     <ScrollView style={{ width }} contentContainerClassName="px-7 pb-8 pt-10" showsVerticalScrollIndicator={false}>
-      <DotLabel>{`Step ${number}`}</DotLabel>
-      {/* The first sentence as the headline, read from arm's length; the
-          rest a size down. */}
-      <StepText segments={page.lead} textClass="font-inter-bold text-heading leading-8 text-ink-emphasis" progress={progress} reduceMotion={reduceMotion} />
-      {page.detail && (
-        <StepText segments={page.detail} textClass="font-inter-regular text-subheading leading-7 text-ink" progress={progress} reduceMotion={reduceMotion} />
-      )}
+      <View ref={rootRef} collapsable={false}>
+        <DotLabel>{`Step ${number}`}</DotLabel>
+        {phase === "loading" ? (
+          <StepWave done={!loading} onDone={onWaveDone} dot={flies} waveRef={waveRef} />
+        ) : (
+          // The first sentence as the headline, read from arm's length; the
+          // rest a size down. Fades in as the loader's dot takes off.
+          <Animated.View key="text" entering={active ? FadeIn.duration(200) : undefined}>
+            <StepText
+              segments={page.lead}
+              textClass="font-inter-bold text-heading leading-8 text-ink-emphasis"
+              progress={progress}
+              reduceMotion={reduceMotion}
+              read={read}
+              from={0}
+              total={total}
+              period={hasPeriod ? { ref: periodRef, show: phase === "shown", onGlyph: onPeriodGlyph } : undefined}
+            />
+            {page.detail && (
+              <StepText
+                segments={page.detail}
+                textClass="font-inter-regular text-subheading leading-7 text-ink"
+                progress={progress}
+                reduceMotion={reduceMotion}
+                read={read}
+                from={leadLength}
+                total={total}
+              />
+            )}
+          </Animated.View>
+        )}
+        {phase === "flight" && flight && (
+          <FlyingDot
+            from={flight.from}
+            to={flight.to}
+            landSize={flight.size}
+            onLanded={() => {
+              setFlight(null);
+              setPhase("shown");
+            }}
+          />
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -184,16 +450,49 @@ type CookModeProps = {
 // awake while it's open. Rendered over the meal page (inside the same
 // sheet), so the meal is right where it was on close.
 const KEEP_AWAKE_TAG = "cook-mode";
+// Cook mode's entrance: a slide up, or a fade with Reduce motion.
+const ENTER_SLIDE_MS = 320;
+const ENTER_FADE_MS = 200;
+// Hands-free: Next step fills up over this long after a step's reading,
+// then holds full this long before moving on.
+const AUTO_NEXT_FILL_MS = 5000;
+const AUTO_NEXT_HOLD_MS = 1000;
+// A step's recording still not playing after this long: show the text
+// anyway instead of the skeleton.
+const LOADING_GIVE_UP_MS = 2500;
+// Once it's full, the button presses itself: down to this size and back.
+const PRESS_SCALE = 0.95;
+const PRESS_DOWN_MS = 110;
+const PRESS_UP_MS = 220;
 
 // Narration: with the speaker on, each step is read aloud as it comes into
 // view (and the current one at once when it's turned on). Moving to another
 // step stops the one playing; closing cook mode stops it too. It plays with
 // the phone on silent (someone turned it on, so they want to hear it) and
 // lowers any music rather than stopping it.
-function useStepNarration(urls: string[] | null, index: number) {
+// While a step plays, `read` runs 0 -> 1 at the recording's pace (the
+// read-along, see ReadWord); `finished` turns true once the current step's
+// reading has ended, for the Replay / Next step split and moving on by
+// itself. With the speaker off, `read` sits at 1 (plain text).
+// `ready`: cook mode has finished opening; the first step isn't read during
+// the slide-up.
+function useStepNarration(urls: string[] | null, index: number, ready: boolean) {
   const { on, setOn } = useNarration();
   const player = useAudioPlayer(null);
+  const status = useAudioPlayerStatus(player);
   const active = on && !!urls;
+  const read = useSharedValue(active ? 0 : 1);
+  const [finishedAt, setFinishedAt] = useState<number | null>(null);
+  // The step whose recording has started playing: until then it's still
+  // downloading (the skeleton shows), and the end of the previous one can't
+  // count as this one finishing.
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  // Taking too long (slow connection): show the step anyway, the voice
+  // catches up when it can.
+  const [stalledAt, setStalledAt] = useState<number | null>(null);
+  const indexRef = useRef(index);
+  indexRef.current = index;
+  const startedRef = useRef(false);
 
   useEffect(() => {
     if (!active) return;
@@ -205,17 +504,81 @@ function useStepNarration(urls: string[] | null, index: number) {
   }, [active]);
 
   useEffect(() => {
+    setFinishedAt(null);
+    startedRef.current = false;
+    cancelAnimation(read);
     if (!active) {
       player.pause();
+      read.value = 1;
       return;
     }
     const url = urls![index];
-    if (!url) return;
+    if (!url) {
+      read.value = 1;
+      return;
+    }
+    read.value = 0;
+    if (!ready) return;
     player.replace({ uri: url });
     player.play();
-  }, [active, index]);
+    const stall = setTimeout(() => setStalledAt(index), LOADING_GIVE_UP_MS);
+    return () => clearTimeout(stall);
+  }, [active, index, ready]);
 
-  return { available: !!urls, on: active, toggle: () => setOn(!on) };
+  // The words darken over what's left of the recording while it plays, and
+  // hold where they are if it stalls (loading, an interruption).
+  useEffect(() => {
+    if (!active) return;
+    if (status.playing && status.duration > 0) {
+      startedRef.current = true;
+      setStartedAt(indexRef.current);
+      const left = Math.max(status.duration - status.currentTime, 0);
+      read.value = withTiming(1, { duration: left * 1000, easing: Easing.linear });
+    } else {
+      cancelAnimation(read);
+    }
+  }, [active, status.playing, status.duration]);
+
+  // The reading ended: everything is dark, and the step counts as heard.
+  const ended = status.didJustFinish || (!status.playing && status.duration > 0 && status.currentTime >= status.duration - 0.15);
+  useEffect(() => {
+    if (!active || !ended || !startedRef.current) return;
+    cancelAnimation(read);
+    read.value = withTiming(1, { duration: 150 });
+    setFinishedAt(indexRef.current);
+  }, [active, ended]);
+
+  const replay = () => {
+    if (!active) return;
+    setFinishedAt(null);
+    startedRef.current = false;
+    cancelAnimation(read);
+    read.value = 0;
+    void player.seekTo(0).then(() => player.play());
+  };
+
+  return {
+    available: !!urls,
+    on: active,
+    toggle: () => setOn(!on),
+    read,
+    finished: active && finishedAt === index,
+    // Downloading this step's recording (the skeleton shows instead of
+    // the text), unless it's taking too long.
+    loading: active && !!urls?.[index] && startedAt !== index && finishedAt !== index && stalledAt !== index,
+    replay,
+  };
+}
+
+export type CookModeHandle = { open: () => void };
+
+/** Cook mode with its own open/closed state, opened through `ref.open()`:
+ *  tapping Start cooking re-renders only this, not the whole meal page it
+ *  sits in (that re-render held the slide-up back). */
+export function CookModeHost({ ref, ...props }: Omit<CookModeProps, "onClose"> & { ref: Ref<CookModeHandle> }) {
+  const [open, setOpen] = useState(false);
+  useImperativeHandle(ref, () => ({ open: () => setOpen(true) }), []);
+  return open ? <CookMode {...props} onClose={() => setOpen(false)} /> : null;
 }
 
 export function CookMode({ mealName, steps, stepAudio, ingredients, servings, onClose }: CookModeProps) {
@@ -231,13 +594,66 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, on
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [index, setIndex] = useState(0);
+  // Opens at once with skeleton bars; the steps' real text (an animated
+  // view per word, for the read-along) is built once the slide-up is over,
+  // so it never holds the slide back.
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setReady(true), reduceMotion ? ENTER_FADE_MS : ENTER_SLIDE_MS);
+    return () => clearTimeout(timer);
+  }, []);
   const [listOpen, setListOpen] = useState(false);
   const list = useRef<FlatListInstance>(null);
   const last = index === steps.length - 1;
-  const narration = useStepNarration(stepAudio && stepAudio.length === steps.length ? stepAudio : null, index);
+  const narration = useStepNarration(stepAudio && stepAudio.length === steps.length ? stepAudio : null, index, ready);
   const toggleNarration = () => {
     void Haptics.selectionAsync();
     narration.toggle();
+  };
+  // The pages not on screen: faint while narrating (they'll be read when
+  // reached), plain otherwise.
+  const unread = useSharedValue(0);
+  const plain = useSharedValue(1);
+
+  // Hands-free: once a step's reading ends, Next step fills up over 5
+  // seconds, holds a second, then moves on by itself. On every time cook
+  // mode opens; switching it off lasts only until it's closed.
+  const [handsFree, setHandsFree] = useState(true);
+  const toggleHandsFree = () => {
+    void Haptics.selectionAsync();
+    setHandsFree((v) => !v);
+  };
+  const autoFill = useSharedValue(0);
+  // Once full: the button presses itself, dipping a little and coming back
+  // like a finger tapped it (with a light tap), saying "here we go". Eased,
+  // no bounce; just the tap with Reduce motion.
+  const nudge = useSharedValue(1);
+  const countingDown = narration.finished && handsFree && !last;
+  useEffect(() => {
+    cancelAnimation(autoFill);
+    cancelAnimation(nudge);
+    autoFill.value = 0;
+    nudge.value = 1;
+    if (!countingDown) return;
+    autoFill.value = withTiming(1, { duration: AUTO_NEXT_FILL_MS, easing: Easing.linear });
+    const full = setTimeout(() => {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (reduceMotion) return;
+      nudge.value = withSequence(
+        withTiming(PRESS_SCALE, { duration: PRESS_DOWN_MS, easing: Easing.out(Easing.quad) }),
+        withTiming(1, { duration: PRESS_UP_MS, easing: Easing.inOut(Easing.quad) }),
+      );
+    }, AUTO_NEXT_FILL_MS);
+    const advance = setTimeout(() => goTo(index + 1), AUTO_NEXT_FILL_MS + AUTO_NEXT_HOLD_MS);
+    return () => {
+      clearTimeout(full);
+      clearTimeout(advance);
+    };
+  }, [countingDown, index]);
+  const nudgeStyle = useAnimatedStyle(() => ({ transform: [{ scale: nudge.value }] }));
+  const replay = () => {
+    void Haptics.selectionAsync();
+    narration.replay();
   };
 
   // Each step split into its headline and the rest, with the ingredient
@@ -265,10 +681,22 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, on
     void Haptics.selectionAsync();
   }, [index]);
 
+  // The countdown's fill and nudge clear the moment the step changes, not
+  // in an effect after the next step has drawn (that left a flash of full
+  // green on it).
+  const changeStep = (target: number) => {
+    if (target === index) return;
+    cancelAnimation(autoFill);
+    cancelAnimation(nudge);
+    autoFill.value = 0;
+    nudge.value = 1;
+    setIndex(target);
+  };
+
   const goTo = (i: number) => {
     const target = Math.max(0, Math.min(steps.length - 1, i));
     list.current?.scrollToIndex({ index: target, animated: !reduceMotion });
-    setIndex(target);
+    changeStep(target);
   };
 
   const openList = () => {
@@ -278,7 +706,7 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, on
 
   return (
     <Animated.View
-      entering={reduceMotion ? FadeIn.duration(200) : SlideInDown.duration(320).easing(EASE)}
+      entering={reduceMotion ? FadeIn.duration(ENTER_FADE_MS) : SlideInDown.duration(ENTER_SLIDE_MS).easing(EASE)}
       exiting={reduceMotion ? FadeOut.duration(150) : SlideOutDown.duration(260).easing(EASE)}
       className="absolute inset-0 bg-white"
       style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }}
@@ -301,6 +729,23 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, on
             Step {index + 1} of {steps.length}
           </Text>
         </View>
+        {narration.on && (
+          <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)}>
+            <Pressable
+              onPress={toggleHandsFree}
+              hitSlop={6}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: handsFree }}
+              accessibilityLabel="Hands-free: go to the next step on its own after each one is read"
+              className={`h-10 flex-row items-center gap-1.5 rounded-full border px-3 ${
+                handsFree ? "border-primary bg-primary/10" : "border-ink-emphasis/10 bg-white"
+              }`}
+            >
+              <Hand color={handsFree ? colors.primary : colors.ink.subtle} size={16} />
+              <Text className={`font-inter-semibold text-small ${handsFree ? "text-primary" : "text-ink-subtle"}`}>Hands-free</Text>
+            </Pressable>
+          </Animated.View>
+        )}
         {narration.available && (
           <Pressable
             onPress={toggleNarration}
@@ -328,11 +773,23 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, on
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
-        onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
+        onMomentumScrollEnd={(e) => changeStep(Math.round(e.nativeEvent.contentOffset.x / width))}
         className="flex-1"
-        extraData={index}
+        extraData={`${index}:${narration.on}:${narration.loading}:${ready}`}
+        // Only the step on screen and its neighbours are built.
+        initialNumToRender={1}
+        maxToRenderPerBatch={1}
+        windowSize={3}
         renderItem={({ item, index: i }) => (
-          <StepPage page={item} number={i + 1} active={i === index} width={width} reduceMotion={reduceMotion} />
+          <StepPage
+            page={item}
+            number={i + 1}
+            active={i === index}
+            width={width}
+            reduceMotion={reduceMotion}
+            read={i === index ? narration.read : narration.on ? unread : plain}
+            loading={!ready || (i === index && narration.loading)}
+          />
         )}
       />
 
@@ -365,14 +822,51 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, on
             onPress={() => goTo(index - 1)}
             disabled={index === 0}
           />
-          <View className="flex-1">
-            <Button
-              label={last ? "Done" : "Next step"}
-              icon={last ? undefined : <ChevronRight color={colors.white} size={18} />}
-              iconPosition="right"
-              onPress={() => (last ? onClose() : goTo(index + 1))}
-            />
-          </View>
+          {/* Once a narrated step's reading ends, the button splits: Replay
+              slides in beside a narrower Next step (filling up when
+              hands-free). Eased, no bounce. */}
+          {narration.finished && (
+            <Animated.View
+              entering={reduceMotion ? FadeIn.duration(150) : FadeIn.duration(260).easing(EASE)}
+              exiting={FadeOut.duration(150)}
+              layout={reduceMotion ? undefined : LinearTransition.duration(280).easing(EASE)}
+            >
+              <Button
+                variant="muted"
+                label="Replay"
+                icon={<RotateCcw color={colors.ink.emphasis} size={16} />}
+                accessibilityLabel="Read this step again"
+                onPress={replay}
+              />
+            </Animated.View>
+          )}
+          <Animated.View className="flex-1" layout={reduceMotion ? undefined : LinearTransition.duration(280).easing(EASE)}>
+            {last ? (
+              <Button label="Done" variant={narration.on && !narration.finished ? "outline" : "primary"} onPress={onClose} />
+            ) : narration.on ? (
+              // Narrating: a bordered Next step, so the reading leads; it
+              // fills up once the reading ends (hands-free).
+              <Animated.View style={nudgeStyle}>
+                <Button
+                  variant="outline"
+                  label="Next step"
+                  icon={<ChevronRight color={colors.primary} size={18} />}
+                  fillIcon={<ChevronRight color={colors.white} size={18} />}
+                  iconPosition="right"
+                  fill={autoFill}
+                  accessibilityHint={countingDown ? "Moves on by itself in a few seconds" : undefined}
+                  onPress={() => goTo(index + 1)}
+                />
+              </Animated.View>
+            ) : (
+              <Button
+                label="Next step"
+                icon={<ChevronRight color={colors.white} size={18} />}
+                iconPosition="right"
+                onPress={() => goTo(index + 1)}
+              />
+            )}
+          </Animated.View>
         </View>
       </View>
 
