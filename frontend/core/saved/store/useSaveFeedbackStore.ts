@@ -1,5 +1,4 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFirstRunStore } from "@/frontend/core/preferences/store/useFirstRunStore";
 import type { ViewInstance } from "react-native";
 import type { View } from "react-native";
 import { router } from "expo-router";
@@ -63,7 +62,10 @@ export const useSaveFeedbackStore = create<SaveFeedbackState>((set) => ({
   limitOpen: false,
   load: async () => {
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      // TEMP first-time user for device testing: ignore what's saved. Revert before committing.
+      const stored = null as string | null;
+      void AsyncStorage;
+      // const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) set(JSON.parse(stored) as Persisted);
     } catch {
       // Unreadable: start fresh (worst case, a few extra hint toasts).
@@ -146,8 +148,6 @@ function groceryToast(meal: MealType) {
 // ---- the events ---------------------------------------------------------------
 
 export async function announceSaved(meal: MealType) {
-  // A save is a new user's first real step too (see useFirstRunStore).
-  useFirstRunStore.getState().markDone();
   const state = useSaveFeedbackStore.getState();
   useSaveFeedbackStore.setState({ lastSavedKey: savedKeyOf(meal) });
   const learning = !state.learned && state.hintsShown < HINT_LIMIT;

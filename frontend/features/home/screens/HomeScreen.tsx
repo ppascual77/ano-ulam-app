@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ScrollView, View, useWindowDimensions, type ScrollViewInstance, type ViewInstance } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { Screen, SegmentedSwitch, usePageIntro, useStatusBarStrip } from "@/frontend/components/ui";
+import { Screen, SegmentedSwitch, isModalSheetOpen, usePageIntro, useStatusBarStrip } from "@/frontend/components/ui";
+import { ModeSpotlight, type SpotlightRect } from "@/frontend/features/home/components/ModeSpotlight";
 import { Header } from "@/frontend/features/home/components/Header";
 import { useBiggestPriceDrop } from "@/frontend/features/home/components/PriceDropLine";
 import { HomeTicker, useCleanupNote } from "@/frontend/features/home/components/HomeTicker";
 import { RandomMealPuller } from "@/frontend/features/home/components/RandomMealPuller";
 import { HomePlanCard } from "@/frontend/features/home/components/HomePlanCard";
-import { TonightCard } from "@/frontend/features/home/components/TonightCard";
 import { useFirstRun } from "@/frontend/core/preferences/store/useFirstRunStore";
 import { PantryNudgeSheet } from "@/frontend/features/home/components/PantryNudgeSheet";
 import { usePlanDayCleanup } from "@/frontend/features/home/hooks/usePlanDayCleanup";
@@ -24,6 +24,9 @@ import { colors } from "@/frontend/constants/theme";
 import { useTabBarStore } from "@/frontend/components/navigation/useTabBarStore";
 
 type Mode = "budget" | "pantry";
+
+// After the welcome intro's dot lands, before the mode spotlight.
+const SPOTLIGHT_DELAY_MS = 600;
 
 // How much further down the green reaches while the header line shows.
 const PRICE_LINE_SPACE = 84;
@@ -50,11 +53,9 @@ export default function HomeScreen() {
   // ...taking turns with what a finished plan day took out of the pantry.
   const cleanupNote = useCleanupNote();
   const hasLine = !!priceDrop || !!cleanupNote;
-  // Someone new (fresh from onboarding, no meal opened, saved or planned
-  // yet) gets "Tonight's ulam" in the plan card's place: one first thing to
-  // tap. Kept while its meal sheet is open, so it isn't swapped out under it.
+  // Fresh from onboarding: the budget picked there (Home's form is filled
+  // and suggested, see BudgetSection), and the one-time mode spotlight.
   const firstRun = useFirstRun();
-  const showTonight = firstRun.loaded && !!firstRun.tonight && (!firstRun.done || firstRun.tonightSheetOpen);
   const insets = useSafeAreaInsets();
 
   // The welcome intro plays once, right after onboarding (which lands here
@@ -92,6 +93,45 @@ export default function HomeScreen() {
     clearUntil: homeDarkEdgeTop(insets.top, hasLine ? PRICE_LINE_SPACE : 0),
   });
 
+  // Once, for someone new, right after the welcome intro: a spotlight on By
+  // Budget / By Pantry (ModeSpotlight). Home scrolls the switch into view
+  // first, then the cutout is measured where it landed.
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const switchRef = useRef<ViewInstance>(null);
+  const switchY = useRef(0);
+  const { height: screenHeight } = useWindowDimensions();
+  const [spotlight, setSpotlight] = useState<SpotlightRect | null>(null);
+  const spotlightAsked = useRef(false);
+  const spotlightDue = !introPending && !intro.showing && firstRun.loaded && !!firstRun.tonight && !firstRun.modeTourShown;
+  useEffect(() => {
+    if (!spotlightDue || spotlightAsked.current) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const start = () => {
+      timer = setTimeout(() => {
+        // Never over a sheet: try again once it's closed.
+        if (isModalSheetOpen()) return start();
+        spotlightAsked.current = true;
+        scrollRef.current?.scrollTo({ y: Math.max(switchY.current - screenHeight * 0.3, 0), animated: !reduceMotion });
+        timer = setTimeout(
+          () =>
+            switchRef.current?.measureInWindow((x, y, width, height) => {
+              if (width === 0) return;
+              useTabBarStore.getState().setHidden(true);
+              setSpotlight({ x, y, width, height });
+            }),
+          reduceMotion ? 80 : 450,
+        );
+      }, SPOTLIGHT_DELAY_MS);
+    };
+    start();
+    return () => clearTimeout(timer);
+  }, [spotlightDue]);
+  const closeSpotlight = () => {
+    setSpotlight(null);
+    useTabBarStore.getState().setHidden(false);
+    firstRun.markModeTourShown();
+  };
+
   const finishIntro = () => {
     intro.finish();
     setIntroPending(false);
@@ -108,6 +148,7 @@ export default function HomeScreen() {
     // the status bar, starting below it.
     <Screen edges={[]} padded={false} dismissKeyboardOnTap={false}>
       <ScrollView
+        ref={scrollRef}
         className="flex-1 bg-white"
         contentContainerClassName="px-5 pb-2"
         contentContainerStyle={{ paddingTop: statusBar.top + 8 }}
@@ -121,13 +162,13 @@ export default function HomeScreen() {
         <Header name={firstName}>{hasLine && <HomeTicker priceDrop={priceDrop} />}</Header>
 
         <View className="mt-5" onLayout={(e) => setCardBottom(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
-          {showTonight && firstRun.tonight ? <TonightCard tonight={firstRun.tonight} fallback={<HomePlanCard />} /> : <HomePlanCard />}
+          <HomePlanCard />
         </View>
 
-        <View className="mt-6 mb-4">
+        <View className="mt-6 mb-4" onLayout={(e) => (switchY.current = e.nativeEvent.layout.y)}>
           {/* The shadow sits on a wrapper: the switch's own overflow-hidden
               would clip it on iOS. */}
-          <View className="self-start rounded-full bg-white shadow-sm">
+          <View ref={switchRef} collapsable={false} className="self-start rounded-full bg-white shadow-sm">
             <SegmentedSwitch size="lg" options={MODE_OPTIONS} value={mode} onChange={setMode} />
           </View>
         </View>
@@ -152,6 +193,7 @@ export default function HomeScreen() {
           <HomeIntro key={intro.run} active={intro.active} targetRef={intro.targetRef} onDone={finishIntro} entry={entry} name={firstName} />
         )}
       </View>
+      {spotlight && <ModeSpotlight rect={spotlight} onDone={closeSpotlight} />}
     </Screen>
   );
 }

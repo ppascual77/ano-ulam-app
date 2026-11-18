@@ -40,7 +40,11 @@ export default function IntroScreen() {
   // welcome intro), so this screen mustn't redirect then too.
   // ...or anyone who finished onboarding on this phone (once per device).
   const onboardingDone = useOnboardingStore((s) => s.done);
-  const [returningUser] = useState(isSignedIn || onboardingDone);
+  // TEMP force onboarding for device testing (signed in or not). Revert before committing.
+  void isSignedIn;
+  void onboardingDone;
+  const [returningUser] = useState(false);
+  // const [returningUser] = useState(isSignedIn || onboardingDone);
   const reduceMotion = useReduceMotion();
   // The art and the spacing follow the screen's height (the design is for a
   // ~850pt-tall phone): shorter screens get a smaller GIF and tighter gaps.

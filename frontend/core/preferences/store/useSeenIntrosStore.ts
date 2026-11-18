@@ -41,7 +41,9 @@ export const useSeenIntrosStore = create<SeenIntrosState>((set, get) => {
     userId: null,
     load: async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        // TEMP first-time user for device testing: ignore what's saved. Revert before committing.
+        const raw = null as string | null;
+        // const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw) set({ seen: new Set([...get().seen, ...(JSON.parse(raw) as IntroId[])]) });
       } catch {
         // Unreadable: the intros just play again.
@@ -55,7 +57,10 @@ export const useSeenIntrosStore = create<SeenIntrosState>((set, get) => {
       settle();
       if (!userId) return;
       try {
-        const account = (await getSeenIntros(userId)) as IntroId[];
+        // TEMP first-time user for device testing: ignore what's saved. Revert before committing.
+        const account = [] as IntroId[];
+        void getSeenIntros;
+        // const account = (await getSeenIntros(userId)) as IntroId[];
         if (get().userId !== userId) return;
         const seen = new Set([...get().seen, ...account]);
         set({ seen });

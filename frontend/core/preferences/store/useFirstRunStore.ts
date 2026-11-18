@@ -3,9 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 
 // A new user's first steps, on this phone: the budget picked in onboarding
-// (Home's "Start here" card shows meals for it), whether they've done their
-// first real thing yet (opened a meal, saved one, made a plan: until then
-// Home leads with that card instead of the plan card), and one-time hints
+// (Home opens with it in the budget form, suggested), and one-time hints
 // already shown.
 const STORAGE_KEY = "anoulam.firstRun";
 
@@ -14,36 +12,29 @@ export type TonightBudget = { budget: string; servings: number };
 type Saved = {
   /** Onboarding's budget for one meal. */
   tonight: TonightBudget | null;
+  /** Home still has to put the budget in its form and suggest (once). */
+  prefillPending: boolean;
   /** Home's spotlight on By Budget / By Pantry has played. */
   modeTourShown: boolean;
-  /** Past the first step: Home shows the plan card again. */
-  done: boolean;
   /** Ticked a grocery item once: the list's how-it-works line goes. */
   tickLearned: boolean;
-  /** "Like it? Save it..." shown after the first meal opened from Home. */
-  saveHintShown: boolean;
 };
 
 type FirstRunState = Saved & {
   loaded: boolean;
-  /** Tonight's card has its meal sheet open: Home keeps the card until it
-   *  closes (not saved). */
-  tonightSheetOpen: boolean;
   load: () => Promise<void>;
   setTonight: (tonight: TonightBudget) => void;
+  clearPrefill: () => void;
   markModeTourShown: () => void;
-  markDone: () => void;
   markTickLearned: () => void;
-  markSaveHintShown: () => void;
-  setTonightSheetOpen: (open: boolean) => void;
 };
 
-const EMPTY: Saved = { tonight: null, modeTourShown: false, done: false, tickLearned: false, saveHintShown: false };
+const EMPTY: Saved = { tonight: null, prefillPending: false, modeTourShown: false, tickLearned: false };
 
 export const useFirstRunStore = create<FirstRunState>((set, get) => {
   const save = () => {
-    const { tonight, modeTourShown, done, tickLearned, saveHintShown } = get();
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ tonight, modeTourShown, done, tickLearned, saveHintShown })).catch(() => {});
+    const { tonight, prefillPending, modeTourShown, tickLearned } = get();
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ tonight, prefillPending, modeTourShown, tickLearned })).catch(() => {});
   };
   const patch = (next: Partial<Saved>) => {
     set(next);
@@ -52,7 +43,6 @@ export const useFirstRunStore = create<FirstRunState>((set, get) => {
   return {
     ...EMPTY,
     loaded: false,
-    tonightSheetOpen: false,
     load: async () => {
       if (get().loaded) return;
       try {
@@ -62,26 +52,21 @@ export const useFirstRunStore = create<FirstRunState>((set, get) => {
         // Merged, so a step taken before the load landed isn't lost.
         set((s) => ({
           tonight: s.tonight ?? tonight,
+          prefillPending: s.prefillPending || saved.prefillPending === true,
           modeTourShown: s.modeTourShown || saved.modeTourShown === true,
-          done: s.done || saved.done === true,
           tickLearned: s.tickLearned || saved.tickLearned === true,
-          saveHintShown: s.saveHintShown || saved.saveHintShown === true,
         }));
       } catch {
         // Unreadable: start fresh.
       }
       set({ loaded: true });
     },
-    setTonight: (tonight) => patch({ tonight, done: false }),
+    setTonight: (tonight) => patch({ tonight, prefillPending: true }),
+    clearPrefill: () => patch({ prefillPending: false }),
     markModeTourShown: () => patch({ modeTourShown: true }),
-    markDone: () => {
-      if (!get().done) patch({ done: true });
-    },
     markTickLearned: () => {
       if (!get().tickLearned) patch({ tickLearned: true });
     },
-    markSaveHintShown: () => patch({ saveHintShown: true }),
-    setTonightSheetOpen: (open) => set({ tonightSheetOpen: open }),
   };
 });
 

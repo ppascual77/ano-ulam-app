@@ -1,5 +1,4 @@
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
-import { useFirstRunStore } from "@/frontend/core/preferences/store/useFirstRunStore";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
@@ -172,11 +171,7 @@ export default function MealPlannerScreen() {
     store.setPlan(next);
     selectDay(0);
     store.setStage("generating");
-    if (next) {
-      void persist(next);
-      // A plan is a new user's first real step too (see useFirstRunStore).
-      useFirstRunStore.getState().markDone();
-    }
+    if (next) void persist(next);
   };
 
   const viewRecipe = (meal: MealPlan["days"][number]["meals"][number]["meal"]) => detail.open(meal);
