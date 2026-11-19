@@ -149,7 +149,7 @@ async function refreshLinkedPrices(admin: Admin) {
       .from("ingredients")
       .select("id, estimated_price, estimated_price_unit, price_source, price_sources, grams_per_piece")
       .in("id", ingredientIds),
-    admin.from("da_commodities").select("ingredient_id, unit, unit_size, latest_price").in("ingredient_id", ingredientIds),
+    admin.from("da_commodities").select("ingredient_id, unit, unit_size, specification, latest_price").in("ingredient_id", ingredientIds),
   ]);
   if (ingError) throw new Error(`Reading ingredients failed: ${ingError.message}`);
   if (linkError) throw new Error(`Reading commodities failed: ${linkError.message}`);
@@ -158,7 +158,12 @@ async function refreshLinkedPrices(admin: Admin) {
   for (const ingredient of ingredients ?? []) {
     const daPrices = (linked ?? []).flatMap((c) =>
       c.ingredient_id === ingredient.id && c.latest_price != null
-        ? [{ commodity: { unit: c.unit as string, unit_size: c.unit_size as number | null }, price: c.latest_price as number }]
+        ? [
+            {
+              commodity: { unit: c.unit as string, unit_size: c.unit_size as number | null, specification: c.specification as string | null },
+              price: c.latest_price as number,
+            },
+          ]
         : [],
     );
     const patch = ingredientPricePatch(ingredient as Parameters<typeof ingredientPricePatch>[0], daPrices);

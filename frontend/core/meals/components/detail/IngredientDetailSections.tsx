@@ -7,6 +7,7 @@ import { ArrowUpRight, Database, Info, Minus, ShoppingCart, Sparkles, Store, Tre
 import { AppText, Card, Chips } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { getUsdaSourceUrl } from "@/api/ingredients";
+import { isFrozenDa } from "@/supabase/functions/_shared/pricing";
 import { useDaWeekChanges, type DaWeekChange } from "@/frontend/core/prices/hooks/useDaWeekChanges";
 import type { DaPriceSourceType, IngredientType, PackEstimateType, PriceSourceType } from "../../mealTypes";
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
@@ -301,7 +302,8 @@ function NutritionSourceRow({ item }: { item: Pick<IngredientType, "source" | "s
 
 // ---- Price rows ------------------------------------------------------------
 
-/** A source's price, green with a "Best" chip for the cheapest per kg/L.
+/** A source's price, green with a "Price used" chip on the one the
+ *  ingredient's price comes from (the cheapest counted per kg/L).
  *  `price` is what the row leads with: the pack price for a store listing
  *  (what you'd pay), the per-kg price for a DA market. `perUnit` sits under
  *  it ("₱1,090/kg", "per kg") so sources of different pack sizes can still
@@ -309,7 +311,7 @@ function NutritionSourceRow({ item }: { item: Pick<IngredientType, "source" | "s
 function PriceTrailing({ price, perUnit, isBest, highlight }: { price: number; perUnit?: string; isBest: boolean; highlight: boolean }) {
   return (
     <View className="items-end gap-1">
-      {isBest && <Chips label="Best" />}
+      {isBest && <Chips label="Price used" />}
       <Text className={`font-inter-extrabold text-subheading ${highlight ? "text-primary" : "text-ink-emphasis"}`}>
         ₱{price % 1 === 0 ? price : price.toFixed(2)}
       </Text>
@@ -368,13 +370,16 @@ export function SourcesSection({ item }: { item: SourcesItem }) {
   const sources = item.priceSources ?? [];
   const da = item.daPriceSources ?? [];
   const weekChanges = useDaWeekChanges(da.flatMap((d) => (d.commodityId ? [d.commodityId] : [])));
-  const prices = [...da.map((d) => d.pricePerUnit), ...sources.map((s) => s.pricePerUnit)];
+  // Frozen DA items are shown but never set the price (isFrozenDa), so they
+  // sit out the "Price used" pick and the average.
+  const prices = [...da.filter((d) => !isFrozenDa(d)).map((d) => d.pricePerUnit), ...sources.map((s) => s.pricePerUnit)];
   // Real store listings always win over the estimate.
   const packEstimate = sources.length === 0 ? item.packEstimate : undefined;
   const showNutrition = hasNutrition(item);
 
-  // The cheapest source is the ingredient's stored price (cheapestPriceOption
-  // in api/ingredients.ts). Every source is normalized to ₱/kg or ₱/L.
+  // The cheapest counted source is the ingredient's stored price
+  // (cheapestPriceOption in api/ingredients.ts). Every source is normalized
+  // to ₱/kg or ₱/L.
   const cheapest = prices.length > 0 ? Math.min(...prices) : 0;
   const average = prices.reduce((sum, p) => sum + p, 0) / (prices.length || 1);
   const unit = da[0]?.unit ?? sources[0]?.unit;
@@ -410,7 +415,8 @@ export function SourcesSection({ item }: { item: SourcesItem }) {
       ) : (
         <>
           {da.map((d) => {
-            const isBest = compare && d.pricePerUnit === cheapest;
+            const frozen = isFrozenDa(d);
+            const isBest = !frozen && compare && d.pricePerUnit === cheapest;
             const change = d.commodityId ? weekChanges.data?.get(d.commodityId) : undefined;
             const commodity = d.specification ? `${d.commodity}, ${d.specification}` : d.commodity;
             return (
@@ -428,10 +434,15 @@ export function SourcesSection({ item }: { item: SourcesItem }) {
                       Dept. of Agriculture daily average · {daDate(d.date)}
                     </Text>
                     {change && <DaWeekChangeLine change={change} pricePerUnit={d.pricePerUnit} />}
+                    {frozen && (
+                      <Text className="font-inter-regular text-small text-ink-subtle">Frozen, shown for reference only</Text>
+                    )}
                   </>
                 }
                 url={DA_PRICE_PAGE}
-                trailing={<PriceTrailing price={Math.round(d.pricePerUnit)} perUnit={`per ${d.unit}`} isBest={isBest} highlight={isBest || !compare} />}
+                trailing={
+                  <PriceTrailing price={Math.round(d.pricePerUnit)} perUnit={`per ${d.unit}`} isBest={isBest} highlight={isBest || (!compare && !frozen)} />
+                }
               />
             );
           })}
@@ -446,7 +457,7 @@ export function SourcesSection({ item }: { item: SourcesItem }) {
                 subtitle={`${s.productTitle} · ${formatPackSize(s)}`}
                 url={s.url}
                 // Leads with the pack price (what you'd pay), with the
-                // per-kg/L price under it for comparing sources. "Best" still
+                // per-kg/L price under it for comparing sources. "Price used"
                 // goes by per-kg/L, since that's what the meal is priced from.
                 trailing={
                   <PriceTrailing

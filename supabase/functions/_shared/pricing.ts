@@ -251,10 +251,17 @@ export function daPriceOption(
   return grams ? { source: "da", pricePerUnit: (price / grams) * 1000, unit: "kg" } : null;
 }
 
-export type DaPrice = { commodity: { unit: string; unit_size: number | null }; price: number };
+export type DaPrice = { commodity: { unit: string; unit_size: number | null; specification?: string | null }; price: number };
+
+// A frozen DA commodity (imported pork, offal, beef...) stays linked, so Price
+// Watch shows its meals, but never sets the price: it runs ~20% under the
+// fresh cut a recipe is bought as (Patrick's call, 2026-11-19). Imported fresh
+// items (garlic, ginger, onion) still count.
+export const isFrozenDa = (commodity: { specification?: string | null }) => /frozen/i.test(commodity.specification ?? "");
 
 // The ingredient's price fields given its linked DA prices: the cheapest of
-// those and its supermarket listings. null when nothing changes.
+// those (frozen ones left out) and its supermarket listings. null when
+// nothing changes.
 export function ingredientPricePatch(
   ingredient: {
     estimated_price: number | null;
@@ -265,6 +272,8 @@ export function ingredientPricePatch(
   },
   daPrices: DaPrice[],
 ): PricePatch | null {
-  const daOptions = daPrices.flatMap(({ commodity, price }) => daPriceOption(commodity, price, ingredient) ?? []);
+  const daOptions = daPrices.flatMap(({ commodity, price }) =>
+    isFrozenDa(commodity) ? [] : (daPriceOption(commodity, price, ingredient) ?? []),
+  );
   return cheapestPricePatch(ingredient, [...supermarketPriceOptions(ingredient.price_sources), ...daOptions]);
 }
