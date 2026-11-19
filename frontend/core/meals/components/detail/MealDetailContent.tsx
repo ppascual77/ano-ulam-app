@@ -45,6 +45,7 @@ import {
   Card,
   Chips,
   Confetti,
+  NoticeBanner,
   PulsePressable,
   RollingText,
   SegmentedSwitch,
@@ -897,7 +898,6 @@ export function MealDetailContent({
             })()}
           </View>
 
-
           <View className="mt-2 gap-2">
             {groupIngredients(meal.ingredients).map((group) => (
               <Fragment key={group.section ?? ""}>
@@ -921,6 +921,19 @@ export function MealDetailContent({
               </Fragment>
             ))}
           </View>
+
+          {/* Under the list, once the rows' pack notes have raised it: why
+              pantry items cost so little here. */}
+          {showEmptyPantry && (
+            <View className="mt-3">
+              <NoticeBanner tone="positive" compact icon={<Info color={colors.primary} size={14} />}>
+                <Text className="font-inter-regular text-small text-ink">
+                  Pantry items like oil, sauces and spices are counted by the spoonful, so they add little to this dish. The rest
+                  of each pack stays for your next cook.
+                </Text>
+              </NoticeBanner>
+            </View>
+          )}
         </View>
       )}
 
