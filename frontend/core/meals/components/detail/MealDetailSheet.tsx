@@ -9,6 +9,7 @@ import { colors } from "@/frontend/constants/theme";
 import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
 import { MealDetailContent } from "./MealDetailContent";
 import { IngredientDetailSheet } from "./IngredientDetailSheet";
+import { PriceInfoSheet, type PriceInfo } from "./PriceInfoSheet";
 import { MealDetailSkeleton } from "./MealDetailSkeleton";
 import { ProPage } from "@/frontend/core/pro/components/ProPage";
 import { GlobalLoginGate } from "@/frontend/features/auth/components/GlobalLoginGate";
@@ -103,6 +104,8 @@ export function MealDetailSheet({
   // The ingredient whose detail sheet is open on top of this one, already
   // scaled to the servings shown when it was tapped. null = closed.
   const [selectedIngredient, setSelectedIngredient] = useState<IngredientType | null>(null);
+  // "How we price this meal", opened from the price. null = closed.
+  const [priceInfo, setPriceInfo] = useState<PriceInfo | null>(null);
   // The full page mounts once the sheet has slid up: rendering it during the
   // slide made opening a meal lag. Until then, the skeleton (photo + bars).
   // Keyed on opening, not on the meal: the card's meal giving way to the
@@ -227,6 +230,7 @@ export function MealDetailSheet({
             maxHeightPercent={INGREDIENT_SHEET_HEIGHT_PERCENT}
             onLockedPro={() => setFeatureSheet("micronutrients")}
           />
+          <PriceInfoSheet info={priceInfo} onClose={() => setPriceInfo(null)} maxHeightPercent={INGREDIENT_SHEET_HEIGHT_PERCENT} />
           <ConfirmSheet
             presentation="inline"
             visible={pendingServings != null}
@@ -308,6 +312,7 @@ export function MealDetailSheet({
                 onArchive={onArchive}
                 onDelete={onDelete}
                 onSelectIngredient={setSelectedIngredient}
+                onOpenPriceInfo={setPriceInfo}
                 onLockedPro={() => setFeatureSheet("micronutrients")}
                 onOpenProPage={() => setProPageOpen(true)}
                 review={review}
