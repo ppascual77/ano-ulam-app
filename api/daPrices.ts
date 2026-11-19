@@ -1,9 +1,9 @@
 import * as FileSystem from "expo-file-system/legacy";
 import { supabase, invokeEdgeFunction } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
-import { daPriceOption, ingredientPricePatch, type DaPrice } from "@/supabase/functions/_shared/pricing";
+import { daPriceOption, daSetsPrice, ingredientPricePatch, isFrozenDa, type DaPrice } from "@/supabase/functions/_shared/pricing";
 // Shared with the daily DA import (supabase/functions/_shared/pricing.ts).
-export { daPriceOption, ingredientPricePatch };
+export { daPriceOption, daSetsPrice, ingredientPricePatch, isFrozenDa };
 export type { DaPrice };
 
 export type DaCommodityRow = Database["public"]["Tables"]["da_commodities"]["Row"];
@@ -134,9 +134,11 @@ export async function linkDaCommodity(commodityId: string, ingredientId: string 
 
 
 // Every linked commodity's latest price, for ingredientPricePatch.
+// Frozen and stale commodities are left out: they stay linked (Price Watch)
+// but never set the price, see daSetsPrice.
 export function linkedDaPrices(linked: DaCommodityRow[]): DaPrice[] {
   return linked.flatMap((commodity) =>
-    commodity.latest_price != null ? [{ commodity, price: commodity.latest_price }] : [],
+    commodity.latest_price != null && daSetsPrice(commodity) ? [{ commodity, price: commodity.latest_price }] : [],
   );
 }
 

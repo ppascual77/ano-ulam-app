@@ -1,6 +1,7 @@
 import { formatCount, splitQty } from "@/frontend/core/meals/utils/multiplyQty";
 import { groceryName, grocerySection, type GrocerySectionKey } from "./groceryLabels";
 import type { IngredientType, MealType, PriceSourceType } from "@/frontend/core/meals/mealTypes";
+import { daSetsPrice } from "@/supabase/functions/_shared/pricing";
 
 // Whole packs to buy of a packaged item ("2 × 385 ml"), from its cheapest
 // supermarket listing for the amount the meals need. `container` ("bottle")
@@ -145,7 +146,11 @@ function wholePacks(usedPrice: number, ingredient: IngredientType): GroceryPack 
   if (listings.length === 0) return estimatedPacks(usedPrice, ingredient);
   const perUnit = Math.min(
     ...listings.map((s) => s.pricePerUnit),
-    ...(ingredient.daPriceSources ?? []).map((d) => d.pricePerUnit).filter((p) => p > 0),
+    // Frozen and stale DA items don't set the price (daSetsPrice), so they don't size packs either.
+    ...(ingredient.daPriceSources ?? [])
+      .filter((d) => daSetsPrice({ specification: d.specification, latest_price_date: d.date }))
+      .map((d) => d.pricePerUnit)
+      .filter((p) => p > 0),
   );
   // "to taste" (no amount, so ₱0 used) still needs one pack: max(1, …).
   if (!Number.isFinite(perUnit)) return null;

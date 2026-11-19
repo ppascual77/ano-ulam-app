@@ -251,10 +251,34 @@ export function daPriceOption(
   return grams ? { source: "da", pricePerUnit: (price / grams) * 1000, unit: "kg" } : null;
 }
 
-export type DaPrice = { commodity: { unit: string; unit_size: number | null }; price: number };
+export type DaPrice = {
+  commodity: { unit: string; unit_size: number | null; specification?: string | null; latest_price_date?: string | null };
+  price: number;
+};
+
+// A DA price this many days old stops setting the price (still shown): DA
+// drops items from its report for weeks (imported potato, imported red onion),
+// and their last price would otherwise undercut today's forever.
+export const DA_STALE_DAYS = 7;
+export function isStaleDaDate(date: string | null | undefined, now = new Date()): boolean {
+  if (!date) return false;
+  const ageDays = (now.getTime() - new Date(`${date.slice(0, 10)}T00:00:00Z`).getTime()) / 86_400_000;
+  return ageDays > DA_STALE_DAYS;
+}
+
+// A frozen DA commodity (imported pork, offal, beef...) stays linked, so Price
+// Watch shows its meals, but never sets the price: it runs ~20% under the
+// fresh cut a recipe is bought as (Patrick's call, 2026-11-19). Imported fresh
+// items (garlic, ginger, onion) still count.
+export const isFrozenDa = (commodity: { specification?: string | null }) => /frozen/i.test(commodity.specification ?? "");
+
+// Whether a linked DA commodity's price may set the ingredient's price.
+export const daSetsPrice = (commodity: { specification?: string | null; latest_price_date?: string | null }) =>
+  !isFrozenDa(commodity) && !isStaleDaDate(commodity.latest_price_date);
 
 // The ingredient's price fields given its linked DA prices: the cheapest of
-// those and its supermarket listings. null when nothing changes.
+// those (frozen and stale ones left out) and its supermarket listings. null
+// when nothing changes.
 export function ingredientPricePatch(
   ingredient: {
     estimated_price: number | null;
@@ -265,6 +289,8 @@ export function ingredientPricePatch(
   },
   daPrices: DaPrice[],
 ): PricePatch | null {
-  const daOptions = daPrices.flatMap(({ commodity, price }) => daPriceOption(commodity, price, ingredient) ?? []);
+  const daOptions = daPrices.flatMap(({ commodity, price }) =>
+    daSetsPrice(commodity) ? (daPriceOption(commodity, price, ingredient) ?? []) : [],
+  );
   return cheapestPricePatch(ingredient, [...supermarketPriceOptions(ingredient.price_sources), ...daOptions]);
 }
