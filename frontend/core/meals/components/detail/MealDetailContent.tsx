@@ -45,7 +45,6 @@ import {
   Card,
   Chips,
   Confetti,
-  NoticeBanner,
   PulsePressable,
   RollingText,
   SegmentedSwitch,
@@ -74,8 +73,8 @@ import { DIETARY_ICONS, capitalize } from "../../utils/dietary";
 import type { IngredientType, MealType } from "../../mealTypes";
 import { useDaWeekChanges, type DaWeekChange } from "@/frontend/core/prices/hooks/useDaWeekChanges";
 import { formatMealPrice } from "@/frontend/core/prices/utils/prices";
-import { buildGroceryList, type GroceryItem } from "@/frontend/core/grocery/utils/buildGroceryList";
-import type { PriceInfo } from "./PriceInfoSheet";
+import { buildGroceryList } from "@/frontend/core/grocery/utils/buildGroceryList";
+import type { PriceInfo, PriceInfoItem } from "./PriceInfoSheet";
 
 // Small circular icon buttons (back/edit/like) and the servings +/- steppers
 // are visually ~32-36px, under the ~44pt minimum recommended touch target —
@@ -117,17 +116,7 @@ type IngredientRowProps = {
   /** From Pantry results only: whether it's in your pantry. Omitted
    *  everywhere else (no chip). */
   have?: boolean;
-  /** The whole pack its share comes from ("of ₱110 · 1 L"), when the
-   *  recipe uses less than a pack. Omitted for loose items and full packs. */
-  packNote?: string;
 };
-
-// The pack a row's share comes from, for IngredientRow's packNote: only when
-// whole packs leave some over (so its price is clearly a share of one).
-function packNote(item: GroceryItem | undefined): string | undefined {
-  if (!item?.pack || item.price - item.usedPrice < 0.5) return undefined;
-  return `of ${item.estimate ? "~" : ""}₱${Math.round(item.price).toLocaleString("en-PH")} · ${item.buy}`;
-}
 
 // An ingredient's DA price change vs last week: the mean of its linked DA
 // commodities' (e.g. Bangus Large and Medium), same as best value meals.
@@ -140,7 +129,7 @@ function ingredientWeekChange(ingredient: IngredientType, changes: Map<string, D
   return pcts.length > 0 ? pcts.reduce((a, b) => a + b, 0) / pcts.length : undefined;
 }
 
-function IngredientRow({ ingredient, onPress: onPressProp, dropPct, have, packNote }: IngredientRowProps) {
+function IngredientRow({ ingredient, onPress: onPressProp, dropPct, have }: IngredientRowProps) {
   const isWater = PLAIN_WATER.test(ingredient.name.trim());
   const onPress = isWater ? undefined : onPressProp;
 
@@ -172,20 +161,11 @@ function IngredientRow({ ingredient, onPress: onPressProp, dropPct, have, packNo
       <View className="flex-row items-center gap-2">
         <View className="items-end">
           {/* Every ingredient counts toward the meal's price now, pantry
-              included, so every card shows its share. */}
-          {isWater ? null : ingredient.price != null && ingredient.price > 0 ? (
+              included, so every card shows its share. No price (e.g. "to
+              taste") shows nothing rather than an N/A. */}
+          {!isWater && ingredient.price != null && ingredient.price > 0 && (
             // Plain Text so extrabold isn't fighting the caption variant's regular weight.
             <Text className="font-inter-extrabold text-body leading-5 text-primary">~₱{ingredient.price.toFixed(2)}</Text>
-          ) : (
-            <View className="flex-row items-center gap-0.5">
-              <Info color={colors.ink.subtle} size={9} />
-              <Text className="text-sub text-ink-subtle">N/A</Text>
-            </View>
-          )}
-          {/* The pack the share comes from, so a ₱0.90 spoonful reads as
-              a share and not a mistake. */}
-          {!isWater && packNote && (
-            <Text className="mt-0.5 font-inter-regular text-small text-ink-subtle">{packNote}</Text>
           )}
           {/* Cheaper at DA markets than last week. */}
           {dropPct != null && (
@@ -270,7 +250,7 @@ type MealDetailContentProps = {
   /** Tapping an ingredient card. Receives the ingredient already scaled to
    *  the current servings. MealDetailSheet opens IngredientDetailSheet. */
   onSelectIngredient?: (ingredient: IngredientType) => void;
-  /** Tapping the price or the "Starting from an empty pantry?" row, with
+  /** Tapping the price or the totals under the ingredient list, with
    *  the prices at the servings shown. MealDetailSheet opens PriceInfoSheet.
    *  Omitted (nothing tappable) in preview. */
   onOpenPriceInfo?: (info: PriceInfo) => void;
@@ -549,9 +529,27 @@ export function MealDetailContent({
     () => buildGroceryList([{ category: meal.category, ingredients: cookIngredients }]),
     [meal.category, cookIngredients],
   );
-  const groceryByName = useMemo(() => new Map(groceryItems.map((item) => [item.id, item])), [groceryItems]);
-  const leftover = Math.round(groceryItems.reduce((sum, item) => sum + Math.max(0, item.price - item.usedPrice), 0) * 100) / 100;
-  const priceInfo: PriceInfo = { cook: displayPrice, cookBuffer: displayBufferPrice, leftover };
+  // The bill the price sheet itemises, each line rounded to the peso so the
+  // lines add up to the total shown. The total is that sum, and `leftover`
+  // the part of it beyond the meal's own price, so the box, the sheet's
+  // prices and its itemised bill all agree.
+  const billItems = useMemo<PriceInfoItem[]>(
+    () =>
+      groceryItems
+        .filter((item) => item.price > 0)
+        .map((item) => ({
+          name: item.name,
+          buy: item.buy,
+          price: Math.round(item.price),
+          usedPrice: item.usedPrice,
+          estimate: item.estimate,
+        }))
+        .sort((a, b) => b.price - a.price),
+    [groceryItems],
+  );
+  const billTotal = billItems.reduce((sum, item) => sum + item.price, 0);
+  const leftover = Math.max(0, Math.round((billTotal - displayPrice) * 100) / 100);
+  const priceInfo: PriceInfo = { cook: displayPrice, cookBuffer: displayBufferPrice, leftover, items: billItems };
   // Only worth explaining when the packs cost noticeably more than the dish.
   const showEmptyPantry = !isFastFood && leftover >= 1;
   const openPriceInfo = onOpenPriceInfo && !isFastFood ? () => onOpenPriceInfo(priceInfo) : undefined;
@@ -753,34 +751,15 @@ export function MealDetailContent({
               className="font-inter-light"
               style={{ fontSize: 13 }}
             >
-              {/* A restaurant price is what you pay; a recipe's is the share
-                  of each ingredient it uses. */}
-              {isFastFood ? "Estimated Price" : "Cost to cook"}
+              {/* Same label for restaurant and recipe prices; the price sheet
+                  explains what a recipe's covers. */}
+              Estimated Price
             </AppText>
             {openPriceInfo && <Info color={colors.ink.subtle} size={12} />}
           </View>
         </Pressable>
       </View>
 
-      {/* The other price, quieter: what a first cook spends buying every
-          pack. Answers "why is it so cheap?" before the list raises it. */}
-      {showEmptyPantry && (
-        <Pressable
-          onPress={openPriceInfo}
-          disabled={!openPriceInfo}
-          accessibilityRole={openPriceInfo ? "button" : undefined}
-          className="mt-3 min-h-11 flex-row items-center justify-between gap-2 rounded-xl bg-notice-positive-bg px-3 py-2 active:opacity-80"
-        >
-          <Text className="flex-1 font-inter-regular text-small text-ink">
-            Starting from an empty pantry?{" "}
-            <Text className="font-inter-bold text-ink-emphasis">
-              About {formatMealPrice(displayPrice + leftover, displayBufferPrice ? displayBufferPrice + leftover : null)}
-            </Text>{" "}
-            to buy every pack.
-          </Text>
-          {openPriceInfo && <ChevronRight color={colors.primary} size={14} />}
-        </Pressable>
-      )}
 
       <AppText variant="caption" className="mt-3 leading-5">
         {meal.description}
@@ -911,7 +890,6 @@ export function MealDetailContent({
                       ingredient={scaled}
                       dropPct={change != null && change < 0 ? change : undefined}
                       have={pantryIds && ingredient.ingredientId ? pantryIds.has(ingredient.ingredientId) : undefined}
-                      packNote={packNote(groceryByName.get(ingredient.name.trim().toLowerCase()))}
                       // Every ingredient has a sheet to show (at minimum its
                       // price source), so every card is tappable.
                       onPress={onSelectIngredient ? () => onSelectIngredient(scaled) : undefined}
@@ -922,17 +900,40 @@ export function MealDetailContent({
             ))}
           </View>
 
-          {/* Under the list, once the rows' pack notes have raised it: why
-              pantry items cost so little here. */}
+          {/* Receipt-style totals under the list: the dish's price vs buying
+              every pack new, and why the two differ. Kept out of the hero so
+              the header shows one price. Tapping it opens PriceInfoSheet. */}
           {showEmptyPantry && (
-            <View className="mt-3">
-              <NoticeBanner tone="positive" compact icon={<Info color={colors.primary} size={14} />}>
-                <Text className="font-inter-regular text-small text-ink">
-                  Pantry items like oil, sauces and spices are counted by the spoonful, so they add little to this dish. The rest
-                  of each pack stays for your next cook.
+            <Pressable
+              onPress={openPriceInfo}
+              disabled={!openPriceInfo}
+              accessibilityRole={openPriceInfo ? "button" : undefined}
+              accessibilityHint={openPriceInfo ? "Explains how this price is worked out" : undefined}
+              className="mt-3 gap-1 rounded-xl bg-notice-positive-bg px-3 py-3 active:opacity-80"
+            >
+              <View className="flex-row items-center justify-between gap-3">
+                <Text className="font-inter-regular text-small text-ink">Estimated price</Text>
+                <Text className="font-inter-bold text-small text-primary">
+                  {formatMealPrice(displayPrice, displayBufferPrice)}
                 </Text>
-              </NoticeBanner>
-            </View>
+              </View>
+              <View className="flex-row items-center justify-between gap-3">
+                <Text className="font-inter-regular text-small text-ink">Buying everything new</Text>
+                <Text className="font-inter-bold text-small text-ink-emphasis">
+                  {formatMealPrice(displayPrice + leftover, displayBufferPrice ? displayBufferPrice + leftover : null)}
+                </Text>
+              </View>
+              {/* A link, not a button: findable (icon, body size, brand
+                  color) without competing with the screen's real actions.
+                  Nothing to open in preview, so no link there. */}
+              {openPriceInfo && (
+                <View className="mt-2 min-h-11 flex-row items-center gap-1.5 border-t border-ink-emphasis/10 pt-3 pb-1">
+                  <Info color={colors.primary} size={14} />
+                  <Text className="flex-1 font-inter-semibold text-body text-primary">How we price this</Text>
+                  <ChevronRight color={colors.primary} size={14} />
+                </View>
+              )}
+            </Pressable>
           )}
         </View>
       )}

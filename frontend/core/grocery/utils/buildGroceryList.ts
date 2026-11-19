@@ -113,6 +113,8 @@ const LOOSE_CATEGORIES = new Set([
   "vegetable", "fruit", "leafy green", "leafy vegetable", "root vegetable", "gourd", "tomato", "mushroom", "leaf", "citrus fruit",
   "aromatics", "allium", "herb", "herbs",
   "egg", "eggs", "rice",
+  // Dried lily buds: stores list them per kg, weighed out (no small packs).
+  "dried vegetable",
 ]);
 
 export const isLoose = (category: string | null | undefined) => !!category && LOOSE_CATEGORIES.has(category.trim().toLowerCase());
