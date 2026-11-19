@@ -187,9 +187,10 @@ export function MicronutrientSection({ item, onLockedPro }: { item: Pick<Ingredi
 // Sources
 // ---------------------------------------------------------------------------
 
-function formatPack(source: PriceSourceType) {
-  const unit = source.packUnit === "piece" ? " pc" : source.packUnit;
-  return `₱${source.packPrice} / ${source.packSize}${unit}`;
+// "50 g pack", "1 L pack": the pack's size, its price is the row's lead price.
+function formatPackSize(source: PriceSourceType) {
+  const unit = source.packUnit === "piece" ? " pc" : ` ${source.packUnit}`;
+  return `${source.packSize}${unit} pack`;
 }
 
 function formatPerUnit(price: number, unit: string) {
@@ -300,13 +301,19 @@ function NutritionSourceRow({ item }: { item: Pick<IngredientType, "source" | "s
 
 // ---- Price rows ------------------------------------------------------------
 
-/** The ₱ per kg/L figure, green with a "Best" chip for the cheapest. The
- *  unit is in the group label, so only the peso amount shows here. */
-function PriceTrailing({ price, isBest, highlight }: { price: number; isBest: boolean; highlight: boolean }) {
+/** A source's price, green with a "Best" chip for the cheapest per kg/L.
+ *  `price` is what the row leads with: the pack price for a store listing
+ *  (what you'd pay), the per-kg price for a DA market. `perUnit` sits under
+ *  it ("₱1,090/kg", "per kg") so sources of different pack sizes can still
+ *  be compared. */
+function PriceTrailing({ price, perUnit, isBest, highlight }: { price: number; perUnit?: string; isBest: boolean; highlight: boolean }) {
   return (
     <View className="items-end gap-1">
       {isBest && <Chips label="Best" />}
-      <Text className={`font-inter-extrabold text-subheading ${highlight ? "text-primary" : "text-ink-emphasis"}`}>₱{Math.round(price)}</Text>
+      <Text className={`font-inter-extrabold text-subheading ${highlight ? "text-primary" : "text-ink-emphasis"}`}>
+        ₱{price % 1 === 0 ? price : price.toFixed(2)}
+      </Text>
+      {perUnit && <Text className="font-inter-regular text-small text-ink-subtle">{perUnit}</Text>}
     </View>
   );
 }
@@ -381,7 +388,7 @@ export function SourcesSection({ item }: { item: SourcesItem }) {
       aside={hasLink ? "Tap to view" : undefined}
       footnote={
         prices.length > 0
-          ? `${da.length > 0 ? "Market prices are based on the Department of Agriculture's daily price monitoring of Metro Manila wet markets. " : ""}Prices are per standard market unit. Your actual cost may vary.`
+          ? `${da.length > 0 ? "Market prices are based on the Department of Agriculture's daily price monitoring of Metro Manila wet markets, priced per kg. " : ""}Store prices are per pack. Your actual cost may vary.`
           : undefined
       }
       index={3}
@@ -393,7 +400,7 @@ export function SourcesSection({ item }: { item: SourcesItem }) {
         </>
       )}
 
-      <GroupLabel first={!showNutrition}>{unit ? `Price per ${unit}` : "Price"}</GroupLabel>
+      <GroupLabel first={!showNutrition}>Prices</GroupLabel>
       {prices.length === 0 ? (
         packEstimate ? (
           <PackEstimateRow estimate={packEstimate} />
@@ -424,7 +431,7 @@ export function SourcesSection({ item }: { item: SourcesItem }) {
                   </>
                 }
                 url={DA_PRICE_PAGE}
-                trailing={<PriceTrailing price={d.pricePerUnit} isBest={isBest} highlight={isBest || !compare} />}
+                trailing={<PriceTrailing price={Math.round(d.pricePerUnit)} perUnit={`per ${d.unit}`} isBest={isBest} highlight={isBest || !compare} />}
               />
             );
           })}
@@ -436,9 +443,19 @@ export function SourcesSection({ item }: { item: SourcesItem }) {
                 divided={priceRow++ > 0}
                 icon={<ShoppingCart color={colors.ink.emphasis} size={ICON_SIZE} />}
                 title={s.store}
-                subtitle={`${s.productTitle} · ${formatPack(s)}`}
+                subtitle={`${s.productTitle} · ${formatPackSize(s)}`}
                 url={s.url}
-                trailing={<PriceTrailing price={s.pricePerUnit} isBest={isBest} highlight={isBest || !compare} />}
+                // Leads with the pack price (what you'd pay), with the
+                // per-kg/L price under it for comparing sources. "Best" still
+                // goes by per-kg/L, since that's what the meal is priced from.
+                trailing={
+                  <PriceTrailing
+                    price={s.packPrice}
+                    perUnit={`${formatPerUnit(s.pricePerUnit, s.unit)}`}
+                    isBest={isBest}
+                    highlight={isBest || !compare}
+                  />
+                }
               />
             );
           })}
