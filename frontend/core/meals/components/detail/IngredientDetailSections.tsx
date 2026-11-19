@@ -7,7 +7,7 @@ import { ArrowUpRight, Database, Info, Minus, ShoppingCart, Sparkles, Store, Tre
 import { AppText, Card, Chips } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { getUsdaSourceUrl } from "@/api/ingredients";
-import { isFrozenDa } from "@/supabase/functions/_shared/pricing";
+import { daSetsPrice, isFrozenDa } from "@/supabase/functions/_shared/pricing";
 import { useDaWeekChanges, type DaWeekChange } from "@/frontend/core/prices/hooks/useDaWeekChanges";
 import type { DaPriceSourceType, IngredientType, PackEstimateType, PriceSourceType } from "../../mealTypes";
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
@@ -370,9 +370,10 @@ export function SourcesSection({ item }: { item: SourcesItem }) {
   const sources = item.priceSources ?? [];
   const da = item.daPriceSources ?? [];
   const weekChanges = useDaWeekChanges(da.flatMap((d) => (d.commodityId ? [d.commodityId] : [])));
-  // Frozen DA items are shown but never set the price (isFrozenDa), so they
-  // sit out the "Price used" pick and the average.
-  const prices = [...da.filter((d) => !isFrozenDa(d)).map((d) => d.pricePerUnit), ...sources.map((s) => s.pricePerUnit)];
+  // Frozen and stale DA items are shown but never set the price
+  // (daSetsPrice), so they sit out the "Price used" pick and the average.
+  const counts = (d: DaPriceSourceType) => daSetsPrice({ specification: d.specification, latest_price_date: d.date });
+  const prices = [...da.filter(counts).map((d) => d.pricePerUnit), ...sources.map((s) => s.pricePerUnit)];
   // Real store listings always win over the estimate.
   const packEstimate = sources.length === 0 ? item.packEstimate : undefined;
   const showNutrition = hasNutrition(item);
@@ -416,7 +417,8 @@ export function SourcesSection({ item }: { item: SourcesItem }) {
         <>
           {da.map((d) => {
             const frozen = isFrozenDa(d);
-            const isBest = !frozen && compare && d.pricePerUnit === cheapest;
+            const stale = !frozen && !counts(d);
+            const isBest = !frozen && !stale && compare && d.pricePerUnit === cheapest;
             const change = d.commodityId ? weekChanges.data?.get(d.commodityId) : undefined;
             const commodity = d.specification ? `${d.commodity}, ${d.specification}` : d.commodity;
             return (
@@ -434,14 +436,21 @@ export function SourcesSection({ item }: { item: SourcesItem }) {
                       Dept. of Agriculture daily average · {daDate(d.date)}
                     </Text>
                     {change && <DaWeekChangeLine change={change} pricePerUnit={d.pricePerUnit} />}
-                    {frozen && (
-                      <Text className="font-inter-regular text-small text-ink-subtle">Frozen, shown for reference only</Text>
+                    {(frozen || stale) && (
+                      <Text className="font-inter-regular text-small text-ink-subtle">
+                        {frozen ? "Frozen, shown for reference only" : "Not in DA's latest report, shown for reference only"}
+                      </Text>
                     )}
                   </>
                 }
                 url={DA_PRICE_PAGE}
                 trailing={
-                  <PriceTrailing price={Math.round(d.pricePerUnit)} perUnit={`per ${d.unit}`} isBest={isBest} highlight={isBest || (!compare && !frozen)} />
+                  <PriceTrailing
+                    price={Math.round(d.pricePerUnit)}
+                    perUnit={`per ${d.unit}`}
+                    isBest={isBest}
+                    highlight={isBest || (!compare && !frozen && !stale)}
+                  />
                 }
               />
             );
