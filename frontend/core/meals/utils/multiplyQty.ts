@@ -71,8 +71,19 @@ export function formatAmount(amount: number): string {
 export function multiplyQty(qty: string, scale: number): string {
   const split = splitQty(qty);
   if (!split) return qty;
+  // A range scales at both ends: "2-3 cloves" x2 -> "4-6 cloves",
+  // "1 to 2 cups" x2 -> "2 to 4 cups".
+  const range = split.rest.match(RANGE_REST);
+  if (range) {
+    const upper = splitQty(range[2]);
+    if (upper) return `${formatAmount(split.amount * scale)}${range[1]}${formatAmount(upper.amount * scale)}${upper.rest}`;
+  }
   return `${formatAmount(split.amount * scale)}${split.rest}`;
 }
+
+// The rest of a quantity after its first amount, when it's a range: the
+// separator ("-", "–", " to ") and the text from the second amount on.
+const RANGE_REST = new RegExp(`^(\\s*[-–]\\s*|\\s+to\\s+)((?:\\d|${GLYPH_CLASS}).*)$`, "s");
 
 // Count nouns for generated quantities ("1 clove", "3 cloves"). Only ever
 // applied to labels this app generates (see formatCount), never to a
