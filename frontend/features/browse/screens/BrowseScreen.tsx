@@ -176,7 +176,6 @@ export default function BrowseScreen() {
   const savedMeals = useSavedMealActions();
 
   const [toast, setToast] = useState<ToastState | null>(null);
-  const toastError = (message: string) => setToast({ id: Date.now(), message, tone: "error" });
 
 
   // ---- login gates ----------------------------------------------------------
@@ -198,7 +197,7 @@ export default function BrowseScreen() {
     try {
       await signIn.mutateAsync(provider);
     } catch {
-      toastError("Sign-in didn't go through. Please try again.");
+      // useSignIn already showed what went wrong.
     }
   };
 

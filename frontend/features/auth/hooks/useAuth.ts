@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { showGlobalToast } from "@/frontend/components/ui";
 import { deleteAccount, signIn, signOut, type SignInProvider } from "@/api/auth";
 import { forgetPushToken } from "@/frontend/core/notifications/push";
 import { useAuthStore } from "../store/useAuthStore";
@@ -24,6 +25,11 @@ export function useSignIn({ holdOverlay = false }: { holdOverlay?: boolean } = {
   const setActivity = useAuthActivityStore((s) => s.setActivity);
   return useMutation({
     mutationFn: (provider: SignInProvider) => signIn(provider, () => setActivity("signingIn")),
+    // Every sign-in button goes through here, so a failure always says so
+    // (it used to fade the overlay and show nothing on onboarding, the
+    // login sheet, the Pro page and Add a Recipe). Cancelling resolves
+    // null, not an error, so it stays quiet.
+    onError: (error) => showGlobalToast({ tone: "error", message: signInErrorMessage(error) }),
     onSettled: (session, error) => {
       if (!holdOverlay || error || !session) setActivity(null);
     },
@@ -42,4 +48,22 @@ export function useSignOut() {
 
 export function useDeleteAccount() {
   return useMutation({ mutationFn: deleteAccount });
+}
+
+/** What a failed sign-in tells the user, by cause. */
+export function signInErrorMessage(error: unknown): string {
+  const code = String((error as { code?: unknown } | null)?.code ?? "");
+  const message = error instanceof Error ? error.message : "";
+  // Google on Android: this build's signing key isn't registered in Google
+  // Cloud (code 10). Not the user's fault, nothing they can retry.
+  if (code === "10" || /DEVELOPER_ERROR/.test(message)) {
+    return "Google sign-in isn't available in this version yet. We're on it.";
+  }
+  if (code === "PLAY_SERVICES_NOT_AVAILABLE") {
+    return "Google sign-in needs Google Play services. Update it and try again.";
+  }
+  if (/network|fetch|timed? ?out|offline/i.test(message)) {
+    return "Couldn't reach AnoUlam. Check your connection and try again.";
+  }
+  return "Sign-in didn't go through. Please try again.";
 }
