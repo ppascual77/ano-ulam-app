@@ -62,7 +62,7 @@ export function signInErrorMessage(error: unknown): string {
   if (code === "PLAY_SERVICES_NOT_AVAILABLE") {
     return "Google sign-in needs Google Play services. Update it and try again.";
   }
-  if (/network|fetch|timed? ?out|offline/i.test(message)) {
+  if (/network|fetch|timed? ?out|offline|abort/i.test(message)) {
     return "Couldn't reach AnoUlam. Check your connection and try again.";
   }
   return "Sign-in didn't go through. Please try again.";
