@@ -8,8 +8,7 @@ import { colors } from "@/frontend/constants/theme";
 export function adminMenuItems(): DropdownItem[] {
   const icon = (Icon: typeof Users) => <Icon color={colors.ink.subtle} size={18} />;
   return [
-    // TODO: no admin screens built yet — wire up once needed.
-    { label: "Manage Users", icon: icon(Users), onPress: () => console.log("TODO: Manage Users") },
+    { label: "Manage Users", icon: icon(Users), onPress: () => router.push("/manage-users") },
     { label: "Manage Meals", icon: icon(Utensils), onPress: () => router.push("/manage-meals") },
     { label: "Manage Ingredients", icon: icon(Carrot), onPress: () => router.push("/manage-ingredients") },
     { label: "DA Daily Prices", icon: icon(Landmark), onPress: () => router.push("/da-prices") },
