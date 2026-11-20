@@ -71,7 +71,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "tunnel": "expo start --tunnel"
+    "tunnel": "expo start --tunnel",
+    "test:unit": "node --import ./frontend/tests/loader.mjs --test \"frontend/tests/*.test.mjs\"",
+    "test:db": "bash supabase/security-tests/run.sh"
   },
   "private": true
 }

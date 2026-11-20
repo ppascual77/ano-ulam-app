@@ -71,6 +71,9 @@ Supabase project config don't get tangled with UI code.
   - `components/navigation/` — app-wide navigation chrome (`BottomNav`) that isn't a generic
     primitive and isn't tied to one business domain, so it doesn't fit `components/ui/` or a
     `core/<name>/`.
+  - `tests/` — unit tests for pure logic (`npm run test:unit`, Node's test runner on the
+    TypeScript as is; `loader.mjs` resolves `@/` and stubs native modules). Only for logic with
+    no React Native UI: scaling, budget matching, the planner, price math, limits.
   - `constants/theme.ts` — raw brand values (hex colors, font names) for contexts that can't take
     a `className` (StatusBar config, splash screen, chart libraries). Keep in sync with the color
     values in `tailwind.config.js` by hand — small enough duplication that a build-time sync
@@ -85,7 +88,9 @@ Supabase project config don't get tangled with UI code.
   web's `api/` server.
 - `supabase/` — Supabase CLI project config: `migrations/*.sql` (versioned schema changes,
   CLI-managed, not dashboard-only), `seed.sql` (dev seed data), `functions/` (Edge Functions,
-  see below).
+  see below), `security-tests/` (security tests: `npm run test:db` builds a throwaway PostgreSQL from
+  every migration and checks RLS, grants, limits, rewards and pushes per role; a new table or
+  security definer function gets its checks in `security-tests/security.test.sh` in the same change).
 - `supabase/functions/`: the actual **server side**: small HTTP endpoints Supabase hosts
   (Deno), the counterpart of the web app's `ai/` service and the parts of its Hono `api/` that
   needed secrets. Use one **only** when the code needs a secret key (OpenAI, USDA) or long-running
