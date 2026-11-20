@@ -4,7 +4,8 @@ What to measure once real users are on the app, and the events that needs. Start
 
 **PostHog is in the app** (added 2026-11-14, `posthog-react-native` 4.85.1, the same tool as the
 web app): `frontend/core/analytics/analytics.ts` logs exactly the events below, nothing
-automatic (no screen views, taps, session replay or GeoIP). It's off until
+automatic (no screen views, autocaptured taps or GeoIP), plus session replay (added 2026-11-20,
+see below). It's off until
 `EXPO_PUBLIC_POSTHOG_KEY` is set (`.env` and EAS), and off in development unless
 `EXPO_PUBLIC_POSTHOG_IN_DEV=1`. `EXPO_PUBLIC_POSTHOG_HOST` defaults to the US cloud
 (`https://us.i.posthog.com`; EU projects use `https://eu.i.posthog.com`). Guests keep one
@@ -14,6 +15,17 @@ the user, not used for tracking. Revenue and subscriptions already
 report themselves in RevenueCat's dashboard (trials, conversions, renewals, churn): use that
 for money, and the tool below for behaviour. Never log personal data (names, emails, what someone
 typed in a search); the Supabase user id is enough to tie events to an account.
+
+**Session replay** (added 2026-11-20) records how people move through the app, on iOS and
+Android. It needs the native `@posthog/react-native-plugin` (2.13.1; the older
+`posthog-react-native-session-replay` package is deprecated), so only builds made after it was
+added record. It also needs "Record user sessions" on in the PostHog project settings, which is
+where sampling and the minimum length are set. Recordings show layout and taps only: all text
+(inputs and plain text, so names, posts, searches and recipes) and all images are masked, and
+console logs and network requests aren't captured. Because nothing personal is visible, App
+Privacy stays at Usage Data → Product Interaction (Play: App activity → App interactions). If
+text is ever unmasked, names and user content would have to be declared too. The masking and
+on/off switch are JS config, so they can change by OTA update; the plugin itself can't.
 
 ## Pro: the results wall and limits
 
