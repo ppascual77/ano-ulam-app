@@ -9,6 +9,7 @@ import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { openGroceryList, onGroceryListOpened } from "@/frontend/core/grocery/store/useGrocerySheetStore";
 import { savedKeyOf } from "../types";
+import { maybeAskAndroidPush } from "@/frontend/core/notifications/components/AndroidPushAsk";
 
 // What a save looks like from anywhere in the app, so people learn where
 // saved meals live (Profile > Saved):
@@ -174,6 +175,8 @@ export async function announceSaved(meal: MealType) {
   } else if (!to) {
     hintToast(meal);
   }
+  // Android only, once: the notification ask (iOS gets quiet ones at sign-in).
+  void maybeAskAndroidPush();
 }
 
 export function announceRemoved(meal: MealType, undo: () => void) {

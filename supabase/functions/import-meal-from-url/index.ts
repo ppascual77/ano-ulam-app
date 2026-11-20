@@ -27,6 +27,7 @@
 // meal's serving_size — the ingredient list represents the recipe AS
 // EXTRACTED, for that many servings, not silently rescaled to 1.
 import { requireAdmin } from "../_shared/requireAdmin.ts";
+import { TEXT_MODEL, TEXT_MODEL_OPTIONS } from "../_shared/openai.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -264,9 +265,9 @@ async function rewriteWithOpenAI(extraction: RecipeExtraction): Promise<MealDraf
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: TEXT_MODEL,
+      ...TEXT_MODEL_OPTIONS,
       response_format: { type: "json_object" },
-      temperature: 0.4,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userContent },

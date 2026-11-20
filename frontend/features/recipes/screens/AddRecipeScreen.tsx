@@ -19,7 +19,7 @@ import { SignInPrompt } from "@/frontend/features/auth/components/SignInPrompt";
 import { RecipeLimitSheet } from "@/frontend/features/profile/components/created/RecipeLimitSheet";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { compressImageForUpload } from "@/frontend/features/admin/utils/imageCompression";
-import { countMyRecipes, RECIPE_LIMIT, submitRecipe, type RecipeSubmission } from "@/api/recipes";
+import { countMyRecipes, RECIPE_LIMIT, submitRecipe, type RecipeSubmission, type SubmitProgress } from "@/api/recipes";
 import { getIngredientsForMatching } from "@/api/meals";
 import { draftTags } from "../utils/draftToMeal";
 import {
@@ -152,12 +152,20 @@ export default function AddRecipeScreen() {
     );
   }, [catalog, status, setDraft]);
 
+  // How far the last attempt got: "Try again" finishes that same recipe
+  // (no duplicate in Created or the review queue), and doesn't upload the
+  // same cover photo twice.
+  const progress = useRef<SubmitProgress & { photoFor?: string | null }>({});
   const submit = useMutation({
     mutationFn: async () => {
-      const cover = draft.coverPhotoUri ? await compressImageForUpload(draft.coverPhotoUri) : null;
-      return submitRecipe(toSubmission(draft, cover), posterId);
+      const p = progress.current;
+      if (p.photoFor !== draft.coverPhotoUri) p.photoUploaded = false;
+      p.photoFor = draft.coverPhotoUri;
+      const cover = draft.coverPhotoUri && !p.photoUploaded ? await compressImageForUpload(draft.coverPhotoUri) : null;
+      return submitRecipe(toSubmission(draft, cover), posterId, p);
     },
     onSuccess: () => {
+      progress.current = {};
       clear();
       queryClient.invalidateQueries({ queryKey: ["admin", "recipes"] });
       queryClient.invalidateQueries({ queryKey: ["recipes", "mine"] });

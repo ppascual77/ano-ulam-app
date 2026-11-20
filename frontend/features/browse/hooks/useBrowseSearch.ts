@@ -12,15 +12,18 @@ const DEBOUNCE_MS = 400;
 // A search's signature for the daily limit: its words and filters.
 const signatureOf = (q: string, filters: string) => JSON.stringify([q, filters]);
 
-// Whether a search only refines the last one (free): the same words with
-// other filters, or one query a prefix of the other ("sini" -> "sinigang",
-// or back) under the same filters.
-function refines(lastSignature: string, nextSignature: string) {
-  const [lastQ, lastFilters] = JSON.parse(lastSignature) as [string, string];
+// Guests (counted on the phone): whether a search only refines the last
+// one that counted (free): the same words with other filters, or one query
+// a prefix of the other ("sini" -> "sinigang", or back) under the same
+// filters, the shorter at least 3 letters so "p" -> "pork" -> "pancit"
+// can't chain. Signed in, the database applies the same rule
+// (search_refines).
+function refines(anchorSignature: string, nextSignature: string) {
+  const [lastQ, lastFilters] = JSON.parse(anchorSignature) as [string, string];
   const [q, filters] = JSON.parse(nextSignature) as [string, string];
   if (lastQ === q) return true;
-  if (lastFilters !== filters || !lastQ || !q) return false;
-  return q.startsWith(lastQ) || lastQ.startsWith(q);
+  if (lastFilters !== filters) return false;
+  return Math.min(lastQ.length, q.length) >= 3 && (q.startsWith(lastQ) || lastQ.startsWith(q));
 }
 
 function shuffle<T>(items: T[]): T[] {
@@ -52,6 +55,10 @@ export function useBrowseSearch({ isGuest, isPro }: { isGuest: boolean; isPro: b
   const [results, setResults] = useState<MealType[]>([]);
   const [loading, setLoading] = useState(false);
   const [limitReached, setLimitReached] = useState(false);
+  // The last search couldn't reach the server: a retry state, not "no
+  // results" (and it didn't use up a search).
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const requestId = useRef(0);
 
   // A new tier (signing in, going Pro) starts clear.
@@ -65,20 +72,16 @@ export function useBrowseSearch({ isGuest, isPro }: { isGuest: boolean; isPro: b
     if (!isSearchMode) {
       setResults([]);
       setLoading(false);
+      setFailed(false);
       return;
     }
     setLoading(true);
+    setFailed(false);
     const timer = setTimeout(async () => {
       const filtersKey = JSON.stringify([applied.proteinTypes, applied.dietaryTags, applied.tags, applied.restaurants, applied.priceRange]);
-      if (!(await daily.use(signatureOf(trimmed.toLowerCase(), filtersKey), refines))) {
-        if (id === requestId.current) {
-          setLimitReached(true);
-          setLoading(false);
-        }
-        return;
-      }
-      setLimitReached(false);
-      let next: MealType[] = [];
+      // Results first, then the count: a search that never arrived (no
+      // signal) doesn't use one up.
+      let next: MealType[];
       try {
         const rows = await browseMeals({
           q: trimmed || undefined,
@@ -90,15 +93,30 @@ export function useBrowseSearch({ isGuest, isPro }: { isGuest: boolean; isPro: b
         });
         next = shuffle(rows.map((row) => mealRowToMealType(row)));
       } catch {
-        // Any error reads as "no results" (the curating empty state).
+        if (id === requestId.current) {
+          setResults([]);
+          setFailed(true);
+          setLoading(false);
+        }
+        return;
       }
       if (id !== requestId.current) return;
+      if (!(await daily.use(signatureOf(trimmed.toLowerCase(), filtersKey), refines))) {
+        if (id === requestId.current) {
+          setResults([]);
+          setLimitReached(true);
+          setLoading(false);
+        }
+        return;
+      }
+      if (id !== requestId.current) return;
+      setLimitReached(false);
       setResults(next);
       setLoading(false);
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
     // Sort is applied below without a new request.
-  }, [trimmed, applied.proteinTypes, applied.dietaryTags, applied.tags, applied.restaurants, applied.priceRange, daily.limit, isSearchMode]);
+  }, [trimmed, applied.proteinTypes, applied.dietaryTags, applied.tags, applied.restaurants, applied.priceRange, daily.limit, isSearchMode, attempt]);
 
   // Pro: meals with an ingredient to avoid stay in the results, after the
   // rest, for the screen to show covered (AvoidedMealCover): hiding them
@@ -116,6 +134,9 @@ export function useBrowseSearch({ isGuest, isPro }: { isGuest: boolean; isPro: b
     /** True when a result uses an ingredient the user avoids. */
     isAvoided,
     limitReached,
+    /** The search couldn't reach the server (show a retry, not "no results"). */
+    failed,
+    retry: () => setAttempt((n) => n + 1),
     /** Today's limit for this user, null for Pro. */
     limit: daily.limit,
     /** Searches left today, null for Pro (or before it's read). */

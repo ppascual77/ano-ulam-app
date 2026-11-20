@@ -92,14 +92,25 @@ export async function listApprovedRecipesByPoster(posterId: string): Promise<Mea
   return data;
 }
 
-// Creates the pending meal, uploads its cover photo, adds the linked
-// ingredients, keeps the unmatched ones for review, then computes price
-// and macros. `posterId` is null only for dev-build test submissions made
-// without a session (Google sign-in can't complete in Expo Go on a device).
-export async function submitRecipe(submission: RecipeSubmission, posterId: string | null): Promise<MealRow> {
+/** How far a submission got, kept by the screen across "Try again": a
+ *  retry finishes the same recipe instead of creating a second one. */
+export type SubmitProgress = { mealId?: string; photoUploaded?: boolean };
+
+// Creates the pending meal (or, on a retry, updates the one an earlier
+// attempt created), uploads its cover photo, adds the linked ingredients,
+// keeps the unmatched ones for review, then computes price and macros.
+// `progress` is filled in as it goes, so a failure partway (a dropped
+// upload, one ingredient line) can be retried without a duplicate recipe.
+// `posterId` is null only for dev-build test submissions made without a
+// session (Google sign-in can't complete in Expo Go on a device).
+export async function submitRecipe(
+  submission: RecipeSubmission,
+  posterId: string | null,
+  progress: SubmitProgress = {},
+): Promise<MealRow> {
   const unlinked = submission.ingredients.filter((i) => i.kind === "unlinked").map(({ kind: _kind, ...rest }) => rest);
 
-  const meal = await createMeal({
+  const fields = {
     name: submission.name.trim(),
     description: submission.description.trim(),
     category: "luto",
@@ -114,11 +125,32 @@ export async function submitRecipe(submission: RecipeSubmission, posterId: strin
     status: "pending",
     poster_id: posterId,
     unlinked_ingredients: unlinked,
-  });
+  };
+
+  let meal: MealRow | null = null;
+  if (progress.mealId) {
+    try {
+      meal = await updateMeal(progress.mealId, fields);
+      // Lines from the failed attempt go; this attempt adds them all again.
+      const { error } = await supabase.from("meal_ingredients").delete().eq("meal_id", meal.id);
+      if (error) throw error;
+    } catch (err) {
+      // Gone (deleted, or no longer pending): start over as a new recipe.
+      if ((err as { code?: string }).code !== "PGRST116") throw err;
+      meal = null;
+      progress.mealId = undefined;
+      progress.photoUploaded = false;
+    }
+  }
+  if (!meal) {
+    meal = await createMeal(fields);
+    progress.mealId = meal.id;
+  }
 
   if (submission.coverPhotoUri) {
     const imageUrl = await uploadMealImage(submission.coverPhotoUri, meal.id);
     await updateMeal(meal.id, { image_url: imageUrl });
+    progress.photoUploaded = true;
   }
 
   let sortOrder = 0;
@@ -202,8 +234,10 @@ export async function approveRecipe(mealId: string) {
   // Price and macros from the real ingredient data, not whatever the
   // poster's phone (or a direct API call) wrote while it was pending.
   await recomputeMealTotals(mealId);
-  // Not narrated: cook mode's narration is for catalog meals only.
-  await updateMeal(mealId, { status: "approved", rejection_reason: null });
+  // Not narrated: cook mode's narration is for catalog meals only, so any
+  // audio on a user recipe is cleared (the database already refuses a
+  // poster setting it; this also covers recipes from before that).
+  await updateMeal(mealId, { status: "approved", rejection_reason: null, procedure_audio: null });
 }
 
 export async function rejectRecipe(mealId: string, reason: string) {

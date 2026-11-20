@@ -19,6 +19,10 @@ export function PushTapRouter() {
         } else if (data.type === "new_meals") {
           // Sunday's new meals: Home, where they show in the lists.
           setTimeout(() => router.navigate("/home"), 300);
+        } else if (data.type === "post_moderation") {
+          // A post of theirs hidden, removed or restored: Profile → Created,
+          // where it shows with its label.
+          setTimeout(() => router.navigate({ pathname: "/profile", params: { tab: "recipes", at: String(Date.now()) } }), 300);
         }
       }),
     [],

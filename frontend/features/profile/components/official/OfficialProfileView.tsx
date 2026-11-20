@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
-import { Image, Linking, Pressable, View } from "react-native";
+import { Image, Pressable, View } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { router } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { BadgeCheck, BookOpen, Mail, PhilippinePeso, Utensils, Zap, type LucideIcon } from "lucide-react-native";
 import { colors } from "@/frontend/constants/theme";
+import { showGlobalToast } from "@/frontend/components/ui";
+import { openEmail, emailFallbackMessage } from "@/lib/openEmail";
 import { MealCard } from "@/frontend/core/meals/components/card/MealCard";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useRealMeals } from "@/frontend/core/meals/hooks/useRealMeals";
@@ -163,7 +165,12 @@ export function OfficialProfileView({ onToast }: { onToast: Toast }) {
           }
           badge={<BadgeCheck color={colors.white} fill={colors.verified} size={20} />}
         >
-          <Pressable onPress={() => Linking.openURL(`mailto:${OFFICIAL_EMAIL}`)} className="mt-1.5 flex-row items-center gap-1 self-start">
+          <Pressable
+            onPress={async () => {
+              const result = await openEmail(OFFICIAL_EMAIL);
+              const message = emailFallbackMessage(result, OFFICIAL_EMAIL);
+              if (message) showGlobalToast({ message, tone: result === "copied" ? "success" : "error" });
+            }} className="mt-1.5 flex-row items-center gap-1 self-start">
             <Mail color={colors.primary} size={11} />
             <Text className="font-inter-regular text-small text-primary">{OFFICIAL_EMAIL}</Text>
           </Pressable>

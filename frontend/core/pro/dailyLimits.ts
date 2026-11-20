@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { countDailyUse, getDailyUsesLeft, getLastUse, type LimitKind } from "@/api/dailyUsage";
+import { countDailyUse, getDailyUsesLeft, type LimitKind } from "@/api/dailyUsage";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 
 // Daily limits on finding meals for non-Pro users: Browse search, Suggest
@@ -23,9 +23,17 @@ type DailyUses = {
   count: number;
   /** Today's uses that counted, by signature: repeats are free. */
   seen: string[];
-  /** The last use's signature, for refinements. */
+  /** The last use's signature. */
   last: string | null;
+  /** The last use that counted: refinements are judged against it (the
+   *  same rule as the database's count_daily_use). */
+  anchor?: string | null;
+  /** Free refinements used today. */
+  refinements?: number;
 };
+
+/** Free refinements a day, as in the database (free_refinements_per_day). */
+const FREE_REFINEMENTS = 20;
 
 const storageKey = (kind: LimitKind) => `anoulam.daily.${kind}`;
 
@@ -45,21 +53,23 @@ async function readUses(kind: LimitKind): Promise<DailyUses> {
   }
 }
 
-/** Signed in: counts the use on the account. If the server can't be
- *  reached the use is allowed, so a bad connection never locks search. */
-async function countOnAccount(kind: LimitKind, signature: string, refines?: Refines): Promise<boolean> {
+/** Signed in: counts the use on the account. The database decides what
+ *  counts as a free refinement (count_daily_use, migration
+ *  20261120000000), so the app only sends the signature. If the server
+ *  can't be reached the use is allowed, so a bad connection never locks
+ *  search. */
+async function countOnAccount(kind: LimitKind, signature: string): Promise<boolean> {
   try {
-    const last = refines ? await getLastUse(kind) : null;
-    const refining = last != null && last !== signature && !!refines?.(last, signature);
-    return (await countDailyUse(kind, signature, refining)).allowed;
+    return (await countDailyUse(kind, signature, false)).allowed;
   } catch {
     return true;
   }
 }
 
 /** A guest's use, counted on the phone against `limit` (null: no limit).
- *  False when it's new and today's limit is used up. `refines(last, next)`:
- *  whether `next` only refines the last use (free). */
+ *  False when it's new and today's limit is used up. `refines(anchor, next)`:
+ *  whether `next` only refines the last use that counted (free, up to
+ *  FREE_REFINEMENTS a day). */
 export async function countUse(
   kind: LimitKind,
   signature: string,
@@ -69,13 +79,18 @@ export async function countUse(
   if (limit == null) return true;
   const uses = await readUses(kind);
   const repeat = uses.seen.includes(signature);
-  const free = repeat || (uses.last != null && !!refines?.(uses.last, signature));
+  const anchor = uses.anchor ?? null;
+  const refinements = uses.refinements ?? 0;
+  const refine = !repeat && anchor != null && refinements < FREE_REFINEMENTS && !!refines?.(anchor, signature);
+  const free = repeat || refine;
   if (!free && uses.count >= limit) return false;
   const next: DailyUses = {
     ...uses,
     count: free ? uses.count : uses.count + 1,
     seen: repeat ? uses.seen : [...uses.seen, signature],
     last: signature,
+    anchor: free ? anchor : signature,
+    refinements: refine ? refinements + 1 : refinements,
   };
   try {
     await AsyncStorage.setItem(storageKey(kind), JSON.stringify(next));
@@ -121,7 +136,7 @@ export function useDailyLimit(kind: LimitKind, limit: number | null) {
   const use = useCallback(
     async (signature: string, refines?: Refines) => {
       if (limit == null) return true;
-      const ok = userId ? await countOnAccount(kind, signature, refines) : await countUse(kind, signature, limit, refines);
+      const ok = userId ? await countOnAccount(kind, signature) : await countUse(kind, signature, limit, refines);
       refresh();
       return ok;
     },

@@ -7,22 +7,9 @@ import { supabase } from "@/lib/supabase";
 
 export type LimitKind = "search" | "budget" | "pantry" | "narration";
 
-/** The last counted use's signature (the latest day's), for the app's
- *  "only refines the last one" check. */
-export async function getLastUse(kind: LimitKind): Promise<string | null> {
-  const { data, error } = await supabase
-    .from("daily_usage")
-    .select("last")
-    .eq("kind", kind)
-    .order("day", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) throw error;
-  return data?.last ?? null;
-}
-
-/** Counts one use. `refines`: the app says it only refines the last one
- *  (free). left is null when the account has no limit. */
+/** Counts one use. The database decides repeats and refinements;
+ *  `refines` is ignored there (kept for older builds). left is null when
+ *  the account has no limit. */
 export async function countDailyUse(
   kind: LimitKind,
   signature: string,

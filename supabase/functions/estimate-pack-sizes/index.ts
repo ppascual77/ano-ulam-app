@@ -10,6 +10,7 @@
 // No web search: a typical pack size is general knowledge, so one cheap
 // call covers a whole batch.
 import { requireAdmin } from "../_shared/requireAdmin.ts";
+import { TEXT_MODEL, TEXT_MODEL_OPTIONS } from "../_shared/openai.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -64,9 +65,9 @@ async function estimate(items: Input[]): Promise<Result[]> {
     method: "POST",
     headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: TEXT_MODEL,
+      ...TEXT_MODEL_OPTIONS,
       response_format: { type: "json_object" },
-      temperature: 0.2,
       messages: [
         { role: "system", content: PROMPT },
         {

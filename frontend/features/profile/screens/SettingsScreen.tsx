@@ -31,7 +31,9 @@ import {
 import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenIntrosStore";
-import { useProStore } from "@/frontend/core/pro/store/useProStore";
+import { manageSubscription, useProStore } from "@/frontend/core/pro/store/useProStore";
+import { STORE } from "@/frontend/core/pro/subscriptionCopy";
+import { emailFallbackMessage, openEmail } from "@/lib/openEmail";
 import { EarnedProCard, ProPlanCard } from "../components/settings/ProPlanCard";
 import { ManagePlanSheet } from "../components/settings/ManagePlanSheet";
 import { AvoidSummary } from "../components/settings/AvoidSummary";
@@ -176,6 +178,8 @@ export default function SettingsScreen() {
   // and opens Manage your plan (see useProStore).
   const isPro = useProStore((s) => s.isPro);
   const subscription = useProStore((s) => s.subscription);
+  // Will charge again unless cancelled in the store (Delete account warns).
+  const renewing = !!subscription && subscription.status !== "cancelled";
   // Pro that ended in the last 30 days: shown as Expired, tapping to renew.
   const lapsed = useProStore((s) => s.lapsed);
   const earnedUntil = useProStore((s) => s.earnedUntil);
@@ -246,9 +250,10 @@ export default function SettingsScreen() {
     }, LOG_OUT_DELAY_MS);
   };
 
-  const sendFeedback = () => {
-    const subject = encodeURIComponent(`AnoUlam app feedback (v${VERSION_LABEL}, ${Platform.OS})`);
-    void Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${subject}`);
+  const sendFeedback = async () => {
+    const result = await openEmail(SUPPORT_EMAIL, `AnoUlam app feedback (v${VERSION_LABEL}, ${Platform.OS})`);
+    const message = emailFallbackMessage(result, SUPPORT_EMAIL);
+    if (message) setToast({ id: Date.now(), message, tone: result === "copied" ? "success" : "error" });
   };
 
   const runDelete = async () => {
@@ -602,7 +607,27 @@ export default function SettingsScreen() {
           </View>
         }
         title="Delete your account?"
-        body="This permanently deletes your account, your saved preferences and the recipes you've published. This can't be undone."
+        body={
+          <View className="items-center">
+            <Text className="mt-1 text-center font-inter-regular text-body text-web-ink-muted">
+              This permanently deletes your account, your saved preferences and the recipes you've published. This can't be undone.
+            </Text>
+            {/* A running subscription (trial or paid, not already cancelled)
+                belongs to the store account, not ours: deleting here
+                doesn't stop it, so say so and where to cancel. */}
+            {renewing && (
+              <View className="mt-4 w-full gap-1.5 rounded-xl bg-accent/10 px-4 py-3">
+                <Text className="text-center font-inter-semibold text-body text-ink-emphasis">Your Pro subscription keeps renewing</Text>
+                <Text className="text-center font-inter-regular text-small text-ink">
+                  Deleting your account doesn't cancel it. Cancel it in {STORE.name} first so you're not charged again.
+                </Text>
+                <Pressable onPress={() => void manageSubscription()} hitSlop={8} accessibilityRole="link" className="mt-1 self-center active:opacity-60">
+                  <Text className="font-inter-semibold text-body text-primary">Manage subscription</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        }
         confirmLabel={deleteAccount.isPending ? "Deleting…" : "Delete account"}
         busy={deleteAccount.isPending}
         onCancel={() => setConfirmDelete(false)}

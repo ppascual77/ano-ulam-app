@@ -6,6 +6,7 @@ import Animated, { Easing, FadeIn, FadeInDown, FadeOut, LinearTransition, useSha
 import { router } from "expo-router";
 import {
   AppText,
+  ErrorState,
   HeaderBackdrop,
   LandingTitle,
   Screen,
@@ -176,7 +177,6 @@ export default function BrowseScreen() {
   const savedMeals = useSavedMealActions();
 
   const [toast, setToast] = useState<ToastState | null>(null);
-  const toastError = (message: string) => setToast({ id: Date.now(), message, tone: "error" });
 
 
   // ---- login gates ----------------------------------------------------------
@@ -198,7 +198,7 @@ export default function BrowseScreen() {
     try {
       await signIn.mutateAsync(provider);
     } catch {
-      toastError("Sign-in didn't go through. Please try again.");
+      // useSignIn already showed what went wrong.
     }
   };
 
@@ -363,7 +363,9 @@ export default function BrowseScreen() {
                 Search results
               </AppText>
             )}
-            {!search.loading && search.results.length === 0 ? (
+            {!search.loading && search.failed ? (
+              <ErrorState message="Couldn't load meals. Check your connection and try again." onRetry={search.retry} />
+            ) : !search.loading && search.results.length === 0 ? (
               <EmptyMealView />
             ) : (
               // Rows run edge to edge (past the screen's side padding).

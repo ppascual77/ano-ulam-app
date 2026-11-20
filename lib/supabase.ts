@@ -62,7 +62,30 @@ class LargeSecureStore {
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
+// Sign-in and database reads/writes give up after this long, so a request
+// lost to a dead connection fails (and its screen says so) instead of
+// leaving a spinner, or the full-screen "signing you in" overlay, up for
+// good. Photo uploads (/storage) and edge functions (/functions: AI tools
+// that legitimately take a minute) keep no limit.
+const REQUEST_TIMEOUT_MS = 20_000;
+const TIMED_PATHS = ["/auth/v1/", "/rest/v1/"];
+
+const fetchWithTimeout: typeof fetch = (input, init) => {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+  if (!TIMED_PATHS.some((path) => url.includes(path))) return fetch(input, init);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error("Request timed out")), REQUEST_TIMEOUT_MS);
+  // The caller's own abort still works.
+  const outer = init?.signal;
+  if (outer) {
+    if (outer.aborted) controller.abort(outer.reason);
+    else outer.addEventListener("abort", () => controller.abort(outer.reason), { once: true });
+  }
+  return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+};
+
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  global: { fetch: fetchWithTimeout },
   auth: {
     storage: new LargeSecureStore(),
     autoRefreshToken: true,

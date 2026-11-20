@@ -46,11 +46,8 @@ export function MealImageEditor({
 
   const handlePickImage = async () => {
     setError(null);
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setError("Photo library access is needed to change the image.");
-      return;
-    }
+    // No permission ask: the system photo picker needs none (Android's
+    // asked for the storage permission app.json now blocks).
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 0.8,

@@ -10,6 +10,8 @@ Run everything from the project folder (`ano-ulam-mobile`).
 | `npx expo start --dev-client --no-dev --minify` | Same, but runs the JavaScript in production mode: closer to real speed. No Fast Refresh or error overlay. Use it to judge sluggishness. |
 | `npx expo start --dev-client --tunnel` | Dev server over a tunnel instead of Wi-Fi, for when the phone can't reach your Mac on the network. Scan the QR with the iPhone Camera; the terminal prints `iOS Bundled` once the dev build loads. (`npm run tunnel` is the same without `--dev-client`.) |
 | `npx tsc --noEmit -p .` | Type-checks the whole app. No output means no errors. |
+| `npm run test:unit` | Unit tests for the app's logic (serving scaling, Suggest by Budget, the meal planner, price math, guest limits): `frontend/tests/`. Runs the TypeScript directly, no build. |
+| `npm run test:db` | Security tests for the database: starts a throwaway PostgreSQL, applies every migration, and checks RLS, grants, limits, rewards and pushes as guest, free, Pro and admin: `supabase/security-tests/`. Needs PostgreSQL installed (`brew install postgresql@16`). Never touches the live project. Run it before `supabase db push`. |
 
 ## Builds (EAS, in the cloud)
 

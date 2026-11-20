@@ -37,6 +37,7 @@ import { ProAdHost } from "@/frontend/core/pro/components/ProAdHost";
 import { adTouchEnd, adTouchStart } from "@/frontend/core/pro/store/useProAdStore";
 import { usePushTokenSync } from "@/frontend/core/notifications/hooks/usePushPermission";
 import { PushTapRouter } from "@/frontend/core/notifications/components/PushTapRouter";
+import { AndroidPushAsk } from "@/frontend/core/notifications/components/AndroidPushAsk";
 import { identifyUser, resetUser, track } from "@/frontend/core/analytics/analytics";
 import { SaveLimitSheet } from "@/frontend/core/saved/components/SaveLimitSheet";
 import { SaveFeedbackLayer } from "@/frontend/core/saved/components/SaveFeedbackLayer";
@@ -244,6 +245,8 @@ export default function RootLayout() {
               <ProAdHost />
               {/* A tapped price push opens Price Watch. */}
               <PushTapRouter />
+              {/* Android, once, after a save: the notification ask. */}
+              <AndroidPushAsk />
               <AuthActivityOverlay />
             </QueryClientProvider>
           </SafeAreaProvider>

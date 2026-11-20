@@ -104,26 +104,32 @@ export type Database = {
       }
       daily_usage: {
         Row: {
+          anchor: string | null
           count: number
           day: string
           kind: string
           last: string | null
+          refinements: number
           seen: string[]
           user_id: string
         }
         Insert: {
+          anchor?: string | null
           count?: number
           day: string
           kind: string
           last?: string | null
+          refinements?: number
           seen?: string[]
           user_id: string
         }
         Update: {
+          anchor?: string | null
           count?: number
           day?: string
           kind?: string
           last?: string | null
+          refinements?: number
           seen?: string[]
           user_id?: string
         }
@@ -962,6 +968,23 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_list_users: {
+        Args: { p_limit?: number; p_offset?: number; p_plan?: string; p_query?: string }
+        Returns: {
+          avatar_url: string
+          created_at: string
+          display_name: string
+          email: string
+          id: string
+          last_sign_in_at: string
+          newsletter_subscribed: boolean
+          plan: string
+          pro_reward_until: string
+          pro_until: string
+          role: string
+          total_count: number
+        }[]
+      }
       get_food_posts: {
         Args: { p_limit?: number; p_offset?: number; p_user_id?: string }
         Returns: {
@@ -971,6 +994,7 @@ export type Database = {
           display_name: string
           gif_url: string
           hidden: boolean
+          hidden_reason: string
           id: string
           image_url: string
           like_count: number

@@ -257,8 +257,9 @@ export default function OnboardingScreen({ tour = false }: OnboardingScreenProps
         },
       });
       goHome();
-    } catch (err) {
-      console.error("Sign-in failed", err);
+    } catch {
+      // useSignIn showed what went wrong (or saving the preferences
+      // failed, which the next Settings visit retries).
     } finally {
       // Fades out as Home fades in.
       useAuthActivityStore.getState().setActivity(null);

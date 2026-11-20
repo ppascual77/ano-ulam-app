@@ -50,7 +50,7 @@ export default function UserProfileScreen() {
     try {
       await signIn.mutateAsync(provider);
     } catch {
-      showToast("Sign-in didn't go through. Please try again.");
+      // useSignIn already showed what went wrong.
     }
   };
 

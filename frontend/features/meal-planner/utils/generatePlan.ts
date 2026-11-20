@@ -105,8 +105,9 @@ function pickDay({ bySlot, date, servings, dayBudget, targets, used, random }: P
   let best: { meals: PlannedMeal[]; score: number } | null = null;
   for (let i = 0; i < COMBO_TRIES; i++) {
     const meals = SLOTS.map((slot) => ({ slot, meal: bySlot[slot][Math.floor(random() * bySlot[slot].length)] }));
-    // No lunch and dinner the same day.
-    if (meals[1].meal.id === meals[2].meal.id) continue;
+    // No dish twice in one day (a meal tagged for breakfast and lunch, e.g.
+    // silog, could otherwise fill both).
+    if (new Set(meals.map(({ meal }) => meal.id)).size < meals.length) continue;
     const totals = dayTotals({ date, meals }, servings);
     if (totals.cost > dayBudget) continue;
     let score = meals.reduce((sum, { meal }) => sum + (used.get(meal.id as string) ?? 0) * 1.5, 0);
@@ -175,8 +176,10 @@ export function swapOptions(pool: PlannerMeal[], plan: MealPlan, dayIndex: numbe
     .filter((m) => m.slot !== slot)
     .reduce((sum, { meal }) => sum + perServing(meal) * plan.servings, 0);
   const dayBudget = plan.budget / plan.days.length;
+  // Not the current pick, nor a dish already in another of the day's slots.
+  const inDay = new Set(day.meals.map(({ meal }) => meal.id));
   return pool
-    .filter((meal) => meal.slots.includes(slot) && meal.id !== current?.id)
+    .filter((meal) => meal.slots.includes(slot) && !inDay.has(meal.id))
     .filter((meal) => othersCost + perServing(meal) * plan.servings <= dayBudget)
     .sort((a, b) => perServing(a) - perServing(b));
 }

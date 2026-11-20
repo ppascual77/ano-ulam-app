@@ -28,6 +28,7 @@
 // ingredients were batch-seeded this project: an AI estimate is honestly
 // tagged as needing review, never presented as verified data.
 import { requireAdmin } from "../_shared/requireAdmin.ts";
+import { TEXT_MODEL, TEXT_MODEL_OPTIONS } from "../_shared/openai.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -167,9 +168,9 @@ async function estimateWithOpenAI(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: TEXT_MODEL,
+      ...TEXT_MODEL_OPTIONS,
       response_format: { type: "json_object" },
-      temperature: 0.3,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Ingredient name: ${name}` },
