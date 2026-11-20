@@ -29,6 +29,8 @@ export type FoodPost = {
   /** Removed by moderation (an admin, or 3 reports). Only its poster still
    *  gets it, so the app can label it. */
   hidden: boolean;
+  /** Why, when hidden: 3 reports (waiting for review) or an admin. */
+  hidden_reason: "reports" | "admin" | null;
 };
 
 /** Why a post was reported (post_reports.reason). */
@@ -75,6 +77,7 @@ function toPost(row: FeedRow): FoodPost {
     like_count: row.like_count ?? 0,
     liked: !!row.liked,
     hidden: !!row.hidden,
+    hidden_reason: row.hidden_reason === "reports" || row.hidden_reason === "admin" ? row.hidden_reason : null,
   };
 }
 

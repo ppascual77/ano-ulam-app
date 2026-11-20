@@ -1,7 +1,7 @@
 import { Pressable, View } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { Image } from "expo-image";
-import { Ban, Flag, Heart, MoreHorizontal, Pencil, Share2, ShieldOff, Trash2 } from "lucide-react-native";
+import { Ban, Clock, Flag, Heart, MoreHorizontal, Pencil, Share2, ShieldOff, Trash2 } from "lucide-react-native";
 import { Confetti, Dropdown, useBurstOnActivate } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import type { FoodPost } from "@/api/posts";
@@ -67,13 +67,24 @@ export function FoodPostCard({
 
   return (
     <View className={framed ? "overflow-hidden rounded-2xl border border-ink-emphasis/10 bg-white pb-3" : "border-b border-web-divider pb-3"}>
-      {/* Only its poster still sees a removed post: say so, and why. */}
-      {post.hidden && (
-        <View className="mx-4 mt-3 flex-row items-center gap-2 rounded-xl bg-like-soft px-3 py-2">
-          <ShieldOff color={colors.like} size={13} />
-          <Text className="flex-1 font-inter-medium text-small text-like">Removed by AnoUlam. Only you can see this post.</Text>
-        </View>
-      )}
+      {/* Only its poster still sees a hidden post: say so, and why.
+          Reports only hide it while it waits for review; an admin removes. */}
+      {post.hidden &&
+        (post.hidden_reason === "reports" ? (
+          <View className="mx-4 mt-3 flex-row items-center gap-2 rounded-xl bg-accent/10 px-3 py-2">
+            <Clock color={colors.accent} size={13} />
+            <Text className="flex-1 font-inter-medium text-small text-ink-emphasis">
+              Hidden while we review reports. Only you can see this post for now.
+            </Text>
+          </View>
+        ) : (
+          <View className="mx-4 mt-3 flex-row items-center gap-2 rounded-xl bg-like-soft px-3 py-2">
+            <ShieldOff color={colors.like} size={13} />
+            <Text className="flex-1 font-inter-medium text-small text-like">
+              Removed by AnoUlam for breaking the community guidelines. Only you can see this post.
+            </Text>
+          </View>
+        ))}
       <PostAuthor
         name={post.display_name ?? "User"}
         avatarUrl={post.avatar_url}
