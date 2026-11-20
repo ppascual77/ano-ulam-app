@@ -2,10 +2,17 @@ import { PostHog } from "posthog-react-native";
 import { useAuthStore } from "@/frontend/features/auth/store/useAuthStore";
 import { useProStore } from "@/frontend/core/pro/store/useProStore";
 
-// Product analytics (PostHog): the events in docs/analytics.md, nothing
-// else. No screen, tap or session recording, no personal data: events are
-// tied to the Supabase user id (a random id for guests), and every one
-// carries whether the person is Pro and how old their account is.
+// Product analytics (PostHog): the events in docs/analytics.md, plus session
+// replay. No personal data: events are tied to the Supabase user id (a random
+// id for guests), and every one carries whether the person is Pro and how old
+// their account is.
+//
+// Session replay needs the native @posthog/react-native-plugin (in builds
+// made after 2026-11-20) and "Record user sessions" on in the PostHog
+// project, which also sets the sampling. Recordings show layout and taps
+// only: every piece of text (inputs and plain text alike, so names, posts,
+// searches and recipes) and every image is masked, and console logs and
+// network requests aren't captured.
 //
 // Off without EXPO_PUBLIC_POSTHOG_KEY, and in development (so testing
 // doesn't skew the numbers) unless EXPO_PUBLIC_POSTHOG_IN_DEV=1.
@@ -21,7 +28,14 @@ function posthog(): PostHog | null {
       client = new PostHog(KEY!, {
         host: HOST,
         captureAppLifecycleEvents: false, // app_opened is ours
-        enableSessionReplay: false,
+        enableSessionReplay: true,
+        sessionReplayConfig: {
+          maskAllTextInputs: true, // all text, not only inputs
+          maskAllImages: true,
+          maskAllSandboxedViews: true, // iOS system pickers
+          captureLog: false,
+          captureNetworkTelemetry: false, // request URLs carry search text
+        },
         personProfiles: "identified_only",
         disableGeoip: true,
       });

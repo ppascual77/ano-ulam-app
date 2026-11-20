@@ -7,6 +7,17 @@ Test in the dev build (`npx expo start --dev-client`), signed in, with the sandb
 (`patrickgbpascual+sandbox2@gmail.com`, renewal rate 3 minutes) unless it says otherwise.
 RevenueCat's dashboard hides test data: switch on **Sandbox data** (top right) to see it.
 
+## Session replay (PostHog)
+
+Needs a build made after 2026-11-20, "Record user sessions" on in PostHog, and
+`EXPO_PUBLIC_POSTHOG_IN_DEV=1` in `.env` to test in the dev build.
+
+- [ ] **A session shows up.** Use the app for a minute on iOS, then on Android. Each appears in
+      PostHog → Replay under your user id, with taps.
+- [ ] **Nothing readable.** In the recording, every piece of text (meal names, your profile name,
+      posts, the search box while typing) and every image is a blocked-out box.
+- [ ] **No slowdown.** Scrolling Browse and opening a meal feel the same as before.
+
 ## Pro in the database (webhook)
 
 - [ ] **Purchase reaches the database.** Buy Monthly. Within a few seconds RevenueCat → Integrations
