@@ -12,15 +12,18 @@ const DEBOUNCE_MS = 400;
 // A search's signature for the daily limit: its words and filters.
 const signatureOf = (q: string, filters: string) => JSON.stringify([q, filters]);
 
-// Whether a search only refines the last one (free): the same words with
-// other filters, or one query a prefix of the other ("sini" -> "sinigang",
-// or back) under the same filters.
-function refines(lastSignature: string, nextSignature: string) {
-  const [lastQ, lastFilters] = JSON.parse(lastSignature) as [string, string];
+// Guests (counted on the phone): whether a search only refines the last
+// one that counted (free): the same words with other filters, or one query
+// a prefix of the other ("sini" -> "sinigang", or back) under the same
+// filters, the shorter at least 3 letters so "p" -> "pork" -> "pancit"
+// can't chain. Signed in, the database applies the same rule
+// (search_refines).
+function refines(anchorSignature: string, nextSignature: string) {
+  const [lastQ, lastFilters] = JSON.parse(anchorSignature) as [string, string];
   const [q, filters] = JSON.parse(nextSignature) as [string, string];
   if (lastQ === q) return true;
-  if (lastFilters !== filters || !lastQ || !q) return false;
-  return q.startsWith(lastQ) || lastQ.startsWith(q);
+  if (lastFilters !== filters) return false;
+  return Math.min(lastQ.length, q.length) >= 3 && (q.startsWith(lastQ) || lastQ.startsWith(q));
 }
 
 function shuffle<T>(items: T[]): T[] {

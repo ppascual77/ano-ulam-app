@@ -202,8 +202,10 @@ export async function approveRecipe(mealId: string) {
   // Price and macros from the real ingredient data, not whatever the
   // poster's phone (or a direct API call) wrote while it was pending.
   await recomputeMealTotals(mealId);
-  // Not narrated: cook mode's narration is for catalog meals only.
-  await updateMeal(mealId, { status: "approved", rejection_reason: null });
+  // Not narrated: cook mode's narration is for catalog meals only, so any
+  // audio on a user recipe is cleared (the database already refuses a
+  // poster setting it; this also covers recipes from before that).
+  await updateMeal(mealId, { status: "approved", rejection_reason: null, procedure_audio: null });
 }
 
 export async function rejectRecipe(mealId: string, reason: string) {

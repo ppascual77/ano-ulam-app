@@ -104,26 +104,32 @@ export type Database = {
       }
       daily_usage: {
         Row: {
+          anchor: string | null
           count: number
           day: string
           kind: string
           last: string | null
+          refinements: number
           seen: string[]
           user_id: string
         }
         Insert: {
+          anchor?: string | null
           count?: number
           day: string
           kind: string
           last?: string | null
+          refinements?: number
           seen?: string[]
           user_id: string
         }
         Update: {
+          anchor?: string | null
           count?: number
           day?: string
           kind?: string
           last?: string | null
+          refinements?: number
           seen?: string[]
           user_id?: string
         }
