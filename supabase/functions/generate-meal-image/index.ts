@@ -17,6 +17,7 @@
 // applies" principle as this project's other AI features. The caller shows
 // a preview and only uploads it to Storage once the admin accepts it.
 import { requireAdmin } from "../_shared/requireAdmin.ts";
+import { TEXT_MODEL, TEXT_MODEL_OPTIONS } from "../_shared/openai.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const CHAT_URL = "https://api.openai.com/v1/chat/completions";
@@ -119,8 +120,8 @@ async function describeReferenceStyle(referenceImageUrl: string): Promise<string
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        temperature: 0.3,
+        model: TEXT_MODEL,
+        ...TEXT_MODEL_OPTIONS,
         messages: [
           {
             role: "system",

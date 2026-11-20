@@ -23,6 +23,7 @@
 //
 // Writes nothing. The admin accepts or skips each issue in MealVerifyPanel.
 import { requireAdmin } from "../_shared/requireAdmin.ts";
+import { TEXT_MODEL, TEXT_MODEL_OPTIONS } from "../_shared/openai.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -89,9 +90,9 @@ async function checkBridges(meal: unknown, ingredients: BridgeInput[]): Promise<
     method: "POST",
     headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: TEXT_MODEL,
+      ...TEXT_MODEL_OPTIONS,
       response_format: { type: "json_object" },
-      temperature: 0,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: JSON.stringify({ meal, ingredients }) },
