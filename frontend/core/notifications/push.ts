@@ -106,7 +106,7 @@ async function saveToken() {
 
 /** Banners and sound: iOS's prompt (from undecided or quiet; iOS shows it
  *  once), then saves this phone's token. True when banners are allowed. */
-export async function enablePush(source: "recipe_submitted" | "settings"): Promise<boolean> {
+export async function enablePush(source: "recipe_submitted" | "settings" | "android_prompt"): Promise<boolean> {
   if (!Notifications) return false;
   await ensureAndroidChannel();
   let permission = await getPushPermission();

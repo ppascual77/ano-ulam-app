@@ -52,7 +52,7 @@ type Events = {
   trial_started: { plan: string; source: ProSource };
   purchase_completed: { plan: string; source: ProSource };
   app_opened: Record<string, never>;
-  push_permission: { state: "quiet" | "granted" | "denied"; source: "sign_in" | "recipe_submitted" | "settings" };
+  push_permission: { state: "quiet" | "granted" | "denied"; source: "sign_in" | "recipe_submitted" | "settings" | "android_prompt" };
   push_opened: { type: string };
 };
 
