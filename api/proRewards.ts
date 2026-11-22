@@ -83,6 +83,15 @@ export async function getEarnedProUntil(userId: string): Promise<string | null> 
   return data.pro_reward_until;
 }
 
+/** The subscription's end as the database has it (users.pro_until, written
+ *  only by the revenuecat-webhook edge function): ISO, or null. The app's
+ *  Pro comes from RevenueCat; this is the copy the database's limits use. */
+export async function getSubscriptionUntil(userId: string): Promise<string | null> {
+  const { data, error } = await supabase.from("users").select("pro_until").eq("id", userId).single();
+  if (error) throw error;
+  return data.pro_until;
+}
+
 /** The sheet's own show/dismiss record (users.earn_pro_prompt). */
 export type EarnProPrompt = { lastShownDay: string | null; dismissals: number };
 

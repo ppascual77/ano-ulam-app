@@ -68,6 +68,7 @@ type Events = {
   app_opened: Record<string, never>;
   push_permission: { state: "quiet" | "granted" | "denied"; source: "sign_in" | "recipe_submitted" | "settings" | "android_prompt" };
   push_opened: { type: string };
+  pro_mismatch: { plan: string; status: string; minutes_since_purchase: number; db: "none" | "ended" };
 };
 
 function accountAgeDays(): number | null {
