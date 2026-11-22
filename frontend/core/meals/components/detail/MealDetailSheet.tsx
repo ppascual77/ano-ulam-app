@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { StatusBar } from "expo-status-bar";
@@ -17,6 +17,8 @@ import { SaveLimitSheet } from "@/frontend/core/saved/components/SaveLimitSheet"
 import { ProFeatureSheet, type ProFeatureKey } from "@/frontend/core/pro/components/ProFeatureSheet";
 import { useLoginGateStore } from "@/frontend/features/auth/store/useLoginGateStore";
 import type { IngredientType, MealType } from "../../mealTypes";
+import { openProfile } from "@/frontend/core/users/openProfile";
+import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { trackProPageOpened } from "@/frontend/core/analytics/analytics";
 
 // The meal detail is full screen; the ingredient sheet tops out at 75% of
@@ -93,6 +95,14 @@ export function MealDetailSheet({
   // Keep the last meal rendered while the sheet animates closed, so the
   // content doesn't flash empty before it's off-screen.
   const [renderedMeal, setRenderedMeal] = useState(meal);
+  // A "Created by" tapped: the sheet closes first, then the profile opens
+  // (pushed while the sheet's Modal is up, it would open hidden under it).
+  const meId = useAuth().session?.user.id ?? null;
+  const profileAfterClose = useRef<string | null>(null);
+  const openPosterProfile = (posterId: string) => {
+    profileAfterClose.current = posterId;
+    onClose();
+  };
   const savedMeals = useSavedMealActions();
   const savedEntry = savedMeals.savedFor(renderedMeal);
   // Servings picked for "Update Meal", awaiting the confirm. null = closed.
@@ -221,7 +231,12 @@ export function MealDetailSheet({
     <BottomSheet
       visible={!!meal}
       onClose={handleBackOrClose}
-      onClosed={onClosed}
+      onClosed={() => {
+        const posterId = profileAfterClose.current;
+        profileAfterClose.current = null;
+        if (posterId) openProfile(posterId, meId);
+        onClosed?.();
+      }}
       fullScreen
       // The ingredient sheet goes in this sheet's own overlay, not a second
       // native Modal (see BottomSheet's `overlay`). A caller's overlay (e.g.
@@ -300,6 +315,7 @@ export function MealDetailSheet({
                 meal={renderedMeal}
                 initialServings={(meal && renderedMeal.id === meal.id ? initialServings : undefined) ?? savedEntry?.serving_size}
                 sideRice={meal && renderedMeal.id === meal.id ? sideRice : undefined}
+                onPressPoster={openPosterProfile}
                 saved={{
                   isSaved: !!savedEntry,
                   savedServings: savedEntry?.serving_size,

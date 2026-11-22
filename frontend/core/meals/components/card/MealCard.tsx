@@ -12,10 +12,14 @@ import { MacroBreakdown } from "./MacroBreakdown";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { MealSaveButton } from "./MealSaveButton";
+import { CreatedByStrip } from "@/frontend/core/users/components/CreatedBy";
 import { formatMealPrice } from "@/frontend/core/prices/utils/prices";
 
 const CARD_WIDTH = 250;
 const IMAGE_HEIGHT = 150;
+
+// The top-left chips on a community recipe: under its "Created by" strip.
+const CHIPS_UNDER_POSTER = 46;
 
 type MealCardProps = {
   meal: MealType;
@@ -96,12 +100,16 @@ export function MealCard({
           contentFit="cover"
         />
 
+        {/* A community recipe: "Created by" across the top of the photo, as
+            on the web (official meals show nothing). The chips sit under it. */}
+        {!!meal.poster_id && <CreatedByStrip posterId={meal.poster_id} />}
+
         {/* Scrim so the plain white calorie text (no chip background) stays readable over any photo. */}
         {isGrid && <View className="absolute bottom-0 left-0 right-0 h-10 bg-black/10" />}
 
         {/* Top-left: time, fast-food chips, a badge. Stops
             short of the bookmark, wrapping instead of running under it. */}
-        <View className="absolute left-2 right-12 top-2 min-h-9 flex-row flex-wrap items-center gap-1">
+        <View className="absolute left-2 right-12 min-h-9 flex-row flex-wrap items-center gap-1" style={{ top: meal.poster_id ? CHIPS_UNDER_POSTER : 8 }}>
           {!isFastFood && (
             <Chips
               label={`${meal.total_time} min`}
