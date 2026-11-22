@@ -23,7 +23,7 @@ import { useSavedGroceryList } from "@/frontend/core/grocery/hooks/useSavedGroce
 import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
 import { GroceryMealPicker } from "@/frontend/core/grocery/components/GroceryMealPicker";
 import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
-import { PLAN_DAYS, dayLabel, formatPeso, generatePlan, monthDay, regenerateDay, riceCupsFor, swapOptions, type MealPlan, type MealSlot } from "../utils/generatePlan";
+import { PLAN_DAYS, dayGoalGap, dayLabel, dayTotals, formatPeso, generatePlan, monthDay, regenerateDay, riceCupsFor, swapOptions, type MealPlan, type MealSlot } from "../utils/generatePlan";
 import { goalsFromTargets, targetsFromGoals } from "@/frontend/core/nutrition/macros";
 import { useNutritionGoals } from "@/frontend/core/preferences/hooks/useNutritionGoals";
 import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
@@ -392,6 +392,21 @@ export default function MealPlannerScreen() {
           <View className="pt-3">
             {/* A locked day (day 2 on, free): the plan-your-week feature sheet,
                 its reel showing a whole week planned. */}
+            {/* With a goal, when a day misses it: how many land (each missed
+                day's own note says by how much and why). */}
+            {(() => {
+              if (!plan.targets) return null;
+              const onTarget = plan.days.filter((d) => !dayGoalGap(dayTotals(d, plan.servings, plan.rice), plan.targets)).length;
+              if (onTarget === plan.days.length) return null;
+              return (
+                <Text className="mb-2 font-inter-medium text-small text-ink-subtle">
+                  <Text className="font-inter-bold text-ink-emphasis">
+                    {onTarget} of {plan.days.length}
+                  </Text>{" "}
+                  days on your nutrition goal
+                </Text>
+              );
+            })()}
             <DateSelector plan={plan} selected={selectedDay} isPremium={isPro} onSelect={selectDay} onLocked={() => setFeatureSheet("planLength")} />
           </View>
 

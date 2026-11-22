@@ -171,6 +171,44 @@ export function planDates(from = new Date(), length: number = PLAN_DAYS): Date[]
 }
 
 const COMBO_TRIES = 60;
+// With a nutrition goal: many more combinations a day, so days that land on
+// target are found when the catalog has them (BUG-9: 60 random tries left
+// days at 38-70% of a 2,050 kcal goal).
+const GOAL_TRIES = 400;
+
+// ---- Fitting a day to the goal --------------------------------------------------
+// On target: calories within 85-115% of the goal and protein at 85% or more,
+// for one person (rice included). Off target scores far worse than any repeat,
+// so the planner only settles for a repeat-free day that misses when nothing
+// within budget lands.
+export const GOAL_BAND = { low: 0.85, high: 1.15 } as const;
+const OFF_TARGET_WEIGHT = 10;
+const CLOSENESS_WEIGHT = 0.3;
+
+type DayNutrition = { calories: number; protein: number };
+
+/** How far a day is from the goal: 0 inside the band, growing outside it
+ *  (plus a small pull toward the exact goal). Lower is better. */
+export function goalPenalty(totals: DayNutrition, targets: MacroTargets): number {
+  const kcal = totals.calories / targets.calories;
+  const protein = totals.protein / targets.protein;
+  const kcalOff = kcal < GOAL_BAND.low ? GOAL_BAND.low - kcal : kcal > GOAL_BAND.high ? kcal - GOAL_BAND.high : 0;
+  const proteinOff = protein < GOAL_BAND.low ? GOAL_BAND.low - protein : 0;
+  return (kcalOff + proteinOff) * OFF_TARGET_WEIGHT + Math.abs(1 - kcal) * CLOSENESS_WEIGHT;
+}
+
+/** A day that misses the goal, and by how much (one person, rounded), or
+ *  null when it's on target. `kcal` is negative when short. */
+export type GoalGap = { kcal: number; proteinShort: number } | null;
+export function dayGoalGap(totals: DayNutrition, targets: MacroTargets | null): GoalGap {
+  if (!targets) return null;
+  const low = targets.calories * GOAL_BAND.low;
+  const high = targets.calories * GOAL_BAND.high;
+  const kcal = totals.calories < low ? totals.calories - targets.calories : totals.calories > high ? totals.calories - targets.calories : 0;
+  const proteinShort = totals.protein < targets.protein * GOAL_BAND.low ? targets.protein - totals.protein : 0;
+  if (kcal === 0 && proteinShort === 0) return null;
+  return { kcal: Math.round(kcal), proteinShort: Math.round(proteinShort) };
+}
 
 type GenerateInput = {
   pool: PlannerMeal[];
@@ -203,7 +241,8 @@ type PickDayInput = {
 // day: within budget, then closest to the targets, then least repetitive.
 function pickDay({ bySlot, date, servings, dayBudget, targets, used, random, rice }: PickDayInput): PlannedMeal[] | null {
   let best: { meals: PlannedMeal[]; score: number } | null = null;
-  for (let i = 0; i < COMBO_TRIES; i++) {
+  const tries = targets ? GOAL_TRIES : COMBO_TRIES;
+  for (let i = 0; i < tries; i++) {
     const meals = SLOTS.map((slot) => ({ slot, meal: bySlot[slot][Math.floor(random() * bySlot[slot].length)] }));
     // No dish twice in one day (a meal tagged for breakfast and lunch, e.g.
     // silog, could otherwise fill both).
@@ -211,10 +250,7 @@ function pickDay({ bySlot, date, servings, dayBudget, targets, used, random, ric
     const totals = dayTotals({ date, meals }, servings, rice);
     if (totals.cost > dayBudget) continue;
     let score = meals.reduce((sum, { meal }) => sum + (used.get(meal.id as string) ?? 0) * 1.5, 0);
-    if (targets) {
-      score += Math.abs(totals.calories - targets.calories) / targets.calories;
-      score += Math.max(0, targets.protein - totals.protein) / targets.protein;
-    }
+    if (targets) score += goalPenalty(totals, targets);
     if (!best || score < best.score) best = { meals, score };
   }
   return best?.meals ?? null;

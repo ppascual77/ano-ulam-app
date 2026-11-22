@@ -4,12 +4,12 @@ import { Text } from "@/frontend/components/ui/Text";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
-import { ArrowLeftRight, ChevronRight, CookingPot, ShoppingCart, CloudSun, Moon, Sun, Droplets, Dumbbell, Flame, Lock, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
+import { ArrowLeftRight, ChevronRight, CookingPot, Cookie, Info, ShoppingCart, CloudSun, Moon, Sun, Droplets, Dumbbell, Flame, Lock, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
 import { SegmentedSwitch } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 import type { MacroTargets } from "@/frontend/core/nutrition/macros";
-import { PLAN_DAYS, SLOTS, SLOT_LABELS, dayLabel, dayTotals, formatPeso, mealCost as costOfMeal, monthDay, riceCupsFor, type MealPlan, type PlanDay, type PlanRice, type PlannedMeal } from "../utils/generatePlan";
+import { FALLBACK_RICE_CUP, PLAN_DAYS, SLOTS, SLOT_LABELS, dayGoalGap, dayLabel, dayTotals, formatPeso, mealCost as costOfMeal, monthDay, riceCupsFor, type MealPlan, type PlanDay, type PlanRice, type PlannedMeal } from "../utils/generatePlan";
 import { MealImage } from "./ImagePlaceholder";
 import type { MealSlot } from "../utils/generatePlan";
 
@@ -122,7 +122,7 @@ type SummaryStat = { key: string; label: string; value: string; color: string };
 // The summary's shared shell: a heading row (title, and how the day compares
 // to a goal), then one card with the donut and three dot-labelled stats.
 // Macro and cost versions both render through this, so they match exactly.
-function SummaryCard({ title, goal, donut, stats }: { title: string; goal: ReactNode; donut: ReactNode; stats: SummaryStat[] }) {
+function SummaryCard({ title, goal, donut, stats, note }: { title: string; goal: ReactNode; donut: ReactNode; stats: SummaryStat[]; note?: ReactNode }) {
   return (
     <View className="gap-2">
       <View className="flex-row items-baseline justify-between">
@@ -146,6 +146,37 @@ function SummaryCard({ title, goal, donut, stats }: { title: string; goal: React
           </View>
         ))}
       </View>
+      {note}
+    </View>
+  );
+}
+
+// A day that misses the nutrition goal (BUG-9): how far, what would close it
+// when an extra cup of rice with each meal would, and that more meals are on
+// the way. Quiet: a small icon and muted text, only on days that miss.
+function GoalGapNote({ plan, day, totals }: { plan: MealPlan; day: PlanDay; totals: { calories: number; protein: number } }) {
+  const gap = dayGoalGap(totals, plan.targets);
+  if (!gap) return null;
+  const cups = plan.rice?.cups ?? 0;
+  const riceMeals = day.meals.filter(({ meal }) => !meal.ownCarb).length;
+  const cupKcal = (plan.rice?.cup ?? FALLBACK_RICE_CUP).calories;
+  const riceCloses = gap.kcal < 0 && cups < 2 && riceMeals * cupKcal >= -gap.kcal;
+  const first =
+    gap.kcal < 0
+      ? `About ${(-gap.kcal).toLocaleString("en-PH")} kcal short of your goal today.`
+      : gap.kcal > 0
+        ? `About ${gap.kcal.toLocaleString("en-PH")} kcal over your goal today.`
+        : `About ${gap.proteinShort} g protein short of your goal today.`;
+  const fix = riceCloses ? (cups === 0 ? " A cup of rice with each meal would close it." : " An extra cup of rice with each meal would close it.") : "";
+  return (
+    <View className="flex-row items-start gap-2 px-1">
+      <View className="pt-0.5">
+        <Info color={colors.accent} size={14} />
+      </View>
+      <Text className="flex-1 font-inter-regular text-small text-web-ink-muted">
+        <Text className="font-inter-semibold text-web-ink">{first}</Text>
+        {fix} More filling meals are on the way.
+      </Text>
     </View>
   );
 }
@@ -185,6 +216,7 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
         }
         // Each macro against its target: "112/120g".
         stats={MACROS.map(({ key, label, color }) => ({ key, label, color, value: `${Math.round(totals[key])}/${plan.targets![key]}g` }))}
+        note={<GoalGapNote plan={plan} day={day} totals={totals} />}
       />
     );
   }
@@ -253,8 +285,15 @@ type HeroCarouselProps = {
 // The day's meals: Breakfast / Lunch / Dinner tabs over big swipeable photo
 // cards, kept in sync both ways (tap a tab, or swipe). Each card: its slot,
 // a Swap button for that meal, the name, kcal and protein, and the cost.
+// After the day's meals: Snacks, not planned yet, as a "coming soon" card.
+type SnacksSoon = { slot: "snacks"; soon: true };
+type CarouselItem = PlannedMeal | SnacksSoon;
+const SNACKS_SOON: SnacksSoon = { slot: "snacks", soon: true };
+const isSoon = (item: CarouselItem): item is SnacksSoon => "soon" in item;
+
 export function HeroCarousel({ day, servings, rice, width, selected, onChange, onOpen, onSwap, swapLocked }: HeroCarouselProps) {
-  const list = useRef<FlatList<PlannedMeal>>(null);
+  const list = useRef<FlatList<CarouselItem>>(null);
+  const items: CarouselItem[] = [...day.meals, SNACKS_SOON];
   const cardWidth = Math.round(width * CARD_SHARE);
   const step = cardWidth + CARD_GAP;
 
@@ -263,7 +302,7 @@ export function HeroCarousel({ day, servings, rice, width, selected, onChange, o
   }, [selected, step]);
 
   const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const index = Math.min(day.meals.length - 1, Math.max(0, Math.round(e.nativeEvent.contentOffset.x / step)));
+    const index = Math.min(items.length - 1, Math.max(0, Math.round(e.nativeEvent.contentOffset.x / step)));
     if (index !== selected) onChange(index);
   };
 
@@ -272,14 +311,14 @@ export function HeroCarousel({ day, servings, rice, width, selected, onChange, o
       <SegmentedSwitch
         fill
         size="md"
-        options={day.meals.map((m) => ({ value: m.slot, label: SLOT_LABELS[m.slot] }))}
-        value={day.meals[selected]?.slot ?? day.meals[0].slot}
-        onChange={(slot) => onChange(Math.max(0, day.meals.findIndex((m) => m.slot === slot)))}
+        options={[...day.meals.map((m) => ({ value: m.slot as string, label: SLOT_LABELS[m.slot] })), { value: "snacks", label: "Snacks" }]}
+        value={items[selected]?.slot ?? day.meals[0].slot}
+        onChange={(slot) => onChange(Math.max(0, items.findIndex((m) => m.slot === slot)))}
       />
       <FlatList
         ref={list}
         horizontal
-        data={day.meals}
+        data={items}
         keyExtractor={(item) => item.slot}
         showsHorizontalScrollIndicator={false}
         snapToInterval={step}
@@ -290,6 +329,25 @@ export function HeroCarousel({ day, servings, rice, width, selected, onChange, o
         contentContainerStyle={{ paddingHorizontal: BLEED, gap: CARD_GAP }}
         getItemLayout={(_, index) => ({ length: step, offset: step * index, index })}
         renderItem={({ item }) => {
+          if (isSoon(item)) {
+            return (
+              <View
+                style={{ width: cardWidth, height: HERO_HEIGHT }}
+                className="items-center justify-center rounded-3xl border border-dashed border-primary/20 bg-primary/5 px-8"
+              >
+                <View className="h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                  <Cookie color={colors.primary} size={26} />
+                </View>
+                <View className="mt-4 rounded-full bg-accent/15 px-2.5 py-0.5">
+                  <Text className="font-inter-bold text-sub uppercase tracking-widest text-accent">Coming soon</Text>
+                </View>
+                <Text className="mt-3 text-center font-inter-extrabold text-heading tracking-tight text-ink-emphasis">Snacks</Text>
+                <Text className="mt-1.5 text-center font-inter-regular text-body text-ink-subtle">
+                  Merienda picks to round out your day, counted in your plan and budget.
+                </Text>
+              </View>
+            );
+          }
           const Icon = SLOT_ICONS[item.slot];
           const cups = riceCupsFor(item.slot, item.meal, rice);
           return (

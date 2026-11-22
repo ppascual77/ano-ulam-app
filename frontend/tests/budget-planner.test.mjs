@@ -119,3 +119,42 @@ test("rice: day totals add it per person, cost for everyone; the budget includes
   assert.ok(gen({ pool, budget: 210 * 2, servings: 2, targets: null, from: new Date(2026, 10, 20), length: 1 }));
   assert.equal(gen({ pool, budget: 210 * 2, servings: 2, targets: null, from: new Date(2026, 10, 20), length: 1, rice: { ...rice, cups: 1 } }), null);
 });
+
+// ---- Fitting days to the goal (BUG-9 part 2) --------------------------------------
+test("goal: no penalty inside 85-115% kcal with protein >= 85%; grows outside", async () => {
+  const { goalPenalty } = await import("@/frontend/features/meal-planner/utils/generatePlan");
+  const t = { calories: 2000, protein: 100, carbs: 250, fats: 70 };
+  assert.ok(goalPenalty({ calories: 2000, protein: 100 }, t) < 0.01);
+  assert.ok(goalPenalty({ calories: 1750, protein: 90 }, t) < 0.1);
+  assert.ok(goalPenalty({ calories: 1400, protein: 100 }, t) > 1.5);
+  assert.ok(goalPenalty({ calories: 2000, protein: 60 }, t) > 2);
+  assert.ok(goalPenalty({ calories: 2600, protein: 100 }, t) > 1);
+});
+
+test("goal: a day's gap says how short (or over) it is, null on target", async () => {
+  const { dayGoalGap } = await import("@/frontend/features/meal-planner/utils/generatePlan");
+  const t = { calories: 2050, protein: 100, carbs: 250, fats: 70 };
+  assert.equal(dayGoalGap({ calories: 1900, protein: 95 }, t), null);
+  assert.deepEqual(dayGoalGap({ calories: 1650, protein: 95 }, t), { kcal: -400, proteinShort: 0 });
+  assert.deepEqual(dayGoalGap({ calories: 2000, protein: 70 }, t), { kcal: 0, proteinShort: 30 });
+  assert.equal(dayGoalGap({ calories: 1000, protein: 10 }, null), null);
+});
+
+test("goal: with a goal, the planner picks the combination that lands on target", async () => {
+  const { generatePlan: gen, dayTotals: totals } = await import("@/frontend/features/meal-planner/utils/generatePlan");
+  // Small and big options per slot; only big ones reach 2,000 kcal, and there
+  // are enough of them to fill 3 days without repeats (like the catalog).
+  const pool = ["b", "l", "d"].flatMap((s, si) => {
+    const slot = ["breakfast", "lunch", "dinner"][si];
+    return [
+      ...[1, 2, 3].map((n) => pm(`${s}-small${n}`, 40, [slot], 300, 15)),
+      ...[1, 2, 3].map((n) => pm(`${s}-big${n}`, 90, [slot], 680, 38)),
+    ];
+  });
+  const targets = { calories: 2000, protein: 100, carbs: 250, fats: 70 };
+  const plan = gen({ pool, budget: 300 * 3, servings: 1, targets, from: new Date(2026, 10, 20), length: 3 });
+  for (const d of plan.days) {
+    const t = totals(d, 1);
+    assert.ok(t.calories >= 1700 && t.calories <= 2300, `day at ${t.calories} kcal`);
+  }
+});
