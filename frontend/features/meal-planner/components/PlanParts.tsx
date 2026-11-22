@@ -177,8 +177,7 @@ function SummaryCard({
 }
 
 // A day that misses the nutrition goal (BUG-9): how far, what would close it
-// when an extra cup of rice with each meal would, and that more meals are on
-// the way. Quiet: a small icon and muted text, only on days that miss.
+// when an extra cup of rice with each meal would. Quiet: a small icon and muted text, only on days that miss.
 function GoalGapNote({ plan, day, totals }: { plan: MealPlan; day: PlanDay; totals: { calories: number; protein: number } }) {
   const gap = dayGoalGap(totals, plan.targets);
   if (!gap) return null;
@@ -200,7 +199,7 @@ function GoalGapNote({ plan, day, totals }: { plan: MealPlan; day: PlanDay; tota
       </View>
       <Text className="flex-1 font-inter-regular text-small text-web-ink-muted">
         <Text className="font-inter-semibold text-web-ink">{first}</Text>
-        {fix} More filling meals are on the way.
+        {fix}
       </Text>
     </View>
   );
