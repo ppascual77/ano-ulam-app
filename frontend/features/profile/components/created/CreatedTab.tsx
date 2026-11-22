@@ -79,7 +79,9 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
   // The post or recipe that earned Pro days: deleting it takes them back,
   // so the confirm says so (a post has no confirm otherwise).
   const rewardAtStake = useRewardAtStake();
-  const [confirmRewardPost, setConfirmRewardPost] = useState<{ post: FoodPost; days: number } | null>(null);
+  // Every post delete asks first (IMP-16), like Discover; `days` when it would
+  // take back earned Pro days (the line says so), else null.
+  const [confirmRewardPost, setConfirmRewardPost] = useState<{ post: FoodPost; days: number | null } | null>(null);
   const rewardPostTarget = useLastDefined(confirmRewardPost);
   const removePost = (post: FoodPost) =>
     void posts.remove(post).then((ok) => {
@@ -202,10 +204,7 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
                   onOpenPhoto={(uri) => setLightbox({ uri })}
                   onEdit={() => onEditPost(post)}
                   onDelete={() =>
-                    void rewardAtStake("photo_post", post.id).then((stake) => {
-                      if (stake) setConfirmRewardPost({ post, days: stake.days });
-                      else removePost(post);
-                    })
+                    void rewardAtStake("photo_post", post.id).then((stake) => setConfirmRewardPost({ post, days: stake?.days ?? null }))
                   }
                 />
               ))}
@@ -290,7 +289,7 @@ export function CreatedTab({ posterId, canCreate, onCreate, onEditPost, loadMore
       <ConfirmSheet
         visible={!!confirmRewardPost}
         title="Delete this post?"
-        body={rewardPostTarget ? rewardLossLine("post", rewardPostTarget.days) : undefined}
+        body={rewardPostTarget?.days ? rewardLossLine("post", rewardPostTarget.days) : "This cannot be undone."}
         confirmLabel="Delete"
         onCancel={() => setConfirmRewardPost(null)}
         onConfirm={() => {
