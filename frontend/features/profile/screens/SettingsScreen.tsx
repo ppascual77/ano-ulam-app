@@ -6,7 +6,8 @@ import * as Application from "expo-application";
 import { requireOptionalNativeModule } from "expo";
 import Animated, { Easing, FadeInDown } from "react-native-reanimated";
 import { Gift, RotateCcw } from "lucide-react-native";
-import { allRewardsEarned, useProRewardProgress } from "@/frontend/core/pro/hooks/useProRewardProgress";
+import { useProRewardProgress } from "@/frontend/core/pro/hooks/useProRewardProgress";
+import { EarnProSheet } from "@/frontend/core/pro/components/EarnProSheet";
 import { useRestorePurchases } from "@/frontend/core/pro/hooks/useRestorePurchases";
 import { POST_REWARD_DAYS, RECIPE_REWARD_DAYS } from "@/frontend/core/pro/proContent";
 import { AccountCard } from "../components/settings/AccountCard";
@@ -32,7 +33,7 @@ import {
 import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenIntrosStore";
-import { manageSubscription, useProStore } from "@/frontend/core/pro/store/useProStore";
+import { manageSubscription, usePaysForPro, useProStore } from "@/frontend/core/pro/store/useProStore";
 import { STORE } from "@/frontend/core/pro/subscriptionCopy";
 import { emailFallbackMessage, openEmail } from "@/lib/openEmail";
 import { EarnedProCard, ProPlanCard } from "../components/settings/ProPlanCard";
@@ -200,14 +201,15 @@ export default function SettingsScreen() {
   const closeProSheet = () => setProSheet(null);
   const [manageOpen, setManageOpen] = useState(false);
   const [blockedOpen, setBlockedOpen] = useState(false);
-  // How a free account can still earn Pro (the first reward not yet earned).
+  // "Earn free Pro" (IMP-15): the Earn Pro sheet any time, for anyone signed
+  // in who doesn't pay for Pro (earned days still count on a trial), also
+  // once both rewards are earned (it then says so).
   const rewards = useProRewardProgress().data;
-  const earnTip =
-    !isSignedIn || !rewards || allRewardsEarned(rewards)
-      ? null
-      : rewards.approvedRecipes === 0
-        ? { days: RECIPE_REWARD_DAYS, how: "share your first recipe", href: "/add-recipe" as const }
-        : { days: POST_REWARD_DAYS, how: "post your first food photo", href: "/discover" as const };
+  const paysForPro = usePaysForPro();
+  const [earnOpen, setEarnOpen] = useState(false);
+  const earnDaysLeft = rewards
+    ? (rewards.approvedRecipes > 0 ? 0 : RECIPE_REWARD_DAYS) + (rewards.hasPhotoPost ? 0 : POST_REWARD_DAYS)
+    : null;
 
   // Sections rise in one after another as Settings opens (none with
   // Reduce motion).
@@ -323,18 +325,21 @@ export default function SettingsScreen() {
             )}
             {/* What Pro includes is a checklist inside the plan card. */}
             {!isPro && !lapsed && <ProPitchCard />}
-            {!isPro && earnTip && (
+            {isSignedIn && !paysForPro && rewards && earnDaysLeft != null && (
               <Pressable
-                onPress={() => router.push(earnTip.href)}
+                onPress={() => setEarnOpen(true)}
                 accessibilityRole="button"
                 className="flex-row items-center gap-3 rounded-2xl border border-dashed border-accent/40 bg-accent/5 px-4 py-3 active:opacity-80"
               >
                 <View className="h-8 w-8 items-center justify-center rounded-full bg-accent/15">
                   <Gift color={colors.accent} size={16} />
                 </View>
-                <Text className="flex-1 font-inter-regular text-small text-ink-emphasis">
-                  Or <Text className="font-inter-bold">earn {earnTip.days} days of Pro free</Text>: {earnTip.how}
-                </Text>
+                <View className="flex-1">
+                  <Text className="font-inter-bold text-small text-ink-emphasis">Earn free Pro</Text>
+                  <Text className="font-inter-regular text-small text-ink-subtle">
+                    {earnDaysLeft > 0 ? `${earnDaysLeft} days still to earn by sharing` : "Both rewards earned. Thank you!"}
+                  </Text>
+                </View>
                 <ChevronRight color={colors.accent} size={16} />
               </Pressable>
             )}
@@ -664,6 +669,18 @@ export default function SettingsScreen() {
         busy={deleteAccount.isPending}
         onCancel={() => setConfirmDelete(false)}
         onConfirm={runDelete}
+      />
+
+      <EarnProSheet
+        visible={earnOpen}
+        progress={rewards ?? null}
+        onClose={() => setEarnOpen(false)}
+        // Once it's closed: a recipe goes to Add a Recipe, a food post to
+        // Discover (where the + posts one).
+        onClosed={(choice) => {
+          if (choice === "recipe") router.push("/add-recipe");
+          else if (choice === "post") router.push("/discover");
+        }}
       />
 
       <BlockedAccountsSheet

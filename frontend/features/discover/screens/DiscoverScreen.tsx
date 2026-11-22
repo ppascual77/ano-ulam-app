@@ -32,7 +32,7 @@ import { LoginGateSheet, type LoginGateReason } from "@/frontend/features/auth/c
 import { CommunityFeed } from "../components/CommunityFeed";
 import { CreateButton } from "../components/CreateButton";
 import { DiscoverIntro } from "../components/DiscoverIntro";
-import { EarnProSheet, type EarnProChoice } from "../components/EarnProSheet";
+import { EarnProSheet, type EarnProChoice } from "@/frontend/core/pro/components/EarnProSheet";
 import { canShowEarnProPrompt, useEarnProPromptStore } from "../store/useEarnProPromptStore";
 import { CreateSheet, type CreateChoice } from "@/frontend/core/posts/components/CreateSheet";
 import { CreatePostSheet } from "@/frontend/core/posts/components/CreatePostSheet";
