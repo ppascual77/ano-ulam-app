@@ -1,6 +1,7 @@
 import { memo, useEffect } from "react";
 import { Pressable, View } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
+import { Breathing } from "@/frontend/components/ui/Breathing";
 import Animated, { Easing, FadeIn, FadeInDown, LinearTransition, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -142,14 +143,16 @@ function TodayPlan({ plan, dayIndex }: { plan: MealPlan; dayIndex: number }) {
 // jumps or flashes.
 function Placeholder() {
   return (
-    <View className="flex-row items-center gap-4 rounded-3xl bg-white px-5 py-5 shadow-sm">
-      <View className="flex-1 gap-2.5">
-        <View className="h-3 w-24 rounded bg-ink-emphasis/5" />
-        <View className="h-6 w-44 rounded bg-ink-emphasis/5" />
-        <View className="h-3 w-52 rounded bg-ink-emphasis/5" />
-        <View className="mt-1 h-8 w-32 rounded-full bg-ink-emphasis/5" />
-      </View>
-      <View className="h-20 w-20 rounded-2xl bg-ink-emphasis/5" />
+    <View className="rounded-3xl bg-white px-5 py-5 shadow-sm">
+      <Breathing className="flex-row items-center gap-4">
+        <View className="flex-1 gap-2.5">
+          <View className="h-3 w-24 rounded bg-ink-emphasis/5" />
+          <View className="h-6 w-44 rounded bg-ink-emphasis/5" />
+          <View className="h-3 w-52 rounded bg-ink-emphasis/5" />
+          <View className="mt-1 h-8 w-32 rounded-full bg-ink-emphasis/5" />
+        </View>
+        <View className="h-20 w-20 rounded-2xl bg-ink-emphasis/5" />
+      </Breathing>
     </View>
   );
 }

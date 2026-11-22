@@ -1,7 +1,6 @@
-import { ReactNode, useEffect, useState } from "react";
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
-import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { ReactNode, useState } from "react";
 import { Image as RNImage, Pressable, View } from "react-native";
+import { Breathing } from "@/frontend/components/ui/Breathing";
 import { openWebUrl } from "@/lib/openWebUrl";
 import { Text } from "@/frontend/components/ui/Text";
 import { Image, type ImageSource } from "expo-image";
@@ -73,7 +72,7 @@ export function PostCaption({ text }: { text: string }) {
 }
 
 // A post's photo or GIF that shows a skeleton until it has loaded (the
-// same soft pulse as PostSkeleton; still with Reduce motion), then fades in.
+// same breathing as PostSkeleton; still with Reduce motion), then fades in.
 export function SkeletonImage({
   source,
   contentFit = "cover",
@@ -83,17 +82,14 @@ export function SkeletonImage({
   contentFit?: "cover" | "contain";
   style: object;
 }) {
-  const reduceMotion = useReduceMotion();
   const [loaded, setLoaded] = useState(false);
-  const pulse = useSharedValue(0.6);
-  useEffect(() => {
-    if (loaded || reduceMotion) return;
-    pulse.value = withRepeat(withTiming(1, { duration: 700 }), -1, true);
-  }, [loaded, reduceMotion, pulse]);
-  const pulseStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
   return (
     <View style={style}>
-      {!loaded && <Animated.View pointerEvents="none" style={pulseStyle} className="absolute inset-0 bg-web-divider" />}
+      {!loaded && (
+        <View pointerEvents="none" className="absolute inset-0">
+          <Breathing className="flex-1 bg-web-divider" />
+        </View>
+      )}
       <Image
         source={source}
         style={{ flex: 1 }}

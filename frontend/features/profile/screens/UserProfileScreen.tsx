@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Avatar, Screen, Toast, type ToastState } from "@/frontend/components/ui";
+import { Avatar, Breathing, Screen, Toast, type ToastState } from "@/frontend/components/ui";
 import { type SignInProvider, useAuth, useSignIn } from "@/frontend/features/auth/hooks/useAuth";
 import { UNNAMED_USER } from "@/frontend/features/auth/hooks/useDisplayName";
 import { useMe, useUserProfile } from "../hooks/useProfile";
@@ -17,13 +17,13 @@ import { MealGridSkeleton } from "../components/MealGridSkeleton";
 // Header placeholder while the profile loads.
 function HeaderSkeleton() {
   return (
-    <View className="flex-row items-center gap-4 px-5 pt-5">
+    <Breathing className="flex-row items-center gap-4 px-5 pt-5">
       <View className="h-16 w-16 rounded-full bg-ink-emphasis/5" />
       <View className="flex-1 gap-2">
         <View className="h-4 w-36 rounded bg-ink-emphasis/5" />
         <View className="h-3 w-24 rounded bg-ink-emphasis/5" />
       </View>
-    </View>
+    </Breathing>
   );
 }
 

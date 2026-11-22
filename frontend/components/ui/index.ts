@@ -40,4 +40,5 @@ export { LandingTitle, type LandingDot } from "./LandingTitle";
 export { DotHandoffOverlay } from "./DotHandoff";
 export { DotMorphButton, type DotSpot } from "./DotMorphButton";
 export { useStatusBarStrip } from "./StatusBarStrip";
+export { Breathing } from "./Breathing";
 export { HeaderBackdrop, HeaderTexture, HEADER_OVERSCROLL, TAB_HEADER_CURVES, type HeaderCurves } from "./HeaderBackdrop";

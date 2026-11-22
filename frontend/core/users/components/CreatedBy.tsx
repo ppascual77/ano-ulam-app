@@ -2,6 +2,7 @@ import { Pressable, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Text } from "@/frontend/components/ui/Text";
 import { Avatar } from "@/frontend/components/ui";
+import { Breathing } from "@/frontend/components/ui/Breathing";
 import { UNNAMED_USER } from "@/frontend/features/auth/hooks/useDisplayName";
 import { usePosterProfile } from "../hooks/usePosterProfile";
 
@@ -51,7 +52,12 @@ export function CreatedBy({ posterId, tone = "photo", compact = false, onPress }
       </>
     );
 
-  const row = <View className="flex-row items-center gap-2">{body}</View>;
+  const row =
+    profile === undefined ? (
+      <Breathing className="flex-row items-center gap-2">{body}</Breathing>
+    ) : (
+      <View className="flex-row items-center gap-2">{body}</View>
+    );
   if (!onPress) return row;
   return (
     <Pressable onPress={onPress} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Created by ${name}. Open profile`} className="self-start active:opacity-70">
