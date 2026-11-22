@@ -69,6 +69,17 @@ export function MealCard({
   dimmed = false,
 }: MealCardProps) {
   const isGrid = layout === "grid";
+  // The card's numbers are the whole dish at serving_size. The price stays
+  // that (budget searches think in totals; "Serves N" on the photo says how
+  // big); the macros show one plate (BUG-5: "163.8g protein" was the whole
+  // pot, unlabelled).
+  const servings = meal.serving_size && meal.serving_size > 0 ? meal.serving_size : 1;
+  const perServing = {
+    calories: Math.round(meal.calories / servings),
+    protein: Math.round(meal.protein / servings),
+    carbs: Math.round(meal.carbs / servings),
+    fats: Math.round(meal.fats / servings),
+  };
   // Pro with nutrition goals: a tag when a serving fits a meal's share.
   const goals = useNutritionGoals();
   const fits = !!goals && fitsGoals(meal, goals);
@@ -96,6 +107,12 @@ export function MealCard({
               label={`${meal.total_time} min`}
               icon={<Clock color={colors.white} size={10} strokeWidth={2} />}
             />
+          )}
+          {/* The dish's size: the price below is for all of it (the macros
+              say "Per serving"). Kept off the price line, where "2 servings"
+              next to "Per serving" read as a contradiction. */}
+          {!isFastFood && !!meal.serving_size && (
+            <Chips label={`Serves ${meal.serving_size}`} />
           )}
           {isFastFood && (
             <>
@@ -148,7 +165,7 @@ export function MealCard({
           <MealInfoPill meal={meal} iconOnly={isGrid} />
           {isGrid && (
             <Text className="font-inter-extrabold text-caption text-white">
-              {meal.calories} kcal
+              {perServing.calories} kcal
             </Text>
           )}
         </View>
@@ -185,15 +202,10 @@ export function MealCard({
           </AppText>
 
           <View className="mb-3">
-            <MacroBreakdown
-              macros={{
-                calories: meal.calories,
-                protein: meal.protein,
-                carbs: meal.carbs,
-                fats: meal.fats,
-              }}
-              showCalories={!isGrid}
-            />
+            <AppText variant="caption" className="mt-3 font-inter-medium" style={{ fontSize: 13 }}>
+              Per serving
+            </AppText>
+            <MacroBreakdown macros={perServing} showCalories={!isGrid} />
           </View>
 
           {onViewDetails && (
