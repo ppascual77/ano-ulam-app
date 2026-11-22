@@ -10,14 +10,15 @@ import type { ProFeatureKey } from "../components/ProFeatureSheet";
 // (ProAdHost: no sheet open, no keyboard, not mid-flow).
 //
 // Kept gentle:
-// - Not on the first day after install (the first-run tours run then).
+// - Not in the first 15 minutes after install (the first-run tours run
+//   then). Was a whole day (CHG-1, 2026-11-22): too quiet to ever be seen.
 // - A slot is dropped when another Pro sheet (a limit, a locked feature)
 //   showed within the last hour: one pitch is enough.
 // - Each feature comes up once before any repeats (a shuffled bag).
 // Counted on the phone: a soft promo, not a gate.
 
 export const AD_TAP_SLOTS = [20, 50] as const;
-const GRACE_MS = 24 * 60 * 60 * 1000;
+const GRACE_MS = 15 * 60 * 1000;
 const QUIET_AFTER_PRO_SHEET_MS = 60 * 60 * 1000;
 // A slot that couldn't show on its tap tries again on later taps, a beat
 // after each, so it never lands on top of what that tap opened.
