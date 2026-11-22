@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Alert, Pressable, View } from "react-native";
+import { useRef, useState } from "react";
+import { Alert, Pressable, View, type ViewInstance } from "react-native";
 import { Text, TextInput } from "@/frontend/components/ui/Text";
 import Animated, { interpolateColor, useAnimatedStyle } from "react-native-reanimated";
 import { Image } from "expo-image";
@@ -241,6 +241,9 @@ type DetailsStepProps = {
   errors: StepErrors;
   /** Next-attempt count: invalid fields shake again on each failed Next. */
   shakeKey: number;
+  /** A field got focus or grew while typing: the screen scrolls it above the
+   *  keyboard and the Back/Next bar. */
+  onKeepInView?: (field: ViewInstance | null) => void;
 };
 
 // Step 1: what the recipe is. One level of labels (the field's own), and
@@ -249,7 +252,9 @@ type DetailsStepProps = {
 // Everything is required, the cover photo included (every meal card and page
 // leads with it). Tags aren't asked for: they're computed from the recipe
 // (see utils/recipeTags.ts). A missing field gets a red border and a shake.
-export function DetailsStep({ draft, onChange, errors, shakeKey }: DetailsStepProps) {
+export function DetailsStep({ draft, onChange, errors, shakeKey, onKeepInView }: DetailsStepProps) {
+  const descriptionRef = useRef<ViewInstance>(null);
+  const keepDescriptionInView = () => onKeepInView?.(descriptionRef.current);
   return (
     <View className="gap-6">
       <StepHeader title="The basics" subtitle="What it is, how long it takes and how many it feeds." />
@@ -279,16 +284,22 @@ export function DetailsStep({ draft, onChange, errors, shakeKey }: DetailsStepPr
         )}
       </View>
 
-      <TextField
-        label="Description"
-        labelPosition="outside"
-        value={draft.description}
-        onChangeText={(description) => onChange({ description })}
-        placeholder="Flavor, where it's from, your tips..."
-        multiline
-        error={!!errors.description}
-        shakeKey={shakeKey}
-      />
+      {/* Multiline and low on the page: kept above the keyboard while it's
+          typed in and as it grows (BUG-12). */}
+      <View ref={descriptionRef}>
+        <TextField
+          label="Description"
+          labelPosition="outside"
+          value={draft.description}
+          onChangeText={(description) => onChange({ description })}
+          onFocus={keepDescriptionInView}
+          onContentSizeChange={keepDescriptionInView}
+          placeholder="Flavor, where it's from, your tips..."
+          multiline
+          error={!!errors.description}
+          shakeKey={shakeKey}
+        />
+      </View>
 
       <PrepTimePicker
         value={draft.prepTime}
