@@ -4,8 +4,90 @@ import type { MacroTargets } from "@/frontend/core/nutrition/macros";
 export type MealSlot = "breakfast" | "lunch" | "dinner";
 
 /** A catalog meal scaled to one serving, with the slots it can fill (its
- *  meal-time tags). */
-export type PlannerMeal = MealType & { slots: MealSlot[] };
+ *  meal-time tags). `ownCarb`: it already has rice, noodles, bread or oats in
+ *  it (silog, pancit, toast), so no cup of rice is counted with it. */
+export type PlannerMeal = MealType & { slots: MealSlot[]; ownCarb?: boolean };
+
+// ---- Rice ---------------------------------------------------------------------
+// Filipino ulam is eaten with rice, and no recipe counts it, so plans fell far
+// short of a calorie goal (BUG-9). "Include rice" counts cups of cooked rice
+// per person with every meal that goes with rice (any slot; not a dish that
+// already has rice, noodles, bread or oats), in the day's nutrition, its cost
+// and the grocery list.
+
+/** Cups of cooked rice per person with each meal that goes with rice (0 = off). */
+export type RiceCups = 0 | 1 | 2;
+export const RICE_CUP_OPTIONS: RiceCups[] = [0, 1, 2];
+/** A new plan's default. */
+export const DEFAULT_RICE_CUPS: RiceCups = 1;
+/** Raw rice in one cup of cooked rice. */
+export const RICE_RAW_GRAMS_PER_CUP = 55;
+
+/** One cup of cooked rice for one person. */
+export type RiceCup = { calories: number; protein: number; carbs: number; fats: number; price: number };
+/** The catalog rice it's priced from, for the grocery list's Rice line. */
+export type RiceIngredient = { id: string; name: string; displayName: string | null; category: string | null };
+/** A plan's rice: how many cups, one cup's numbers, and the catalog rice
+ *  (absent while it loads: the grocery list then has no Rice line yet). */
+export type PlanRice = { cups: RiceCups; cup: RiceCup; ingredient?: RiceIngredient };
+
+type RiceRow = {
+  calories: number | string | null;
+  protein: number | string | null;
+  carbohydrates: number | string | null;
+  fat: number | string | null;
+  basis_amount: number | string | null;
+  basis_unit: string | null;
+  estimated_price: number | string | null;
+  estimated_price_unit: string | null;
+};
+
+/** One cup from the catalog's raw rice (macros per gram basis, price per kg),
+ *  so it follows the daily DA price. null when the row can't say. */
+export function riceCupFrom(row: RiceRow | null | undefined): RiceCup | null {
+  if (!row || row.basis_unit !== "g" || row.estimated_price_unit !== "kg") return null;
+  const basis = Number(row.basis_amount);
+  const values = [row.calories, row.protein, row.carbohydrates, row.fat, row.estimated_price].map(Number);
+  if (!(basis > 0) || values.some((v) => !Number.isFinite(v) || v < 0)) return null;
+  const [calories, protein, carbs, fats, pricePerKg] = values;
+  const per = RICE_RAW_GRAMS_PER_CUP / basis;
+  return {
+    calories: calories * per,
+    protein: protein * per,
+    carbs: carbs * per,
+    fats: fats * per,
+    price: (pricePerKg * RICE_RAW_GRAMS_PER_CUP) / 1000,
+  };
+}
+
+/** Used until the catalog's rice loads (or if it can't): USDA white rice,
+ *  ₱54/kg. */
+export const FALLBACK_RICE_CUP: RiceCup = riceCupFrom({
+  calories: 358.7,
+  protein: 7.04,
+  carbohydrates: 80.31,
+  fat: 1.03,
+  basis_amount: 100,
+  basis_unit: "g",
+  estimated_price: 54,
+  estimated_price_unit: "kg",
+})!;
+
+// An ingredient that is the dish's own carb: rice, noodles, bread (toast,
+// sandwiches) or oats. Not rice paper (lumpia is eaten with rice), rice flour,
+// rice vinegar, wrappers or breadcrumbs (a breaded dish still goes with rice).
+const OWN_CARB =
+  /\b(white|brown|glutinous|fried) rice\b|^rice, (white|brown)\b|sinangag|noodles?\b|spaghetti|macaroni|pasta\b|\bbread\b|pandesal|\boats?\b/i;
+const NOT_OWN_CARB = /flour|paper|vinegar|wrapper|crumb/i;
+export const isOwnCarbIngredient = (name: string) => OWN_CARB.test(name) && !NOT_OWN_CARB.test(name);
+
+/** Cups of rice counted with this meal (per person): any slot, breakfast
+ *  too (daing, torta), unless the dish has its own carb. `slot` is kept for
+ *  callers that pass it. */
+export function riceCupsFor(_slot: MealSlot, meal: PlannerMeal, rice: PlanRice | null | undefined): number {
+  if (!rice || rice.cups === 0 || meal.ownCarb) return 0;
+  return rice.cups;
+}
 
 /** A plan's length when nothing else says (free accounts; Pro can pick 7
  *  in Settings). A plan's own length is plan.days.length. */
@@ -24,21 +106,37 @@ export function upNextSlot(now = new Date()): MealSlot {
 
 export type PlannedMeal = { slot: MealSlot; meal: PlannerMeal };
 export type PlanDay = { date: Date; meals: PlannedMeal[] };
-export type MealPlan = { days: PlanDay[]; budget: number; servings: number; targets: MacroTargets | null };
+export type MealPlan = {
+  days: PlanDay[];
+  budget: number;
+  servings: number;
+  targets: MacroTargets | null;
+  /** null/absent: no rice counted (also plans built before "Include rice"). */
+  rice?: PlanRice | null;
+};
 
 // Per-person price of one serving (catalog prices cover serving_size).
 export const perServing = (meal: PlannerMeal) => Number(meal.price) / (meal.serving_size ?? 1);
 
-// The day's totals for one person (macros) and for everyone (cost).
-export function dayTotals(day: PlanDay, servings: number) {
+/** One meal's cost for everyone, with its rice. */
+export const mealCost = (slot: MealSlot, meal: PlannerMeal, servings: number, rice?: PlanRice | null) =>
+  (perServing(meal) + riceCupsFor(slot, meal, rice) * (rice?.cup.price ?? 0)) * servings;
+
+// The day's totals for one person (macros) and for everyone (cost), with
+// the plan's rice.
+export function dayTotals(day: PlanDay, servings: number, rice?: PlanRice | null) {
   return day.meals.reduce(
-    (sum, { meal }) => ({
-      calories: sum.calories + meal.calories,
-      protein: sum.protein + meal.protein,
-      carbs: sum.carbs + meal.carbs,
-      fats: sum.fats + meal.fats,
-      cost: sum.cost + perServing(meal) * servings,
-    }),
+    (sum, { slot, meal }) => {
+      const cups = riceCupsFor(slot, meal, rice);
+      const cup = rice?.cup;
+      return {
+        calories: sum.calories + meal.calories + (cup ? cups * cup.calories : 0),
+        protein: sum.protein + meal.protein + (cup ? cups * cup.protein : 0),
+        carbs: sum.carbs + meal.carbs + (cup ? cups * cup.carbs : 0),
+        fats: sum.fats + meal.fats + (cup ? cups * cup.fats : 0),
+        cost: sum.cost + mealCost(slot, meal, servings, rice),
+      };
+    },
     { calories: 0, protein: 0, carbs: 0, fats: 0, cost: 0 },
   );
 }
@@ -73,6 +171,44 @@ export function planDates(from = new Date(), length: number = PLAN_DAYS): Date[]
 }
 
 const COMBO_TRIES = 60;
+// With a nutrition goal: many more combinations a day, so days that land on
+// target are found when the catalog has them (BUG-9: 60 random tries left
+// days at 38-70% of a 2,050 kcal goal).
+const GOAL_TRIES = 400;
+
+// ---- Fitting a day to the goal --------------------------------------------------
+// On target: calories within 85-115% of the goal and protein at 85% or more,
+// for one person (rice included). Off target scores far worse than any repeat,
+// so the planner only settles for a repeat-free day that misses when nothing
+// within budget lands.
+export const GOAL_BAND = { low: 0.85, high: 1.15 } as const;
+const OFF_TARGET_WEIGHT = 10;
+const CLOSENESS_WEIGHT = 0.3;
+
+type DayNutrition = { calories: number; protein: number };
+
+/** How far a day is from the goal: 0 inside the band, growing outside it
+ *  (plus a small pull toward the exact goal). Lower is better. */
+export function goalPenalty(totals: DayNutrition, targets: MacroTargets): number {
+  const kcal = totals.calories / targets.calories;
+  const protein = totals.protein / targets.protein;
+  const kcalOff = kcal < GOAL_BAND.low ? GOAL_BAND.low - kcal : kcal > GOAL_BAND.high ? kcal - GOAL_BAND.high : 0;
+  const proteinOff = protein < GOAL_BAND.low ? GOAL_BAND.low - protein : 0;
+  return (kcalOff + proteinOff) * OFF_TARGET_WEIGHT + Math.abs(1 - kcal) * CLOSENESS_WEIGHT;
+}
+
+/** A day that misses the goal, and by how much (one person, rounded), or
+ *  null when it's on target. `kcal` is negative when short. */
+export type GoalGap = { kcal: number; proteinShort: number } | null;
+export function dayGoalGap(totals: DayNutrition, targets: MacroTargets | null): GoalGap {
+  if (!targets) return null;
+  const low = targets.calories * GOAL_BAND.low;
+  const high = targets.calories * GOAL_BAND.high;
+  const kcal = totals.calories < low ? totals.calories - targets.calories : totals.calories > high ? totals.calories - targets.calories : 0;
+  const proteinShort = totals.protein < targets.protein * GOAL_BAND.low ? targets.protein - totals.protein : 0;
+  if (kcal === 0 && proteinShort === 0) return null;
+  return { kcal: Math.round(kcal), proteinShort: Math.round(proteinShort) };
+}
 
 type GenerateInput = {
   pool: PlannerMeal[];
@@ -86,6 +222,7 @@ type GenerateInput = {
   seed?: number;
   /** Days in the plan (PLAN_LENGTHS). */
   length?: number;
+  rice?: PlanRice | null;
 };
 
 type PickDayInput = {
@@ -97,24 +234,23 @@ type PickDayInput = {
   /** How often each meal is already in the plan (repeats score worse). */
   used: Map<string, number>;
   random: () => number;
+  rice: PlanRice | null;
 };
 
 // The best of COMBO_TRIES random breakfast/lunch/dinner combinations for one
 // day: within budget, then closest to the targets, then least repetitive.
-function pickDay({ bySlot, date, servings, dayBudget, targets, used, random }: PickDayInput): PlannedMeal[] | null {
+function pickDay({ bySlot, date, servings, dayBudget, targets, used, random, rice }: PickDayInput): PlannedMeal[] | null {
   let best: { meals: PlannedMeal[]; score: number } | null = null;
-  for (let i = 0; i < COMBO_TRIES; i++) {
+  const tries = targets ? GOAL_TRIES : COMBO_TRIES;
+  for (let i = 0; i < tries; i++) {
     const meals = SLOTS.map((slot) => ({ slot, meal: bySlot[slot][Math.floor(random() * bySlot[slot].length)] }));
     // No dish twice in one day (a meal tagged for breakfast and lunch, e.g.
     // silog, could otherwise fill both).
     if (new Set(meals.map(({ meal }) => meal.id)).size < meals.length) continue;
-    const totals = dayTotals({ date, meals }, servings);
+    const totals = dayTotals({ date, meals }, servings, rice);
     if (totals.cost > dayBudget) continue;
     let score = meals.reduce((sum, { meal }) => sum + (used.get(meal.id as string) ?? 0) * 1.5, 0);
-    if (targets) {
-      score += Math.abs(totals.calories - targets.calories) / targets.calories;
-      score += Math.max(0, targets.protein - totals.protein) / targets.protein;
-    }
+    if (targets) score += goalPenalty(totals, targets);
     if (!best || score < best.score) best = { meals, score };
   }
   return best?.meals ?? null;
@@ -139,6 +275,7 @@ export function regenerateDay(pool: PlannerMeal[], plan: MealPlan, dayIndex: num
     targets: plan.targets,
     used,
     random: Math.random,
+    rice: plan.rice ?? null,
   });
 }
 
@@ -147,7 +284,7 @@ export function regenerateDay(pool: PlannerMeal[], plan: MealPlan, dayIndex: num
 // per day and keeps the best one: under budget first, then (with a macro
 // goal) closest to the calorie and protein targets, and least repetitive.
 // Returns null when no day can be filled within budget.
-export function generatePlan({ pool, budget, servings, targets, from = new Date(), seed = 0, length = PLAN_DAYS }: GenerateInput): MealPlan | null {
+export function generatePlan({ pool, budget, servings, targets, from = new Date(), seed = 0, length = PLAN_DAYS, rice = null }: GenerateInput): MealPlan | null {
   const dates = planDates(from, length);
   const bySlot = groupBySlot(pool);
   if (SLOTS.some((slot) => bySlot[slot].length === 0)) return null;
@@ -158,13 +295,13 @@ export function generatePlan({ pool, budget, servings, targets, from = new Date(
   const days: PlanDay[] = [];
 
   for (const date of dates) {
-    const meals = pickDay({ bySlot, date, servings, dayBudget, targets, used, random });
+    const meals = pickDay({ bySlot, date, servings, dayBudget, targets, used, random, rice });
     if (!meals) return null;
     for (const { meal } of meals) used.set(meal.id as string, (used.get(meal.id as string) ?? 0) + 1);
     days.push({ date, meals });
   }
 
-  return { days, budget, servings, targets };
+  return { days, budget, servings, targets, rice };
 }
 
 // Other meals for a slot (the Swap sheet), cheapest first, excluding the
@@ -174,13 +311,13 @@ export function swapOptions(pool: PlannerMeal[], plan: MealPlan, dayIndex: numbe
   const current = day.meals.find((m) => m.slot === slot)?.meal;
   const othersCost = day.meals
     .filter((m) => m.slot !== slot)
-    .reduce((sum, { meal }) => sum + perServing(meal) * plan.servings, 0);
+    .reduce((sum, m) => sum + mealCost(m.slot, m.meal, plan.servings, plan.rice), 0);
   const dayBudget = plan.budget / plan.days.length;
   // Not the current pick, nor a dish already in another of the day's slots.
   const inDay = new Set(day.meals.map(({ meal }) => meal.id));
   return pool
     .filter((meal) => meal.slots.includes(slot) && !inDay.has(meal.id))
-    .filter((meal) => othersCost + perServing(meal) * plan.servings <= dayBudget)
+    .filter((meal) => othersCost + mealCost(slot, meal, plan.servings, plan.rice) <= dayBudget)
     .sort((a, b) => perServing(a) - perServing(b));
 }
 

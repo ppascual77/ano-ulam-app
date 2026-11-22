@@ -1,5 +1,6 @@
 import { View } from "react-native";
 import { Image } from "expo-image";
+import { Breathing } from "@/frontend/components/ui/Breathing";
 import { resolveMealImage } from "../../resolveMealImage";
 import type { MealType } from "../../mealTypes";
 import { CARD_OVERLAP, HERO_HEIGHT } from "./MealDetailContent";
@@ -16,7 +17,8 @@ export function MealDetailSkeleton({ meal }: { meal: MealType }) {
   return (
     <View className="flex-1 bg-white">
       <Image source={resolveMealImage(meal)} style={{ width: "100%", height: HERO_HEIGHT }} contentFit="cover" />
-      <View className="flex-1 rounded-t-3xl bg-white px-6 pt-5" style={{ marginTop: -CARD_OVERLAP }}>
+      {/* Only the bars breathe; the photo is real and stays still. */}
+      <Breathing className="flex-1 rounded-t-3xl bg-white px-6 pt-5" style={{ marginTop: -CARD_OVERLAP }}>
         <View className="flex-row items-start justify-between">
           <View className="gap-2.5">
             <Bar w={190} h={24} />
@@ -39,7 +41,7 @@ export function MealDetailSkeleton({ meal }: { meal: MealType }) {
         </View>
         <Bar w={120} h={22} className="mt-6" />
         <View className="mt-3 h-36 rounded-2xl bg-ink-emphasis/5" />
-      </View>
+      </Breathing>
     </View>
   );
 }

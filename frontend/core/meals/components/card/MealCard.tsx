@@ -12,10 +12,14 @@ import { MacroBreakdown } from "./MacroBreakdown";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { MealSaveButton } from "./MealSaveButton";
+import { CreatedByStrip } from "@/frontend/core/users/components/CreatedBy";
 import { formatMealPrice } from "@/frontend/core/prices/utils/prices";
 
 const CARD_WIDTH = 250;
 const IMAGE_HEIGHT = 150;
+
+// The top-left chips on a community recipe: under its "Created by" strip.
+const CHIPS_UNDER_POSTER = 46;
 
 type MealCardProps = {
   meal: MealType;
@@ -69,6 +73,17 @@ export function MealCard({
   dimmed = false,
 }: MealCardProps) {
   const isGrid = layout === "grid";
+  // The card's numbers are the whole dish at serving_size. The price stays
+  // that (budget searches think in totals; "Serves N" on the photo says how
+  // big); the macros show one plate (BUG-5: "163.8g protein" was the whole
+  // pot, unlabelled).
+  const servings = meal.serving_size && meal.serving_size > 0 ? meal.serving_size : 1;
+  const perServing = {
+    calories: Math.round(meal.calories / servings),
+    protein: Math.round(meal.protein / servings),
+    carbs: Math.round(meal.carbs / servings),
+    fats: Math.round(meal.fats / servings),
+  };
   // Pro with nutrition goals: a tag when a serving fits a meal's share.
   const goals = useNutritionGoals();
   const fits = !!goals && fitsGoals(meal, goals);
@@ -85,17 +100,27 @@ export function MealCard({
           contentFit="cover"
         />
 
+        {/* A community recipe: "Created by" across the top of the photo, as
+            on the web (official meals show nothing). The chips sit under it. */}
+        {!!meal.poster_id && <CreatedByStrip posterId={meal.poster_id} />}
+
         {/* Scrim so the plain white calorie text (no chip background) stays readable over any photo. */}
         {isGrid && <View className="absolute bottom-0 left-0 right-0 h-10 bg-black/10" />}
 
         {/* Top-left: time, fast-food chips, a badge. Stops
             short of the bookmark, wrapping instead of running under it. */}
-        <View className="absolute left-2 right-12 top-2 min-h-9 flex-row flex-wrap items-center gap-1">
+        <View className="absolute left-2 right-12 min-h-9 flex-row flex-wrap items-center gap-1" style={{ top: meal.poster_id ? CHIPS_UNDER_POSTER : 8 }}>
           {!isFastFood && (
             <Chips
               label={`${meal.total_time} min`}
               icon={<Clock color={colors.white} size={10} strokeWidth={2} />}
             />
+          )}
+          {/* The dish's size: the price below is for all of it (the macros
+              say "Per serving"). Kept off the price line, where "2 servings"
+              next to "Per serving" read as a contradiction. */}
+          {!isFastFood && !!meal.serving_size && (
+            <Chips label={`Serves ${meal.serving_size}`} />
           )}
           {isFastFood && (
             <>
@@ -148,7 +173,7 @@ export function MealCard({
           <MealInfoPill meal={meal} iconOnly={isGrid} />
           {isGrid && (
             <Text className="font-inter-extrabold text-caption text-white">
-              {meal.calories} kcal
+              {perServing.calories} kcal
             </Text>
           )}
         </View>
@@ -185,15 +210,10 @@ export function MealCard({
           </AppText>
 
           <View className="mb-3">
-            <MacroBreakdown
-              macros={{
-                calories: meal.calories,
-                protein: meal.protein,
-                carbs: meal.carbs,
-                fats: meal.fats,
-              }}
-              showCalories={!isGrid}
-            />
+            <AppText variant="caption" className="mt-3 font-inter-medium" style={{ fontSize: 13 }}>
+              Per serving
+            </AppText>
+            <MacroBreakdown macros={perServing} showCalories={!isGrid} />
           </View>
 
           {onViewDetails && (

@@ -13,6 +13,7 @@ import { ProBadge } from "./ProBadge";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useProStore, useProSubscription } from "../store/useProStore";
 import { STORE, nextLine, planName } from "../subscriptionCopy";
+import { useRestorePurchases } from "../hooks/useRestorePurchases";
 import { ProUnlockOverlay } from "./ProUnlockOverlay";
 import { CompareTable } from "./ProCompareTable";
 import { openPrivacyPolicy, openTerms } from "@/frontend/core/app/legalLinks";
@@ -66,7 +67,8 @@ type ProPageProps = {
 export function ProPage({ onClose, onStarted, allowLinks = true, onManage, title, subtitle }: ProPageProps) {
   const insets = useSafeAreaInsets();
   const subscription = useProSubscription();
-  const { purchase, restore, prices, trialEligible } = useProStore();
+  const { purchase, prices, trialEligible } = useProStore();
+  const { restore: restorePurchases, restoring } = useRestorePurchases();
   const { session } = useAuth();
   const signIn = useSignIn();
   const [plan, setPlan] = useState<PlanKey>(subscription?.plan ?? "monthly");
@@ -76,7 +78,6 @@ export function ProPage({ onClose, onStarted, allowLinks = true, onManage, title
   // as eligible (Apple's sheet shows the real terms either way).
   const hasTrial = trialEligible[plan] !== false;
   const [buying, setBuying] = useState(false);
-  const [restoring, setRestoring] = useState(false);
   const [gateOpen, setGateOpen] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
 
@@ -104,22 +105,6 @@ export function ProPage({ onClose, onStarted, allowLinks = true, onManage, title
     if (!signedIn) return;
     setGateOpen(false);
     void buy(signedIn.user.id);
-  };
-
-  const restorePurchases = async () => {
-    setRestoring(true);
-    try {
-      const found = await restore();
-      showGlobalToast(
-        found
-          ? { message: "Pro is back on.", tone: "success" }
-          : { message: `No Pro subscription found for this ${STORE.account}.`, tone: "error" },
-      );
-    } catch {
-      showGlobalToast({ message: "Couldn't restore. Check your connection.", tone: "error" });
-    } finally {
-      setRestoring(false);
-    }
   };
 
   return (

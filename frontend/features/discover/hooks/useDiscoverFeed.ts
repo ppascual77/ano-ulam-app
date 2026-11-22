@@ -23,10 +23,21 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
+// The feed's order: community recipes first (people's approved recipes, the
+// newest approval first), then the official catalog shuffled. Every fresh
+// start shows the latest community recipes up front.
+function feedOrder(meals: MealType[]): MealType[] {
+  const community = meals
+    .filter((m) => !!m.poster_id)
+    .sort((a, b) => (b.published_at ?? b.created_at ?? "").localeCompare(a.published_at ?? a.created_at ?? ""));
+  return [...community, ...shuffle(meals.filter((m) => !m.poster_id))];
+}
+
 export type FeedStatus = "loading" | "ready" | "error";
 
 // All Recipes-tab state for DiscoverScreen. Meals are the real seeded
-// catalog (useRealMeals), shuffled and dealt out in batches: logged-in
+// catalog (useRealMeals), community recipes first then shuffled (feedOrder),
+// dealt out in batches: logged-in
 // users get the next batch as they near the end, guests get one batch and
 // then the end-card. Saves go through the shared saved-meals list
 // (core/saved), same as everywhere.
@@ -59,7 +70,7 @@ export function useDiscoverFeed({ isGuest }: { isGuest: boolean }) {
   // Fresh start: reshuffle and deal the first batch. Used on first load and
   // whenever the user switches back to the Recipes tab.
   const reset = useCallback(() => {
-    pool.current = shuffle(allMeals ?? []);
+    pool.current = feedOrder(allMeals ?? []);
     seen.current = new Set();
     loadingMore.current = false;
     setActiveIndex(0);

@@ -7,8 +7,20 @@ import { buildGroceryList, type GroceryItem } from "../utils/buildGroceryList";
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 
 // Just what the list needs from a meal plan (the Meal Planner's MealPlan
-// fits), so core doesn't depend on the feature.
-export type GroceryPlan = { servings: number; days: { meals: { meal: MealType }[] }[] };
+// fits), so core doesn't depend on the feature. `rice`: cups of cooked rice
+// per person with each meal (not with a dish that has its own rice, noodles,
+// bread or oats: `ownCarb`), and the catalog rice they're bought as.
+export type GroceryPlan = {
+  servings: number;
+  days: { meals: { slot?: string; meal: MealType & { ownCarb?: boolean } }[] }[];
+  rice?: {
+    cups: number;
+    cup: { price: number };
+    ingredient?: { id: string; name: string; displayName: string | null; category: string | null };
+  } | null;
+};
+// Raw rice in one cup of cooked rice (the planner's RICE_RAW_GRAMS_PER_CUP).
+const RICE_RAW_GRAMS_PER_CUP = 55;
 
 const hasId = (id: string | undefined): id is string => !!id;
 
@@ -47,6 +59,31 @@ export function usePlanGroceryList(plan: GroceryPlan | null, dayIndexes: number[
     const cooked = days.flatMap((day) =>
       day.meals.map(({ meal }) => scaleMeal(fullById.get(meal.id as string) ?? meal, plan.servings)),
     );
+    // The plan's rice as one more "meal" with a single line, so it merges,
+    // groups and matches the pantry like any ingredient: cups x people x
+    // every meal that gets rice, in raw grams.
+    const rice = plan.rice;
+    const cups =
+      rice && rice.cups > 0
+        ? days.reduce((sum, day) => sum + day.meals.filter((m) => !m.meal.ownCarb).length * rice.cups, 0) *
+          plan.servings
+        : 0;
+    if (rice?.ingredient && cups > 0) {
+      cooked.push({
+        category: undefined,
+        ingredients: [
+          {
+            qty: `${Math.round(cups * RICE_RAW_GRAMS_PER_CUP)} g`,
+            name: rice.ingredient.name,
+            displayName: rice.ingredient.displayName,
+            ingredientId: rice.ingredient.id,
+            category: rice.ingredient.category,
+            type: "main",
+            price: cups * rice.cup.price,
+          },
+        ],
+      } as MealType);
+    }
     return buildGroceryList(cooked);
   }, [days, fullById, plan]);
 

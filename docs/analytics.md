@@ -60,6 +60,16 @@ matters), and, if built, whether a blurred preview of the locked meals lifts tap
 | `app_opened` | The app starts or comes to the front | (the common ones below) |
 | `push_permission` | Notification permission changes (quiet at sign-in, banners via "Notify me" or Settings, refused) | `state` (quiet, granted, denied), `source` (sign_in, recipe_submitted, settings) |
 | `push_opened` | A push is tapped | `type` (recipe_approved, price_drop, weekly_best_buys, new_meals) |
+| `pro_mismatch` | An alarm, not a metric: RevenueCat says subscribed, but 10+ minutes after the purchase or renewal the database's `users.pro_until` isn't running (once per account per launch, `useProStore`) | `plan`, `status`, `minutes_since_purchase`, `db` (none: never written, ended: not renewed) |
+
+**The `pro_mismatch` alarm** (added 2026-11-22). The database's limits (saved meals, daily
+searches, narration) read `users.pro_until`, which only the `revenuecat-webhook` edge function
+writes. If the webhook breaks (a wrong auth secret, the App filter, a failing deploy: BUG-6 and
+BUG-7 of the 2026-11-21 test run), a paying user still sees Pro in the app but hits Free limits
+from the database. Set up once in PostHog: a Trends insight on `pro_mismatch` (total count,
+daily), then Alerts on it, "is above 0", notify by email. When it fires: check the webhook's
+recent deliveries in RevenueCat (Integrations → Webhooks) and the edge function logs in Supabase,
+fix the cause, then resend the failed events from RevenueCat so `pro_until` catches up.
 
 Push questions: do price pushes bring people back (`push_opened` → `app_opened` sessions), does
 the free weekly line lead to `pro_page_opened` (and Pro), and how many quiet users upgrade to

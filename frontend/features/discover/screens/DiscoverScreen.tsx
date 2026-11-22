@@ -21,6 +21,7 @@ import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDet
 import type { MealType } from "@/frontend/core/meals/mealTypes";
 import { type SignInProvider, useAuth, useSignIn } from "@/frontend/features/auth/hooks/useAuth";
 import { useMyAvatarUrl } from "@/frontend/features/auth/hooks/useUserProfile";
+import { UNNAMED_USER, useDisplayName } from "@/frontend/features/auth/hooks/useDisplayName";
 import { mealKey, useDiscoverFeed } from "../hooks/useDiscoverFeed";
 import { FeedTabs, type DiscoverTab } from "../components/FeedTabs";
 import { ActionRail } from "../components/ActionRail";
@@ -31,7 +32,7 @@ import { LoginGateSheet, type LoginGateReason } from "@/frontend/features/auth/c
 import { CommunityFeed } from "../components/CommunityFeed";
 import { CreateButton } from "../components/CreateButton";
 import { DiscoverIntro } from "../components/DiscoverIntro";
-import { EarnProSheet, type EarnProChoice } from "../components/EarnProSheet";
+import { EarnProSheet, type EarnProChoice } from "@/frontend/core/pro/components/EarnProSheet";
 import { canShowEarnProPrompt, useEarnProPromptStore } from "../store/useEarnProPromptStore";
 import { CreateSheet, type CreateChoice } from "@/frontend/core/posts/components/CreateSheet";
 import { CreatePostSheet } from "@/frontend/core/posts/components/CreatePostSheet";
@@ -172,10 +173,10 @@ export default function DiscoverScreen() {
   // What was picked in the Create sheet; acted on once it finishes closing.
   const createChoice = useRef<CreateChoice | null>(null);
 
-  const meta = session?.user.user_metadata ?? {};
+  const myName = useDisplayName().fullName;
   const myAvatarUrl = useMyAvatarUrl();
   const author = {
-    name: (meta.full_name as string | undefined) ?? (meta.name as string | undefined) ?? "You",
+    name: myName ?? UNNAMED_USER,
     avatarUrl: myAvatarUrl,
   };
 

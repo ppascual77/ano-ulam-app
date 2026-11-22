@@ -1,15 +1,17 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { FlatList, Pressable, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, FadeInDown, FadeOut, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming } from "react-native-reanimated";
+import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { RollingText } from "@/frontend/components/ui/RollingText";
 import Svg, { Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
-import { ArrowLeftRight, ChevronRight, ShoppingCart, CloudSun, Moon, Sun, Droplets, Dumbbell, Flame, Lock, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
+import { ArrowLeftRight, ChevronRight, CookingPot, Cookie, Info, ShoppingCart, CloudSun, Moon, Sun, Droplets, Dumbbell, Flame, Lock, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
 import { SegmentedSwitch } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 import type { MacroTargets } from "@/frontend/core/nutrition/macros";
-import { PLAN_DAYS, SLOTS, SLOT_LABELS, dayLabel, dayTotals, formatPeso, monthDay, perServing, type MealPlan, type PlanDay, type PlannedMeal } from "../utils/generatePlan";
+import { FALLBACK_RICE_CUP, PLAN_DAYS, SLOTS, SLOT_LABELS, dayGoalGap, dayLabel, dayTotals, formatPeso, mealCost as costOfMeal, monthDay, riceCupsFor, type MealPlan, type PlanDay, type PlanRice, type PlannedMeal } from "../utils/generatePlan";
 import { MealImage } from "./ImagePlaceholder";
 import type { MealSlot } from "../utils/generatePlan";
 
@@ -69,7 +71,7 @@ export function DateSelector({ plan, selected, isPremium, onSelect, onLocked }: 
 
 // ---- Summary row -------------------------------------------------------------
 
-const MACROS: { key: "protein" | "carbs" | "fats"; letter: string; label: string; Icon: LucideIcon; color: string; tint: string }[] = [
+export const MACROS: { key: "protein" | "carbs" | "fats"; letter: string; label: string; Icon: LucideIcon; color: string; tint: string }[] = [
   { key: "protein", letter: "P", label: "Protein", Icon: Dumbbell, color: colors.macro.protein, tint: "bg-macro-protein/10" },
   { key: "carbs", letter: "C", label: "Carbs", Icon: Wheat, color: colors.macro.carbs, tint: "bg-macro-carbs/10" },
   { key: "fats", letter: "F", label: "Fats", Icon: Droplets, color: colors.macro.fats, tint: "bg-macro-fats/10" },
@@ -122,11 +124,31 @@ type SummaryStat = { key: string; label: string; value: string; color: string };
 // The summary's shared shell: a heading row (title, and how the day compares
 // to a goal), then one card with the donut and three dot-labelled stats.
 // Macro and cost versions both render through this, so they match exactly.
-function SummaryCard({ title, goal, donut, stats }: { title: string; goal: ReactNode; donut: ReactNode; stats: SummaryStat[] }) {
+// A stat's number, for which way it rolls ("₱1,040" -> 1040, "82/90g" -> 82).
+const rankOf = (value: string) => Number(value.replace(/[^0-9.\/]/g, "").split("/")[0]) || 0;
+
+function SummaryCard({
+  title,
+  goal,
+  donut,
+  stats,
+  note,
+  delta,
+}: {
+  title: string;
+  goal: ReactNode;
+  donut: ReactNode;
+  stats: SummaryStat[];
+  note?: ReactNode;
+  delta?: { text: string; key: number } | null;
+}) {
   return (
     <View className="gap-2">
-      <View className="flex-row items-baseline justify-between">
-        <Text className="font-inter-semibold text-body text-web-ink">{title}</Text>
+      <View className="flex-row items-center justify-between gap-2">
+        <View className="shrink flex-row items-center gap-2">
+          <Text className="font-inter-semibold text-body text-web-ink">{title}</Text>
+          {delta && <DeltaChip key={delta.key} text={delta.text} />}
+        </View>
         <Text className="font-inter-regular text-small text-web-ink-muted">{goal}</Text>
       </View>
       <View className="flex-row items-center rounded-2xl border border-web-divider bg-white px-3 py-2.5">
@@ -141,11 +163,44 @@ function SummaryCard({ title, goal, donut, stats }: { title: string; goal: React
                 <View className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
                 <Text className="font-inter-regular text-sub text-web-ink-muted">{label}</Text>
               </View>
-              <Text className="mt-0.5 text-center font-inter-bold text-subheading text-web-ink">{value}</Text>
+              {/* Rolls to a new value (a swap, a new day's meals). */}
+              <View className="mt-0.5 overflow-hidden">
+                <RollingText value={value} rank={rankOf(value)} className="text-center font-inter-bold text-subheading text-web-ink" />
+              </View>
             </View>
           </View>
         ))}
       </View>
+      {note}
+    </View>
+  );
+}
+
+// A day that misses the nutrition goal (BUG-9): how far, what would close it
+// when an extra cup of rice with each meal would. Quiet: a small icon and muted text, only on days that miss.
+function GoalGapNote({ plan, day, totals }: { plan: MealPlan; day: PlanDay; totals: { calories: number; protein: number } }) {
+  const gap = dayGoalGap(totals, plan.targets);
+  if (!gap) return null;
+  const cups = plan.rice?.cups ?? 0;
+  const riceMeals = day.meals.filter(({ meal }) => !meal.ownCarb).length;
+  const cupKcal = (plan.rice?.cup ?? FALLBACK_RICE_CUP).calories;
+  const riceCloses = gap.kcal < 0 && cups < 2 && riceMeals * cupKcal >= -gap.kcal;
+  const first =
+    gap.kcal < 0
+      ? `About ${(-gap.kcal).toLocaleString("en-PH")} kcal short of your goal today.`
+      : gap.kcal > 0
+        ? `About ${gap.kcal.toLocaleString("en-PH")} kcal over your goal today.`
+        : `About ${gap.proteinShort} g protein short of your goal today.`;
+  const fix = riceCloses ? (cups === 0 ? " A cup of rice with each meal would close it." : " An extra cup of rice with each meal would close it.") : "";
+  return (
+    <View className="flex-row items-start gap-2 px-1">
+      <View className="pt-0.5">
+        <Info color={colors.accent} size={14} />
+      </View>
+      <Text className="flex-1 font-inter-regular text-small text-web-ink-muted">
+        <Text className="font-inter-semibold text-web-ink">{first}</Text>
+        {fix}
+      </Text>
     </View>
   );
 }
@@ -162,8 +217,8 @@ const MEAL_COLORS: Record<MealSlot, string> = {
 // target. Without: the same card for money, today's cost split by meal and
 // the day against its share of the budget (budget / the plan's days, what
 // the planner plans each day within).
-export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
-  const totals = dayTotals(day, plan.servings);
+export function SummaryRow({ plan, day, delta }: { plan: MealPlan; day: PlanDay; delta?: { text: string; key: number } | null }) {
+  const totals = dayTotals(day, plan.servings, plan.rice);
   if (plan.targets) {
     const calories = Math.round(totals.calories);
     const share = Math.round((calories / plan.targets.calories) * 100);
@@ -185,6 +240,8 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
         }
         // Each macro against its target: "112/120g".
         stats={MACROS.map(({ key, label, color }) => ({ key, label, color, value: `${Math.round(totals[key])}/${plan.targets![key]}g` }))}
+        note={<GoalGapNote plan={plan} day={day} totals={totals} />}
+        delta={delta}
       />
     );
   }
@@ -194,7 +251,8 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
   const share = Math.round((cost / dayBudget) * 100);
   const mealCost = (slot: MealSlot) => {
     const item = day.meals.find((m) => m.slot === slot);
-    return item ? perServing(item.meal) * plan.servings : 0;
+    // With its rice, so the split adds up to the day's cost.
+    return item ? costOfMeal(slot, item.meal, plan.servings, plan.rice) : 0;
   };
   return (
     <SummaryCard
@@ -212,11 +270,63 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
         />
       }
       stats={SLOTS.map((slot) => ({ key: slot, label: SLOT_LABELS[slot], color: MEAL_COLORS[slot], value: formatPeso(mealCost(slot)) }))}
+      delta={delta}
     />
   );
 }
 
 const SLOT_ICONS: Record<MealSlot, LucideIcon> = { breakfast: CloudSun, lunch: Sun, dinner: Moon };
+
+// ---- After a swap (IMP-14) ------------------------------------------------------
+
+const SWAP_FADE_MS = 350;
+const GLOW_IN_MS = 250;
+const GLOW_HOLD_MS = 900;
+const GLOW_OUT_MS = 400;
+
+// A soft accent ring around the swapped card: in, a beat, out (~1.5 s).
+// With Reduce motion it just shows for the same time, then hides.
+function SwapGlow({ reduceMotion }: { reduceMotion: boolean }) {
+  const opacity = useSharedValue(reduceMotion ? 1 : 0);
+  const [gone, setGone] = useState(false);
+  useEffect(() => {
+    if (reduceMotion) {
+      const timer = setTimeout(() => setGone(true), GLOW_IN_MS + GLOW_HOLD_MS + GLOW_OUT_MS);
+      return () => clearTimeout(timer);
+    }
+    opacity.value = withSequence(
+      withTiming(1, { duration: GLOW_IN_MS, easing: Easing.out(Easing.cubic) }),
+      withDelay(GLOW_HOLD_MS, withTiming(0, { duration: GLOW_OUT_MS, easing: Easing.in(Easing.cubic) })),
+    );
+  }, []);
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  if (gone) return null;
+  return (
+    <Animated.View pointerEvents="none" style={[{ position: "absolute", inset: 0 }, style]} className="rounded-3xl border-4 border-accent/80" />
+  );
+}
+
+/** A small chip beside a total that just changed ("−₱12", "+80 kcal"):
+ *  fades in, holds, fades out. Plain show/hide with Reduce motion. */
+function DeltaChip({ text }: { text: string }) {
+  const reduceMotion = useReduceMotion();
+  const [shown, setShown] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setShown(false), DELTA_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  if (!shown) return null;
+  return (
+    <Animated.View
+      entering={reduceMotion ? undefined : FadeIn.duration(200)}
+      exiting={reduceMotion ? undefined : FadeOut.duration(400)}
+      className="rounded-full bg-accent/15 px-2 py-0.5"
+    >
+      <Text className="font-inter-bold text-sub text-accent">{text}</Text>
+    </Animated.View>
+  );
+}
+const DELTA_MS = 2200;
 
 // ---- Hero carousel ---------------------------------------------------------------
 
@@ -235,6 +345,9 @@ type HeroCarouselProps = {
   day: PlanDay;
   /** Above 1: the cost reads "for N", the macros "per serving". */
   servings: number;
+  /** The plan's rice: a "+ 1 cup rice" line on each meal that goes with
+   *  rice, and in the meal's cost. */
+  rice?: PlanRice | null;
   width: number;
   /** Which meal (0-2) is showing. */
   selected: number;
@@ -242,6 +355,9 @@ type HeroCarouselProps = {
   onOpen: (item: PlannedMeal) => void;
   /** Swap the meal on this card (Pro). */
   onSwap: (item: PlannedMeal) => void;
+  /** The meal just swapped in (IMP-14): its card cross-fades to it and
+   *  glows accent for a moment. A new `key` per swap. */
+  swapped?: { slot: MealSlot; key: number } | null;
   /** Free: the Swap button shows a lock (onSwap opens Pro). */
   swapLocked: boolean;
 };
@@ -249,8 +365,16 @@ type HeroCarouselProps = {
 // The day's meals: Breakfast / Lunch / Dinner tabs over big swipeable photo
 // cards, kept in sync both ways (tap a tab, or swipe). Each card: its slot,
 // a Swap button for that meal, the name, kcal and protein, and the cost.
-export function HeroCarousel({ day, servings, width, selected, onChange, onOpen, onSwap, swapLocked }: HeroCarouselProps) {
-  const list = useRef<FlatList<PlannedMeal>>(null);
+// After the day's meals: Snacks, not planned yet, as a "coming soon" card.
+type SnacksSoon = { slot: "snacks"; soon: true };
+type CarouselItem = PlannedMeal | SnacksSoon;
+const SNACKS_SOON: SnacksSoon = { slot: "snacks", soon: true };
+const isSoon = (item: CarouselItem): item is SnacksSoon => "soon" in item;
+
+export function HeroCarousel({ day, servings, rice, width, selected, onChange, onOpen, onSwap, swapLocked, swapped }: HeroCarouselProps) {
+  const reduceMotion = useReduceMotion();
+  const list = useRef<FlatList<CarouselItem>>(null);
+  const items: CarouselItem[] = [...day.meals, SNACKS_SOON];
   const cardWidth = Math.round(width * CARD_SHARE);
   const step = cardWidth + CARD_GAP;
 
@@ -259,7 +383,7 @@ export function HeroCarousel({ day, servings, width, selected, onChange, onOpen,
   }, [selected, step]);
 
   const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const index = Math.min(day.meals.length - 1, Math.max(0, Math.round(e.nativeEvent.contentOffset.x / step)));
+    const index = Math.min(items.length - 1, Math.max(0, Math.round(e.nativeEvent.contentOffset.x / step)));
     if (index !== selected) onChange(index);
   };
 
@@ -268,15 +392,16 @@ export function HeroCarousel({ day, servings, width, selected, onChange, onOpen,
       <SegmentedSwitch
         fill
         size="md"
-        options={day.meals.map((m) => ({ value: m.slot, label: SLOT_LABELS[m.slot] }))}
-        value={day.meals[selected]?.slot ?? day.meals[0].slot}
-        onChange={(slot) => onChange(Math.max(0, day.meals.findIndex((m) => m.slot === slot)))}
+        options={[...day.meals.map((m) => ({ value: m.slot as string, label: SLOT_LABELS[m.slot] })), { value: "snacks", label: "Snacks" }]}
+        value={items[selected]?.slot ?? day.meals[0].slot}
+        onChange={(slot) => onChange(Math.max(0, items.findIndex((m) => m.slot === slot)))}
       />
       <FlatList
         ref={list}
         horizontal
-        data={day.meals}
+        data={items}
         keyExtractor={(item) => item.slot}
+        extraData={swapped?.key}
         showsHorizontalScrollIndicator={false}
         snapToInterval={step}
         snapToAlignment="start"
@@ -286,7 +411,27 @@ export function HeroCarousel({ day, servings, width, selected, onChange, onOpen,
         contentContainerStyle={{ paddingHorizontal: BLEED, gap: CARD_GAP }}
         getItemLayout={(_, index) => ({ length: step, offset: step * index, index })}
         renderItem={({ item }) => {
+          if (isSoon(item)) {
+            return (
+              <View
+                style={{ width: cardWidth, height: HERO_HEIGHT }}
+                className="items-center justify-center rounded-3xl border border-dashed border-primary/20 bg-primary/5 px-8"
+              >
+                <View className="h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                  <Cookie color={colors.primary} size={26} />
+                </View>
+                <View className="mt-4 rounded-full bg-accent/15 px-2.5 py-0.5">
+                  <Text className="font-inter-bold text-sub uppercase tracking-widest text-accent">Coming soon</Text>
+                </View>
+                <Text className="mt-3 text-center font-inter-extrabold text-heading tracking-tight text-ink-emphasis">Snacks</Text>
+                <Text className="mt-1.5 text-center font-inter-regular text-body text-ink-subtle">
+                  Merienda picks to round out your day, counted in your plan and budget.
+                </Text>
+              </View>
+            );
+          }
           const Icon = SLOT_ICONS[item.slot];
+          const cups = riceCupsFor(item.slot, item.meal, rice);
           return (
             <Pressable
               onPress={() => onOpen(item)}
@@ -295,6 +440,15 @@ export function HeroCarousel({ day, servings, width, selected, onChange, onOpen,
               style={{ width: cardWidth, height: HERO_HEIGHT }}
               className="overflow-hidden rounded-3xl active:opacity-95"
             >
+              {/* Keyed by the meal: a swap cross-fades the old card out and
+                  the new one in, both filling the card (plain swap with
+                  Reduce motion). */}
+              <Animated.View
+                key={String(item.meal.id ?? item.meal.name)}
+                entering={reduceMotion ? undefined : FadeIn.duration(SWAP_FADE_MS)}
+                exiting={reduceMotion ? undefined : FadeOut.duration(SWAP_FADE_MS)}
+                style={{ position: "absolute", inset: 0 }}
+              >
               <MealImage meal={item.meal} height={HERO_HEIGHT} width={cardWidth} rounded="rounded-3xl" />
               <LinearGradient colors={HERO_SCRIM} pointerEvents="none" style={{ position: "absolute", inset: 0 }} />
               <View pointerEvents="box-none" className="absolute inset-0 justify-between p-4">
@@ -321,6 +475,17 @@ export function HeroCarousel({ day, servings, width, selected, onChange, onOpen,
 
                 <View className="flex-row items-end gap-3">
                   <View className="flex-1">
+                    {/* The plan's rice with this meal: a frosted pill over the
+                        photo, above the name, so it reads as part of the meal. */}
+                    {cups > 0 && rice && (
+                      <View className="mb-2 flex-row items-center gap-1.5 self-start rounded-full border border-white/30 bg-white/20 px-2.5 py-1">
+                        <CookingPot color={colors.white} size={13} />
+                        <Text className="font-inter-semibold text-small text-white">
+                          + {cups} {cups === 1 ? "cup" : "cups"} rice
+                          <Text className="font-inter-regular text-white/75">{`  ·  ${Math.round(cups * rice.cup.calories)} kcal`}</Text>
+                        </Text>
+                      </View>
+                    )}
                     <Text numberOfLines={2} className="font-inter-extrabold text-heading tracking-tight text-white">
                       {item.meal.name}
                     </Text>
@@ -333,15 +498,18 @@ export function HeroCarousel({ day, servings, width, selected, onChange, onOpen,
                         {servings > 1 ? "  ·  per serving" : ""}
                       </Text>
                     </View>
+
                   </View>
                   <View className="items-end">
-                    <Text className="font-inter-extrabold text-subheading text-white">{formatPeso(perServing(item.meal) * servings)}</Text>
+                    <Text className="font-inter-extrabold text-subheading text-white">{formatPeso(costOfMeal(item.slot, item.meal, servings, rice))}</Text>
                     <Text className="font-inter-semibold text-sub uppercase tracking-wide text-white/75">
                       {servings > 1 ? `for ${servings}` : "per person"}
                     </Text>
                   </View>
                 </View>
               </View>
+              </Animated.View>
+              {swapped?.slot === item.slot && <SwapGlow key={swapped.key} reduceMotion={reduceMotion} />}
             </Pressable>
           );
         }}
@@ -420,4 +588,63 @@ export function GroceryCard({ dayName, dayItems, dayTotal, weekItems, weekLocked
       </Pressable>
     </View>
   );
+}
+
+export type PlanFocus = "budget" | "nutrition";
+
+/** What the plan aims at, under "Your week" (IMP-1). With a nutrition goal
+ *  (Pro): a Budget / Nutrition switch that re-plans the same days. Without
+ *  one: a "Set your goals" text link (the
+ *  goals sheet; Free gets the Nutrition goals feature sheet, with PRO). */
+export function PlanFocusRow({
+  focus,
+  targets,
+  locked,
+  onChange,
+  onSetGoals,
+}: {
+  /** null: no nutrition goal to switch to. */
+  focus: PlanFocus | null;
+  /** The goal the Nutrition side aims at (per person, a day). */
+  targets: MacroTargets | null;
+  locked: boolean;
+  onChange: (focus: PlanFocus) => void;
+  onSetGoals: () => void;
+}) {
+  if (!focus || !targets) {
+    return (
+      <Pressable
+        onPress={onSetGoals}
+        hitSlop={8}
+        accessibilityRole="link"
+        accessibilityLabel={locked ? "Set your nutrition goals, a Pro feature" : "Set your nutrition goals"}
+        className="flex-row items-center gap-1.5 self-start active:opacity-70"
+      >
+        <Flame color={colors.primary} size={15} />
+        <Text className="font-inter-semibold text-small text-primary">Set your goals</Text>
+        {locked && <ProBadge />}
+        <ChevronRight color={colors.primary} size={15} />
+      </Pressable>
+    );
+  }
+  return (
+    <SegmentedSwitch
+      options={[
+        { value: "budget", label: "Budget" },
+        { value: "nutrition", label: "Nutrition" },
+      ]}
+      value={focus}
+      onChange={onChange}
+    />
+  );
+}
+
+const MONTH = new Intl.DateTimeFormat("en-US", { month: "short" });
+
+/** A plan's dates for its title, split so the days can take the accent:
+ *  { month: "Nov", days: "22 – 26" }, or across a month
+ *  { month: "Nov", days: "30 – Dec 4" }. */
+export function dateRange(from: Date, to: Date) {
+  const sameMonth = from.getMonth() === to.getMonth() && from.getFullYear() === to.getFullYear();
+  return { month: MONTH.format(from), days: sameMonth ? `${from.getDate()} – ${to.getDate()}` : `${from.getDate()} – ${monthDay(to)}` };
 }

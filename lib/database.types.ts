@@ -448,6 +448,7 @@ export type Database = {
           budget: number
           days: Json
           goal: string | null
+          rice_cups: number | null
           servings: number
           start_date: string
           targets: Json | null
@@ -458,6 +459,7 @@ export type Database = {
           budget: number
           days: Json
           goal?: string | null
+          rice_cups?: number | null
           servings: number
           start_date: string
           targets?: Json | null
@@ -468,6 +470,7 @@ export type Database = {
           budget?: number
           days?: Json
           goal?: string | null
+          rice_cups?: number | null
           servings?: number
           start_date?: string
           targets?: Json | null
@@ -774,6 +777,51 @@ export type Database = {
           },
         ]
       }
+      push_deliveries: {
+        Row: {
+          created_at: string
+          kind: string
+          receipt_tokens: Json | null
+          request_id: number
+          tokens: string[] | null
+        }
+        Insert: {
+          created_at?: string
+          kind: string
+          receipt_tokens?: Json | null
+          request_id: number
+          tokens?: string[] | null
+        }
+        Update: {
+          created_at?: string
+          kind?: string
+          receipt_tokens?: Json | null
+          request_id?: number
+          tokens?: string[] | null
+        }
+        Relationships: []
+      }
+      push_receipts: {
+        Row: {
+          created_at: string
+          receipt_id: string
+          requested_at: string | null
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          receipt_id: string
+          requested_at?: string | null
+          token: string
+        }
+        Update: {
+          created_at?: string
+          receipt_id?: string
+          requested_at?: string | null
+          token?: string
+        }
+        Relationships: []
+      }
       push_tokens: {
         Row: {
           platform: string
@@ -802,6 +850,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      reward_claims: {
+        Row: {
+          claimed_at: string
+          identity_hash: string
+          kind: string
+        }
+        Insert: {
+          claimed_at?: string
+          identity_hash: string
+          kind: string
+        }
+        Update: {
+          claimed_at?: string
+          identity_hash?: string
+          kind?: string
+        }
+        Relationships: []
       }
       saved_meals: {
         Row: {
@@ -933,6 +999,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_list_users: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_plan?: string
+          p_query?: string
+        }
+        Returns: {
+          avatar_url: string
+          created_at: string
+          display_name: string
+          email: string
+          id: string
+          last_sign_in_at: string
+          newsletter_subscribed: boolean
+          plan: string
+          pro_reward_until: string
+          pro_until: string
+          role: string
+          total_count: number
+        }[]
+      }
       count_daily_use: {
         Args: { p_kind: string; p_refines?: boolean; p_signature: string }
         Returns: {
@@ -959,6 +1047,7 @@ export type Database = {
       daily_limit: { Args: { p_kind: string }; Returns: number }
       daily_uses_left: { Args: { p_kind: string }; Returns: number }
       dismiss_post_reports: { Args: { p_post: string }; Returns: undefined }
+      free_refinements_per_day: { Args: never; Returns: number }
       get_blocked_users: {
         Args: never
         Returns: {
@@ -966,23 +1055,6 @@ export type Database = {
           blocked_at: string
           display_name: string
           user_id: string
-        }[]
-      }
-      admin_list_users: {
-        Args: { p_limit?: number; p_offset?: number; p_plan?: string; p_query?: string }
-        Returns: {
-          avatar_url: string
-          created_at: string
-          display_name: string
-          email: string
-          id: string
-          last_sign_in_at: string
-          newsletter_subscribed: boolean
-          plan: string
-          pro_reward_until: string
-          pro_until: string
-          role: string
-          total_count: number
         }[]
       }
       get_food_posts: {
@@ -1037,6 +1109,22 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_removed_posts: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          caption: string
+          created_at: string
+          display_name: string
+          gif_url: string
+          hidden_at: string
+          id: string
+          image_url: string
+          link_url: string
+          sticker_url: string
+          user_id: string
+        }[]
+      }
       get_reported_posts: {
         Args: never
         Returns: {
@@ -1068,7 +1156,9 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_pro: { Args: { p_user: string }; Returns: boolean }
+      my_reward_claims: { Args: never; Returns: string[] }
       price_alert_min_drop: { Args: never; Returns: number }
+      process_push_responses: { Args: never; Returns: string }
       recompute_pro_reward_until: {
         Args: { p_user: string }
         Returns: undefined
@@ -1085,6 +1175,10 @@ export type Database = {
       revoke_pro_reward: {
         Args: { p_kind: string; p_source: string }
         Returns: undefined
+      }
+      search_refines: {
+        Args: { p_anchor: string; p_next: string }
+        Returns: boolean
       }
       send_daily_price_alert: { Args: never; Returns: string }
       send_expo_push: { Args: { p_messages: Json }; Returns: undefined }

@@ -31,6 +31,10 @@ type Saved = {
   skipStreak: number;
   /** The latest plan day already cleaned out of the pantry. */
   cleanedThrough: string | null;
+  /** Whose plan that was: "<user id>|<plan start>". cleanedThrough only
+   *  counts for the same account and plan: kept per phone, it used to
+   *  skip another account's (or a newly built plan's) days (BUG-15). */
+  cleanedFor: string | null;
   cleanupNote: CleanupNote | null;
 };
 
@@ -38,19 +42,19 @@ type NudgeState = Saved & {
   loaded: boolean;
   load: () => Promise<void>;
   answer: (skipped: boolean) => void;
-  markCleaned: (day: string) => void;
+  markCleaned: (day: string, owner: string) => void;
   setCleanupNote: (note: CleanupNote | null) => void;
 };
 
-const EMPTY: Saved = { answeredDay: null, skipStreak: 0, cleanedThrough: null, cleanupNote: null };
+const EMPTY: Saved = { answeredDay: null, skipStreak: 0, cleanedThrough: null, cleanedFor: null, cleanupNote: null };
 
 const isNote = (v: unknown): v is CleanupNote =>
   !!v && typeof v === "object" && typeof (v as CleanupNote).when === "string" && typeof (v as CleanupNote).at === "number" && Array.isArray((v as CleanupNote).items);
 
 export const useNudgeStore = create<NudgeState>((set, get) => {
   const save = () => {
-    const { answeredDay, skipStreak, cleanedThrough, cleanupNote } = get();
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ answeredDay, skipStreak, cleanedThrough, cleanupNote })).catch(() => {});
+    const { answeredDay, skipStreak, cleanedThrough, cleanedFor, cleanupNote } = get();
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ answeredDay, skipStreak, cleanedThrough, cleanedFor, cleanupNote })).catch(() => {});
   };
   return {
     ...EMPTY,
@@ -64,6 +68,9 @@ export const useNudgeStore = create<NudgeState>((set, get) => {
           answeredDay: typeof saved.answeredDay === "string" ? saved.answeredDay : null,
           skipStreak: typeof saved.skipStreak === "number" ? saved.skipStreak : 0,
           cleanedThrough: typeof saved.cleanedThrough === "string" ? saved.cleanedThrough : null,
+          // Missing on records from before it existed: those count for any
+          // plan, as they did, until the next cleanup records an owner.
+          cleanedFor: typeof saved.cleanedFor === "string" ? saved.cleanedFor : null,
           cleanupNote: isNote(saved.cleanupNote) ? saved.cleanupNote : null,
         });
       } catch {
@@ -75,8 +82,8 @@ export const useNudgeStore = create<NudgeState>((set, get) => {
       set({ answeredDay: dayKey(new Date()), skipStreak: skipped ? get().skipStreak + 1 : 0 });
       save();
     },
-    markCleaned: (day) => {
-      set({ cleanedThrough: day });
+    markCleaned: (day, owner) => {
+      set({ cleanedThrough: day, cleanedFor: owner });
       save();
     },
     setCleanupNote: (note) => {

@@ -14,6 +14,9 @@ export type PriceItem = {
   id: string;
   name: string;
   specification: string;
+  /** DA's section header ("PORK", "VEGETABLES"). Since Nov 2026 the animal
+   *  is only here ("Chop, Local" under PORK), so search reads it too. */
+  section: string | null;
   unit: "kg" | "piece" | "bottle";
   unitSize: number | null;
   category: PriceCategory;
@@ -27,9 +30,33 @@ export type PriceItem = {
   latestDate: string;
   /** Price on or before latestDate − 7 days; null when there's none that old. */
   weekAgoPrice: number | null;
-  /** % change vs weekAgoPrice, one decimal (−4.4 = 4.4% cheaper); null without a week-ago price. */
+  /** % change vs weekAgoPrice, one decimal (−4.4 = 4.4% cheaper); null without a week-ago price,
+   *  and null when stale. */
   pctChange: number | null;
+  /** DA stopped reporting it: its latest price is over STALE_AFTER_DAYS older than DA's newest
+   *  report. Still listed (with "Last reported <date>"), never on the boards or in a price drop. */
+  stale: boolean;
 };
+
+// How far behind DA's newest report an item's latest price can be before it
+// counts as no longer reported. Measured from the newest report, not from
+// today, so a few days without a DA report don't empty the boards.
+export const STALE_AFTER_DAYS = 3;
+
+// Marks items DA stopped reporting (White Potato Imported, last reported Nov 6,
+// sat in the Dropped top 3 for weeks: BUG-11). Their weekly change is dropped,
+// which keeps them off the Dropped / Went up boards, the fresh pick cards and
+// Home's price drop, all of which go by pctChange.
+export function markStale<T extends Pick<PriceItem, "latestDate" | "weekAgoPrice" | "pctChange">>(
+  items: T[],
+): (T & { stale: boolean })[] {
+  const newest = items.reduce<string | null>((max, i) => (max == null || i.latestDate > max ? i.latestDate : max), null);
+  if (newest == null) return [];
+  const cutoff = addDays(newest, -STALE_AFTER_DAYS);
+  return items.map((i) =>
+    i.latestDate < cutoff ? { ...i, stale: true, weekAgoPrice: null, pctChange: null } : { ...i, stale: false },
+  );
+}
 
 // DA section header → category. Eggs sat under POULTRY PRODUCTS in the PDF
 // (their own EGG section since Nov 2026), so they go by name first.
@@ -82,6 +109,32 @@ export function weekAgoPrice(daily: DailyPoint[]): number | null {
 export function pctChange(latest: number, weekAgo: number | null): number | null {
   if (weekAgo == null || weekAgo === 0) return null;
   return Math.round(((latest - weekAgo) / weekAgo) * 1000) / 10;
+}
+
+// DA's meat sections since Nov 2026 name only the cut ("Chop, Local" under
+// PORK), so the list couldn't tell pork from beef. The animal from the section
+// goes in front, unless the name already says it ("Whole Duck").
+const SECTION_ANIMAL: [RegExp, string][] = [
+  [/^PORK\b/, "Pork"],
+  [/^BEEF\b/, "Beef"],
+  [/^CHICKEN\b/, "Chicken"],
+  [/^BUFFALO\b/, "Carabeef"],
+  [/^DUCK\b/, "Duck"],
+];
+export function priceItemName(commodity: string, section: string | null): string {
+  const animal = SECTION_ANIMAL.find(([re]) => re.test((section ?? "").toUpperCase()))?.[1];
+  if (!animal || new RegExp(`\\b${animal}\\b`, "i").test(commodity)) return commodity;
+  return `${animal} ${commodity}`;
+}
+
+// Price Watch search: every word of the query somewhere in the name, DA's
+// specification or its section, in any order. "pork chop" finds "Chop, Local"
+// under PORK (DA dropped the animal from the name in Nov 2026).
+export function matchesPriceSearch(item: Pick<PriceItem, "name" | "specification" | "section">, query: string): boolean {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+  const text = `${item.name} ${item.specification} ${item.section ?? ""}`.toLowerCase();
+  return words.every((w) => text.includes(w));
 }
 
 export type Trend = "down" | "up" | "flat";

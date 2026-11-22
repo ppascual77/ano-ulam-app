@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View, type ScrollViewInstance } from "react-native";
+import { KeyboardAvoidingView, Pressable, ScrollView, View, type ScrollViewInstance, type ViewInstance } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Animated, { Easing, FadeIn, LayoutAnimationConfig, withTiming } from "react-native-reanimated";
@@ -90,6 +91,11 @@ function timeAgo(at: number): string {
 // Profile. The draft autosaves on the device (useRecipeDraft): reopening
 // offers to continue it, and ✕ asks Save draft / Discard once anything is
 // typed. Finished steps can be revisited from the progress bar.
+// keepInView: room left under a kept field, and how long the keyboard and
+// the form's resize take to settle before measuring.
+const KEEP_IN_VIEW_MARGIN = 16;
+const KEYBOARD_SETTLE_MS = 300;
+
 export default function AddRecipeScreen() {
   const { session } = useAuth();
   const posterId = session?.user.id ?? null;
@@ -203,6 +209,26 @@ export default function AddRecipeScreen() {
 
   // A new ingredient lands at the bottom, often under the keyboard: bring it
   // into view once its quantity box has focus (and the keyboard is up).
+  // The form's scroll position, for keepInView.
+  const scrollY = useRef(0);
+  // A focused field that's growing (Details' description): once the keyboard
+  // is up and the form has shrunk above it, scroll so the field's bottom (where
+  // the typing is) sits just above the Back/Next bar. iOS scroll views don't
+  // do this on their own (BUG-12).
+  const keepInView = useCallback((field: ViewInstance | null) => {
+    setTimeout(() => {
+      const scroll = scrollRef.current;
+      if (!field || !scroll) return;
+      scroll.measureInWindow((_sx, sy, _sw, sh) => {
+        field.measureInWindow((_fx, fy, _fw, fh) => {
+          const overflow = fy + fh + KEEP_IN_VIEW_MARGIN - (sy + sh);
+          if (overflow > 0) scroll.scrollTo({ y: scrollY.current + overflow, animated: true });
+        });
+      });
+    }, KEYBOARD_SETTLE_MS);
+  }, []);
+  const insets = useSafeAreaInsets();
+
   const scrollToNewLine = useCallback(() => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 350);
   }, []);
@@ -305,7 +331,11 @@ export default function AddRecipeScreen() {
   return (
     <Screen padded={false} dismissKeyboardOnTap={false}>
       {header}
-      <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      {/* It measures itself against its parent, which starts below the
+          status bar: without that offset it stopped short, leaving the
+          Back/Next bar under the keyboard (BUG-12). Android too: drawn edge
+          to edge, the window no longer shrinks for the keyboard. */}
+      <KeyboardAvoidingView className="flex-1" behavior="padding" keyboardVerticalOffset={insets.top}>
         <View className="px-5 pb-4">
           <StepProgress steps={STEPS} current={step} canJumpTo={canJumpTo} onJump={goTo} reduceMotion={reduceMotion} />
         </View>
@@ -319,11 +349,15 @@ export default function AddRecipeScreen() {
           // swallow swipes): the keyboard closes when you start scrolling.
           keyboardDismissMode="on-drag"
           scrollEnabled={scrollEnabled}
+          onScroll={(e) => {
+            scrollY.current = e.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
         >
           {/* Keyed by step, so each change plays the slide-in (not on first open). */}
           <LayoutAnimationConfig skipEntering>
             <Animated.View key={step} entering={stepEntering}>
-              {step === 0 && <DetailsStep draft={draft} onChange={update} errors={errors} shakeKey={attempt} />}
+              {step === 0 && <DetailsStep draft={draft} onChange={update} errors={errors} shakeKey={attempt} onKeepInView={keepInView} />}
               {step === 1 && (
                 <IngredientsStep draft={draft} onChange={update} errors={errors} shakeKey={attempt} onLineAdded={scrollToNewLine} />
               )}

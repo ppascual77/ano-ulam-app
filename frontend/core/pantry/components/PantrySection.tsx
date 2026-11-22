@@ -9,6 +9,7 @@ import { usePantryResultsGate } from "../hooks/usePantryResultsGate";
 import { PantryEmptyState } from "./PantryEmptyState";
 import { PantryIngredientTabs } from "./PantryIngredientTabs";
 import { PantryMatchCard } from "./PantryMatchCard";
+import { PantryCleanupLine } from "./PantryCleanupLine";
 import { PantrySheet } from "./PantrySheet";
 
 // The pantry as one unit, on Home (Pantry mode) and in Profile's Pantry tab:
@@ -85,6 +86,9 @@ function PantrySectionInner({ title = "page", renderEmpty }: PantrySectionProps)
         <>
           <PantryMatchCard pantry={pantry} />
           <PantryIngredientTabs pantry={pantry} onRemove={actions.remove} />
+          {/* Right under the list (and its "+N more"): what a finished plan
+              day took out, seen as soon as the pantry is. */}
+          <PantryCleanupLine />
         </>
       )}
 

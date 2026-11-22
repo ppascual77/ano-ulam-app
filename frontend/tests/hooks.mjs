@@ -11,6 +11,7 @@ const STUBS = resolvePath(ROOT, "frontend/tests/stubs");
 const STUBBED = {
   "@react-native-async-storage/async-storage": "asyncStorage.mjs",
   "@/api/dailyUsage": "dailyUsage.mjs",
+  "@/api/daPrices": "daPrices.mjs",
   "@/frontend/features/auth/hooks/useAuth": "useAuth.mjs",
 };
 

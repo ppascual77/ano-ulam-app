@@ -32,6 +32,7 @@ import {
   useMyRecipes,
   useMyBio,
   useUpdateBio,
+  useUpdateName,
 } from "../hooks/useProfile";
 import { HEADER_AVATAR, HEADER_NAME_CLASS, ProfileHeader } from "../components/ProfileHeader";
 import { ProfileStats } from "../components/ProfileStats";
@@ -156,6 +157,7 @@ export default function ProfileScreen() {
   const bio = useMyBio();
   const isPro = useProStore((s) => s.isPro);
   const updateBio = useUpdateBio();
+  const updateName = useUpdateName();
   const avatar = useAvatarActions();
   const recipes = useMyRecipes(me.id);
   // Same rule as Add a Recipe's limit check: rejected recipes don't count.
@@ -355,6 +357,16 @@ export default function ProfileScreen() {
                   nameNode={isPro ? <ProName name={me.name} className={HEADER_NAME_CLASS.hero} /> : undefined}
                   avatarItems={avatarItems}
                   avatarBusy={avatar.busy}
+                  hasName={me.hasName}
+                  onSaveName={async (next) => {
+                    try {
+                      await updateName.mutateAsync(next);
+                      return true;
+                    } catch {
+                      showToast("Couldn't save your name. Please try again.");
+                      return false;
+                    }
+                  }}
                   onSaveBio={async (next) => {
                     try {
                       await updateBio.mutateAsync(next);

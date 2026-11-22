@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Dimensions, Modal, Pressable, ScrollView, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -272,7 +272,10 @@ export function BottomSheet({
       onRequestClose={closeFromOutside}
       onShow={onShow}
     >
-      {sheet}
+      {/* A Modal renders outside the app's GestureHandlerRootView, and on
+          Android gestures inside it only work with a root of its own: without
+          it the handle couldn't be dragged there (iOS worked either way). */}
+      <GestureHandlerRootView style={{ flex: 1 }}>{sheet}</GestureHandlerRootView>
     </Modal>
   );
 }

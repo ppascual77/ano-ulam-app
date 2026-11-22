@@ -32,9 +32,19 @@ export async function getProRewards(userId: string): Promise<ProReward[]> {
   }));
 }
 
+/** The reward kinds this person already claimed under any account, also one
+ *  they deleted (my_reward_claims: matched by their Apple/Google sign-in).
+ *  The database refuses those again, so the app shouldn't offer them. */
+export async function getClaimedRewardKinds(): Promise<ProReward["kind"][]> {
+  const { data, error } = await supabase.rpc("my_reward_claims");
+  if (error) throw error;
+  return (data ?? []) as ProReward["kind"][];
+}
+
 /** Which Pro rewards this user has claimed, from the reward log itself,
  *  not from recipes and posts: rewards started 2026-11-08 with no backfill,
- *  so an older approved recipe or photo post hasn't earned anything. */
+ *  so an older approved recipe or photo post hasn't earned anything. Kinds
+ *  claimed under an earlier, deleted account count as claimed too. */
 export type ProRewardProgress = {
   /** Their first approved recipe earned its days (0 or 1). */
   approvedRecipes: number;
@@ -42,10 +52,10 @@ export type ProRewardProgress = {
   hasPhotoPost: boolean;
 };
 
-export const progressOf = (rewards: ProReward[]): ProRewardProgress => ({
-  approvedRecipes: rewards.some((r) => r.kind === "recipe") ? 1 : 0,
-  hasPhotoPost: rewards.some((r) => r.kind === "photo_post"),
-});
+export const progressOf = (rewards: ProReward[], claimedKinds: ProReward["kind"][] = []): ProRewardProgress => {
+  const claimed = (kind: ProReward["kind"]) => rewards.some((r) => r.kind === kind) || claimedKinds.includes(kind);
+  return { approvedRecipes: claimed("recipe") ? 1 : 0, hasPhotoPost: claimed("photo_post") };
+};
 
 /** Whether removing this post or recipe would take Pro days back right now:
  *  the reward it earned is still standing and earned Pro is still running.
@@ -71,6 +81,15 @@ export async function getEarnedProUntil(userId: string): Promise<string | null> 
   const { data, error } = await supabase.from("users").select("pro_reward_until").eq("id", userId).single();
   if (error) throw error;
   return data.pro_reward_until;
+}
+
+/** The subscription's end as the database has it (users.pro_until, written
+ *  only by the revenuecat-webhook edge function): ISO, or null. The app's
+ *  Pro comes from RevenueCat; this is the copy the database's limits use. */
+export async function getSubscriptionUntil(userId: string): Promise<string | null> {
+  const { data, error } = await supabase.from("users").select("pro_until").eq("id", userId).single();
+  if (error) throw error;
+  return data.pro_until;
 }
 
 /** The sheet's own show/dismiss record (users.earn_pro_prompt). */

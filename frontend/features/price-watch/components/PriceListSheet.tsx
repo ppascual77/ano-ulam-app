@@ -5,7 +5,7 @@ import * as Haptics from "expo-haptics";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { AppText, BottomSheet, SearchBar } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { formatPeso, unitSuffix, type PriceCategory, type PriceItem } from "@/frontend/core/prices/utils/prices";
+import { formatPeso, matchesPriceSearch, unitSuffix, type PriceCategory, type PriceItem } from "@/frontend/core/prices/utils/prices";
 import { priceWatchCategories } from "../constants/categories";
 import { ChangePill, PriceRow } from "./PriceRow";
 import { PriceSparkline } from "./PriceSparkline";
@@ -91,7 +91,7 @@ export function PriceListSheet({ scope, items, onClose, onClosed, onSelect }: Pr
   const list = useMemo(
     () =>
       items.filter(
-        (i) => (shown === "all" || i.category === shown) && (!q || `${i.name} ${i.specification}`.toLowerCase().includes(q)),
+        (i) => (shown === "all" || i.category === shown) && matchesPriceSearch(i, q),
       ),
     [items, shown, q],
   );

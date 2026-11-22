@@ -63,3 +63,28 @@ export async function dismissPostReports(postId: string): Promise<void> {
   const { error } = await supabase.rpc("dismiss_post_reports", { p_post: postId });
   if (error) throw error;
 }
+
+/** A post an admin removed (last 30 days), for Restore in Reported Posts. */
+export type RemovedPost = Pick<
+  ReportedPost,
+  "id" | "userId" | "displayName" | "avatarUrl" | "caption" | "imageUrl" | "linkUrl" | "gifUrl" | "stickerUrl" | "createdAt"
+> & { removedAt: string };
+
+/** Posts an admin removed in the last 30 days, newest removal first. */
+export async function getRemovedPosts(): Promise<RemovedPost[]> {
+  const { data, error } = await supabase.rpc("get_removed_posts");
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    displayName: row.display_name ?? null,
+    avatarUrl: row.avatar_url ?? null,
+    caption: row.caption ?? null,
+    imageUrl: row.image_url ?? null,
+    linkUrl: row.link_url ?? null,
+    gifUrl: row.gif_url ?? null,
+    stickerUrl: row.sticker_url ?? null,
+    createdAt: row.created_at,
+    removedAt: row.hidden_at,
+  }));
+}

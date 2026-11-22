@@ -8,7 +8,7 @@ import Purchases, {
   type PurchasesPackage,
 } from "react-native-purchases";
 import { create } from "zustand";
-import { getEarnedProUntil } from "@/api/proRewards";
+import { getEarnedProUntil, getSubscriptionUntil } from "@/api/proRewards";
 import { proSourceForPurchase, track } from "@/frontend/core/analytics/analytics";
 import type { PlanKey } from "../proContent";
 
@@ -178,6 +178,39 @@ export const useProStore = create<ProStore>((set, get) => {
     if (msLeft > 0 && msLeft < 24 * 60 * 60 * 1000) earnedTimer = setTimeout(publishPro, msLeft + 1000);
   };
 
+  // The alarm for a broken webhook (pro_mismatch): RevenueCat says this
+  // account is subscribed, but 10 minutes after the purchase or renewal the
+  // database's copy (users.pro_until, written by the revenuecat-webhook)
+  // still isn't running, so the database's limits treat a paying user as
+  // Free. Checked once per account per launch; PostHog alerts on the event.
+  const MISMATCH_GRACE_MS = 10 * 60 * 1000;
+  let mismatchTimer: ReturnType<typeof setTimeout> | null = null;
+  const mismatchChecked = new Set<string>();
+  const checkMismatch = async () => {
+    const user = currentUser;
+    const sub = get().subscription;
+    if (!user || !sub || mismatchChecked.has(user)) return;
+    const sinceMs = Date.now() - new Date(sub.startedAt).getTime();
+    if (sinceMs < MISMATCH_GRACE_MS) {
+      if (mismatchTimer) clearTimeout(mismatchTimer);
+      mismatchTimer = setTimeout(() => void checkMismatch(), MISMATCH_GRACE_MS - sinceMs + 1000);
+      return;
+    }
+    mismatchChecked.add(user);
+    try {
+      const until = await getSubscriptionUntil(user);
+      if (until && new Date(until).getTime() > Date.now()) return;
+      track("pro_mismatch", {
+        plan: sub.plan,
+        status: sub.status,
+        minutes_since_purchase: Math.round(sinceMs / 60_000),
+        db: until ? "ended" : "none",
+      });
+    } catch {
+      mismatchChecked.delete(user); // Offline: try again on the next update.
+    }
+  };
+
   const apply = (info: CustomerInfo) => {
     hadPro = !!info.entitlements.all[ENTITLEMENT];
     if (hadPro) set({ trialEligible: NO_TRIAL });
@@ -191,6 +224,7 @@ export const useProStore = create<ProStore>((set, get) => {
     }
     set({ subscription, lapsed, checked: true });
     publishPro();
+    void checkMismatch();
 
     if (expiryTimer) clearTimeout(expiryTimer);
     expiryTimer = null;

@@ -3,7 +3,7 @@ import { Platform, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Bell } from "lucide-react-native";
 import { create } from "zustand";
-import { ConfirmSheet, isModalSheetOpen } from "@/frontend/components/ui";
+import { ConfirmSheet, useModalSheetOpen } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { enablePush, getPushPermission } from "../push";
@@ -15,12 +15,20 @@ import { enablePush, getPushPermission } from "../push";
 // clearly using the app, with a short sheet saying what they'd get; "Turn on"
 // then shows Android's own dialog. "Not now" never asks again: Settings →
 // Notifications still turns them on.
+//
+// Most saves happen inside a meal's page, which is a modal sheet, and Android
+// can't show this sheet over it well. It used to give up when a sheet was
+// open, so it never showed for anyone saving from a meal's page (BUG-1,
+// 2026-11-21). Now it waits until every sheet has closed, then asks.
 
 const STORAGE_KEY = "anoulam.androidPushAsked";
 // After the save's flight and toast have played.
 const ASK_DELAY_MS = 1600;
+// Once the last sheet is gone: let its slide-out finish first.
+const AFTER_SHEET_MS = 500;
 
-const useAskStore = create<{ open: boolean }>(() => ({ open: false }));
+// wanted: a save asked for it; open: on screen.
+const useAskStore = create<{ wanted: boolean; open: boolean }>(() => ({ wanted: false, open: false }));
 
 let asked: boolean | null = null;
 let pending = false;
@@ -44,26 +52,47 @@ function markAsked() {
 /** After a save (signed in): opens the ask if this Android phone has never
  *  decided on notifications and hasn't been asked. Safe to call anywhere. */
 export async function maybeAskAndroidPush() {
-  if (Platform.OS !== "android" || pending || (await alreadyAsked())) return;
-  if ((await getPushPermission().catch(() => "unavailable")) !== "undetermined") return;
+  if (Platform.OS !== "android" || pending) return;
+  if (await alreadyAsked()) {
+    if (__DEV__) console.log("[push] Android ask: skipped, already asked on this phone");
+    return;
+  }
+  const permission = await getPushPermission().catch(() => "unavailable");
+  if (permission !== "undetermined") {
+    if (__DEV__) console.log("[push] Android ask: skipped, permission is", permission);
+    return;
+  }
   pending = true;
+  if (__DEV__) console.log("[push] Android ask: queued after a save");
   setTimeout(() => {
     pending = false;
-    // A sheet is up (save limit, login): try again on a later save.
-    if (isModalSheetOpen()) return;
-    markAsked();
-    useAskStore.setState({ open: true });
+    useAskStore.setState({ wanted: true });
   }, ASK_DELAY_MS);
 }
 
 /** Rendered once in the root layout. */
 export function AndroidPushAsk() {
-  const open = useAskStore((s) => s.open);
+  const { wanted, open } = useAskStore();
   const { isSignedIn } = useAuth();
+  const sheetOpen = useModalSheetOpen();
+
+  // Shown once no sheet is up (a meal's page, the save limit, login). Not
+  // marked as asked until it actually shows, so an app closed meanwhile
+  // asks again on a later save.
+  useEffect(() => {
+    if (!wanted || sheetOpen || !isSignedIn) return;
+    const timer = setTimeout(() => {
+      if (__DEV__) console.log("[push] Android ask: showing");
+      markAsked();
+      useAskStore.setState({ wanted: false, open: true });
+    }, AFTER_SHEET_MS);
+    return () => clearTimeout(timer);
+  }, [wanted, sheetOpen, isSignedIn]);
+
   // Signed out mid-delay: nothing to send pushes to.
   useEffect(() => {
-    if (open && !isSignedIn) useAskStore.setState({ open: false });
-  }, [open, isSignedIn]);
+    if ((open || wanted) && !isSignedIn) useAskStore.setState({ wanted: false, open: false });
+  }, [open, wanted, isSignedIn]);
 
   const close = () => useAskStore.setState({ open: false });
 

@@ -137,6 +137,8 @@ export type MealType = {
   dietary_tags?: string[];
   tags?: string[];
   created_at?: string;
+  /** When it was approved into the catalog (a community recipe's go-live). */
+  published_at?: string | null;
   buffer_price?: number;
   normalized_name?: string;
   ingredient_sig?: string;

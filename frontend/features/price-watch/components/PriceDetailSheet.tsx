@@ -64,11 +64,13 @@ function DetailBody({ item, onOpenMeal }: DetailBodyProps) {
     <View className="gap-4 px-5 pb-8 pt-6">
       {/* What it is. */}
       <Animated.View entering={enter(0)} className="mb-1">
-        {/* Category on the left, how fresh the price is on the right. */}
+        {/* Category on the left, how fresh the price is on the right
+            ("Last reported" once DA stopped listing it). */}
         <View className="mb-1 flex-row items-center justify-between">
           <DotLabel>{category}</DotLabel>
           <Text className="font-inter-regular text-small text-ink-subtle">
-            As of <Text className="font-inter-semibold text-accent">{formatShortDate(item.latestDate)}</Text>
+            {item.stale ? "Last reported " : "As of "}
+            <Text className="font-inter-semibold text-accent">{formatShortDate(item.latestDate)}</Text>
           </Text>
         </View>
         <AppText variant="sectionTitle" dot>
@@ -79,7 +81,7 @@ function DetailBody({ item, onOpenMeal }: DetailBodyProps) {
 
       {/* What it costs: today's price, then how it moved vs last week. */}
       <Animated.View entering={enter(1)} className={CARD}>
-        <DotLabel>Today&apos;s price</DotLabel>
+        <DotLabel>{item.stale ? "Last price" : "Today's price"}</DotLabel>
         <View className="mt-2 flex-row items-baseline gap-2">
           {/* Counts down (or up) from last week's price to today's. */}
           <Text style={{ fontVariant: ["tabular-nums"] }} className="font-inter-extrabold text-subhero tracking-display text-ink-emphasis">

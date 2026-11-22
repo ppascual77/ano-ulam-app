@@ -1,4 +1,10 @@
 import { useMemo } from "react";
+import { View } from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
+import { Hamburger } from "lucide-react-native";
+import { AppText } from "@/frontend/components/ui";
+import { Text } from "@/frontend/components/ui/Text";
+import { colors } from "@/frontend/constants/theme";
 import { useRecommendedMeals } from "@/frontend/core/meals/hooks/useRecommendedMeals";
 import { scaleMeal } from "@/frontend/core/meals/utils/scaleMeal";
 import { MealCarouselSection } from "./MealCarouselSection";
@@ -25,6 +31,10 @@ export function RecommendationsSection({
   // the card's price is for 2, and the detail sheet opens at 2 (useFullMeal
   // re-scales the full meal to this serving_size).
   const meals = useMemo(() => recipes.map((meal) => scaleMeal(meal, DEFAULT_SERVINGS)), [recipes]);
+  // Fast food has nothing in it yet (IMP-11): say it's coming.
+  if (category === "fastfood" && !isLoading && !switching && meals.length === 0) {
+    return <FastFoodSoon />;
+  }
   return (
     <MealCarouselSection
       // A new category starts again from its first 5.
@@ -43,5 +53,24 @@ export function RecommendationsSection({
       loading={isLoading || switching}
       pageSize={5}
     />
+  );
+}
+
+function FastFoodSoon() {
+  return (
+    <Animated.View entering={FadeIn.duration(220)} className="gap-3">
+      <AppText variant="sectionTitle" dot>
+        Recommendations
+      </AppText>
+      <View className="items-center rounded-2xl border border-dashed border-accent/30 bg-accent/5 px-6 py-6">
+        <View className="h-12 w-12 items-center justify-center rounded-2xl bg-accent/15">
+          <Hamburger color={colors.accent} size={22} />
+        </View>
+        <Text className="mt-3 text-center font-inter-bold text-subheading text-ink-emphasis">Fast food is coming soon</Text>
+        <Text className="mt-1 text-center font-inter-regular text-body text-ink-subtle">
+          Your go-to chains, with real prices and macros. Until then, there&apos;s plenty to cook at home.
+        </Text>
+      </View>
+    </Animated.View>
   );
 }

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { View } from "react-native";
 import Animated, { Easing, FadeIn, FadeInDown } from "react-native-reanimated";
-import { AppText } from "@/frontend/components/ui";
+import { AppText, Breathing } from "@/frontend/components/ui";
 import { MealPhotoTile, mealPriceLabel, type MealPhotoTileSize } from "@/frontend/core/meals/components/card/MealPhotoTile";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
 import { useFullMeal } from "@/frontend/core/meals/hooks/useFullMeal";
@@ -41,7 +41,7 @@ function PhotoTile({ meal, index, variant, height, onPress }: { meal: MealType; 
 function SpreadSkeleton() {
   const block = "rounded-2xl bg-ink-emphasis/5";
   return (
-    <View style={{ gap: GAP }}>
+    <Breathing style={{ gap: GAP }}>
       <View style={{ height: HERO_HEIGHT }} className={block} />
       <View className="flex-row" style={{ gap: GAP }}>
         <View style={{ height: TALL_HEIGHT }} className={`flex-1 ${block}`} />
@@ -51,7 +51,7 @@ function SpreadSkeleton() {
         </View>
       </View>
       <View style={{ height: CLOSER_HEIGHT }} className={block} />
-    </View>
+    </Breathing>
   );
 }
 

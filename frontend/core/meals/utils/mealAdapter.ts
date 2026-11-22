@@ -63,6 +63,7 @@ export function mealRowToMealType(meal: MealRow, mealIngredients?: MealWithIngre
     dietary_tags: meal.dietary_tags ?? [],
     tags: meal.tags ?? [],
     created_at: meal.created_at,
+    published_at: meal.published_at,
     image_attribution: meal.image_attribution,
     serving_size: meal.serving_size,
     updated_at: meal.updated_at,

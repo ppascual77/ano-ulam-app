@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
@@ -141,7 +141,10 @@ export function GeneratingView({ budgetLabel, meals, hasMacros, days = 5, onDone
 
   return (
     // No back arrow of its own: the screen's one cancels back to setup.
-    <View className="flex-1 px-6 pt-2">
+    // The title and steps scroll (large text pushes them past the screen);
+    // the button stays pinned under them, always in view.
+    <View className="flex-1">
+      <ScrollView className="flex-1" contentContainerClassName="px-6 pt-2 pb-6" showsVerticalScrollIndicator={false}>
       <View className="mt-4 items-center">
         <OrbitLoader meals={meals} />
       </View>
@@ -197,10 +200,13 @@ export function GeneratingView({ budgetLabel, meals, hasMacros, days = 5, onDone
           );
         })}
       </View>
+      </ScrollView>
 
       {finished && (
-        <Animated.View entering={FadeInDown.delay(BUTTON_DELAY_MS).duration(350)} className="mx-7 mt-auto pb-14">
-          <Button label="See my meal plan" icon={<ArrowRight color={colors.white} size={18} />} iconPosition="right" onPress={onDone} />
+        <Animated.View entering={FadeInDown.delay(BUTTON_DELAY_MS).duration(350)} className="px-6 pb-14 pt-3">
+          <View className="mx-7">
+            <Button label="See my meal plan" icon={<ArrowRight color={colors.white} size={18} />} iconPosition="right" onPress={onDone} />
+          </View>
         </Animated.View>
       )}
     </View>

@@ -1,5 +1,5 @@
 import { Fragment, ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, View, useWindowDimensions } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -38,6 +38,7 @@ import {
   TrendingDown,
   Check,
   Share2 as ShareIcon,
+  CookingPot,
 } from "lucide-react-native";
 import {
   AppText,
@@ -61,6 +62,7 @@ import { MealInfoPill } from "../MealInfoPill";
 import { MacroSection } from "./MacroSection";
 import { GoalShare } from "./GoalShare";
 import { useNutritionGoals } from "@/frontend/core/preferences/hooks/useNutritionGoals";
+import { CreatedBy } from "@/frontend/core/users/components/CreatedBy";
 import { LockedMicronutrients, MicronutrientList, hasMicronutrients, type Micronutrients } from "./MicronutrientList";
 import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 import { useIsPro } from "@/frontend/core/pro/store/useProStore";
@@ -213,6 +215,29 @@ function StatCard({ icon, value, label, rank }: StatCardProps) {
   );
 }
 
+/** The cups of rice a meal plan counts with a meal, per person. */
+export type SideRice = { cups: number; calories: number; carbs: number; price: number };
+
+// "Served with rice": a meal opened from a plan that counts rice with it.
+// The meal's own numbers stay the dish's; this card says what the plan adds
+// on the side, so its totals make sense (BUG-9).
+function SideRiceCard({ rice }: { rice: SideRice }) {
+  const cupsLabel = `${rice.cups} ${rice.cups === 1 ? "cup" : "cups"}`;
+  return (
+    <View className="mt-4 flex-row items-center gap-3 rounded-2xl border border-primary/10 bg-primary/5 px-3.5 py-3">
+      <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+        <CookingPot color={colors.primary} size={20} />
+      </View>
+      <View className="flex-1">
+        <Text className="font-inter-semibold text-body text-ink-emphasis">With {cupsLabel} of rice each</Text>
+        <Text className="mt-0.5 font-inter-regular text-small text-ink-subtle">
+          Counted in your plan: {Math.round(rice.calories)} kcal, {Math.round(rice.carbs)} g carbs, ₱{Math.round(rice.price)} per person
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 type MealDetailContentProps = {
   meal: MealType;
   /** Consumer save state for the footer. `savedServings` is the servings
@@ -234,6 +259,13 @@ type MealDetailContentProps = {
   /** Servings the stepper starts at (e.g. a saved meal's). Defaults to the
    *  meal's own serving_size. */
   initialServings?: number;
+  /** Opened from a meal plan that counts rice with this meal: its cups per
+   *  person and what they add (one person). Shows the "Served with rice"
+   *  card. */
+  sideRice?: SideRice;
+  /** A community recipe's "Created by", tapped: open that profile. Without
+   *  it, the row shows but doesn't open anything. */
+  onPressPoster?: (posterId: string) => void;
   onSelectMeal?: (meal: MealType) => void;
   /** The top-left arrow over the photo. MealDetailSheet steps back through
    *  related meals with it, then closes. Omitted (no arrow) in preview. */
@@ -371,6 +403,8 @@ export function MealDetailContent({
   saved,
   recipeOwner,
   initialServings,
+  sideRice,
+  onPressPoster,
   onSelectMeal,
   onBack,
   direction = "none",
@@ -422,7 +456,11 @@ export function MealDetailContent({
   // The name fits between the back button and the right-hand buttons
   // (whose width varies: save count, Edit, Published), never under them.
   const [rightButtonsWidth, setRightButtonsWidth] = useState(PHOTO_BUTTON_SIZE);
-  const titleLeft = 16 + (onBack ? PHOTO_BUTTON_SIZE + 12 : 0);
+  // The back button's pill: wider on a community recipe, which carries its
+  // "Created by" in the same pill. Measured, so the pinned name clears it.
+  const [backWidth, setBackWidth] = useState(PHOTO_BUTTON_SIZE);
+  const { width: screenWidth } = useWindowDimensions();
+  const titleLeft = 16 + (onBack ? backWidth + 12 : 0);
   const titleRight = 16 + rightButtonsWidth + 12;
 
   const pinnedStyle = useAnimatedStyle(() => ({
@@ -594,13 +632,23 @@ export function MealDetailContent({
           bookmark on the right. */}
       {onBack && (
         <View className="absolute left-4" style={{ top: photoButtonsTop }}>
-          <Pressable
-            onPress={onBack}
-            hitSlop={ICON_HIT_SLOP}
-            className="h-11 w-11 items-center justify-center rounded-full bg-ink-emphasis/40"
+          {/* One pill: back, and on a community recipe who made it (tap the
+              name for their profile). Never wider than the space left of the
+              right-hand buttons. */}
+          <View
+            onLayout={(e) => setBackWidth(e.nativeEvent.layout.width)}
+            className="h-11 flex-row items-center rounded-full bg-ink-emphasis/40"
+            style={{ maxWidth: screenWidth - 32 - rightButtonsWidth - 12 }}
           >
-            <ArrowLeft color={colors.white} size={22} />
-          </Pressable>
+            <Pressable onPress={onBack} hitSlop={ICON_HIT_SLOP} accessibilityLabel="Back" className="h-11 w-11 items-center justify-center">
+              <ArrowLeft color={colors.white} size={22} />
+            </Pressable>
+            {!!meal.poster_id && (
+              <View className="min-w-0 shrink pr-4">
+                <CreatedBy posterId={meal.poster_id} compact onPress={onPressPoster ? () => onPressPoster(meal.poster_id!) : undefined} />
+              </View>
+            )}
+          </View>
         </View>
       )}
 
@@ -665,6 +713,17 @@ export function MealDetailContent({
   // Meal name through the steps: the rounded details card's contents.
   const cardBody = (
     <>
+      {/* A community recipe without a back button (no top bar pill to carry
+          it): who made it, above its name. */}
+      {!!meal.poster_id && !onBack && (
+        <View className="mb-3">
+          <CreatedBy
+            posterId={meal.poster_id}
+            tone="page"
+            onPress={onPressPoster ? () => onPressPoster(meal.poster_id!) : undefined}
+          />
+        </View>
+      )}
       <View className="flex-row items-start justify-between">
         <View className="flex-1 pr-3">
           <SectionTitle>{meal.name}</SectionTitle>
@@ -787,6 +846,8 @@ export function MealDetailContent({
           />
         )}
       </View>
+
+      {sideRice && sideRice.cups > 0 && <SideRiceCard rice={sideRice} />}
 
       <View className="mt-5">
         <View className="flex-row items-center justify-between">

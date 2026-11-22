@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { Goal, MacroTargets } from "@/frontend/core/nutrition/macros";
 import type { MealPlan, PlannedMeal } from "../utils/generatePlan";
-import type { MealSlot, PlannerMeal } from "../utils/generatePlan";
+import { DEFAULT_RICE_CUPS, type MealSlot, type PlannerMeal, type RiceCups } from "../utils/generatePlan";
 
 export type PlannerStage = "setup" | "generating" | "plan" | "error";
 
@@ -13,6 +13,8 @@ type PlannerStore = {
   targets: MacroTargets | null;
   /** The goal the targets were made for (shown on the enabled card). */
   goal: Goal | null;
+  /** Cups of rice per person with lunch and dinner, for the next build. */
+  riceCups: RiceCups;
   plan: MealPlan | null;
   /** Whose saved plan has been loaded in (useSavedMealPlan), so it loads
    *  once per account, not on every screen that shows it. */
@@ -21,6 +23,7 @@ type PlannerStore = {
   setBudget: (budget: string) => void;
   setServings: (servings: number) => void;
   setTargets: (targets: MacroTargets | null, goal?: Goal | null) => void;
+  setRiceCups: (cups: RiceCups) => void;
   setPlan: (plan: MealPlan | null) => void;
   swapMeal: (dayIndex: number, slot: MealSlot, meal: PlannerMeal) => void;
   replaceDay: (dayIndex: number, meals: PlannedMeal[]) => void;
@@ -28,11 +31,11 @@ type PlannerStore = {
    *  `userId`. */
   loadSaved: (
     userId: string,
-    saved: { budget: string; servings: number; targets: MacroTargets | null; goal: Goal | null; plan: MealPlan | null } | null,
+    saved: { budget: string; servings: number; targets: MacroTargets | null; goal: Goal | null; riceCups: RiceCups; plan: MealPlan | null } | null,
   ) => void;
 };
 
-const INITIAL = { stage: "setup" as PlannerStage, budget: "", servings: 1, targets: null, goal: null, plan: null };
+const INITIAL = { stage: "setup" as PlannerStage, budget: "", servings: 1, targets: null, goal: null, riceCups: DEFAULT_RICE_CUPS, plan: null };
 
 // Meal Planner state. Event-driven (setup -> generating -> plan), and kept
 // across screens, so a store rather than screen state. The plan itself is
@@ -44,6 +47,7 @@ export const usePlannerStore = create<PlannerStore>((set) => ({
   setBudget: (budget) => set({ budget }),
   setServings: (servings) => set({ servings }),
   setTargets: (targets, goal = null) => set({ targets, goal: targets ? goal : null }),
+  setRiceCups: (riceCups) => set({ riceCups }),
   setPlan: (plan) => set({ plan }),
   swapMeal: (dayIndex, slot, meal) =>
     set((state) => {
@@ -65,6 +69,7 @@ export const usePlannerStore = create<PlannerStore>((set) => ({
             servings: saved.servings,
             targets: saved.targets,
             goal: saved.goal,
+            riceCups: saved.riceCups,
             plan: saved.plan,
             stage: saved.plan ? "plan" : "setup",
           }

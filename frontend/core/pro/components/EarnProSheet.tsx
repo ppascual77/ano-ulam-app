@@ -49,8 +49,8 @@ function RewardRow({
   );
 }
 
-// Discover, for signed-in free users after a few reels: sharing earns Pro
-// time. Says up front what earns what (once each) and that a recipe counts
+// Discover (for signed-in free users after a few reels) and Settings' "Earn
+// free Pro" (any time, IMP-15): sharing earns Pro time. Says up front what earns what (once each) and that a recipe counts
 // once approved, then where the user already stands: recipe approved or
 // not, photo post done or not, and only the days still to earn.
 export function EarnProSheet({ visible, progress, onClose, onClosed }: EarnProSheetProps) {
@@ -65,6 +65,8 @@ export function EarnProSheet({ visible, progress, onClose, onClosed }: EarnProSh
   const postDone = progress?.hasPhotoPost ?? false;
   const daysLeft = (recipesDone ? 0 : RECIPE_REWARD_DAYS) + (postDone ? 0 : POST_REWARD_DAYS);
   const recipeDetail = recipesDone ? "Your recipe was approved." : "Once your first recipe is approved.";
+  // Opened from Settings after both are earned: a thank-you, nothing to do.
+  const allDone = recipesDone && postDone;
 
   return (
     <BottomSheet
@@ -81,10 +83,12 @@ export function EarnProSheet({ visible, progress, onClose, onClosed }: EarnProSh
       <View className="gap-6 px-6 pb-8 pt-10">
         <View className="gap-2">
           <AppText variant="sectionTitle" dot>
-            Your recipe could earn you Pro
+            {allDone ? "You earned your free Pro" : "Your recipe could earn you Pro"}
           </AppText>
           <Text className="font-inter-regular text-body text-ink-subtle">
-            Every recipe you share helps someone answer &quot;ano ulam?&quot; today. We&apos;ll thank you with Pro.
+            {allDone
+              ? "Thanks for sharing with the community. Each reward is once per person."
+              : "Every recipe you share helps someone answer \"ano ulam?\" today. We'll thank you with Pro."}
           </Text>
         </View>
 
@@ -101,9 +105,11 @@ export function EarnProSheet({ visible, progress, onClose, onClosed }: EarnProSh
               />
             </View>
           </View>
-          <Text className="text-center font-inter-medium text-small text-ink-subtle">
-            {recipesDone || postDone ? `Up to ${daysLeft} more days of Pro, free.` : `Up to ${daysLeft} days of Pro, free.`}
-          </Text>
+          {!allDone && (
+            <Text className="text-center font-inter-medium text-small text-ink-subtle">
+              {recipesDone || postDone ? `Up to ${daysLeft} more days of Pro, free.` : `Up to ${daysLeft} days of Pro, free.`}
+            </Text>
+          )}
         </View>
 
         {/* Only what's still left to do: the first open action leads. */}

@@ -4,7 +4,7 @@ import { Text } from "@/frontend/components/ui/Text";
 import { Image } from "expo-image";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppText, Avatar, Button, ErrorState, LoadingState, Screen, Toast, type ToastState } from "@/frontend/components/ui";
-import { dismissPostReports, getReportedPosts, removePost, type ReportedPost } from "@/api/moderation";
+import { dismissPostReports, getRemovedPosts, getReportedPosts, removePost, type RemovedPost, type ReportedPost } from "@/api/moderation";
 import type { ReportReason } from "@/api/posts";
 import { AdminHeader } from "../components/AdminHeader";
 
@@ -17,6 +17,9 @@ const REASON_LABELS: Record<ReportReason, string> = {
 };
 
 const reportedKey = ["admin", "reportedPosts"] as const;
+const removedKey = ["admin", "removedPosts"] as const;
+
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
 
 // "3× Spam · 1× Offensive": how often each reason came up.
 function reasonSummary(reasons: ReportReason[]) {
@@ -28,20 +31,21 @@ function reasonSummary(reasons: ReportReason[]) {
     .join(" · ");
 }
 
-function ReportedPostCard({ post, busy, onRemove, onDismiss }: { post: ReportedPost; busy: boolean; onRemove: () => void; onDismiss: () => void }) {
+type PostPreviewData = Pick<ReportedPost, "displayName" | "avatarUrl" | "caption" | "linkUrl" | "imageUrl" | "gifUrl" | "stickerUrl">;
+
+// The post itself, as both lists show it: who, when, the caption and media.
+function PostPreview({ post, when, badge }: { post: PostPreviewData; when: string; badge: { label: string; hidden: boolean } }) {
   const media = post.imageUrl ?? post.gifUrl ?? post.stickerUrl;
   return (
-    <View className="overflow-hidden rounded-2xl border border-ink-emphasis/10 bg-white">
+    <>
       <View className="flex-row items-center gap-2.5 px-4 pt-4">
         <Avatar name={post.displayName ?? "User"} imageUri={post.avatarUrl ?? undefined} size={32} />
         <View className="flex-1">
           <Text className="font-inter-semibold text-body text-ink-emphasis">{post.displayName ?? "User"}</Text>
-          <Text className="font-inter-regular text-sub text-ink-subtle">
-            Posted {new Date(post.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}
-          </Text>
+          <Text className="font-inter-regular text-sub text-ink-subtle">{when}</Text>
         </View>
-        <View className={`rounded-full px-2.5 py-1 ${post.hidden ? "bg-like-soft" : "bg-ink-emphasis/5"}`}>
-          <Text className={`font-inter-bold text-sub ${post.hidden ? "text-like" : "text-ink-subtle"}`}>{post.hidden ? "HIDDEN" : "VISIBLE"}</Text>
+        <View className={`rounded-full px-2.5 py-1 ${badge.hidden ? "bg-like-soft" : "bg-ink-emphasis/5"}`}>
+          <Text className={`font-inter-bold text-sub ${badge.hidden ? "text-like" : "text-ink-subtle"}`}>{badge.label}</Text>
         </View>
       </View>
 
@@ -56,6 +60,27 @@ function ReportedPostCard({ post, busy, onRemove, onDismiss }: { post: ReportedP
           <Image source={{ uri: media }} style={{ flex: 1 }} contentFit={post.stickerUrl ? "contain" : "cover"} />
         </View>
       )}
+    </>
+  );
+}
+
+// A post an admin removed from its menu (no reports): Restore brings it back
+// for everyone, and its poster gets "Your post is back" (IMP-2).
+function RemovedPostCard({ post, busy, onRestore }: { post: RemovedPost; busy: boolean; onRestore: () => void }) {
+  return (
+    <View className="overflow-hidden rounded-2xl border border-ink-emphasis/10 bg-white">
+      <PostPreview post={post} when={`Posted ${shortDate(post.createdAt)} · removed ${shortDate(post.removedAt)}`} badge={{ label: "REMOVED", hidden: true }} />
+      <View className="p-4">
+        <Button label="Restore" variant="outline" onPress={onRestore} disabled={busy} />
+      </View>
+    </View>
+  );
+}
+
+function ReportedPostCard({ post, busy, onRemove, onDismiss }: { post: ReportedPost; busy: boolean; onRemove: () => void; onDismiss: () => void }) {
+  return (
+    <View className="overflow-hidden rounded-2xl border border-ink-emphasis/10 bg-white">
+      <PostPreview post={post} when={`Posted ${shortDate(post.createdAt)}`} badge={{ label: post.hidden ? "HIDDEN" : "VISIBLE", hidden: post.hidden }} />
 
       <View className="mx-4 mt-3 gap-1 rounded-xl bg-like-soft px-3 py-2.5">
         <Text className="font-inter-bold text-small text-like">
@@ -87,15 +112,19 @@ function ReportedPostCard({ post, busy, onRemove, onDismiss }: { post: ReportedP
 export default function ReportedPostsScreen() {
   const queryClient = useQueryClient();
   const { data: posts, isLoading, isError, refetch, isRefetching } = useQuery({ queryKey: reportedKey, queryFn: getReportedPosts });
+  const removed = useQuery({ queryKey: removedKey, queryFn: getRemovedPosts });
   const [toast, setToast] = useState<ToastState | null>(null);
   const showToast = (message: string, tone: ToastState["tone"] = "success") => setToast({ id: Date.now(), message, tone });
 
   const act = useMutation({
-    mutationFn: async ({ post, action }: { post: ReportedPost; action: "remove" | "dismiss" }) =>
+    mutationFn: async ({ post, action }: { post: { id: string }; action: "remove" | "dismiss" | "restore" }) =>
       action === "remove" ? removePost(post.id) : dismissPostReports(post.id),
     onSuccess: (_, { action }) => {
-      showToast(action === "remove" ? "Post removed for everyone" : "Reports dismissed, post visible");
+      showToast(
+        action === "remove" ? "Post removed for everyone" : action === "restore" ? "Post restored for everyone" : "Reports dismissed, post visible",
+      );
       void queryClient.invalidateQueries({ queryKey: reportedKey });
+      void queryClient.invalidateQueries({ queryKey: removedKey });
       // Every feed and profile list picks up the change.
       void queryClient.invalidateQueries({ queryKey: ["posts"] });
     },
@@ -114,7 +143,15 @@ export default function ReportedPostsScreen() {
           className="flex-1 px-5"
           contentContainerStyle={{ paddingBottom: 40, gap: 16 }}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={() => {
+                void refetch();
+                void removed.refetch();
+              }}
+            />
+          }
         >
           {posts?.length === 0 ? (
             <AppText variant="body" className="mt-8 text-center">
@@ -130,6 +167,26 @@ export default function ReportedPostsScreen() {
                 onDismiss={() => act.mutate({ post, action: "dismiss" })}
               />
             ))
+          )}
+
+          {/* Removed from a post's menu (no reports), last 30 days. */}
+          {!!removed.data?.length && (
+            <View className="mt-4 gap-4">
+              <View className="gap-1">
+                <AppText variant="sectionTitle" dot>
+                  Removed by admins
+                </AppText>
+                <Text className="font-inter-regular text-small text-ink-subtle">Last 30 days. Restore brings a post back for everyone.</Text>
+              </View>
+              {removed.data.map((post) => (
+                <RemovedPostCard
+                  key={post.id}
+                  post={post}
+                  busy={act.isPending && act.variables?.post.id === post.id}
+                  onRestore={() => act.mutate({ post, action: "restore" })}
+                />
+              ))}
+            </View>
           )}
         </ScrollView>
       )}

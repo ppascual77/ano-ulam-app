@@ -3,10 +3,12 @@ import { Linking, Platform, Pressable, ScrollView, View, useWindowDimensions, ty
 import { Text } from "@/frontend/components/ui/Text";
 import Constants from "expo-constants";
 import * as Application from "expo-application";
-import * as Updates from "expo-updates";
+import { requireOptionalNativeModule } from "expo";
 import Animated, { Easing, FadeInDown } from "react-native-reanimated";
-import { Gift } from "lucide-react-native";
-import { allRewardsEarned, useProRewardProgress } from "@/frontend/core/pro/hooks/useProRewardProgress";
+import { Gift, RotateCcw } from "lucide-react-native";
+import { useProRewardProgress } from "@/frontend/core/pro/hooks/useProRewardProgress";
+import { EarnProSheet } from "@/frontend/core/pro/components/EarnProSheet";
+import { useRestorePurchases } from "@/frontend/core/pro/hooks/useRestorePurchases";
 import { POST_REWARD_DAYS, RECIPE_REWARD_DAYS } from "@/frontend/core/pro/proContent";
 import { AccountCard } from "../components/settings/AccountCard";
 import { FreeLimitsCard } from "../components/settings/FreeLimitsCard";
@@ -31,7 +33,7 @@ import {
 import { useReduceMotion, useReduceMotionStore } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useSurpriseMeStore } from "@/frontend/core/preferences/store/useSurpriseMeStore";
 import { useSeenIntrosStore } from "@/frontend/core/preferences/store/useSeenIntrosStore";
-import { manageSubscription, useProStore } from "@/frontend/core/pro/store/useProStore";
+import { manageSubscription, usePaysForPro, useProStore } from "@/frontend/core/pro/store/useProStore";
 import { STORE } from "@/frontend/core/pro/subscriptionCopy";
 import { emailFallbackMessage, openEmail } from "@/lib/openEmail";
 import { EarnedProCard, ProPlanCard } from "../components/settings/ProPlanCard";
@@ -57,7 +59,14 @@ const APP_VERSION = Constants.expoConfig?.version ?? "dev";
 // plus the OTA update's short id when one is running instead of the JS shipped
 // in the binary, so a bug report says exactly what code it came from.
 const BUILD_NUMBER = Application.nativeBuildVersion;
-const OTA_UPDATE_ID = !Updates.isEmbeddedLaunch && Updates.updateId ? Updates.updateId.slice(0, 8) : null;
+// expo-updates throws on import when its native module isn't in the binary
+// (a dev build made before it was added, 2026-11-15), which took the whole
+// app down. Only load it when the module is there; no id otherwise.
+const Updates = requireOptionalNativeModule("ExpoUpdates")
+  ? // eslint-disable-next-line @typescript-eslint/no-require-imports
+    (require("expo-updates") as typeof import("expo-updates"))
+  : null;
+const OTA_UPDATE_ID = Updates && !Updates.isEmbeddedLaunch && Updates.updateId ? Updates.updateId.slice(0, 8) : null;
 const VERSION_LABEL = [`${APP_VERSION}${BUILD_NUMBER ? ` (${BUILD_NUMBER})` : ""}`, OTA_UPDATE_ID && `update ${OTA_UPDATE_ID}`]
   .filter(Boolean)
   .join(" · ");
@@ -178,6 +187,7 @@ export default function SettingsScreen() {
   // and opens Manage your plan (see useProStore).
   const isPro = useProStore((s) => s.isPro);
   const subscription = useProStore((s) => s.subscription);
+  const { restore, restoring } = useRestorePurchases();
   // Will charge again unless cancelled in the store (Delete account warns).
   const renewing = !!subscription && subscription.status !== "cancelled";
   // Pro that ended in the last 30 days: shown as Expired, tapping to renew.
@@ -191,14 +201,15 @@ export default function SettingsScreen() {
   const closeProSheet = () => setProSheet(null);
   const [manageOpen, setManageOpen] = useState(false);
   const [blockedOpen, setBlockedOpen] = useState(false);
-  // How a free account can still earn Pro (the first reward not yet earned).
+  // "Earn free Pro" (IMP-15): the Earn Pro sheet any time, for anyone signed
+  // in who doesn't pay for Pro (earned days still count on a trial), also
+  // once both rewards are earned (it then says so).
   const rewards = useProRewardProgress().data;
-  const earnTip =
-    !isSignedIn || !rewards || allRewardsEarned(rewards)
-      ? null
-      : rewards.approvedRecipes === 0
-        ? { days: RECIPE_REWARD_DAYS, how: "share your first recipe", href: "/add-recipe" as const }
-        : { days: POST_REWARD_DAYS, how: "post your first food photo", href: "/discover" as const };
+  const paysForPro = usePaysForPro();
+  const [earnOpen, setEarnOpen] = useState(false);
+  const earnDaysLeft = rewards
+    ? (rewards.approvedRecipes > 0 ? 0 : RECIPE_REWARD_DAYS) + (rewards.hasPhotoPost ? 0 : POST_REWARD_DAYS)
+    : null;
 
   // Sections rise in one after another as Settings opens (none with
   // Reduce motion).
@@ -293,21 +304,42 @@ export default function SettingsScreen() {
             {!subscription && earnedUntil && new Date(earnedUntil).getTime() > Date.now() && (
               <EarnedProCard until={earnedUntil} onPress={() => router.push({ pathname: "/pro", params: { source: "settings" } })} />
             )}
-            {!subscription && !isPro && lapsed && <ProPlanCard subscription={lapsed} onPress={() => router.push({ pathname: "/pro", params: { source: "settings" } })} />}
+            {!subscription && !isPro && lapsed && (
+              <>
+                <ProPlanCard subscription={lapsed} onPress={() => router.push({ pathname: "/pro", params: { source: "settings" } })} />
+                {/* Renewed in the store, or on another phone: bring it back
+                    here (IMP-8). A text link, not a second button. */}
+                <Pressable
+                  onPress={() => void restore()}
+                  disabled={restoring}
+                  accessibilityRole="button"
+                  className="flex-row items-center gap-1.5 self-start px-1 active:opacity-60"
+                >
+                  <RotateCcw color={colors.primary} size={14} />
+                  <Text className="font-inter-semibold text-small text-primary">
+                    {restoring ? "Restoring…" : "Already renewed? Restore purchases"}
+                  </Text>
+                  {!restoring && <ChevronRight color={colors.primary} size={14} />}
+                </Pressable>
+              </>
+            )}
             {/* What Pro includes is a checklist inside the plan card. */}
             {!isPro && !lapsed && <ProPitchCard />}
-            {!isPro && earnTip && (
+            {isSignedIn && !paysForPro && rewards && earnDaysLeft != null && (
               <Pressable
-                onPress={() => router.push(earnTip.href)}
+                onPress={() => setEarnOpen(true)}
                 accessibilityRole="button"
                 className="flex-row items-center gap-3 rounded-2xl border border-dashed border-accent/40 bg-accent/5 px-4 py-3 active:opacity-80"
               >
                 <View className="h-8 w-8 items-center justify-center rounded-full bg-accent/15">
                   <Gift color={colors.accent} size={16} />
                 </View>
-                <Text className="flex-1 font-inter-regular text-small text-ink-emphasis">
-                  Or <Text className="font-inter-bold">earn {earnTip.days} days of Pro free</Text>: {earnTip.how}
-                </Text>
+                <View className="flex-1">
+                  <Text className="font-inter-bold text-small text-ink-emphasis">Earn free Pro</Text>
+                  <Text className="font-inter-regular text-small text-ink-subtle">
+                    {earnDaysLeft > 0 ? `${earnDaysLeft} days still to earn by sharing` : "Both rewards earned. Thank you!"}
+                  </Text>
+                </View>
                 <ChevronRight color={colors.accent} size={16} />
               </Pressable>
             )}
@@ -520,6 +552,11 @@ export default function SettingsScreen() {
           <Animated.View entering={enter(8)}>
           <SettingsSection title="About">
             <LinkRow label="How AnoUlam works" value="Take the quick tour again" onPress={() => router.push("/onboarding-tour")} />
+            <LinkRow
+              label={restoring ? "Restoring…" : "Restore purchases"}
+              value="If Pro doesn't show after buying or reinstalling"
+              onPress={() => void restore()}
+            />
             <LinkRow label="Send feedback" onPress={sendFeedback} />
             <LinkRow label="Privacy Policy" onPress={openPrivacyPolicy} />
             <LinkRow label="Terms of Service" onPress={openTerms} />
@@ -632,6 +669,18 @@ export default function SettingsScreen() {
         busy={deleteAccount.isPending}
         onCancel={() => setConfirmDelete(false)}
         onConfirm={runDelete}
+      />
+
+      <EarnProSheet
+        visible={earnOpen}
+        progress={rewards ?? null}
+        onClose={() => setEarnOpen(false)}
+        // Once it's closed: a recipe goes to Add a Recipe, a food post to
+        // Discover (where the + posts one).
+        onClosed={(choice) => {
+          if (choice === "recipe") router.push("/add-recipe");
+          else if (choice === "post") router.push("/discover");
+        }}
       />
 
       <BlockedAccountsSheet

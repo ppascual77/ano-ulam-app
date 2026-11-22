@@ -7,7 +7,8 @@ import { ModeSpotlight, type SpotlightRect } from "@/frontend/features/home/comp
 import { ModeSwitchLanding } from "@/frontend/features/home/components/ModeSwitchLanding";
 import { Header } from "@/frontend/features/home/components/Header";
 import { useBiggestPriceDrop } from "@/frontend/features/home/components/PriceDropLine";
-import { HomeTicker, useCleanupNote } from "@/frontend/features/home/components/HomeTicker";
+import { HomeTicker } from "@/frontend/features/home/components/HomeTicker";
+import { useCleanupNote } from "@/frontend/core/pantry/hooks/useCleanupNote";
 import { RandomMealPuller } from "@/frontend/features/home/components/RandomMealPuller";
 import { HomePlanCard } from "@/frontend/features/home/components/HomePlanCard";
 import { useFirstRun } from "@/frontend/core/preferences/store/useFirstRunStore";

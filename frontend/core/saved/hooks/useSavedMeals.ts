@@ -5,7 +5,7 @@ import { realMealKeys } from "@/frontend/core/meals/hooks/useRealMeals";
 import { savedKeys } from "../queryKeys";
 import { listSavedMeals, saveMeal, syncSavedMeal, unsaveMeal, updateSavedServings } from "../savedMeals";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
-import { useIsPro } from "@/frontend/core/pro/store/useProStore";
+import { useIsPro, useProStore } from "@/frontend/core/pro/store/useProStore";
 import { SAVED_MEALS_LIMIT, savedKeyOf, savedMealsLimit, type SavedMeal } from "../types";
 import { announceRemoved, announceSaveError, announceSaved } from "../store/useSaveFeedbackStore";
 import { useLoginGateStore } from "@/frontend/features/auth/store/useLoginGateStore";
@@ -146,3 +146,20 @@ export function useSavedMealActions() {
 
   return { saved, savedFor, save, unsave, toggle, updateServings, sync };
 }
+
+/** Free with more saves than the free limit (Pro ended, IMP-9): everything
+ *  stays saved, the SAVED_MEALS_LIMIT newest stay usable, and the older ones
+ *  are locked: not on the grocery list, shown locked in Saved. Unsaving a
+ *  newer one frees a place, so the next older one unlocks (that's how you
+ *  choose). The saved_ids of the locked ones; empty for Pro, or until
+ *  RevenueCat has answered (so a subscriber never sees locks flash). */
+export function useLockedSaves(): Set<string> {
+  const { data: saved = [] } = useSavedMeals();
+  const isPro = useIsPro();
+  const checked = useProStore((s) => s.checked);
+  return useMemo(
+    () => (isPro || !checked || saved.length <= SAVED_MEALS_LIMIT ? EMPTY_LOCKS : new Set(saved.slice(SAVED_MEALS_LIMIT).map((e) => e.saved_id))),
+    [isPro, checked, saved],
+  );
+}
+const EMPTY_LOCKS = new Set<string>();

@@ -9,6 +9,8 @@ import { colors } from "@/frontend/constants/theme";
 
 // Matches the users.bio check in the database.
 const BIO_LIMIT = 50;
+// Kept short so it fits the header on one line (users.display_name allows 255).
+const NAME_LIMIT = 40;
 // The counter only shows once this few characters are left.
 const COUNTER_FROM = 10;
 /** The avatar's size in each layout. */
@@ -26,6 +28,11 @@ type ProfileHeaderProps = {
   /** Owner only: tap the bio to edit it inline. Omit for read-only.
    *  Resolves false if it didn't save (the editor stays open). */
   onSaveBio?: (bio: string) => Promise<boolean | void>;
+  /** Owner only: tap the name to edit it inline, same as the bio. */
+  onSaveName?: (name: string) => Promise<boolean | void>;
+  /** Owner only: false when they have no name yet (`name` is the
+   *  placeholder): shows "Add your name" instead. */
+  hasName?: boolean;
   /** Replaces the generated avatar (the official profile's logo). */
   avatar?: ReactNode;
   /** Owner only: tapping the avatar opens these (change / remove photo),
@@ -47,8 +54,9 @@ export const HEADER_NAME_CLASS = {
   hero: "font-inter-extrabold text-heading tracking-display text-ink-emphasis",
 } as const;
 
-// Avatar, name and bio. The owner edits the bio in place: saves on return
-// or blur, blocked while over the 50-character limit.
+// Avatar, name and bio. The owner edits the name and the bio in place: saves
+// on return or blur, blocked while over the limit. An emptied name isn't
+// saved (it just closes).
 export function ProfileHeader({
   name,
   avatarUrl,
@@ -56,6 +64,8 @@ export function ProfileHeader({
   hero = false,
   avatarStyle,
   onSaveBio,
+  onSaveName,
+  hasName = true,
   avatar,
   avatarItems,
   avatarBusy = false,
@@ -63,70 +73,75 @@ export function ProfileHeader({
   nameNode,
   children,
 }: ProfileHeaderProps) {
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState<"bio" | "name" | null>(null);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const remaining = BIO_LIMIT - draft.length;
+  const limit = editing === "name" ? NAME_LIMIT : BIO_LIMIT;
+  const remaining = limit - draft.length;
   const over = remaining < 0;
   const layout = hero ? "hero" : "row";
 
-  const startEditing = () => {
-    setDraft(bio ?? "");
-    setEditing(true);
+  const startEditing = (field: "bio" | "name") => {
+    setDraft(field === "name" ? (hasName ? name : "") : (bio ?? ""));
+    setEditing(field);
   };
 
   const save = async () => {
-    if (over || saving) return;
+    if (over || saving || !editing) return;
     const next = draft.trim();
-    if (next === (bio ?? "")) return setEditing(false);
+    const current = editing === "name" ? (hasName ? name : "") : (bio ?? "");
+    if (next === current || (editing === "name" && !next)) return setEditing(null);
     setSaving(true);
     try {
+      const onSave = editing === "name" ? onSaveName : onSaveBio;
       // false: it didn't save (the caller says so); stay open to retry.
-      if ((await onSaveBio?.(next)) === false) return;
+      if ((await onSave?.(next)) === false) return;
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setEditing(false);
+      setEditing(null);
     } finally {
       setSaving(false);
     }
   };
 
-  const avatarNode = avatar ?? <Avatar name={name} imageUri={avatarUrl ?? undefined} size={HEADER_AVATAR[layout]} />;
-  const avatarBlock = avatarItems ? (
-    <EditableAvatar items={avatarItems} busy={avatarBusy} large={hero}>
-      {avatarNode}
-    </EditableAvatar>
-  ) : (
-    avatarNode
-  );
-
-  const nameRow = (
-    <View className={`flex-row items-center gap-1.5 ${hero ? "justify-center" : ""}`}>
-      {nameNode ?? (
-        <Text numberOfLines={1} className={`shrink ${HEADER_NAME_CLASS[layout]}`}>
-          {name}
-        </Text>
-      )}
-      {badge}
-    </View>
-  );
-
-  const bioBlock = editing ? (
+  const editor = (
     <View className={hero ? "mt-2 w-full" : "mt-1"}>
-      <TextInput
-        value={draft}
-        onChangeText={setDraft}
-        onSubmitEditing={save}
-        onBlur={save}
-        editable={!saving}
-        autoFocus
-        returnKeyType="done"
-        placeholder="Write a short bio..."
-        placeholderTextColor={colors.ink.placeholder}
-        className={`rounded-xl border bg-ink-emphasis/5 px-3 py-2 font-inter-regular text-body ${hero ? "text-center" : ""} ${
-          over ? "border-like text-like" : "border-primary text-ink-emphasis"
-        }`}
-      />
+      <View>
+        <TextInput
+          value={saving ? "" : draft}
+          onChangeText={setDraft}
+          onSubmitEditing={save}
+          onBlur={save}
+          editable={!saving}
+          autoFocus
+          returnKeyType="done"
+          autoCapitalize={editing === "name" ? "words" : "sentences"}
+          autoComplete={editing === "name" ? "name" : "off"}
+          textContentType={editing === "name" ? "name" : "none"}
+          placeholder={saving ? undefined : editing === "name" ? "Your name" : "Write a short bio..."}
+          placeholderTextColor={colors.ink.placeholder}
+          // Saving: no border and no text (the field stays only to hold
+          // its place under the wave). It can't be over the limit then:
+          // save refuses that.
+          className={`rounded-xl border bg-ink-emphasis/5 px-3 py-2 font-inter-regular text-body ${hero ? "text-center" : ""} ${
+            saving ? "border-transparent" : over ? "border-like text-like" : "border-primary text-ink-emphasis"
+          }`}
+        />
+        {/* While saving: a short rolling accent wave, Button's loading state
+            (Suggest Meals), in the middle of the field. */}
+        {saving && (
+          <Animated.View
+            entering={FadeIn.duration(150)}
+            exiting={FadeOut.duration(120)}
+            pointerEvents="none"
+            className="absolute inset-0 items-center justify-center"
+          >
+            <View className="w-24">
+              <Spinner variant="wave" size={12} color={colors.accent} />
+            </View>
+          </Animated.View>
+        )}
+      </View>
       <View className="mt-1.5 h-3 flex-row items-center justify-between">
         {/* Only near the limit; over it, red with how far over. */}
         {remaining <= COUNTER_FROM ? (
@@ -140,15 +155,74 @@ export function ProfileHeader({
         ) : (
           <View />
         )}
-        <Pressable onPress={() => setEditing(false)} hitSlop={8}>
-          <Text className="font-inter-medium text-sub text-ink-subtle">Cancel</Text>
-        </Pressable>
+        {saving ? (
+          <Text className="font-inter-medium text-sub text-ink-subtle">Saving…</Text>
+        ) : (
+          <Pressable onPress={() => setEditing(null)} hitSlop={8}>
+            <Text className="font-inter-medium text-sub text-ink-subtle">Cancel</Text>
+          </Pressable>
+        )}
       </View>
     </View>
+  );
+
+  // The dashed "add" pill for an empty name or bio: something to fill in,
+  // not placeholder text.
+  const addPill = (label: string, field: "bio" | "name") => (
+    <Pressable
+      onPress={() => startEditing(field)}
+      accessibilityRole="button"
+      className={`mt-2 flex-row items-center gap-1 rounded-full border border-dashed border-ink-emphasis/25 px-3 py-1.5 active:bg-ink-emphasis/5 ${
+        hero ? "self-center" : "self-start"
+      }`}
+    >
+      <Plus color={colors.ink.subtle} size={13} />
+      <Text className="font-inter-medium text-small text-ink-subtle">{label}</Text>
+    </Pressable>
+  );
+
+  const avatarNode = avatar ?? <Avatar name={name} imageUri={avatarUrl ?? undefined} size={HEADER_AVATAR[layout]} />;
+  const avatarBlock = avatarItems ? (
+    <EditableAvatar items={avatarItems} busy={avatarBusy} large={hero}>
+      {avatarNode}
+    </EditableAvatar>
+  ) : (
+    avatarNode
+  );
+
+  const nameText = nameNode ?? (
+    <Text numberOfLines={1} className={`shrink ${HEADER_NAME_CLASS[layout]}`}>
+      {name}
+    </Text>
+  );
+  const nameRow =
+    editing === "name" ? (
+      editor
+    ) : onSaveName && !hasName ? (
+      addPill("Add your name", "name")
+    ) : onSaveName ? (
+      <Pressable
+        onPress={() => startEditing("name")}
+        accessibilityLabel={`Name: ${name}. Tap to edit`}
+        className={`flex-row items-center gap-1.5 ${hero ? "justify-center" : ""}`}
+      >
+        {nameText}
+        {badge}
+        <Pencil color={colors.ink.subtle} size={13} />
+      </Pressable>
+    ) : (
+      <View className={`flex-row items-center gap-1.5 ${hero ? "justify-center" : ""}`}>
+        {nameText}
+        {badge}
+      </View>
+    );
+
+  const bioBlock = editing === "bio" ? (
+    editor
   ) : bio ? (
     <Pressable
       disabled={!onSaveBio}
-      onPress={startEditing}
+      onPress={() => startEditing("bio")}
       accessibilityLabel={onSaveBio ? `Bio: ${bio}. Tap to edit` : undefined}
       className={`mt-1 flex-row items-center gap-1.5 ${hero ? "justify-center" : ""}`}
     >
@@ -156,17 +230,7 @@ export function ProfileHeader({
       {onSaveBio && <Pencil color={colors.ink.subtle} size={13} />}
     </Pressable>
   ) : onSaveBio ? (
-    // An empty bio reads as something to fill in, not placeholder text.
-    <Pressable
-      onPress={startEditing}
-      accessibilityRole="button"
-      className={`mt-2 flex-row items-center gap-1 rounded-full border border-dashed border-ink-emphasis/25 px-3 py-1.5 active:bg-ink-emphasis/5 ${
-        hero ? "self-center" : "self-start"
-      }`}
-    >
-      <Plus color={colors.ink.subtle} size={13} />
-      <Text className="font-inter-medium text-small text-ink-subtle">Add a bio</Text>
-    </Pressable>
+    addPill("Add a bio", "bio")
   ) : (
     <Text className={`mt-1 font-inter-regular text-body text-ink-subtle ${hero ? "text-center" : ""}`}>No bio yet.</Text>
   );

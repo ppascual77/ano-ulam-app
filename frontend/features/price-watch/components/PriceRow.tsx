@@ -1,6 +1,6 @@
 import { Pressable, View } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
-import { formatPeso, trendOf, unitSuffix, type PriceItem } from "@/frontend/core/prices/utils/prices";
+import { formatPeso, formatShortDate, trendOf, unitSuffix, type PriceItem } from "@/frontend/core/prices/utils/prices";
 import { PriceSparkline } from "./PriceSparkline";
 import { TREND_TEXT } from "./TrendIcon";
 
@@ -36,13 +36,17 @@ type PriceRowProps = {
 
 // One commodity, compact: its week as a sparkline, the name (and DA's
 // specification), today's price with its unit, and the change pill. Rows
-// sit on hairlines instead of each in its own box.
+// sit on hairlines instead of each in its own box. An item DA stopped
+// reporting shows "Last reported <date>" instead of a change ("Steady" would
+// claim it's still being tracked).
 export function PriceRow({ item, onPress, title, delay, last = false }: PriceRowProps) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${title ?? item.name}, ${formatPeso(item.latestPrice)} ${unitSuffix(item)}, ${changeLabel(item.pctChange)}`}
+      accessibilityLabel={`${title ?? item.name}, ${formatPeso(item.latestPrice)} ${unitSuffix(item)}, ${
+        item.stale ? `last reported ${formatShortDate(item.latestDate)}` : changeLabel(item.pctChange)
+      }`}
       className={`flex-row items-center gap-4 py-4 active:opacity-70 ${last ? "" : "border-b border-ink-emphasis/5"}`}
     >
       <PriceSparkline item={item} delay={delay} />
@@ -61,7 +65,11 @@ export function PriceRow({ item, onPress, title, delay, last = false }: PriceRow
           {formatPeso(item.latestPrice)}
           <Text className="font-inter-medium text-sub text-ink-subtle">{unitSuffix(item)}</Text>
         </Text>
-        <ChangePill pct={item.pctChange} />
+        {item.stale ? (
+          <Text className="font-inter-medium text-sub text-ink-subtle">Last reported {formatShortDate(item.latestDate)}</Text>
+        ) : (
+          <ChangePill pct={item.pctChange} />
+        )}
       </View>
     </Pressable>
   );

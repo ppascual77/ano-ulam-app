@@ -10,19 +10,21 @@ import { ArrowLeft, ArrowRight, Pencil, RefreshCw } from "lucide-react-native";
 import { AppText, Button, ConfirmSheet, LandingTitle, LoadingState, Screen, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
+import type { SideRice } from "@/frontend/core/meals/components/detail/MealDetailContent";
 import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import { useDisplayName } from "@/frontend/features/auth/hooks/useDisplayName";
 import { usePlannerStore } from "../store/usePlannerStore";
 import { usePlannerPool } from "../hooks/usePlannerPool";
+import { usePlannerRice } from "../hooks/usePlannerRice";
 import { useSavedMealPlan } from "../hooks/useSavedMealPlan";
 import { usePlanGroceryList } from "@/frontend/core/grocery/hooks/usePlanGroceryList";
 import { useSavedGroceryList } from "@/frontend/core/grocery/hooks/useSavedGroceryList";
 import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
 import { GroceryMealPicker } from "@/frontend/core/grocery/components/GroceryMealPicker";
 import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
-import { PLAN_DAYS, dayLabel, formatPeso, generatePlan, monthDay, regenerateDay, swapOptions, type MealPlan, type MealSlot } from "../utils/generatePlan";
-import { goalsFromTargets, targetsFromGoals } from "@/frontend/core/nutrition/macros";
+import { PLAN_DAYS, dayGoalGap, dayLabel, dayTotals, formatPeso, generatePlan, monthDay, mealCost, regenerateDay, riceCupsFor, swapOptions, type MealPlan, type MealSlot, type PlannerMeal } from "../utils/generatePlan";
+import { goalsFromTargets, targetsFromGoals, type MacroTargets } from "@/frontend/core/nutrition/macros";
 import { useNutritionGoals } from "@/frontend/core/preferences/hooks/useNutritionGoals";
 import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
 import { BudgetHero, PlanDetailsCard, parseBudget } from "../components/PlannerInputs";
@@ -31,7 +33,7 @@ import { GeneratingView } from "../components/GeneratingView";
 import { MealPlannerIntro } from "../components/MealPlannerIntro";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
-import { DateSelector, GroceryCard, HeroCarousel, RegenerateDayButton, SummaryRow, useMeasuredWidth } from "../components/PlanParts";
+import { DateSelector, GroceryCard, HeroCarousel, PlanFocusRow, dateRange, RegenerateDayButton, SummaryRow, useMeasuredWidth, type PlanFocus } from "../components/PlanParts";
 import { SwapMealSheet } from "../components/PlannerSheets";
 import { ProFeatureSheet, type ProFeatureKey } from "@/frontend/core/pro/components/ProFeatureSheet";
 
@@ -48,11 +50,6 @@ const LOCKED_DAYS_COPY = (days: number) => ({
   highlight: "ready",
   subtitle: "Unlock every day of your plan with AnoUlam Pro.",
 });
-const MACRO_GOAL_COPY = {
-  title: "Plan around your",
-  highlight: "goals",
-  subtitle: "Pro aims every plan at your calories and protein, and keeps your nutrition goals across the app.",
-};
 
 // Plays the "one budget, seven days" intro on opening the planner (setup
 // stage only: that's where the "Let's plan your week." header is).
@@ -64,6 +61,7 @@ export default function MealPlannerScreen() {
   const store = usePlannerStore();
   const isPro = useProStore((s) => s.isPro);
   const { pool, isLoading: poolLoading } = usePlannerPool();
+  const { cup: riceCup, ingredient: riceIngredient } = usePlannerRice();
   const savedPlan = useSavedMealPlan();
   // "Hello, <first name>!", or just "Hello!" for a guest.
   const { firstName } = useDisplayName();
@@ -170,14 +168,23 @@ export default function MealPlannerScreen() {
 
   // seed: a fresh one from "Regenerate", for a different plan.
   const build = (seed = 0) => {
-    const next = generatePlan({ pool, budget, servings: store.servings, targets, seed, length: planLength });
+    const rice = store.riceCups > 0 ? { cups: store.riceCups, cup: riceCup, ingredient: riceIngredient } : null;
+    const next = generatePlan({ pool, budget, servings: store.servings, targets, seed, length: planLength, rice });
     store.setPlan(next);
     selectDay(0);
     store.setStage("generating");
     if (next) void persist(next);
   };
 
-  const viewRecipe = (meal: MealPlan["days"][number]["meals"][number]["meal"]) => detail.open(meal);
+  // The meal's rice in this plan rides along to its details ("Served with
+  // rice"), per person.
+  const [detailRice, setDetailRice] = useState<SideRice | undefined>(undefined);
+  const viewRecipe = (meal: MealPlan["days"][number]["meals"][number]["meal"], slot?: MealSlot) => {
+    const cups = plan && slot ? riceCupsFor(slot, meal, plan.rice) : 0;
+    const cup = plan?.rice?.cup;
+    setDetailRice(cups > 0 && cup ? { cups, calories: cups * cup.calories, carbs: cups * cup.carbs, price: cups * cup.price } : undefined);
+    detail.open(meal);
+  };
 
   // The day being viewed, as "today" or e.g. "Fri, Nov 14".
   const groceryDayName = !plan
@@ -218,6 +225,80 @@ export default function MealPlannerScreen() {
     store.setStage("plan");
     void persist(again);
     showToast("Your last plan, starting today");
+  };
+
+  // Budget / Nutrition on the plan (IMP-1): the same days, budget, people
+  // and rice planned again, aiming at the goal or not. Swaps are replaced.
+  const replan = (nextTargets: MacroTargets | null) => {
+    const current = usePlannerStore.getState().plan;
+    if (!current) return;
+    const next = generatePlan({
+      pool,
+      budget: current.budget,
+      servings: current.servings,
+      targets: nextTargets,
+      from: current.days[0].date,
+      length: current.days.length,
+      rice: current.rice ?? null,
+    });
+    if (!next) return showToast("Couldn't plan these days again. Try Regenerate.", "error");
+    store.setPlan(next);
+    setSelectedMeal(0);
+    void persist(next);
+    showToast(nextTargets ? "Planned for your nutrition goal" : "Planned for your budget");
+  };
+  // The goal the Nutrition side aims at: the plan's own, else (Pro) the
+  // goals from Settings or this planner.
+  const focusTargets = plan?.targets ?? (isPro ? (goalTargets ?? store.targets) : null);
+  const planFocus: PlanFocus | null = !isPro || !focusTargets ? null : plan?.targets ? "nutrition" : "budget";
+  const switchFocus = (focus: PlanFocus) => {
+    if (focus === planFocus) return;
+    if (focus === "nutrition") {
+      if (!focusTargets) return;
+      store.setTargets(focusTargets, goalTargets ? (nutritionGoals?.goal ?? null) : store.goal);
+      setGoalsOff(false);
+      replan(focusTargets);
+    } else {
+      store.setTargets(null);
+      if (goalTargets) setGoalsOff(true);
+      replan(null);
+    }
+  };
+
+  // A swap you can see (IMP-14): the card cross-fades and glows, the day's
+  // totals roll with a "−₱12" / "+80 kcal" chip, and the toast says what
+  // changed, with Undo (which swaps back the same way).
+  const [swapFx, setSwapFx] = useState<{ dayIndex: number; slot: MealSlot; key: number; delta: string | null } | null>(null);
+  const applySwap = (dayIndex: number, slot: MealSlot, meal: PlannerMeal, offerUndo: boolean) => {
+    const current = usePlannerStore.getState().plan;
+    const day = current?.days[dayIndex];
+    const before = day?.meals.find((m) => m.slot === slot)?.meal;
+    if (!current || !day || !before) return;
+    store.swapMeal(dayIndex, slot, meal);
+    void persist();
+    const peso = Math.round(mealCost(slot, meal, current.servings, current.rice) - mealCost(slot, before, current.servings, current.rice));
+    const kcal = Math.round(meal.calories - before.calories);
+    const pesoText = peso ? `${formatPeso(Math.abs(peso))} ${peso < 0 ? "less" : "more"}` : null;
+    const kcalText = kcal ? `${Math.abs(kcal).toLocaleString("en-PH")} kcal ${kcal < 0 ? "less" : "more"}` : null;
+    // The chip follows the card on screen: kcal with a goal, else pesos.
+    const delta = current.targets
+      ? kcal
+        ? `${kcal < 0 ? "−" : "+"}${Math.abs(kcal).toLocaleString("en-PH")} kcal`
+        : null
+      : peso
+        ? `${peso < 0 ? "−" : "+"}${formatPeso(Math.abs(peso))}`
+        : null;
+    setSwapFx({ dayIndex, slot, key: Date.now(), delta });
+    setSelectedMeal(Math.max(0, day.meals.findIndex((m) => m.slot === slot)));
+    setToast({
+      id: Date.now(),
+      tone: "success",
+      image: resolveMealImage(meal),
+      message: offerUndo
+        ? [`Swapped ${before.name} for ${meal.name}`, pesoText, kcalText].filter(Boolean).join(" · ")
+        : `${before.name} is back`,
+      action: offerUndo ? { label: "Undo", onPress: () => applySwap(dayIndex, slot, before, false) } : undefined,
+    });
   };
 
   const regenerate = () => {
@@ -292,6 +373,8 @@ export default function MealPlannerScreen() {
               <PlanDetailsCard
                 servings={store.servings}
                 onServingsChange={store.setServings}
+                riceCups={store.riceCups}
+                onRiceCupsChange={store.setRiceCups}
                 days={planLength}
                 targets={targets}
                 goal={store.goal}
@@ -299,7 +382,9 @@ export default function MealPlannerScreen() {
                 onEditMacros={() => setMacroSheetOpen(true)}
                 fromGoals={usingGoals}
                 macrosLocked={!isPro}
-                onMacrosLocked={() => openPro(MACRO_GOAL_COPY)}
+                // The Nutrition goals reel, like the other locks with one
+                // (BUG-10: it went straight to the Pro page).
+                onMacrosLocked={() => setFeatureSheet("goals")}
               />
             </Animated.View>
           </ScrollView>
@@ -348,15 +433,19 @@ export default function MealPlannerScreen() {
           {/* Title and what the plan was built for on the left; regenerate
               the whole plan and edit its details on the right (each
               confirmed in a sheet first). */}
-          <Animated.View entering={FadeInDown.duration(320)} className="flex-row items-start gap-2 px-5 pb-1">
+          <Animated.View entering={FadeInDown.duration(320)} className="flex-row items-center gap-2 px-5 pb-1">
             <View className="flex-1">
-              <AppText variant="sectionTitle" dot>
-                Your week
+              {/* "Your week Nov 22 – 26." in one title, the days in accent
+                  orange; shrinks to stay on one line beside the buttons. */}
+              <AppText
+                variant="sectionTitle"
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                accessibilityLabel={`Your week, ${monthDay(plan.days[0].date)} to ${monthDay(plan.days[plan.days.length - 1].date)}`}
+              >
+                Your week {dateRange(plan.days[0].date, plan.days[plan.days.length - 1].date).month}{" "}
+                <Text className="text-accent">{dateRange(plan.days[0].date, plan.days[plan.days.length - 1].date).days}.</Text>
               </AppText>
-              <Text className="mt-0.5 font-inter-regular text-small text-ink-subtle">
-                {monthDay(plan.days[0].date)} – {monthDay(plan.days[plan.days.length - 1].date)} · {plan.servings}{" "}
-                {plan.servings === 1 ? "person" : "people"} · {formatPeso(plan.budget)}
-              </Text>
             </View>
             <Pressable
               onPress={() => setConfirm("regenerate")}
@@ -377,6 +466,31 @@ export default function MealPlannerScreen() {
               <Pencil color={colors.ink.emphasis} size={15} />
             </Pressable>
           </Animated.View>
+          {/* One row: Budget | Nutrition (or "Set your goals") on the left,
+              how many days land on the goal on the right (only when some
+              miss; each missed day's own note says by how much and why). */}
+          <Animated.View entering={FadeInDown.delay(60).duration(320)} className="flex-row items-center justify-between gap-3 px-5 pt-3">
+            <PlanFocusRow
+              focus={planFocus}
+              targets={focusTargets}
+              locked={!isPro}
+              onChange={switchFocus}
+              onSetGoals={() => (isPro ? setMacroSheetOpen(true) : setFeatureSheet("goals"))}
+            />
+            {(() => {
+              if (!plan.targets) return null;
+              const onTarget = plan.days.filter((d) => !dayGoalGap(dayTotals(d, plan.servings, plan.rice), plan.targets)).length;
+              if (onTarget === plan.days.length) return null;
+              return (
+                <Text className="shrink text-right font-inter-regular text-small text-ink-subtle">
+                  <Text className="font-inter-semibold text-ink-emphasis">
+                    {onTarget} of {plan.days.length}
+                  </Text>{" "}
+                  days on goal
+                </Text>
+              );
+            })()}
+          </Animated.View>
 
           <View className="pt-3">
             {/* A locked day (day 2 on, free): the plan-your-week feature sheet,
@@ -393,18 +507,24 @@ export default function MealPlannerScreen() {
               className="gap-4"
               onLayout={hero.onLayout}
             >
-              <SummaryRow plan={plan} day={plan.days[Math.min(selectedDay, plan.days.length - 1)]} />
+              <SummaryRow
+                plan={plan}
+                day={plan.days[Math.min(selectedDay, plan.days.length - 1)]}
+                delta={swapFx && swapFx.dayIndex === selectedDay && swapFx.delta ? { text: swapFx.delta, key: swapFx.key } : null}
+              />
 
               {hero.width > 0 && (
                 <Animated.View entering={FadeInDown.delay(120).duration(360)}>
                   <HeroCarousel
                     day={plan.days[Math.min(selectedDay, plan.days.length - 1)]}
                     servings={plan.servings}
+                    rice={plan.rice}
                     width={hero.width}
                     selected={selectedMeal}
                     onChange={setSelectedMeal}
-                    onOpen={(item) => viewRecipe(item.meal)}
+                    onOpen={(item) => viewRecipe(item.meal, item.slot)}
                     swapLocked={!isPro}
+                    swapped={swapFx && swapFx.dayIndex === selectedDay ? { slot: swapFx.slot, key: swapFx.key } : null}
                     onSwap={(item) => (isPro ? setSwap({ dayIndex: selectedDay, slot: item.slot }) : openPro())}
                   />
                 </Animated.View>
@@ -439,6 +559,8 @@ export default function MealPlannerScreen() {
             setGoalsOff(false);
           }
           setMacroSheetOpen(false);
+          // Set from the plan ("Set your goals"): plan these days for it.
+          if (store.stage === "plan" && isPro) replan(targets);
         }}
         onTurnOff={
           store.targets
@@ -510,18 +632,23 @@ export default function MealPlannerScreen() {
         slot={swap?.slot ?? null}
         options={plan && swap ? swapOptions(pool, plan, swap.dayIndex, swap.slot) : []}
         showMacros={!!plan?.targets}
+        current={plan && swap ? plan.days[swap.dayIndex]?.meals.find((m) => m.slot === swap.slot)?.meal : null}
         onClose={() => setSwap(null)}
         onSwap={(meal) => {
           if (!swap) return;
-          store.swapMeal(swap.dayIndex, swap.slot, meal);
-          void persist();
+          applySwap(swap.dayIndex, swap.slot, meal, true);
           setSwap(null);
-          showToast("Meal swapped");
         }}
       />
 
       {/* Opens at the plan's people, like the plan's cards. */}
-      <MealDetailSheet meal={detail.meal} loading={detail.loading} onClose={detail.close} initialServings={plan?.servings} />
+      <MealDetailSheet
+        meal={detail.meal}
+        loading={detail.loading}
+        onClose={detail.close}
+        initialServings={plan?.servings}
+        sideRice={detailRice}
+      />
 
       <ConfirmSheet
         visible={offerVisible}
@@ -563,10 +690,16 @@ export default function MealPlannerScreen() {
       <ProFeatureSheet
         feature={featureSheet}
         onClose={() => setFeatureSheet(null)}
-        // Get Pro: the Pro page titled for this plan's locked days; See them
-        // all: the plain Pro page.
+        // Get Pro: the Pro page titled for what was tapped (this plan's
+        // locked days, or the goals: the sheet's own copy); See them all:
+        // the plain Pro page.
         onOpenPro={(copy) =>
-          router.push({ pathname: "/pro", params: copy ? { ...LOCKED_DAYS_COPY(shownDays - 1), source: "locked_day" } : { source: "locked_day" } })
+          router.push({
+            pathname: "/pro",
+            params: copy
+              ? { ...(featureSheet === "planLength" ? LOCKED_DAYS_COPY(shownDays - 1) : copy), source: "locked_day" }
+              : { source: "locked_day" },
+          })
         }
       />
 
