@@ -74,12 +74,9 @@ type CategoriesSectionProps = {
   plainTitle?: boolean;
   /** The pick changed (null: cleared), e.g. to filter meals by it. */
   onChange?: (id: CategoryId | null) => void;
-  /** The parent's pick, when it can change from outside (Fast food's
-   *  "coming soon" links to Lunch / Dinner): the row follows it. */
-  value?: CategoryId | null;
 };
 
-export function CategoriesSection({ landing, plainTitle = false, onChange, value }: CategoriesSectionProps) {
+export function CategoriesSection({ landing, plainTitle = false, onChange }: CategoriesSectionProps) {
   const reduce = useReduceMotion();
   const [selected, setSelected] = useState<CategoryId | null>(null);
   // One tile's width (the row is four equal tiles); the highlight's slot.
@@ -109,14 +106,6 @@ export function CategoriesSection({ landing, plainTitle = false, onChange, value
     backgroundColor: interpolateColor(index.value, STOPS, TINTS),
     transform: [{ translateX: index.value * (tileW + GAP) }, { scale: 0.88 + 0.12 * shown.value }],
   }));
-
-  // A pick made outside the row (value changed): glide there too.
-  useEffect(() => {
-    if (value === undefined || value === selected) return;
-    moveTo(value);
-    setSelected(value);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
 
   const pick = (next: CategoryId | null) => {
     moveTo(next);

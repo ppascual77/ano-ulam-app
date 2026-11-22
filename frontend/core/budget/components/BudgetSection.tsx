@@ -75,8 +75,8 @@ function BudgetSectionInner({ categoriesLanding }: BudgetSectionProps) {
           {/* Only once preferences are set (no prompt here): Recommendations
               below follows them. */}
           <PreferencesBanner onlyWhenSet />
-          <CategoriesSection landing={categoriesLanding} onChange={pickHomeCategory} value={homeCategory} />
-          <RecommendationsSection category={homeCategory} switching={switchingCategory} onPickCategory={pickHomeCategory} />
+          <CategoriesSection landing={categoriesLanding} onChange={pickHomeCategory} />
+          <RecommendationsSection category={homeCategory} switching={switchingCategory} />
           <CommunityFavoritesSection />
           <BestValueMealsSection />
         </>
