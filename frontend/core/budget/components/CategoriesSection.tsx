@@ -16,6 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { CloudSun, Hamburger, Moon, Sun, type LucideIcon } from "lucide-react-native";
 import { AppText, LandingTitle, type LandingDot } from "@/frontend/components/ui";
+import { Text } from "@/frontend/components/ui/Text";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 
@@ -42,11 +43,12 @@ import type { CategoryId } from "../utils/categories";
 export type { CategoryId };
 type IconBeat = "rise" | "turn" | "rock" | "bounce";
 
-const CATEGORIES: { id: CategoryId; label: string; image: number; tint: string; icon: LucideIcon; iconColor: string; beat: IconBeat }[] = [
+// `soon`: nothing in it yet, a "SOON" pill on the tile (IMP-11).
+const CATEGORIES: { id: CategoryId; label: string; image: number; tint: string; icon: LucideIcon; iconColor: string; beat: IconBeat; soon?: boolean }[] = [
   { id: "breakfast", label: "Breakfast", image: require("@/assets/icons/breakfast-category-logo.png"), tint: colors.category.breakfast, icon: CloudSun, iconColor: colors.accent, beat: "rise" },
   { id: "lunch", label: "Lunch", image: require("@/assets/icons/lunch-category-logo.png"), tint: colors.category.lunch, icon: Sun, iconColor: colors.primary, beat: "turn" },
   { id: "dinner", label: "Dinner", image: require("@/assets/icons/dinner-category-logo.png"), tint: colors.category.dinner, icon: Moon, iconColor: colors.category.dinnerIcon, beat: "rock" },
-  { id: "fastfood", label: "Fastfood", image: require("@/assets/icons/fastfood-category-logo.png"), tint: colors.category.fastfood, icon: Hamburger, iconColor: colors.category.fastfoodIcon, beat: "bounce" },
+  { id: "fastfood", label: "Fastfood", image: require("@/assets/icons/fastfood-category-logo.png"), tint: colors.category.fastfood, icon: Hamburger, iconColor: colors.category.fastfoodIcon, beat: "bounce", soon: true },
 ];
 const TINTS = CATEGORIES.map((c) => c.tint);
 const STOPS = CATEGORIES.map((_, i) => i);
@@ -72,9 +74,12 @@ type CategoriesSectionProps = {
   plainTitle?: boolean;
   /** The pick changed (null: cleared), e.g. to filter meals by it. */
   onChange?: (id: CategoryId | null) => void;
+  /** The parent's pick, when it can change from outside (Fast food's
+   *  "coming soon" links to Lunch / Dinner): the row follows it. */
+  value?: CategoryId | null;
 };
 
-export function CategoriesSection({ landing, plainTitle = false, onChange }: CategoriesSectionProps) {
+export function CategoriesSection({ landing, plainTitle = false, onChange, value }: CategoriesSectionProps) {
   const reduce = useReduceMotion();
   const [selected, setSelected] = useState<CategoryId | null>(null);
   // One tile's width (the row is four equal tiles); the highlight's slot.
@@ -104,6 +109,14 @@ export function CategoriesSection({ landing, plainTitle = false, onChange }: Cat
     backgroundColor: interpolateColor(index.value, STOPS, TINTS),
     transform: [{ translateX: index.value * (tileW + GAP) }, { scale: 0.88 + 0.12 * shown.value }],
   }));
+
+  // A pick made outside the row (value changed): glide there too.
+  useEffect(() => {
+    if (value === undefined || value === selected) return;
+    moveTo(value);
+    setSelected(value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
 
   const pick = (next: CategoryId | null) => {
     moveTo(next);
@@ -156,6 +169,7 @@ export function CategoriesSection({ landing, plainTitle = false, onChange }: Cat
             icon={category.icon}
             iconColor={category.iconColor}
             beat={category.beat}
+            soon={category.soon}
             selected={selected === category.id}
             dimmed={selected != null && selected !== category.id}
             reduce={reduce}
@@ -174,13 +188,14 @@ type CategoryTileProps = {
   icon: LucideIcon;
   iconColor: string;
   beat: IconBeat;
+  soon?: boolean;
   selected: boolean;
   dimmed: boolean;
   reduce: boolean;
   onPress: () => void;
 };
 
-function CategoryTile({ index, label, image, icon, iconColor, beat, selected, dimmed, reduce, onPress }: CategoryTileProps) {
+function CategoryTile({ index, label, image, icon, iconColor, beat, soon = false, selected, dimmed, reduce, onPress }: CategoryTileProps) {
   // Press squeeze.
   const press = useSharedValue(1);
   // The art's hop on select: lift and wiggle, then rest untransformed.
@@ -224,7 +239,7 @@ function CategoryTile({ index, label, image, icon, iconColor, beat, selected, di
         }}
         accessibilityRole="button"
         accessibilityState={{ selected }}
-        accessibilityLabel={label}
+        accessibilityLabel={soon ? `${label}, coming soon` : label}
         className="items-center rounded-2xl border border-ink-emphasis/10 pb-2.5 pt-3"
         // Only override the border color when selected: passing undefined
         // wipes the class's gray and leaves React Native's default black.
@@ -250,6 +265,15 @@ function CategoryTile({ index, label, image, icon, iconColor, beat, selected, di
             {label}
           </AppText>
         </Animated.View>
+        {/* Nothing in it yet: a small pill on the corner, still tappable
+            (it explains below). */}
+        {soon && (
+          <View pointerEvents="none" className="absolute right-1 top-1 rounded-full bg-accent px-1.5 py-0.5">
+            <Text allowFontScaling={false} className="font-inter-bold text-sub uppercase tracking-wider text-white">
+              Soon
+            </Text>
+          </View>
+        )}
       </Pressable>
     </Animated.View>
   );
