@@ -4,7 +4,9 @@ import { priceKeys } from "../queryKeys";
 import {
   addDays,
   categoryFor,
+  markStale,
   pctChange,
+  priceItemName,
   toIsoDate,
   weekAgoPrice,
   type DailyPoint,
@@ -23,7 +25,7 @@ async function loadPriceItems(): Promise<PriceItem[]> {
     dailyById.set(p.da_commodity_id, [...(dailyById.get(p.da_commodity_id) ?? []), { date: p.price_date, price: p.price }]);
   }
 
-  return commodities.map((c) => {
+  const items = commodities.map((c) => {
     // Older than HISTORY_DAYS (DA stopped reporting it): still listed, from
     // latest_price, just without a chart or change.
     const daily = dailyById.get(c.id) ?? [{ date: c.latest_price_date!, price: c.latest_price! }];
@@ -42,8 +44,9 @@ async function loadPriceItems(): Promise<PriceItem[]> {
         : null;
     return {
       id: c.id,
-      name: c.commodity,
+      name: priceItemName(c.commodity, c.section),
       specification: c.specification,
+      section: c.section,
       unit: c.unit as PriceItem["unit"],
       unitSize: c.unit_size,
       category: categoryFor(c.section, c.commodity),
@@ -56,6 +59,7 @@ async function loadPriceItems(): Promise<PriceItem[]> {
       pctChange: pctChange(latest.price, weekAgo),
     };
   });
+  return markStale(items);
 }
 
 // Every DA commodity with a price, for Price Watch and Home's best value
