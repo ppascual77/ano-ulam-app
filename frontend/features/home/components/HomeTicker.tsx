@@ -16,15 +16,9 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 import { House } from "lucide-react-native";
 import { Text } from "@/frontend/components/ui/Text";
-import { showGlobalToast } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
-import { usePantryActions } from "@/frontend/core/pantry/hooks/usePantry";
-import { useQuery } from "@tanstack/react-query";
-import { getMealPlan } from "@/api/mealPlans";
-import { CLEANUP_NOTE_MS, dayKey, useNudge, type CleanupNote } from "@/frontend/core/pantry/store/useNudgeStore";
-import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
-import { planKey } from "@/frontend/features/meal-planner/hooks/useSavedMealPlan";
-import { planDates } from "@/frontend/features/meal-planner/utils/generatePlan";
+import type { CleanupNote } from "@/frontend/core/pantry/store/useNudgeStore";
+import { useCleanupNote, useUndoCleanup } from "@/frontend/core/pantry/hooks/useCleanupNote";
 import type { PriceItem } from "@/frontend/core/prices/utils/prices";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { PriceDropLine } from "./PriceDropLine";
@@ -58,38 +52,6 @@ const rollOut = (values: ExitAnimationsValues) => {
     animations: { transform: [{ translateY: withTiming(-values.currentHeight, { duration: ROLL_MS, easing: ROLL_EASE }) }] },
   };
 };
-
-/** Whether the note's own plan is the saved one and still has a day today
- *  or later. A new plan (or a reused one, restarted today) has a different
- *  start date, so the old plan's note goes. Unknown (still loading) counts
- *  as running, so the line doesn't flicker. */
-function useNotePlanRunning(note: CleanupNote | null): boolean {
-  const userId = useAuth().session?.user.id ?? null;
-  const { data: row, isSuccess } = useQuery({ queryKey: planKey(userId), queryFn: getMealPlan, enabled: !!userId });
-  if (!note || !userId) return false;
-  if (!isSuccess) return true;
-  if (!row || !Array.isArray(row.days) || row.days.length === 0) return false;
-  if (row.start_date !== note.planStart) return false;
-  const [y, m, d] = row.start_date.split("-").map(Number);
-  const dates = planDates(new Date(y, m - 1, d), row.days.length);
-  return dayKey(dates[dates.length - 1]) >= dayKey(new Date());
-}
-
-/** The plan-day cleanup's note while it's fresh (12 hours) and its plan is
- *  still the one running, else null. Clears itself when the time is up, its
- *  plan has ended (nothing left to plan around) or a new plan replaced it. */
-export function useCleanupNote(): CleanupNote | null {
-  const { cleanupNote, setCleanupNote } = useNudge();
-  const running = useNotePlanRunning(cleanupNote);
-  const left = cleanupNote ? cleanupNote.at + CLEANUP_NOTE_MS - Date.now() : 0;
-  useEffect(() => {
-    if (!cleanupNote) return;
-    if (left <= 0 || !running) return setCleanupNote(null);
-    const timer = setTimeout(() => setCleanupNote(null), left);
-    return () => clearTimeout(timer);
-  }, [cleanupNote?.at, running]);
-  return cleanupNote && left > 0 && running ? cleanupNote : null;
-}
 
 // One line of text that glides sideways when it's longer than its space,
 // and back. Reduce motion: cut off with "…" instead.
@@ -157,13 +119,10 @@ function namesOf(note: CleanupNote): ReactNode[] {
 // What a finished meal plan day took out of the pantry, on the same glass
 // pill as the price line, with Undo for "I didn't actually cook that".
 function CleanupLine({ note }: { note: CleanupNote }) {
-  const pantryActions = usePantryActions();
-  const { setCleanupNote } = useNudge();
+  const undoCleanup = useUndoCleanup();
   const undo = () => {
     Haptics.selectionAsync();
-    pantryActions.addMany(note.items);
-    setCleanupNote(null);
-    showGlobalToast({ tone: "success", message: "Put back in your pantry" });
+    undoCleanup(note);
   };
   const sentence = `${note.when} is done, so we took ${note.items.map((item) => item.name.toLowerCase()).join(", ")} out of your pantry`;
   return (

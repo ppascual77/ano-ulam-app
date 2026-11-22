@@ -16,12 +16,20 @@ const DAY_MS = 86_400_000;
 const LOOK_BACK_DAYS = 2;
 const WEEKDAY = new Intl.DateTimeFormat("en-PH", { weekday: "long" });
 
+/** Whose plan a cleanup belongs to: the account and the plan's start. */
+const cleanupOwner = (userId: string, planStart: string) => `${userId}|${planStart}`;
+
 /** The saved plan's days that have ended since the last cleanup, with their
  *  meal ids. Read from the saved row, not the planner, which drops a plan
- *  once its last day is over (and that day still needs cleaning). */
-function usePastPlanDays(since: string | null, enabled: boolean) {
+ *  once its last day is over (and that day still needs cleaning). The last
+ *  cleanup only counts if it was this account's and this plan's. */
+function usePastPlanDays(cleaned: { through: string | null; for: string | null }, enabled: boolean) {
   const userId = useAuth().session?.user.id ?? null;
   const saved = useQuery({ queryKey: planKey(userId), queryFn: getMealPlan, enabled: !!userId && enabled });
+  const owner = userId && saved.data ? cleanupOwner(userId, saved.data.start_date) : null;
+  // A record from before owners were kept counts as before (no owner yet),
+  // so a day someone undid isn't cleaned a second time after the update.
+  const since = cleaned.for == null || cleaned.for === owner ? cleaned.through : null;
   const days = useMemo(() => {
     const row = saved.data;
     if (!row || !Array.isArray(row.days)) return [];
@@ -38,7 +46,7 @@ function usePastPlanDays(since: string | null, enabled: boolean) {
       return [{ day, date: dates[i], ids }];
     });
   }, [saved.data, since]);
-  return { days, planStart: saved.data?.start_date ?? null };
+  return { days, planStart: saved.data?.start_date ?? null, owner };
 }
 
 /**
@@ -54,7 +62,10 @@ export function usePlanDayCleanup(enabled: boolean) {
   const pantry = usePantry();
   const pantryActions = usePantryActions();
   const saved = useSavedMealsForGrocery();
-  const { days: past, planStart } = usePastPlanDays(nudge.cleanedThrough, enabled && nudge.loaded);
+  const { days: past, planStart, owner } = usePastPlanDays(
+    { through: nudge.cleanedThrough, for: nudge.cleanedFor },
+    enabled && nudge.loaded,
+  );
   const ids = useMemo(() => [...new Set(past.flatMap((d) => d.ids))], [past]);
   const active = enabled && nudge.loaded && ids.length > 0;
   const meals = useMealsWithIngredients(ids, active);
@@ -75,7 +86,7 @@ export function usePlanDayCleanup(enabled: boolean) {
       return meal ? [{ key: id, name: meal.name, ingredients: meal.ingredients ?? [] }] : [];
     });
     const usedUp = surelyUsedUp(cooked, pantry.data ?? [], keep).map(({ id, name }) => ({ id, name }));
-    nudge.markCleaned(lastDay);
+    if (owner) nudge.markCleaned(lastDay, owner);
     if (usedUp.length === 0) return;
     pantryActions.removeMany(usedUp.map((item) => item.id));
     const when = past.length === 1 ? `${WEEKDAY.format(past[0].date)}'s plan` : "Your past plan days";
