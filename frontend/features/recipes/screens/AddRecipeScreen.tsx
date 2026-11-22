@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View, type ScrollViewInstance, type ViewInstance } from "react-native";
+import { KeyboardAvoidingView, Pressable, ScrollView, View, type ScrollViewInstance, type ViewInstance } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -333,12 +333,9 @@ export default function AddRecipeScreen() {
       {header}
       {/* It measures itself against its parent, which starts below the
           status bar: without that offset it stopped short, leaving the
-          Back/Next bar under the keyboard (BUG-12). */}
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={insets.top}
-      >
+          Back/Next bar under the keyboard (BUG-12). Android too: drawn edge
+          to edge, the window no longer shrinks for the keyboard. */}
+      <KeyboardAvoidingView className="flex-1" behavior="padding" keyboardVerticalOffset={insets.top}>
         <View className="px-5 pb-4">
           <StepProgress steps={STEPS} current={step} canJumpTo={canJumpTo} onJump={goTo} reduceMotion={reduceMotion} />
         </View>
