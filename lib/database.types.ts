@@ -1109,6 +1109,22 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_removed_posts: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          caption: string
+          created_at: string
+          display_name: string
+          gif_url: string
+          hidden_at: string
+          id: string
+          image_url: string
+          link_url: string
+          sticker_url: string
+          user_id: string
+        }[]
+      }
       get_reported_posts: {
         Args: never
         Returns: {

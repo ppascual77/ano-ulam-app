@@ -224,6 +224,15 @@ t "B2:  -> F got 7 days" svc =t "select pro_reward_until > now()+interval '6 day
 t "B2: E2 sees the recipe as claimed" svc =recipe "set role authenticated; select set_config('request.jwt.claims','{\"sub\":\"$E2\",\"role\":\"authenticated\"}',false); select string_agg(k, ',') from my_reward_claims() k"
 t "B2: someone else sees none of E's claims" B = "select string_agg(k, ',') from my_reward_claims() k"
 t "B2: guests can't call my_reward_claims" anon deny "select * from my_reward_claims()"
+echo "### IMP-2 removed posts list"
+t "I2: B posts" B ok "insert into food_posts(user_id,caption) values ('$B','I2 removable post')"
+t "I2: admin removes it from the menu" ADM ok "select remove_post((select id from food_posts where caption='I2 removable post'))"
+t "I2: admin sees it in removed posts" ADM =1 "select count(*) from get_removed_posts() where caption='I2 removable post'"
+t "I2: a non-admin sees none" A =0 "select count(*) from get_removed_posts()"
+t "I2: guests can't call it" anon deny "select * from get_removed_posts()"
+t "I2: admin restores it" ADM ok "select dismiss_post_reports((select id from food_posts where caption='I2 removable post'))"
+t "I2:  -> visible again, off the removed list" svc =t "select hidden_at is null from food_posts where caption='I2 removable post'"
+t "I2:  -> not listed anymore" ADM =0 "select count(*) from get_removed_posts() where caption='I2 removable post'"
 echo
 echo "TOTAL PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
