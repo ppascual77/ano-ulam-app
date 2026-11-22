@@ -3,7 +3,7 @@ import { Linking, Platform, Pressable, ScrollView, View, useWindowDimensions, ty
 import { Text } from "@/frontend/components/ui/Text";
 import Constants from "expo-constants";
 import * as Application from "expo-application";
-import * as Updates from "expo-updates";
+import { requireOptionalNativeModule } from "expo";
 import Animated, { Easing, FadeInDown } from "react-native-reanimated";
 import { Gift } from "lucide-react-native";
 import { allRewardsEarned, useProRewardProgress } from "@/frontend/core/pro/hooks/useProRewardProgress";
@@ -57,7 +57,14 @@ const APP_VERSION = Constants.expoConfig?.version ?? "dev";
 // plus the OTA update's short id when one is running instead of the JS shipped
 // in the binary, so a bug report says exactly what code it came from.
 const BUILD_NUMBER = Application.nativeBuildVersion;
-const OTA_UPDATE_ID = !Updates.isEmbeddedLaunch && Updates.updateId ? Updates.updateId.slice(0, 8) : null;
+// expo-updates throws on import when its native module isn't in the binary
+// (a dev build made before it was added, 2026-11-15), which took the whole
+// app down. Only load it when the module is there; no id otherwise.
+const Updates = requireOptionalNativeModule("ExpoUpdates")
+  ? // eslint-disable-next-line @typescript-eslint/no-require-imports
+    (require("expo-updates") as typeof import("expo-updates"))
+  : null;
+const OTA_UPDATE_ID = Updates && !Updates.isEmbeddedLaunch && Updates.updateId ? Updates.updateId.slice(0, 8) : null;
 const VERSION_LABEL = [`${APP_VERSION}${BUILD_NUMBER ? ` (${BUILD_NUMBER})` : ""}`, OTA_UPDATE_ID && `update ${OTA_UPDATE_ID}`]
   .filter(Boolean)
   .join(" · ");
