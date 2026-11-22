@@ -1137,6 +1137,7 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_pro: { Args: { p_user: string }; Returns: boolean }
+      my_reward_claims: { Args: never; Returns: string[] }
       price_alert_min_drop: { Args: never; Returns: number }
       process_push_responses: { Args: never; Returns: string }
       recompute_pro_reward_until: {

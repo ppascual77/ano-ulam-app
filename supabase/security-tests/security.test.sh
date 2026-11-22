@@ -221,6 +221,9 @@ t "B2:  -> no reward row for E2" svc =0 "select count(*) from pro_rewards where 
 t "B2: a different Apple account (F) still earns it" svc ok "insert into auth.users(id,email) values ('$F','f@test'); insert into auth.identities(user_id,provider,provider_id) values ('$F','apple','apple-sub-F')"
 t "B2: F's recipe approved" ADM ok "insert into meals(id,name,status,poster_id) values ('33333333-0000-0000-0000-0000000000f1','Finn 1','approved','$F')"
 t "B2:  -> F got 7 days" svc =t "select pro_reward_until > now()+interval '6 days' from users where id='$F'"
+t "B2: E2 sees the recipe as claimed" svc =recipe "set role authenticated; select set_config('request.jwt.claims','{\"sub\":\"$E2\",\"role\":\"authenticated\"}',false); select string_agg(k, ',') from my_reward_claims() k"
+t "B2: someone else sees none of E's claims" B = "select string_agg(k, ',') from my_reward_claims() k"
+t "B2: guests can't call my_reward_claims" anon deny "select * from my_reward_claims()"
 echo
 echo "TOTAL PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
