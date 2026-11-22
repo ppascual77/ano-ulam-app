@@ -133,10 +133,10 @@ export default function PantryResultsScreen() {
       </View>
 
       {matching || loadingMeals ? (
-        <LoadingState label="Finding meals…" />
+        <LoadingState label="Peeking in your pantry…" />
       ) : results.length === 0 ? (
         <Text className="px-5 py-10 text-center font-inter-regular text-body text-ink-subtle">
-          No meals use these ingredients yet. Try adding a few more.
+          Nothing yet with just these. Add a few more and we&apos;ll look again.
         </Text>
       ) : (
         <>

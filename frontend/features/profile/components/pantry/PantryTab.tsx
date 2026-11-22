@@ -26,8 +26,8 @@ export function PantryTab() {
           <EmptyState
             Icon={Refrigerator}
             iconColor={colors.primary}
-            title="Your pantry is empty"
-            body="Add what's in your kitchen and we'll find meals you can cook."
+            title="Your pantry's looking bare"
+            body="Tell us what's in your kitchen and we'll tell you what to cook."
             action={{ label: "Add ingredients", Icon: Plus, onPress: openAdd }}
           />
         )}

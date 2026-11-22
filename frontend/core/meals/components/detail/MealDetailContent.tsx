@@ -979,7 +979,7 @@ export function MealDetailContent({
                 </Text>
               </View>
               <View className="flex-row items-center justify-between gap-3">
-                <Text className="font-inter-regular text-small text-ink">Buying everything new</Text>
+                <Text className="font-inter-regular text-small text-ink">Starting from an empty kitchen</Text>
                 <Text className="font-inter-bold text-small text-ink-emphasis">
                   {formatMealPrice(displayPrice + leftover, displayBufferPrice ? displayBufferPrice + leftover : null)}
                 </Text>
@@ -990,7 +990,7 @@ export function MealDetailContent({
               {openPriceInfo && (
                 <View className="mt-2 min-h-11 flex-row items-center gap-1.5 border-t border-ink-emphasis/10 pt-3 pb-1">
                   <Info color={colors.primary} size={14} />
-                  <Text className="flex-1 font-inter-semibold text-body text-primary">How we price this</Text>
+                  <Text className="flex-1 font-inter-semibold text-body text-primary">How'd we get this price?</Text>
                   <ChevronRight color={colors.primary} size={14} />
                 </View>
               )}

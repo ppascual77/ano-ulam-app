@@ -418,7 +418,7 @@ export default function MealPlannerScreen() {
 
       {store.stage === "error" && (
         <Animated.View key="error" entering={FadeIn.duration(250)} className="flex-1 items-center justify-center gap-3 px-8">
-          <Text className="text-center font-inter-bold text-heading text-web-ink">Couldn't build your plan</Text>
+          <Text className="text-center font-inter-bold text-heading text-web-ink">Not enough meals fit yet</Text>
           <Text className="text-center font-inter-regular text-body text-web-ink-muted">
             We couldn't find enough meals that fit your preferences and budget.
           </Text>

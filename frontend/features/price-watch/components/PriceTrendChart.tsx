@@ -126,7 +126,7 @@ export function PriceTrendChart({ daily, drawDelay = 0 }: PriceTrendChartProps) 
   if (points.length < 2) {
     return (
       <Text className="py-6 text-center font-inter-regular text-small text-ink-subtle">
-        Not enough data for this period.
+        Not enough prices yet. Check back in a few days.
       </Text>
     );
   }

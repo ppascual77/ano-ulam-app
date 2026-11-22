@@ -146,7 +146,7 @@ export function PriceListSheet({ scope, items, onClose, onClosed, onSelect }: Pr
         <ScrollView className="mt-2 flex-1" keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
           {list.length === 0 ? (
             <AppText variant="caption" className="py-10 text-center">
-              No ingredients found.
+              Nothing by that name. Try another spelling?
             </AppText>
           ) : (
             groups.map((g) => (

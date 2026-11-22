@@ -157,7 +157,7 @@ export function MealSuggestion({ budget, servings, onClear }: MealSuggestionProp
           )}
           {fastFood.length > 0 && (
             <MealCarouselSection
-              title="Fastfood"
+              title="Fast food"
               meals={fastFood}
               budgetLabel={budget}
               servings={servings}

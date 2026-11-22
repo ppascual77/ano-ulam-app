@@ -89,7 +89,7 @@ export function PriceInfoSheet({ info, onClose, maxHeightPercent }: PriceInfoShe
             </View>
             <View className="flex-row items-start justify-between gap-3 p-4">
               <View className="flex-1 gap-1">
-                <Text className="font-inter-bold text-body text-ink-emphasis">Buying everything new</Text>
+                <Text className="font-inter-bold text-body text-ink-emphasis">Starting from an empty kitchen</Text>
                 <Text className="font-inter-regular text-small text-ink-subtle">
                   Every pack at full price. {leftoverLabel} of it stays in your pantry for next time.
                 </Text>

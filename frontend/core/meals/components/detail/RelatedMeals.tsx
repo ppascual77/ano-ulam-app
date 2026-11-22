@@ -24,11 +24,11 @@ function pickRelated(meal: MealType, pool: MealType[]): { meals: MealType[]; tit
   }
   if (meal.poster_id) {
     const userPublished = others.filter((m) => m.poster_id);
-    if (userPublished.length > 0) return { meals: userPublished.slice(0, LIMIT), title: "More user published meals" };
+    if (userPublished.length > 0) return { meals: userPublished.slice(0, LIMIT), title: "More from home cooks" };
   }
   const tags = new Set(meal.tags ?? []);
   const similar = others.filter((m) => (m.tags ?? []).some((tag) => tags.has(tag)));
-  return { meals: similar.slice(0, LIMIT), title: "Related meals" };
+  return { meals: similar.slice(0, LIMIT), title: "If you like this, try…" };
 }
 
 type RelatedMealsProps = {

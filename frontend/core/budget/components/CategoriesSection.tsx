@@ -48,7 +48,7 @@ const CATEGORIES: { id: CategoryId; label: string; image: number; tint: string; 
   { id: "breakfast", label: "Breakfast", image: require("@/assets/icons/breakfast-category-logo.png"), tint: colors.category.breakfast, icon: CloudSun, iconColor: colors.accent, beat: "rise" },
   { id: "lunch", label: "Lunch", image: require("@/assets/icons/lunch-category-logo.png"), tint: colors.category.lunch, icon: Sun, iconColor: colors.primary, beat: "turn" },
   { id: "dinner", label: "Dinner", image: require("@/assets/icons/dinner-category-logo.png"), tint: colors.category.dinner, icon: Moon, iconColor: colors.category.dinnerIcon, beat: "rock" },
-  { id: "fastfood", label: "Fastfood", image: require("@/assets/icons/fastfood-category-logo.png"), tint: colors.category.fastfood, icon: Hamburger, iconColor: colors.category.fastfoodIcon, beat: "bounce", soon: true },
+  { id: "fastfood", label: "Fast food", image: require("@/assets/icons/fastfood-category-logo.png"), tint: colors.category.fastfood, icon: Hamburger, iconColor: colors.category.fastfoodIcon, beat: "bounce", soon: true },
 ];
 const TINTS = CATEGORIES.map((c) => c.tint);
 const STOPS = CATEGORIES.map((_, i) => i);

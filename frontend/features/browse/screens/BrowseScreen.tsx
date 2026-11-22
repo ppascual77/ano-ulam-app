@@ -364,7 +364,7 @@ export default function BrowseScreen() {
               </AppText>
             )}
             {!search.loading && search.failed ? (
-              <ErrorState message="Couldn't load meals. Check your connection and try again." onRetry={search.retry} />
+              <ErrorState message="The kitchen isn't answering. Check your connection and try again." onRetry={search.retry} />
             ) : !search.loading && search.results.length === 0 ? (
               <EmptyMealView />
             ) : (

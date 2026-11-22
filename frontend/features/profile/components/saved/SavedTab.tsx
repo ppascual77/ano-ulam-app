@@ -84,8 +84,8 @@ export function SavedTab({ onToast }: SavedTabProps) {
         <EmptyState
           Icon={Bookmark}
           iconColor={colors.accent}
-          title="Nothing saved yet"
-          body="Discover Filipino meals you love and bookmark them for later."
+          title="No favorites yet"
+          body="Tap the bookmark on any meal you'd cook again."
           action={{ label: "Explore Meals", Icon: Utensils, onPress: () => router.navigate("/browse") }}
         />
       ) : (

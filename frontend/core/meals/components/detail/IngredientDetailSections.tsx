@@ -297,7 +297,7 @@ function NutritionSourceRow({ item }: { item: Pick<IngredientType, "source" | "s
   if (item.source === "FNRI") {
     return <SourceRow icon={icon} title="FNRI Philippine Food Composition Tables" subtitle={item.sourceDescription ?? undefined} />;
   }
-  return <SourceRow icon={estimateIcon} title="Estimated values" subtitle="Not yet matched to a USDA or FNRI food record" estimate />;
+  return <SourceRow icon={estimateIcon} title="Our best guess" subtitle="We haven't matched this to a food database yet" estimate />;
 }
 
 // ---- Price rows ------------------------------------------------------------
@@ -311,7 +311,7 @@ function NutritionSourceRow({ item }: { item: Pick<IngredientType, "source" | "s
 function PriceTrailing({ price, perUnit, isBest, highlight }: { price: number; perUnit?: string; isBest: boolean; highlight: boolean }) {
   return (
     <View className="items-end gap-1">
-      {isBest && <Chips label="Price used" />}
+      {isBest && <Chips label="Our pick" />}
       <Text className={`font-inter-extrabold text-subheading ${highlight ? "text-primary" : "text-ink-emphasis"}`}>
         ₱{price % 1 === 0 ? price : price.toFixed(2)}
       </Text>
@@ -390,8 +390,8 @@ export function SourcesSection({ item }: { item: SourcesItem }) {
 
   return (
     <SheetSection
-      title="Sources"
-      aside={hasLink ? "Tap to view" : undefined}
+      title="Where we got these numbers"
+      aside="for the curious"
       footnote={
         prices.length > 0
           ? `${da.length > 0 ? "Market prices are based on the Department of Agriculture's daily price monitoring of Metro Manila wet markets, priced per kg. " : ""}Store prices are per pack. Your actual cost may vary.`
@@ -411,7 +411,7 @@ export function SourcesSection({ item }: { item: SourcesItem }) {
         packEstimate ? (
           <PackEstimateRow estimate={packEstimate} />
         ) : (
-          <SourceRow icon={estimateIcon} title="Estimated price" subtitle="Not yet checked against a market or supermarket price" estimate />
+          <SourceRow icon={estimateIcon} title="Our best guess" subtitle="We haven't checked this at the palengke yet" estimate />
         )
       ) : (
         <>
@@ -428,7 +428,7 @@ export function SourcesSection({ item }: { item: SourcesItem }) {
                 icon={<Store color={colors.ink.emphasis} size={ICON_SIZE} />}
                 // Where the price is from, as a shopper thinks of it, and
                 // whose data it is (also in the footnote).
-                title="Metro Manila wet markets"
+                title="Metro Manila palengke"
                 subtitle={commodity}
                 extra={
                   <>

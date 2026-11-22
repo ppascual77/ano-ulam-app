@@ -68,9 +68,9 @@ export function CommunityFeed({
           <Text className="text-heading">🍽️</Text>
         </View>
         <View className="items-center">
-          <Text className="mb-1 font-inter-bold text-subheading text-web-ink">Join the Community</Text>
+          <Text className="mb-1 font-inter-bold text-subheading text-web-ink">Pull up a chair</Text>
           <Text className="text-center font-inter-regular text-body text-web-ink-muted">
-            Log in to see and share food posts from the community.
+            Log in to see what everyone&apos;s eating.
           </Text>
         </View>
         {/* Signing in also creates the account, so no separate sign-up. */}
@@ -137,8 +137,8 @@ export function CommunityFeed({
         }}
         ListEmptyComponent={
           <View className="items-center px-5 py-16">
-            <Text className="mb-1 font-inter-semibold text-subheading text-web-ink">No posts yet</Text>
-            <Text className="font-inter-regular text-body text-web-ink-muted">Be the first to share a food photo!</Text>
+            <Text className="mb-1 font-inter-semibold text-subheading text-web-ink">Quiet in here</Text>
+            <Text className="font-inter-regular text-body text-web-ink-muted">Ano&apos;ng ulam mo today? Be the first to post it.</Text>
           </View>
         }
         ListFooterComponent={

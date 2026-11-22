@@ -12,7 +12,7 @@ export const CATEGORY_LABELS: Record<CategoryId, string> = {
   breakfast: "Breakfast",
   lunch: "Lunch",
   dinner: "Dinner",
-  fastfood: "Fastfood",
+  fastfood: "Fast food",
 };
 
 /** In a sentence ("No breakfast fits ₱300 yet"). */

@@ -127,7 +127,7 @@ export function openSavedTab() {
 
 function hintToast(meal: MealType) {
   showGlobalToast({
-    message: "Saved to your Profile",
+    message: "Saved! It's in your Profile.",
     tone: "success",
     image: resolveMealImage(meal),
     action: { label: "View", onPress: openSavedTab },
