@@ -1,7 +1,9 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { FlatList, Pressable, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { Text } from "@/frontend/components/ui/Text";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, FadeInDown, FadeOut, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming } from "react-native-reanimated";
+import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
+import { RollingText } from "@/frontend/components/ui/RollingText";
 import Svg, { Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import { ArrowLeftRight, ChevronRight, CookingPot, Cookie, Info, ShoppingCart, CloudSun, Moon, Sun, Droplets, Dumbbell, Flame, Lock, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
@@ -69,7 +71,7 @@ export function DateSelector({ plan, selected, isPremium, onSelect, onLocked }: 
 
 // ---- Summary row -------------------------------------------------------------
 
-const MACROS: { key: "protein" | "carbs" | "fats"; letter: string; label: string; Icon: LucideIcon; color: string; tint: string }[] = [
+export const MACROS: { key: "protein" | "carbs" | "fats"; letter: string; label: string; Icon: LucideIcon; color: string; tint: string }[] = [
   { key: "protein", letter: "P", label: "Protein", Icon: Dumbbell, color: colors.macro.protein, tint: "bg-macro-protein/10" },
   { key: "carbs", letter: "C", label: "Carbs", Icon: Wheat, color: colors.macro.carbs, tint: "bg-macro-carbs/10" },
   { key: "fats", letter: "F", label: "Fats", Icon: Droplets, color: colors.macro.fats, tint: "bg-macro-fats/10" },
@@ -122,11 +124,31 @@ type SummaryStat = { key: string; label: string; value: string; color: string };
 // The summary's shared shell: a heading row (title, and how the day compares
 // to a goal), then one card with the donut and three dot-labelled stats.
 // Macro and cost versions both render through this, so they match exactly.
-function SummaryCard({ title, goal, donut, stats, note }: { title: string; goal: ReactNode; donut: ReactNode; stats: SummaryStat[]; note?: ReactNode }) {
+// A stat's number, for which way it rolls ("₱1,040" -> 1040, "82/90g" -> 82).
+const rankOf = (value: string) => Number(value.replace(/[^0-9.\/]/g, "").split("/")[0]) || 0;
+
+function SummaryCard({
+  title,
+  goal,
+  donut,
+  stats,
+  note,
+  delta,
+}: {
+  title: string;
+  goal: ReactNode;
+  donut: ReactNode;
+  stats: SummaryStat[];
+  note?: ReactNode;
+  delta?: { text: string; key: number } | null;
+}) {
   return (
     <View className="gap-2">
-      <View className="flex-row items-baseline justify-between">
-        <Text className="font-inter-semibold text-body text-web-ink">{title}</Text>
+      <View className="flex-row items-center justify-between gap-2">
+        <View className="shrink flex-row items-center gap-2">
+          <Text className="font-inter-semibold text-body text-web-ink">{title}</Text>
+          {delta && <DeltaChip key={delta.key} text={delta.text} />}
+        </View>
         <Text className="font-inter-regular text-small text-web-ink-muted">{goal}</Text>
       </View>
       <View className="flex-row items-center rounded-2xl border border-web-divider bg-white px-3 py-2.5">
@@ -141,7 +163,10 @@ function SummaryCard({ title, goal, donut, stats, note }: { title: string; goal:
                 <View className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
                 <Text className="font-inter-regular text-sub text-web-ink-muted">{label}</Text>
               </View>
-              <Text className="mt-0.5 text-center font-inter-bold text-subheading text-web-ink">{value}</Text>
+              {/* Rolls to a new value (a swap, a new day's meals). */}
+              <View className="mt-0.5 overflow-hidden">
+                <RollingText value={value} rank={rankOf(value)} className="text-center font-inter-bold text-subheading text-web-ink" />
+              </View>
             </View>
           </View>
         ))}
@@ -193,7 +218,7 @@ const MEAL_COLORS: Record<MealSlot, string> = {
 // target. Without: the same card for money, today's cost split by meal and
 // the day against its share of the budget (budget / the plan's days, what
 // the planner plans each day within).
-export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
+export function SummaryRow({ plan, day, delta }: { plan: MealPlan; day: PlanDay; delta?: { text: string; key: number } | null }) {
   const totals = dayTotals(day, plan.servings, plan.rice);
   if (plan.targets) {
     const calories = Math.round(totals.calories);
@@ -217,6 +242,7 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
         // Each macro against its target: "112/120g".
         stats={MACROS.map(({ key, label, color }) => ({ key, label, color, value: `${Math.round(totals[key])}/${plan.targets![key]}g` }))}
         note={<GoalGapNote plan={plan} day={day} totals={totals} />}
+        delta={delta}
       />
     );
   }
@@ -245,11 +271,63 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
         />
       }
       stats={SLOTS.map((slot) => ({ key: slot, label: SLOT_LABELS[slot], color: MEAL_COLORS[slot], value: formatPeso(mealCost(slot)) }))}
+      delta={delta}
     />
   );
 }
 
 const SLOT_ICONS: Record<MealSlot, LucideIcon> = { breakfast: CloudSun, lunch: Sun, dinner: Moon };
+
+// ---- After a swap (IMP-14) ------------------------------------------------------
+
+const SWAP_FADE_MS = 350;
+const GLOW_IN_MS = 250;
+const GLOW_HOLD_MS = 900;
+const GLOW_OUT_MS = 400;
+
+// A soft accent ring around the swapped card: in, a beat, out (~1.5 s).
+// With Reduce motion it just shows for the same time, then hides.
+function SwapGlow({ reduceMotion }: { reduceMotion: boolean }) {
+  const opacity = useSharedValue(reduceMotion ? 1 : 0);
+  const [gone, setGone] = useState(false);
+  useEffect(() => {
+    if (reduceMotion) {
+      const timer = setTimeout(() => setGone(true), GLOW_IN_MS + GLOW_HOLD_MS + GLOW_OUT_MS);
+      return () => clearTimeout(timer);
+    }
+    opacity.value = withSequence(
+      withTiming(1, { duration: GLOW_IN_MS, easing: Easing.out(Easing.cubic) }),
+      withDelay(GLOW_HOLD_MS, withTiming(0, { duration: GLOW_OUT_MS, easing: Easing.in(Easing.cubic) })),
+    );
+  }, []);
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  if (gone) return null;
+  return (
+    <Animated.View pointerEvents="none" style={[{ position: "absolute", inset: 0 }, style]} className="rounded-3xl border-4 border-accent/80" />
+  );
+}
+
+/** A small chip beside a total that just changed ("−₱12", "+80 kcal"):
+ *  fades in, holds, fades out. Plain show/hide with Reduce motion. */
+function DeltaChip({ text }: { text: string }) {
+  const reduceMotion = useReduceMotion();
+  const [shown, setShown] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setShown(false), DELTA_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  if (!shown) return null;
+  return (
+    <Animated.View
+      entering={reduceMotion ? undefined : FadeIn.duration(200)}
+      exiting={reduceMotion ? undefined : FadeOut.duration(400)}
+      className="rounded-full bg-accent/15 px-2 py-0.5"
+    >
+      <Text className="font-inter-bold text-sub text-accent">{text}</Text>
+    </Animated.View>
+  );
+}
+const DELTA_MS = 2200;
 
 // ---- Hero carousel ---------------------------------------------------------------
 
@@ -278,6 +356,9 @@ type HeroCarouselProps = {
   onOpen: (item: PlannedMeal) => void;
   /** Swap the meal on this card (Pro). */
   onSwap: (item: PlannedMeal) => void;
+  /** The meal just swapped in (IMP-14): its card cross-fades to it and
+   *  glows accent for a moment. A new `key` per swap. */
+  swapped?: { slot: MealSlot; key: number } | null;
   /** Free: the Swap button shows a lock (onSwap opens Pro). */
   swapLocked: boolean;
 };
@@ -291,7 +372,8 @@ type CarouselItem = PlannedMeal | SnacksSoon;
 const SNACKS_SOON: SnacksSoon = { slot: "snacks", soon: true };
 const isSoon = (item: CarouselItem): item is SnacksSoon => "soon" in item;
 
-export function HeroCarousel({ day, servings, rice, width, selected, onChange, onOpen, onSwap, swapLocked }: HeroCarouselProps) {
+export function HeroCarousel({ day, servings, rice, width, selected, onChange, onOpen, onSwap, swapLocked, swapped }: HeroCarouselProps) {
+  const reduceMotion = useReduceMotion();
   const list = useRef<FlatList<CarouselItem>>(null);
   const items: CarouselItem[] = [...day.meals, SNACKS_SOON];
   const cardWidth = Math.round(width * CARD_SHARE);
@@ -320,6 +402,7 @@ export function HeroCarousel({ day, servings, rice, width, selected, onChange, o
         horizontal
         data={items}
         keyExtractor={(item) => item.slot}
+        extraData={swapped?.key}
         showsHorizontalScrollIndicator={false}
         snapToInterval={step}
         snapToAlignment="start"
@@ -358,6 +441,15 @@ export function HeroCarousel({ day, servings, rice, width, selected, onChange, o
               style={{ width: cardWidth, height: HERO_HEIGHT }}
               className="overflow-hidden rounded-3xl active:opacity-95"
             >
+              {/* Keyed by the meal: a swap cross-fades the old card out and
+                  the new one in, both filling the card (plain swap with
+                  Reduce motion). */}
+              <Animated.View
+                key={String(item.meal.id ?? item.meal.name)}
+                entering={reduceMotion ? undefined : FadeIn.duration(SWAP_FADE_MS)}
+                exiting={reduceMotion ? undefined : FadeOut.duration(SWAP_FADE_MS)}
+                style={{ position: "absolute", inset: 0 }}
+              >
               <MealImage meal={item.meal} height={HERO_HEIGHT} width={cardWidth} rounded="rounded-3xl" />
               <LinearGradient colors={HERO_SCRIM} pointerEvents="none" style={{ position: "absolute", inset: 0 }} />
               <View pointerEvents="box-none" className="absolute inset-0 justify-between p-4">
@@ -417,6 +509,8 @@ export function HeroCarousel({ day, servings, rice, width, selected, onChange, o
                   </View>
                 </View>
               </View>
+              </Animated.View>
+              {swapped?.slot === item.slot && <SwapGlow key={swapped.key} reduceMotion={reduceMotion} />}
             </Pressable>
           );
         }}

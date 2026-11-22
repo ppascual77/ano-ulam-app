@@ -23,7 +23,7 @@ import { useSavedGroceryList } from "@/frontend/core/grocery/hooks/useSavedGroce
 import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
 import { GroceryMealPicker } from "@/frontend/core/grocery/components/GroceryMealPicker";
 import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
-import { PLAN_DAYS, dayGoalGap, dayLabel, dayTotals, formatPeso, generatePlan, monthDay, regenerateDay, riceCupsFor, swapOptions, type MealPlan, type MealSlot } from "../utils/generatePlan";
+import { PLAN_DAYS, dayGoalGap, dayLabel, dayTotals, formatPeso, generatePlan, monthDay, mealCost, regenerateDay, riceCupsFor, swapOptions, type MealPlan, type MealSlot, type PlannerMeal } from "../utils/generatePlan";
 import { goalsFromTargets, targetsFromGoals, type MacroTargets } from "@/frontend/core/nutrition/macros";
 import { useNutritionGoals } from "@/frontend/core/preferences/hooks/useNutritionGoals";
 import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
@@ -265,6 +265,42 @@ export default function MealPlannerScreen() {
     }
   };
 
+  // A swap you can see (IMP-14): the card cross-fades and glows, the day's
+  // totals roll with a "−₱12" / "+80 kcal" chip, and the toast says what
+  // changed, with Undo (which swaps back the same way).
+  const [swapFx, setSwapFx] = useState<{ dayIndex: number; slot: MealSlot; key: number; delta: string | null } | null>(null);
+  const applySwap = (dayIndex: number, slot: MealSlot, meal: PlannerMeal, offerUndo: boolean) => {
+    const current = usePlannerStore.getState().plan;
+    const day = current?.days[dayIndex];
+    const before = day?.meals.find((m) => m.slot === slot)?.meal;
+    if (!current || !day || !before) return;
+    store.swapMeal(dayIndex, slot, meal);
+    void persist();
+    const peso = Math.round(mealCost(slot, meal, current.servings, current.rice) - mealCost(slot, before, current.servings, current.rice));
+    const kcal = Math.round(meal.calories - before.calories);
+    const pesoText = peso ? `${formatPeso(Math.abs(peso))} ${peso < 0 ? "less" : "more"}` : null;
+    const kcalText = kcal ? `${Math.abs(kcal).toLocaleString("en-PH")} kcal ${kcal < 0 ? "less" : "more"}` : null;
+    // The chip follows the card on screen: kcal with a goal, else pesos.
+    const delta = current.targets
+      ? kcal
+        ? `${kcal < 0 ? "−" : "+"}${Math.abs(kcal).toLocaleString("en-PH")} kcal`
+        : null
+      : peso
+        ? `${peso < 0 ? "−" : "+"}${formatPeso(Math.abs(peso))}`
+        : null;
+    setSwapFx({ dayIndex, slot, key: Date.now(), delta });
+    setSelectedMeal(Math.max(0, day.meals.findIndex((m) => m.slot === slot)));
+    setToast({
+      id: Date.now(),
+      tone: "success",
+      image: resolveMealImage(meal),
+      message: offerUndo
+        ? [`Swapped ${before.name} for ${meal.name}`, pesoText, kcalText].filter(Boolean).join(" · ")
+        : `${before.name} is back`,
+      action: offerUndo ? { label: "Undo", onPress: () => applySwap(dayIndex, slot, before, false) } : undefined,
+    });
+  };
+
   const regenerate = () => {
     if (!plan) return;
     const meals = regenerateDay(pool, plan, selectedDay);
@@ -471,7 +507,11 @@ export default function MealPlannerScreen() {
               className="gap-4"
               onLayout={hero.onLayout}
             >
-              <SummaryRow plan={plan} day={plan.days[Math.min(selectedDay, plan.days.length - 1)]} />
+              <SummaryRow
+                plan={plan}
+                day={plan.days[Math.min(selectedDay, plan.days.length - 1)]}
+                delta={swapFx && swapFx.dayIndex === selectedDay && swapFx.delta ? { text: swapFx.delta, key: swapFx.key } : null}
+              />
 
               {hero.width > 0 && (
                 <Animated.View entering={FadeInDown.delay(120).duration(360)}>
@@ -484,6 +524,7 @@ export default function MealPlannerScreen() {
                     onChange={setSelectedMeal}
                     onOpen={(item) => viewRecipe(item.meal, item.slot)}
                     swapLocked={!isPro}
+                    swapped={swapFx && swapFx.dayIndex === selectedDay ? { slot: swapFx.slot, key: swapFx.key } : null}
                     onSwap={(item) => (isPro ? setSwap({ dayIndex: selectedDay, slot: item.slot }) : openPro())}
                   />
                 </Animated.View>
@@ -591,13 +632,12 @@ export default function MealPlannerScreen() {
         slot={swap?.slot ?? null}
         options={plan && swap ? swapOptions(pool, plan, swap.dayIndex, swap.slot) : []}
         showMacros={!!plan?.targets}
+        current={plan && swap ? plan.days[swap.dayIndex]?.meals.find((m) => m.slot === swap.slot)?.meal : null}
         onClose={() => setSwap(null)}
         onSwap={(meal) => {
           if (!swap) return;
-          store.swapMeal(swap.dayIndex, swap.slot, meal);
-          void persist();
+          applySwap(swap.dayIndex, swap.slot, meal, true);
           setSwap(null);
-          showToast("Meal swapped");
         }}
       />
 
