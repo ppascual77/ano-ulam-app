@@ -31,6 +31,7 @@ import { track } from "@/frontend/core/analytics/analytics";
 import { getMealNarration } from "@/api/meals";
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { useNarration } from "@/frontend/core/preferences/store/useNarrationStore";
+import { useFirstRun } from "@/frontend/core/preferences/store/useFirstRunStore";
 import { AppText, BottomSheet, Button, DotLabel, Spinner, VoiceOrb } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
@@ -490,6 +491,9 @@ type CookModeProps = {
 // awake while it's open. Rendered over the meal page (inside the same
 // sheet), so the meal is right where it was on close.
 const KEEP_AWAKE_TAG = "cook-mode";
+// The speaker nudge: on this many cook mode opens, for this long each.
+const NUDGE_OPENS = 3;
+const NUDGE_MS = 6000;
 // Cook mode's entrance: a slide up, or a fade with Reduce motion.
 const ENTER_SLIDE_MS = 320;
 const ENTER_FADE_MS = 200;
@@ -710,6 +714,39 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, me
     if (allowed) return setNarrateSetting(true);
     void askAllowance().then((ok) => (ok ? setNarrateSetting(true) : setLimitOpen(true)));
   };
+  // The speaker nudge (IMP-4): "Tap to hear each step read aloud" under the
+  // speaker, on the first 3 cook mode opens until narration is turned on
+  // once. Fades in after the slide-up, out after NUDGE_MS or a tap (which
+  // works as the speaker). Never when there's nothing to hear: no audio,
+  // narration already on, or today's free narration used up.
+  const firstRun = useFirstRun();
+  const { markNarrationNudged, markNarrationUsed } = firstRun;
+  const [nudgeShown, setNudgeShown] = useState(false);
+  const nudgeCounted = useRef(false);
+  const nudgeEligible =
+    firstRun.loaded &&
+    !firstRun.narrationUsed &&
+    firstRun.narrationNudges < NUDGE_OPENS &&
+    !!urls &&
+    !narrateSetting &&
+    !narrationLocked &&
+    daily.left !== 0;
+  useEffect(() => {
+    if (!ready || !nudgeEligible || nudgeCounted.current) return;
+    nudgeCounted.current = true;
+    markNarrationNudged();
+    setNudgeShown(true);
+  }, [ready, nudgeEligible]);
+  useEffect(() => {
+    if (!nudgeShown) return;
+    const timer = setTimeout(() => setNudgeShown(false), NUDGE_MS);
+    return () => clearTimeout(timer);
+  }, [nudgeShown]);
+  useEffect(() => {
+    if (narration.on) markNarrationUsed();
+  }, [narration.on]);
+  const showNudge = nudgeShown && !narrateSetting && !narrationLocked;
+
   // The pages not on screen: faint while narrating (they'll be read when
   // reached), plain otherwise.
   const unread = useSharedValue(0);
@@ -885,6 +922,31 @@ export function CookMode({ mealName, steps, stepAudio, ingredients, servings, me
           </Pressable>
         )}
       </View>
+      {showNudge && (
+        // Over the content (nothing shifts), its pointer under the speaker's
+        // centre: the pill's right edge lines up with the button's (px-5),
+        // and the 12px pointer sits 14px in, so its centre is 20px in.
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          exiting={FadeOut.duration(200)}
+          className="absolute right-5 z-10"
+          style={{ top: insets.top + 8 + 40 + 10, maxWidth: width - 40 }}
+        >
+          <View className="absolute -top-1.5 right-3.5 h-3 w-3 rotate-45 rounded-sm bg-ink-emphasis" />
+          <Pressable
+            onPress={() => {
+              setNudgeShown(false);
+              toggleNarration();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Tap to hear each step read aloud"
+            className="flex-row items-center gap-2 rounded-2xl bg-ink-emphasis px-3.5 py-2.5 active:opacity-90"
+          >
+            <Volume2 color={colors.white} size={16} />
+            <Text className="shrink font-inter-semibold text-small text-white">Tap to hear each step read aloud</Text>
+          </Pressable>
+        </Animated.View>
+      )}
       <View className="mt-4 flex-row gap-1.5 px-5">
         {steps.map((_, i) => (
           <ProgressSegment key={i} filled={i <= index} />

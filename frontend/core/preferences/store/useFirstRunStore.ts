@@ -14,6 +14,11 @@ type Saved = {
   modeTourShown: boolean;
   /** Ticked a grocery item once: the list's how-it-works line goes. */
   tickLearned: boolean;
+  /** Cook mode opens that showed the "Tap to hear each step read aloud"
+   *  nudge (it shows on the first 3). */
+  narrationNudges: number;
+  /** Turned narration on once: the nudge is done for good. */
+  narrationUsed: boolean;
 };
 
 type FirstRunState = Saved & {
@@ -22,14 +27,16 @@ type FirstRunState = Saved & {
   markOnboarded: () => void;
   markModeTourShown: () => void;
   markTickLearned: () => void;
+  markNarrationNudged: () => void;
+  markNarrationUsed: () => void;
 };
 
-const EMPTY: Saved = { onboarded: false, modeTourShown: false, tickLearned: false };
+const EMPTY: Saved = { onboarded: false, modeTourShown: false, tickLearned: false, narrationNudges: 0, narrationUsed: false };
 
 export const useFirstRunStore = create<FirstRunState>((set, get) => {
   const save = () => {
-    const { onboarded, modeTourShown, tickLearned } = get();
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ onboarded, modeTourShown, tickLearned })).catch(() => {});
+    const { onboarded, modeTourShown, tickLearned, narrationNudges, narrationUsed } = get();
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ onboarded, modeTourShown, tickLearned, narrationNudges, narrationUsed })).catch(() => {});
   };
   const patch = (next: Partial<Saved>) => {
     set(next);
@@ -49,6 +56,8 @@ export const useFirstRunStore = create<FirstRunState>((set, get) => {
           onboarded: s.onboarded || saved.onboarded === true || !!saved.tonight,
           modeTourShown: s.modeTourShown || saved.modeTourShown === true,
           tickLearned: s.tickLearned || saved.tickLearned === true,
+          narrationNudges: Math.max(s.narrationNudges, typeof saved.narrationNudges === "number" ? saved.narrationNudges : 0),
+          narrationUsed: s.narrationUsed || saved.narrationUsed === true,
         }));
       } catch {
         // Unreadable: start fresh.
@@ -59,6 +68,10 @@ export const useFirstRunStore = create<FirstRunState>((set, get) => {
     markModeTourShown: () => patch({ modeTourShown: true }),
     markTickLearned: () => {
       if (!get().tickLearned) patch({ tickLearned: true });
+    },
+    markNarrationNudged: () => patch({ narrationNudges: get().narrationNudges + 1 }),
+    markNarrationUsed: () => {
+      if (!get().narrationUsed) patch({ narrationUsed: true });
     },
   };
 });
