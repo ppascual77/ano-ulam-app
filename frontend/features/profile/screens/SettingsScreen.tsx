@@ -5,8 +5,9 @@ import Constants from "expo-constants";
 import * as Application from "expo-application";
 import { requireOptionalNativeModule } from "expo";
 import Animated, { Easing, FadeInDown } from "react-native-reanimated";
-import { Gift } from "lucide-react-native";
+import { Gift, RotateCcw } from "lucide-react-native";
 import { allRewardsEarned, useProRewardProgress } from "@/frontend/core/pro/hooks/useProRewardProgress";
+import { useRestorePurchases } from "@/frontend/core/pro/hooks/useRestorePurchases";
 import { POST_REWARD_DAYS, RECIPE_REWARD_DAYS } from "@/frontend/core/pro/proContent";
 import { AccountCard } from "../components/settings/AccountCard";
 import { FreeLimitsCard } from "../components/settings/FreeLimitsCard";
@@ -185,6 +186,7 @@ export default function SettingsScreen() {
   // and opens Manage your plan (see useProStore).
   const isPro = useProStore((s) => s.isPro);
   const subscription = useProStore((s) => s.subscription);
+  const { restore, restoring } = useRestorePurchases();
   // Will charge again unless cancelled in the store (Delete account warns).
   const renewing = !!subscription && subscription.status !== "cancelled";
   // Pro that ended in the last 30 days: shown as Expired, tapping to renew.
@@ -300,7 +302,25 @@ export default function SettingsScreen() {
             {!subscription && earnedUntil && new Date(earnedUntil).getTime() > Date.now() && (
               <EarnedProCard until={earnedUntil} onPress={() => router.push({ pathname: "/pro", params: { source: "settings" } })} />
             )}
-            {!subscription && !isPro && lapsed && <ProPlanCard subscription={lapsed} onPress={() => router.push({ pathname: "/pro", params: { source: "settings" } })} />}
+            {!subscription && !isPro && lapsed && (
+              <>
+                <ProPlanCard subscription={lapsed} onPress={() => router.push({ pathname: "/pro", params: { source: "settings" } })} />
+                {/* Renewed in the store, or on another phone: bring it back
+                    here (IMP-8). A text link, not a second button. */}
+                <Pressable
+                  onPress={() => void restore()}
+                  disabled={restoring}
+                  accessibilityRole="button"
+                  className="flex-row items-center gap-1.5 self-start px-1 active:opacity-60"
+                >
+                  <RotateCcw color={colors.primary} size={14} />
+                  <Text className="font-inter-semibold text-small text-primary">
+                    {restoring ? "Restoring…" : "Already renewed? Restore purchases"}
+                  </Text>
+                  {!restoring && <ChevronRight color={colors.primary} size={14} />}
+                </Pressable>
+              </>
+            )}
             {/* What Pro includes is a checklist inside the plan card. */}
             {!isPro && !lapsed && <ProPitchCard />}
             {!isPro && earnTip && (
@@ -527,6 +547,11 @@ export default function SettingsScreen() {
           <Animated.View entering={enter(8)}>
           <SettingsSection title="About">
             <LinkRow label="How AnoUlam works" value="Take the quick tour again" onPress={() => router.push("/onboarding-tour")} />
+            <LinkRow
+              label={restoring ? "Restoring…" : "Restore purchases"}
+              value="If Pro doesn't show after buying or reinstalling"
+              onPress={() => void restore()}
+            />
             <LinkRow label="Send feedback" onPress={sendFeedback} />
             <LinkRow label="Privacy Policy" onPress={openPrivacyPolicy} />
             <LinkRow label="Terms of Service" onPress={openTerms} />
