@@ -48,11 +48,6 @@ const LOCKED_DAYS_COPY = (days: number) => ({
   highlight: "ready",
   subtitle: "Unlock every day of your plan with AnoUlam Pro.",
 });
-const MACRO_GOAL_COPY = {
-  title: "Plan around your",
-  highlight: "goals",
-  subtitle: "Pro aims every plan at your calories and protein, and keeps your nutrition goals across the app.",
-};
 
 // Plays the "one budget, seven days" intro on opening the planner (setup
 // stage only: that's where the "Let's plan your week." header is).
@@ -299,7 +294,9 @@ export default function MealPlannerScreen() {
                 onEditMacros={() => setMacroSheetOpen(true)}
                 fromGoals={usingGoals}
                 macrosLocked={!isPro}
-                onMacrosLocked={() => openPro(MACRO_GOAL_COPY)}
+                // The Nutrition goals reel, like the other locks with one
+                // (BUG-10: it went straight to the Pro page).
+                onMacrosLocked={() => setFeatureSheet("goals")}
               />
             </Animated.View>
           </ScrollView>
@@ -563,10 +560,16 @@ export default function MealPlannerScreen() {
       <ProFeatureSheet
         feature={featureSheet}
         onClose={() => setFeatureSheet(null)}
-        // Get Pro: the Pro page titled for this plan's locked days; See them
-        // all: the plain Pro page.
+        // Get Pro: the Pro page titled for what was tapped (this plan's
+        // locked days, or the goals: the sheet's own copy); See them all:
+        // the plain Pro page.
         onOpenPro={(copy) =>
-          router.push({ pathname: "/pro", params: copy ? { ...LOCKED_DAYS_COPY(shownDays - 1), source: "locked_day" } : { source: "locked_day" } })
+          router.push({
+            pathname: "/pro",
+            params: copy
+              ? { ...(featureSheet === "planLength" ? LOCKED_DAYS_COPY(shownDays - 1) : copy), source: "locked_day" }
+              : { source: "locked_day" },
+          })
         }
       />
 
