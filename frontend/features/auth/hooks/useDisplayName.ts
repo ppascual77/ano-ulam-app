@@ -1,6 +1,11 @@
 import { useAuth } from "./useAuth";
 import { useUserProfile } from "./useUserProfile";
 
+/** Shown for someone with no name (Apple's "Don't share my name", or Apple
+ *  not sending it again after a deleted account). Never their email: with
+ *  Apple that's a private relay address. */
+export const UNNAMED_USER = "AnoUlam cook";
+
 // The signed-in user's name for greetings and avatars: the display name
 // they set on their profile, else the one Google gave at sign-in. Nothing
 // for a guest (callers greet without a name).

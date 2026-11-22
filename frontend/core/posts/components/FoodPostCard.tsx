@@ -6,6 +6,7 @@ import { Confetti, Dropdown, useBurstOnActivate } from "@/frontend/components/ui
 import { colors } from "@/frontend/constants/theme";
 import type { FoodPost } from "@/api/posts";
 import { LinkPreviewCard } from "./LinkPreviewCard";
+import { UNNAMED_USER } from "@/frontend/features/auth/hooks/useDisplayName";
 import { PostAuthor, PostCaption, PostPhoto, SkeletonImage } from "./PostParts";
 
 type FoodPostCardProps = {
@@ -86,7 +87,7 @@ export function FoodPostCard({
           </View>
         ))}
       <PostAuthor
-        name={post.display_name ?? "User"}
+        name={post.display_name ?? UNNAMED_USER}
         avatarUrl={post.avatar_url}
         onPress={onPressAuthor}
         trailing={

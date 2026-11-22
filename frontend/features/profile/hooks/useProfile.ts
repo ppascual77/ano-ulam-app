@@ -6,8 +6,9 @@ import { listApprovedRecipesByPoster, listMyRecipes } from "@/api/recipes";
 import { mealRowToMealType } from "@/frontend/core/meals/utils/mealAdapter";
 import { listPublicSavedMeals } from "@/frontend/core/saved/savedMeals";
 import type { SavedMeal } from "@/frontend/core/saved/types";
-import { removeAvatar, uploadAvatar, type PickedPhoto, type UserProfile } from "@/api/auth";
+import { removeAvatar, updateAccountName, uploadAvatar, type PickedPhoto, type UserProfile } from "@/api/auth";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
+import { UNNAMED_USER, useDisplayName } from "@/frontend/features/auth/hooks/useDisplayName";
 import { authKeys } from "@/frontend/features/auth/queryKeys";
 import {
   useMyAvatarUrl,
@@ -28,17 +29,35 @@ const profileKeys = {
   myRecipes: (posterId: string | null) => ["recipes", "mine", "list", posterId] as const,
 };
 
-// The signed-in user's display info, from the real session. Falls back the
-// same way the web does (display name, then email, then "User").
+// The signed-in user's display info: the name on their profile, else the
+// one Apple or Google sent at sign-in, else UNNAMED_USER. Never the email
+// (with Apple it's a private relay address). hasName: false when there's no
+// name at all, so their own Profile can offer to add one.
 export function useMe() {
   const { session } = useAuth();
-  const meta = session?.user.user_metadata ?? {};
+  const { fullName } = useDisplayName();
   const avatarUrl = useMyAvatarUrl();
   return {
     id: session?.user.id ?? null,
-    name:
-      (meta.full_name as string | undefined) ?? (meta.name as string | undefined) ?? session?.user.email ?? "User",
+    name: fullName ?? UNNAMED_USER,
+    hasName: !!fullName,
     avatarUrl,
+  };
+}
+
+// Change the signed-in user's name: the profile row (what everyone else
+// sees) and the account's sign-in data, so both say the same.
+export function useUpdateName() {
+  const update = useUpdateUserProfile();
+  return {
+    mutateAsync: async (name: string) => {
+      const next = name.trim();
+      if (!next) throw new Error("A name can't be empty");
+      await update.mutateAsync({ display_name: next });
+      // The row is what the app shows first; the account data only matters
+      // as the fallback, so a failure here doesn't undo the save.
+      await updateAccountName(next).catch(() => {});
+    },
   };
 }
 

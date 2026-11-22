@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Avatar, Screen, Toast, type ToastState } from "@/frontend/components/ui";
 import { type SignInProvider, useAuth, useSignIn } from "@/frontend/features/auth/hooks/useAuth";
+import { UNNAMED_USER } from "@/frontend/features/auth/hooks/useDisplayName";
 import { useMe, useUserProfile } from "../hooks/useProfile";
 import { BackRow } from "../components/BackRow";
 import { ProfileHeader } from "../components/ProfileHeader";
@@ -55,7 +56,7 @@ export default function UserProfileScreen() {
   };
 
   const unauthorized = profile.error instanceof Error && profile.error.message === "unauthorized";
-  const name = profile.data?.display_name ?? "User";
+  const name = profile.data?.display_name ?? UNNAMED_USER;
 
   return (
     <Screen padded={false} edges={["top"]} dismissKeyboardOnTap={false}>

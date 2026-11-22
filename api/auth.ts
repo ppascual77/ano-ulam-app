@@ -280,6 +280,13 @@ export async function getUserProfile(userId: string) {
   return data;
 }
 
+/** The name on the sign-in account (user_metadata.full_name), kept in step
+ *  with users.display_name when the user changes it in the app. */
+export async function updateAccountName(name: string) {
+  const { error } = await supabase.auth.updateUser({ data: { full_name: name } });
+  if (error) throw error;
+}
+
 export async function updateUserProfile(userId: string, patch: Partial<UserProfile>) {
   const { data, error } = await supabase
     .from("users")
