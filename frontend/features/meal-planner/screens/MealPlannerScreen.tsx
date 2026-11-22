@@ -24,7 +24,7 @@ import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGro
 import { GroceryMealPicker } from "@/frontend/core/grocery/components/GroceryMealPicker";
 import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
 import { PLAN_DAYS, dayGoalGap, dayLabel, dayTotals, formatPeso, generatePlan, monthDay, regenerateDay, riceCupsFor, swapOptions, type MealPlan, type MealSlot } from "../utils/generatePlan";
-import { goalsFromTargets, targetsFromGoals } from "@/frontend/core/nutrition/macros";
+import { goalsFromTargets, targetsFromGoals, type MacroTargets } from "@/frontend/core/nutrition/macros";
 import { useNutritionGoals } from "@/frontend/core/preferences/hooks/useNutritionGoals";
 import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
 import { BudgetHero, PlanDetailsCard, parseBudget } from "../components/PlannerInputs";
@@ -33,7 +33,7 @@ import { GeneratingView } from "../components/GeneratingView";
 import { MealPlannerIntro } from "../components/MealPlannerIntro";
 import { useReduceMotion } from "@/frontend/core/preferences/store/useReduceMotionStore";
 import { useIntroOnce } from "@/frontend/core/preferences/store/useSeenIntrosStore";
-import { DateSelector, GroceryCard, HeroCarousel, RegenerateDayButton, SummaryRow, useMeasuredWidth } from "../components/PlanParts";
+import { DateSelector, GroceryCard, HeroCarousel, PlanFocusRow, dateRange, RegenerateDayButton, SummaryRow, useMeasuredWidth, type PlanFocus } from "../components/PlanParts";
 import { SwapMealSheet } from "../components/PlannerSheets";
 import { ProFeatureSheet, type ProFeatureKey } from "@/frontend/core/pro/components/ProFeatureSheet";
 
@@ -227,6 +227,44 @@ export default function MealPlannerScreen() {
     showToast("Your last plan, starting today");
   };
 
+  // Budget / Nutrition on the plan (IMP-1): the same days, budget, people
+  // and rice planned again, aiming at the goal or not. Swaps are replaced.
+  const replan = (nextTargets: MacroTargets | null) => {
+    const current = usePlannerStore.getState().plan;
+    if (!current) return;
+    const next = generatePlan({
+      pool,
+      budget: current.budget,
+      servings: current.servings,
+      targets: nextTargets,
+      from: current.days[0].date,
+      length: current.days.length,
+      rice: current.rice ?? null,
+    });
+    if (!next) return showToast("Couldn't plan these days again. Try Regenerate.", "error");
+    store.setPlan(next);
+    setSelectedMeal(0);
+    void persist(next);
+    showToast(nextTargets ? "Planned for your nutrition goal" : "Planned for your budget");
+  };
+  // The goal the Nutrition side aims at: the plan's own, else (Pro) the
+  // goals from Settings or this planner.
+  const focusTargets = plan?.targets ?? (isPro ? (goalTargets ?? store.targets) : null);
+  const planFocus: PlanFocus | null = !isPro || !focusTargets ? null : plan?.targets ? "nutrition" : "budget";
+  const switchFocus = (focus: PlanFocus) => {
+    if (focus === planFocus) return;
+    if (focus === "nutrition") {
+      if (!focusTargets) return;
+      store.setTargets(focusTargets, goalTargets ? (nutritionGoals?.goal ?? null) : store.goal);
+      setGoalsOff(false);
+      replan(focusTargets);
+    } else {
+      store.setTargets(null);
+      if (goalTargets) setGoalsOff(true);
+      replan(null);
+    }
+  };
+
   const regenerate = () => {
     if (!plan) return;
     const meals = regenerateDay(pool, plan, selectedDay);
@@ -359,15 +397,19 @@ export default function MealPlannerScreen() {
           {/* Title and what the plan was built for on the left; regenerate
               the whole plan and edit its details on the right (each
               confirmed in a sheet first). */}
-          <Animated.View entering={FadeInDown.duration(320)} className="flex-row items-start gap-2 px-5 pb-1">
+          <Animated.View entering={FadeInDown.duration(320)} className="flex-row items-center gap-2 px-5 pb-1">
             <View className="flex-1">
-              <AppText variant="sectionTitle" dot>
-                Your week
+              {/* "Your week Nov 22 – 26." in one title, the days in accent
+                  orange; shrinks to stay on one line beside the buttons. */}
+              <AppText
+                variant="sectionTitle"
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                accessibilityLabel={`Your week, ${monthDay(plan.days[0].date)} to ${monthDay(plan.days[plan.days.length - 1].date)}`}
+              >
+                Your week {dateRange(plan.days[0].date, plan.days[plan.days.length - 1].date).month}{" "}
+                <Text className="text-accent">{dateRange(plan.days[0].date, plan.days[plan.days.length - 1].date).days}.</Text>
               </AppText>
-              <Text className="mt-0.5 font-inter-regular text-small text-ink-subtle">
-                {monthDay(plan.days[0].date)} – {monthDay(plan.days[plan.days.length - 1].date)} · {plan.servings}{" "}
-                {plan.servings === 1 ? "person" : "people"} · {formatPeso(plan.budget)}
-              </Text>
             </View>
             <Pressable
               onPress={() => setConfirm("regenerate")}
@@ -388,25 +430,35 @@ export default function MealPlannerScreen() {
               <Pencil color={colors.ink.emphasis} size={15} />
             </Pressable>
           </Animated.View>
-
-          <View className="pt-3">
-            {/* A locked day (day 2 on, free): the plan-your-week feature sheet,
-                its reel showing a whole week planned. */}
-            {/* With a goal, when a day misses it: how many land (each missed
-                day's own note says by how much and why). */}
+          {/* One row: Budget | Nutrition (or "Set your goals") on the left,
+              how many days land on the goal on the right (only when some
+              miss; each missed day's own note says by how much and why). */}
+          <Animated.View entering={FadeInDown.delay(60).duration(320)} className="flex-row items-center justify-between gap-3 px-5 pt-3">
+            <PlanFocusRow
+              focus={planFocus}
+              targets={focusTargets}
+              locked={!isPro}
+              onChange={switchFocus}
+              onSetGoals={() => (isPro ? setMacroSheetOpen(true) : setFeatureSheet("goals"))}
+            />
             {(() => {
               if (!plan.targets) return null;
               const onTarget = plan.days.filter((d) => !dayGoalGap(dayTotals(d, plan.servings, plan.rice), plan.targets)).length;
               if (onTarget === plan.days.length) return null;
               return (
-                <Text className="mb-2 font-inter-medium text-small text-ink-subtle">
-                  <Text className="font-inter-bold text-ink-emphasis">
+                <Text className="shrink text-right font-inter-regular text-small text-ink-subtle">
+                  <Text className="font-inter-semibold text-ink-emphasis">
                     {onTarget} of {plan.days.length}
                   </Text>{" "}
-                  days on your nutrition goal
+                  days on goal
                 </Text>
               );
             })()}
+          </Animated.View>
+
+          <View className="pt-3">
+            {/* A locked day (day 2 on, free): the plan-your-week feature sheet,
+                its reel showing a whole week planned. */}
             <DateSelector plan={plan} selected={selectedDay} isPremium={isPro} onSelect={selectDay} onLocked={() => setFeatureSheet("planLength")} />
           </View>
 
@@ -466,6 +518,8 @@ export default function MealPlannerScreen() {
             setGoalsOff(false);
           }
           setMacroSheetOpen(false);
+          // Set from the plan ("Set your goals"): plan these days for it.
+          if (store.stage === "plan" && isPro) replan(targets);
         }}
         onTurnOff={
           store.targets

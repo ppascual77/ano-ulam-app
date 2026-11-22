@@ -496,3 +496,62 @@ export function GroceryCard({ dayName, dayItems, dayTotal, weekItems, weekLocked
     </View>
   );
 }
+
+export type PlanFocus = "budget" | "nutrition";
+
+/** What the plan aims at, under "Your week" (IMP-1). With a nutrition goal
+ *  (Pro): a Budget / Nutrition switch that re-plans the same days. Without
+ *  one: a "Set your goals" text link (the
+ *  goals sheet; Free gets the Nutrition goals feature sheet, with PRO). */
+export function PlanFocusRow({
+  focus,
+  targets,
+  locked,
+  onChange,
+  onSetGoals,
+}: {
+  /** null: no nutrition goal to switch to. */
+  focus: PlanFocus | null;
+  /** The goal the Nutrition side aims at (per person, a day). */
+  targets: MacroTargets | null;
+  locked: boolean;
+  onChange: (focus: PlanFocus) => void;
+  onSetGoals: () => void;
+}) {
+  if (!focus || !targets) {
+    return (
+      <Pressable
+        onPress={onSetGoals}
+        hitSlop={8}
+        accessibilityRole="link"
+        accessibilityLabel={locked ? "Set your nutrition goals, a Pro feature" : "Set your nutrition goals"}
+        className="flex-row items-center gap-1.5 self-start active:opacity-70"
+      >
+        <Flame color={colors.primary} size={15} />
+        <Text className="font-inter-semibold text-small text-primary">Set your goals</Text>
+        {locked && <ProBadge />}
+        <ChevronRight color={colors.primary} size={15} />
+      </Pressable>
+    );
+  }
+  return (
+    <SegmentedSwitch
+      options={[
+        { value: "budget", label: "Budget" },
+        { value: "nutrition", label: "Nutrition" },
+      ]}
+      value={focus}
+      onChange={onChange}
+    />
+  );
+}
+
+const MONTH = new Intl.DateTimeFormat("en-US", { month: "short" });
+
+/** A plan's dates for its title, split so the days can take the accent:
+ *  { month: "Nov", days: "22 – 26" }, or across a month
+ *  { month: "Nov", days: "30 – Dec 4" }. */
+export function dateRange(from: Date, to: Date) {
+  const sameMonth = from.getMonth() === to.getMonth() && from.getFullYear() === to.getFullYear();
+  return { month: MONTH.format(from), days: sameMonth ? `${from.getDate()} – ${to.getDate()}` : `${from.getDate()} – ${monthDay(to)}` };
+}
