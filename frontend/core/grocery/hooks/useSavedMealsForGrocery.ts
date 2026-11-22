@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getIngredientRoles } from "@/api/ingredients";
-import { useSavedMeals } from "@/frontend/core/saved/hooks/useSavedMeals";
+import { useLockedSaves, useSavedMeals } from "@/frontend/core/saved/hooks/useSavedMeals";
 import type { SavedMeal } from "@/frontend/core/saved/types";
 
 // The saved meals the grocery list is built from: home-cooked ones (fast
@@ -12,10 +12,16 @@ import type { SavedMeal } from "@/frontend/core/saved/types";
 // of meals saved before the change. A role that was never set counts as
 // main: better an extra row to tick off than something you need hidden
 // among the staples. Until the roles load (or if they fail), the snapshot's
-// roles are used. Every saved meal is on the list: saved means cooking it.
+// roles are used. Every saved meal is on the list (saved means cooking it),
+// except saves locked after Pro ended.
 export function useSavedMealsForGrocery() {
   const saved = useSavedMeals();
-  const cookable = useMemo(() => (saved.data ?? []).filter((meal) => meal.category !== "fast_food"), [saved.data]);
+  // Saves locked after Pro ended (useLockedSaves) aren't on the list.
+  const locked = useLockedSaves();
+  const cookable = useMemo(
+    () => (saved.data ?? []).filter((meal) => meal.category !== "fast_food" && !locked.has(meal.saved_id)),
+    [saved.data, locked],
+  );
   const ids = useMemo(() => {
     const set = new Set<string>();
     for (const meal of cookable) for (const ingredient of meal.ingredients ?? []) if (ingredient.ingredientId) set.add(ingredient.ingredientId);
