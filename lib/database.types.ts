@@ -448,6 +448,7 @@ export type Database = {
           budget: number
           days: Json
           goal: string | null
+          rice_cups: number | null
           servings: number
           start_date: string
           targets: Json | null
@@ -458,6 +459,7 @@ export type Database = {
           budget: number
           days: Json
           goal?: string | null
+          rice_cups?: number | null
           servings: number
           start_date: string
           targets?: Json | null
@@ -468,6 +470,7 @@ export type Database = {
           budget?: number
           days?: Json
           goal?: string | null
+          rice_cups?: number | null
           servings?: number
           start_date?: string
           targets?: Json | null

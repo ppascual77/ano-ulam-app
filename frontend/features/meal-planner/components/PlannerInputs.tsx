@@ -1,12 +1,12 @@
 import { ReactNode, useRef } from "react";
 import { Pressable, View, type TextInputInstance } from "react-native";
 import { Text, TextInput } from "@/frontend/components/ui/Text";
-import { CalendarDays, ChartColumn, ChevronRight, Lock, Users, type LucideIcon } from "lucide-react-native";
+import { CalendarDays, ChartColumn, ChevronRight, CookingPot, Lock, Users, type LucideIcon } from "lucide-react-native";
 import { RollingText, Stepper, Toggle } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 import { GOAL_OPTIONS, type Goal, type MacroTargets } from "@/frontend/core/nutrition/macros";
-import { monthDay } from "../utils/generatePlan";
+import { monthDay, type RiceCups } from "../utils/generatePlan";
 
 export const MAX_SERVINGS = 10;
 
@@ -67,6 +67,7 @@ export function BudgetHero({ value, onChange, servings, days }: BudgetHeroProps)
           <Text className="font-inter-semibold text-small text-ink-subtle">/ day</Text>
         </View>
       </View>
+
     </View>
   );
 }
@@ -128,6 +129,9 @@ type PlanDetailsCardProps = {
   onServingsChange: (value: number) => void;
   /** Days in a new plan (5, or Pro's 5/7 from Settings), starting today. */
   days: number;
+  /** Cups of rice per person with lunch and dinner (0 = not counted). */
+  riceCups: RiceCups;
+  onRiceCupsChange: (value: RiceCups) => void;
   targets: MacroTargets | null;
   goal: Goal | null;
   /** Toggle on: opens the nutrition sheet. */
@@ -148,6 +152,8 @@ export function PlanDetailsCard({
   servings,
   onServingsChange,
   days,
+  riceCups,
+  onRiceCupsChange,
   targets,
   goal,
   onEnableMacros,
@@ -182,6 +188,29 @@ export function PlanDetailsCard({
         title={<RowTitle>Days</RowTitle>}
         detail={`Starting today, ${WEEKDAY.format(today)} ${monthDay(today)}`}
         trailing={<Text className="font-inter-semibold text-body text-ink-emphasis">{days} days</Text>}
+      />
+      {/* Rice with every meal that goes with rice, counted in the plan's nutrition, cost and
+          grocery list (BUG-9). Chosen before building: the plan is fitted
+          around it. Same stepper as People. */}
+      <DetailRow
+        Icon={CookingPot}
+        divided
+        title={<RowTitle>Rice</RowTitle>}
+        detail={
+          riceCups === 0
+            ? "Not counted in the plan"
+            : `${riceCups} ${riceCups === 1 ? "cup" : "cups"} with each ulam, per person`
+        }
+        trailing={
+          <Stepper
+            value={riceCups}
+            onChange={(value) => onRiceCupsChange(Math.max(0, Math.min(2, value)) as RiceCups)}
+            min={0}
+            max={2}
+            decrementLabel="Less rice"
+            incrementLabel="More rice"
+          />
+        }
       />
       {macrosLocked ? (
         <DetailRow

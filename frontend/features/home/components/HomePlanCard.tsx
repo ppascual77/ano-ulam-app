@@ -71,7 +71,7 @@ function TodayPlan({ plan, dayIndex }: { plan: MealPlan; dayIndex: number }) {
   const goals = useNutritionGoals();
   const reduceMotion = useReduceMotion();
   const day = plan.days[dayIndex];
-  const totals = dayTotals(day, plan.servings);
+  const totals = dayTotals(day, plan.servings, plan.rice);
   const lastDay = dayIndex === plan.days.length - 1;
   const showGoals = !!goals && (!!goals.calories || !!goals.protein);
   const nextSlot = upNextSlot();

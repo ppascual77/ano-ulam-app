@@ -4,12 +4,12 @@ import { Text } from "@/frontend/components/ui/Text";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
-import { ArrowLeftRight, ChevronRight, ShoppingCart, CloudSun, Moon, Sun, Droplets, Dumbbell, Flame, Lock, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
+import { ArrowLeftRight, ChevronRight, CookingPot, ShoppingCart, CloudSun, Moon, Sun, Droplets, Dumbbell, Flame, Lock, RefreshCw, Wheat, type LucideIcon } from "lucide-react-native";
 import { SegmentedSwitch } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { ProBadge } from "@/frontend/core/pro/components/ProBadge";
 import type { MacroTargets } from "@/frontend/core/nutrition/macros";
-import { PLAN_DAYS, SLOTS, SLOT_LABELS, dayLabel, dayTotals, formatPeso, monthDay, perServing, type MealPlan, type PlanDay, type PlannedMeal } from "../utils/generatePlan";
+import { PLAN_DAYS, SLOTS, SLOT_LABELS, dayLabel, dayTotals, formatPeso, mealCost as costOfMeal, monthDay, riceCupsFor, type MealPlan, type PlanDay, type PlanRice, type PlannedMeal } from "../utils/generatePlan";
 import { MealImage } from "./ImagePlaceholder";
 import type { MealSlot } from "../utils/generatePlan";
 
@@ -163,7 +163,7 @@ const MEAL_COLORS: Record<MealSlot, string> = {
 // the day against its share of the budget (budget / the plan's days, what
 // the planner plans each day within).
 export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
-  const totals = dayTotals(day, plan.servings);
+  const totals = dayTotals(day, plan.servings, plan.rice);
   if (plan.targets) {
     const calories = Math.round(totals.calories);
     const share = Math.round((calories / plan.targets.calories) * 100);
@@ -194,7 +194,8 @@ export function SummaryRow({ plan, day }: { plan: MealPlan; day: PlanDay }) {
   const share = Math.round((cost / dayBudget) * 100);
   const mealCost = (slot: MealSlot) => {
     const item = day.meals.find((m) => m.slot === slot);
-    return item ? perServing(item.meal) * plan.servings : 0;
+    // With its rice, so the split adds up to the day's cost.
+    return item ? costOfMeal(slot, item.meal, plan.servings, plan.rice) : 0;
   };
   return (
     <SummaryCard
@@ -235,6 +236,9 @@ type HeroCarouselProps = {
   day: PlanDay;
   /** Above 1: the cost reads "for N", the macros "per serving". */
   servings: number;
+  /** The plan's rice: a "+ 1 cup rice" line on each meal that goes with
+   *  rice, and in the meal's cost. */
+  rice?: PlanRice | null;
   width: number;
   /** Which meal (0-2) is showing. */
   selected: number;
@@ -249,7 +253,7 @@ type HeroCarouselProps = {
 // The day's meals: Breakfast / Lunch / Dinner tabs over big swipeable photo
 // cards, kept in sync both ways (tap a tab, or swipe). Each card: its slot,
 // a Swap button for that meal, the name, kcal and protein, and the cost.
-export function HeroCarousel({ day, servings, width, selected, onChange, onOpen, onSwap, swapLocked }: HeroCarouselProps) {
+export function HeroCarousel({ day, servings, rice, width, selected, onChange, onOpen, onSwap, swapLocked }: HeroCarouselProps) {
   const list = useRef<FlatList<PlannedMeal>>(null);
   const cardWidth = Math.round(width * CARD_SHARE);
   const step = cardWidth + CARD_GAP;
@@ -287,6 +291,7 @@ export function HeroCarousel({ day, servings, width, selected, onChange, onOpen,
         getItemLayout={(_, index) => ({ length: step, offset: step * index, index })}
         renderItem={({ item }) => {
           const Icon = SLOT_ICONS[item.slot];
+          const cups = riceCupsFor(item.slot, item.meal, rice);
           return (
             <Pressable
               onPress={() => onOpen(item)}
@@ -321,6 +326,17 @@ export function HeroCarousel({ day, servings, width, selected, onChange, onOpen,
 
                 <View className="flex-row items-end gap-3">
                   <View className="flex-1">
+                    {/* The plan's rice with this meal: a frosted pill over the
+                        photo, above the name, so it reads as part of the meal. */}
+                    {cups > 0 && rice && (
+                      <View className="mb-2 flex-row items-center gap-1.5 self-start rounded-full border border-white/30 bg-white/20 px-2.5 py-1">
+                        <CookingPot color={colors.white} size={13} />
+                        <Text className="font-inter-semibold text-small text-white">
+                          + {cups} {cups === 1 ? "cup" : "cups"} rice
+                          <Text className="font-inter-regular text-white/75">{`  ·  ${Math.round(cups * rice.cup.calories)} kcal`}</Text>
+                        </Text>
+                      </View>
+                    )}
                     <Text numberOfLines={2} className="font-inter-extrabold text-heading tracking-tight text-white">
                       {item.meal.name}
                     </Text>
@@ -333,9 +349,10 @@ export function HeroCarousel({ day, servings, width, selected, onChange, onOpen,
                         {servings > 1 ? "  ·  per serving" : ""}
                       </Text>
                     </View>
+
                   </View>
                   <View className="items-end">
-                    <Text className="font-inter-extrabold text-subheading text-white">{formatPeso(perServing(item.meal) * servings)}</Text>
+                    <Text className="font-inter-extrabold text-subheading text-white">{formatPeso(costOfMeal(item.slot, item.meal, servings, rice))}</Text>
                     <Text className="font-inter-semibold text-sub uppercase tracking-wide text-white/75">
                       {servings > 1 ? `for ${servings}` : "per person"}
                     </Text>

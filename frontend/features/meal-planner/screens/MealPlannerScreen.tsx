@@ -10,18 +10,20 @@ import { ArrowLeft, ArrowRight, Pencil, RefreshCw } from "lucide-react-native";
 import { AppText, Button, ConfirmSheet, LandingTitle, LoadingState, Screen, Toast, usePageIntro, type ToastState } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { MealDetailSheet } from "@/frontend/core/meals/components/detail/MealDetailSheet";
+import type { SideRice } from "@/frontend/core/meals/components/detail/MealDetailContent";
 import { useMealDetail } from "@/frontend/core/meals/hooks/useMealDetail";
 import { resolveMealImage } from "@/frontend/core/meals/resolveMealImage";
 import { useDisplayName } from "@/frontend/features/auth/hooks/useDisplayName";
 import { usePlannerStore } from "../store/usePlannerStore";
 import { usePlannerPool } from "../hooks/usePlannerPool";
+import { usePlannerRice } from "../hooks/usePlannerRice";
 import { useSavedMealPlan } from "../hooks/useSavedMealPlan";
 import { usePlanGroceryList } from "@/frontend/core/grocery/hooks/usePlanGroceryList";
 import { useSavedGroceryList } from "@/frontend/core/grocery/hooks/useSavedGroceryList";
 import { FullGroceryListSheet } from "@/frontend/core/grocery/components/FullGroceryListSheet";
 import { GroceryMealPicker } from "@/frontend/core/grocery/components/GroceryMealPicker";
 import { usePantry } from "@/frontend/core/pantry/hooks/usePantry";
-import { PLAN_DAYS, dayLabel, formatPeso, generatePlan, monthDay, regenerateDay, swapOptions, type MealPlan, type MealSlot } from "../utils/generatePlan";
+import { PLAN_DAYS, dayLabel, formatPeso, generatePlan, monthDay, regenerateDay, riceCupsFor, swapOptions, type MealPlan, type MealSlot } from "../utils/generatePlan";
 import { goalsFromTargets, targetsFromGoals } from "@/frontend/core/nutrition/macros";
 import { useNutritionGoals } from "@/frontend/core/preferences/hooks/useNutritionGoals";
 import { usePreferences } from "@/frontend/core/preferences/hooks/usePreferences";
@@ -59,6 +61,7 @@ export default function MealPlannerScreen() {
   const store = usePlannerStore();
   const isPro = useProStore((s) => s.isPro);
   const { pool, isLoading: poolLoading } = usePlannerPool();
+  const { cup: riceCup, ingredient: riceIngredient } = usePlannerRice();
   const savedPlan = useSavedMealPlan();
   // "Hello, <first name>!", or just "Hello!" for a guest.
   const { firstName } = useDisplayName();
@@ -165,14 +168,23 @@ export default function MealPlannerScreen() {
 
   // seed: a fresh one from "Regenerate", for a different plan.
   const build = (seed = 0) => {
-    const next = generatePlan({ pool, budget, servings: store.servings, targets, seed, length: planLength });
+    const rice = store.riceCups > 0 ? { cups: store.riceCups, cup: riceCup, ingredient: riceIngredient } : null;
+    const next = generatePlan({ pool, budget, servings: store.servings, targets, seed, length: planLength, rice });
     store.setPlan(next);
     selectDay(0);
     store.setStage("generating");
     if (next) void persist(next);
   };
 
-  const viewRecipe = (meal: MealPlan["days"][number]["meals"][number]["meal"]) => detail.open(meal);
+  // The meal's rice in this plan rides along to its details ("Served with
+  // rice"), per person.
+  const [detailRice, setDetailRice] = useState<SideRice | undefined>(undefined);
+  const viewRecipe = (meal: MealPlan["days"][number]["meals"][number]["meal"], slot?: MealSlot) => {
+    const cups = plan && slot ? riceCupsFor(slot, meal, plan.rice) : 0;
+    const cup = plan?.rice?.cup;
+    setDetailRice(cups > 0 && cup ? { cups, calories: cups * cup.calories, carbs: cups * cup.carbs, price: cups * cup.price } : undefined);
+    detail.open(meal);
+  };
 
   // The day being viewed, as "today" or e.g. "Fri, Nov 14".
   const groceryDayName = !plan
@@ -287,6 +299,8 @@ export default function MealPlannerScreen() {
               <PlanDetailsCard
                 servings={store.servings}
                 onServingsChange={store.setServings}
+                riceCups={store.riceCups}
+                onRiceCupsChange={store.setRiceCups}
                 days={planLength}
                 targets={targets}
                 goal={store.goal}
@@ -397,10 +411,11 @@ export default function MealPlannerScreen() {
                   <HeroCarousel
                     day={plan.days[Math.min(selectedDay, plan.days.length - 1)]}
                     servings={plan.servings}
+                    rice={plan.rice}
                     width={hero.width}
                     selected={selectedMeal}
                     onChange={setSelectedMeal}
-                    onOpen={(item) => viewRecipe(item.meal)}
+                    onOpen={(item) => viewRecipe(item.meal, item.slot)}
                     swapLocked={!isPro}
                     onSwap={(item) => (isPro ? setSwap({ dayIndex: selectedDay, slot: item.slot }) : openPro())}
                   />
@@ -518,7 +533,13 @@ export default function MealPlannerScreen() {
       />
 
       {/* Opens at the plan's people, like the plan's cards. */}
-      <MealDetailSheet meal={detail.meal} loading={detail.loading} onClose={detail.close} initialServings={plan?.servings} />
+      <MealDetailSheet
+        meal={detail.meal}
+        loading={detail.loading}
+        onClose={detail.close}
+        initialServings={plan?.servings}
+        sideRice={detailRice}
+      />
 
       <ConfirmSheet
         visible={offerVisible}

@@ -70,3 +70,52 @@ test("planner: swap never offers a dish already in the day", () => {
   const lunch = day.meals[1].meal.id;
   assert.ok(!swapOptions(pool, plan, 0, "breakfast").some((m) => m.id === lunch));
 });
+
+// ---- Rice (BUG-9) -----------------------------------------------------------
+test("rice: one cup from the catalog's raw rice (55 g raw, ₱/kg)", async () => {
+  const { riceCupFrom } = await import("@/frontend/features/meal-planner/utils/generatePlan");
+  const cup = riceCupFrom({ calories: "358.7", protein: "7", carbohydrates: "80", fat: "1", basis_amount: "100", basis_unit: "g", estimated_price: "53.92", estimated_price_unit: "kg" });
+  assert.ok(Math.abs(cup.calories - 197.3) < 0.1);
+  assert.ok(Math.abs(cup.carbs - 44) < 0.01);
+  assert.ok(Math.abs(cup.price - 2.9656) < 0.001);
+  assert.equal(riceCupFrom({ calories: 1, protein: 1, carbohydrates: 1, fat: 1, basis_amount: 100, basis_unit: "ml", estimated_price: 1, estimated_price_unit: "kg" }), null);
+  assert.equal(riceCupFrom(null), null);
+});
+
+test("rice: real rice grains and noodles are the dish's own carb; rice paper, flour, wrappers aren't", async () => {
+  const { isOwnCarbIngredient } = await import("@/frontend/features/meal-planner/utils/generatePlan");
+  for (const name of ["White rice, cooked", "Rice, white, raw", "Glutinous rice, raw", "Brown rice, raw", "Fried rice, sinangag", "Miswa noodles, dried", "Spaghetti, dried", "Macaroni, dried", "Rice noodles, cooked"]) {
+    assert.ok(isOwnCarbIngredient(name), name);
+  }
+  for (const name of ["White bread, sliced", "Rolled oats, raw"]) assert.ok(isOwnCarbIngredient(name), name);
+  for (const name of ["rice paper", "Rice flour", "Vinegar, rice", "Lumpia wrapper", "Breadcrumbs", "Bread crumbs", "Chicken, fried (Breaded)", "Pork, belly"]) {
+    assert.ok(!isOwnCarbIngredient(name), name);
+  }
+});
+
+test("rice: counted with any meal, breakfast too, never with a dish that has its own carb", async () => {
+  const { riceCupsFor } = await import("@/frontend/features/meal-planner/utils/generatePlan");
+  const rice = { cups: 2, cup: { calories: 200, protein: 4, carbs: 44, fats: 0.5, price: 3 } };
+  assert.equal(riceCupsFor("breakfast", pm("b", 50, ["breakfast"]), rice), 2);
+  assert.equal(riceCupsFor("breakfast", { ...pm("s", 50, ["breakfast"]), ownCarb: true }, rice), 0);
+  assert.equal(riceCupsFor("lunch", pm("l", 50, ["lunch"]), rice), 2);
+  assert.equal(riceCupsFor("dinner", { ...pm("p", 50, ["dinner"]), ownCarb: true }, rice), 0);
+  assert.equal(riceCupsFor("lunch", pm("l", 50, ["lunch"]), { ...rice, cups: 0 }), 0);
+  assert.equal(riceCupsFor("lunch", pm("l", 50, ["lunch"]), null), 0);
+});
+
+test("rice: day totals add it per person, cost for everyone; the budget includes it", async () => {
+  const { dayTotals: totals, generatePlan: gen } = await import("@/frontend/features/meal-planner/utils/generatePlan");
+  const rice = { cups: 1, cup: { calories: 200, protein: 4, carbs: 44, fats: 0.5, price: 3 } };
+  const day = { date: new Date(), meals: [{ slot: "breakfast", meal: pm("b", 40, ["breakfast"]) }, { slot: "lunch", meal: pm("l", 80, ["lunch"]) }, { slot: "dinner", meal: { ...pm("d", 90, ["dinner"]), ownCarb: true } }] };
+  const t = totals(day, 2, rice);
+  // Breakfast and lunch get a cup each; dinner has its own carb.
+  assert.equal(t.calories, 1500 + 400);
+  assert.equal(t.carbs, 150 + 88);
+  assert.equal(t.cost, (40 + 80 + 90 + 6) * 2);
+  // Without rice the same day costs ₱6 less: a budget exactly at the no-rice
+  // cost can't fit the rice.
+  const pool = [pm("b1", 40, ["breakfast"]), pm("l1", 80, ["lunch"]), pm("d1", 90, ["dinner"])];
+  assert.ok(gen({ pool, budget: 210 * 2, servings: 2, targets: null, from: new Date(2026, 10, 20), length: 1 }));
+  assert.equal(gen({ pool, budget: 210 * 2, servings: 2, targets: null, from: new Date(2026, 10, 20), length: 1, rice: { ...rice, cups: 1 } }), null);
+});

@@ -38,6 +38,7 @@ import {
   TrendingDown,
   Check,
   Share2 as ShareIcon,
+  CookingPot,
 } from "lucide-react-native";
 import {
   AppText,
@@ -213,6 +214,29 @@ function StatCard({ icon, value, label, rank }: StatCardProps) {
   );
 }
 
+/** The cups of rice a meal plan counts with a meal, per person. */
+export type SideRice = { cups: number; calories: number; carbs: number; price: number };
+
+// "Served with rice": a meal opened from a plan that counts rice with it.
+// The meal's own numbers stay the dish's; this card says what the plan adds
+// on the side, so its totals make sense (BUG-9).
+function SideRiceCard({ rice }: { rice: SideRice }) {
+  const cupsLabel = `${rice.cups} ${rice.cups === 1 ? "cup" : "cups"}`;
+  return (
+    <View className="mt-4 flex-row items-center gap-3 rounded-2xl border border-primary/10 bg-primary/5 px-3.5 py-3">
+      <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+        <CookingPot color={colors.primary} size={20} />
+      </View>
+      <View className="flex-1">
+        <Text className="font-inter-semibold text-body text-ink-emphasis">With {cupsLabel} of rice each</Text>
+        <Text className="mt-0.5 font-inter-regular text-small text-ink-subtle">
+          Counted in your plan: {Math.round(rice.calories)} kcal, {Math.round(rice.carbs)} g carbs, ₱{Math.round(rice.price)} per person
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 type MealDetailContentProps = {
   meal: MealType;
   /** Consumer save state for the footer. `savedServings` is the servings
@@ -234,6 +258,10 @@ type MealDetailContentProps = {
   /** Servings the stepper starts at (e.g. a saved meal's). Defaults to the
    *  meal's own serving_size. */
   initialServings?: number;
+  /** Opened from a meal plan that counts rice with this meal: its cups per
+   *  person and what they add (one person). Shows the "Served with rice"
+   *  card. */
+  sideRice?: SideRice;
   onSelectMeal?: (meal: MealType) => void;
   /** The top-left arrow over the photo. MealDetailSheet steps back through
    *  related meals with it, then closes. Omitted (no arrow) in preview. */
@@ -371,6 +399,7 @@ export function MealDetailContent({
   saved,
   recipeOwner,
   initialServings,
+  sideRice,
   onSelectMeal,
   onBack,
   direction = "none",
@@ -787,6 +816,8 @@ export function MealDetailContent({
           />
         )}
       </View>
+
+      {sideRice && sideRice.cups > 0 && <SideRiceCard rice={sideRice} />}
 
       <View className="mt-5">
         <View className="flex-row items-center justify-between">

@@ -7,7 +7,7 @@ import { Sparkles } from "lucide-react-native";
 import { BottomSheet, ConfirmSheet } from "@/frontend/components/ui";
 import { colors } from "@/frontend/constants/theme";
 import { useSavedMealActions } from "@/frontend/core/saved/hooks/useSavedMeals";
-import { MealDetailContent } from "./MealDetailContent";
+import { MealDetailContent, type SideRice } from "./MealDetailContent";
 import { IngredientDetailSheet } from "./IngredientDetailSheet";
 import { PriceInfoSheet, type PriceInfo } from "./PriceInfoSheet";
 import { MealDetailSkeleton } from "./MealDetailSkeleton";
@@ -69,6 +69,9 @@ type MealDetailSheetProps = {
   /** Servings to open `meal` at (e.g. the Meal Planner's people), instead
    *  of the recipe's own or the saved servings. Not for related meals. */
   initialServings?: number;
+  /** The meal plan's rice with `meal` (see MealDetailContent). Not for
+   *  related meals. */
+  sideRice?: SideRice;
 };
 
 export function MealDetailSheet({
@@ -85,6 +88,7 @@ export function MealDetailSheet({
   pantryIds,
   loading = false,
   initialServings,
+  sideRice,
 }: MealDetailSheetProps) {
   // Keep the last meal rendered while the sheet animates closed, so the
   // content doesn't flash empty before it's off-screen.
@@ -295,6 +299,7 @@ export function MealDetailSheet({
                 key={renderedMeal.id}
                 meal={renderedMeal}
                 initialServings={(meal && renderedMeal.id === meal.id ? initialServings : undefined) ?? savedEntry?.serving_size}
+                sideRice={meal && renderedMeal.id === meal.id ? sideRice : undefined}
                 saved={{
                   isSaved: !!savedEntry,
                   savedServings: savedEntry?.serving_size,

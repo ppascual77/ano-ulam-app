@@ -7,7 +7,8 @@ import { mealTimesOf } from "@/frontend/core/meals/utils/mealTimes";
 import { scaleMeal } from "@/frontend/core/meals/utils/scaleMeal";
 import { useAuth } from "@/frontend/features/auth/hooks/useAuth";
 import { usePlannerStore } from "../store/usePlannerStore";
-import { PLAN_LENGTHS, SLOTS, planDates, type MealPlan, type MealSlot, type PlannerMeal } from "../utils/generatePlan";
+import { DEFAULT_RICE_CUPS, PLAN_LENGTHS, RICE_CUP_OPTIONS, SLOTS, planDates, type MealPlan, type MealSlot, type PlanRice, type PlannerMeal, type RiceCups } from "../utils/generatePlan";
+import { usePlannerRice } from "./usePlannerRice";
 import type { Goal, MacroTargets } from "@/frontend/core/nutrition/macros";
 
 export const planKey = (userId: string | null) => ["meal-plan", userId] as const;
@@ -21,6 +22,11 @@ const fromLocalDate = (value: string) => {
 };
 
 const GOALS: Goal[] = ["lose", "build", "maintain"];
+
+// A saved plan's rice: null on plans from before rice was counted (they
+// reopen without it, keeping the numbers they were built with).
+const savedRiceCups = (value: number | null | undefined): RiceCups | null =>
+  (RICE_CUP_OPTIONS as number[]).includes(value as number) ? (value as RiceCups) : null;
 
 function parseTargets(value: Json | null): MacroTargets | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -48,6 +54,7 @@ function rebuildPlan(
   row: MealPlanRow,
   byId: Map<string, PlannerMeal>,
   targets: MacroTargets | null,
+  rice: PlanRice | null,
   startFrom?: Date,
 ): MealPlan | null {
   // 5 or 7 days, as it was built.
@@ -63,7 +70,7 @@ function rebuildPlan(
     if (meals.some((m) => !m.meal)) return null;
     days.push({ date: dates[i], meals: meals as { slot: MealSlot; meal: PlannerMeal }[] });
   }
-  return { days, budget: Number(row.budget), servings: row.servings, targets };
+  return { days, budget: Number(row.budget), servings: row.servings, targets, rice };
 }
 
 // The signed-in user's plan, saved to the account (public.meal_plans):
@@ -79,14 +86,23 @@ export function useSavedMealPlan() {
   const { data: catalog, isError: catalogFailed } = useRealMeals();
   const loadedFor = usePlannerStore((s) => s.loadedFor);
   const loadSaved = usePlannerStore((s) => s.loadSaved);
+  const { cup: riceCup, ingredient: riceIngredient, ownCarbIds } = usePlannerRice();
+  const riceOf = (row: MealPlanRow): PlanRice | null => {
+    const cups = savedRiceCups(row.rice_cups);
+    return cups ? { cups, cup: riceCup, ingredient: riceIngredient } : null;
+  };
   // Every catalog meal (not just what preferences allow now), one serving,
   // so a plan made before a preference change still opens.
   const byId = useMemo(
     () =>
       catalog
-        ? new Map(catalog.flatMap((meal) => (meal.id ? [[meal.id, { ...scaleMeal(meal, 1), slots: mealTimesOf(meal.tags) }] as const] : [])))
+        ? new Map(
+            catalog.flatMap((meal) =>
+              meal.id ? [[meal.id, { ...scaleMeal(meal, 1), slots: mealTimesOf(meal.tags), ownCarb: ownCarbIds.has(meal.id) }] as const] : [],
+            ),
+          )
         : null,
-    [catalog],
+    [catalog, ownCarbIds],
   );
 
   useEffect(() => {
@@ -103,7 +119,10 @@ export function useSavedMealPlan() {
       servings: row.servings,
       targets,
       goal: GOALS.includes(row.goal as Goal) ? (row.goal as Goal) : null,
-      plan: rebuildPlan(row, byId, targets),
+      // The next build starts from the plan's own choice (default for one
+      // saved before rice was counted).
+      riceCups: savedRiceCups(row.rice_cups) ?? DEFAULT_RICE_CUPS,
+      plan: rebuildPlan(row, byId, targets, riceOf(row)),
     });
   }, [userId, loadedFor, saved.data, saved.isError, byId, catalogFailed, loadSaved]);
 
@@ -125,7 +144,7 @@ export function useSavedMealPlan() {
   const previous = useMemo(() => {
     const row = saved.data;
     if (plan || !row || !byId) return null;
-    return rebuildPlan(row, byId, parseTargets(row.targets), new Date());
+    return rebuildPlan(row, byId, parseTargets(row.targets), riceOf(row), new Date());
   }, [plan, saved.data, byId]);
 
   // Resolves false when it couldn't be saved (the plan stays on screen).
@@ -139,6 +158,7 @@ export function useSavedMealPlan() {
         targets: plan.targets,
         goal,
         days: plan.days.map((day) => Object.fromEntries(day.meals.map(({ slot, meal }) => [slot, meal.id ?? null]))),
+        riceCups: plan.rice?.cups ?? 0,
       });
       queryClient.setQueryData(planKey(userId), row);
       return true;
