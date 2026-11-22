@@ -100,6 +100,9 @@ export default function RootLayout() {
   // Seen page intros follow the account: synced once the first session
   // check is done, and again on every sign-in or sign-out.
   const sessionUserId = useAuthStore((s) => s.session?.user.id ?? null);
+  // Same check as useAuth's isAdmin (the app_metadata role, which only the
+  // service role can set). Guards the admin routes below.
+  const isAdmin = useAuthStore((s) => s.session?.user.app_metadata?.role === "admin");
   const syncSeenIntros = useSeenIntrosStore((s) => s.syncAccount);
   useEffect(() => {
     if (!authLoading) void syncSeenIntros(sessionUserId);
@@ -222,6 +225,22 @@ export default function RootLayout() {
                     fullScreenModal: inside that, the slides' SafeAreaView got
                     no insets (Skip landed in the status bar). */}
                 <Stack.Screen name="onboarding-tour" options={{ animation: reduceMotionOn ? "fade" : "slide_from_bottom", gestureEnabled: false }} />
+                {/* Admin screens: only reachable with the admin role. A direct
+                    link (anoulam://manage-meals) from anyone else lands on the
+                    first open route instead, and signing out of an admin
+                    account while on one leaves it. The database refuses
+                    non-admin writes anyway (RLS); this keeps the screens
+                    themselves closed. */}
+                <Stack.Protected guard={isAdmin}>
+                  <Stack.Screen name="manage-users" />
+                  <Stack.Screen name="manage-meals" />
+                  <Stack.Screen name="manage-ingredients" />
+                  <Stack.Screen name="da-prices" />
+                  <Stack.Screen name="seed-meal" />
+                  <Stack.Screen name="edit-meal/[id]" />
+                  <Stack.Screen name="review-recipes" />
+                  <Stack.Screen name="reported-posts" />
+                </Stack.Protected>
               </Stack>
               {/* Above every screen: a title dot flying to the next screen's. */}
               <DotHandoffOverlay enabled={!reduceMotionOn} />
